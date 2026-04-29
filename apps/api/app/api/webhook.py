@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from app.services.deduplication import is_duplicate, mark_as_seen
 from app.models.message import NormalizedMessage
-from app.db.message_repository import insert_raw_message
+from app.db.message_repository import insert_raw_message, get_or_create_client
 
 router = APIRouter()
 
@@ -36,6 +36,14 @@ async def receive_whatsapp_message(request: Request):
 
     normalized_message = normalize_whatsapp_payload(payload)
 
+    client_id = get_or_create_client(
+        org_id="demo_agency",
+        phone=normalized_message.from_phone,
+    )
+
+    print("=== CLIENT ID ===")
+    print(client_id)
+
     if is_duplicate(normalized_message.dedupe_key):
         return {
             "status": "duplicate",
@@ -61,4 +69,5 @@ async def receive_whatsapp_message(request: Request):
     return {
         "status": "stored",
         "normalized_message": normalized_message.model_dump(mode="json"),
+        "client_id": str(client_id),
     }

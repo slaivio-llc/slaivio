@@ -28,3 +28,38 @@ def insert_raw_message(org_id: str, phone: str, text_msg: str, payload: dict):
             }
         )
         conn.commit()
+
+def get_or_create_client(org_id: str, phone: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select id
+                from clients
+                where org_id = :org_id
+                  and phone = :phone
+                limit 1
+            """),
+            {
+                "org_id": org_id,
+                "phone": phone,
+            },
+        ).fetchone()
+
+        if result:
+            return result[0]
+
+        result = conn.execute(
+            text("""
+                insert into clients (org_id, phone)
+                values (:org_id, :phone)
+                returning id
+            """),
+            {
+                "org_id": org_id,
+                "phone": phone,
+            },
+        )
+
+        conn.commit()
+
+        return result.fetchone()[0]

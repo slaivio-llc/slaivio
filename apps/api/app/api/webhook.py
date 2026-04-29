@@ -7,6 +7,7 @@ from app.db.message_repository import (
     get_or_create_client,
     get_or_create_active_dossier,
     create_dossier_event,
+    update_dossier_from_intent,
 )
 from app.services.intent_detector import detect_intent
 
@@ -72,6 +73,24 @@ async def receive_whatsapp_message(request: Request):
 
     intent = detect_intent(normalized_message.text_body)
 
+    updated_dossier = update_dossier_from_intent(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        intent=intent,
+    )
+
+    if updated_dossier:
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            event_type="DOSSIER_UPDATED_FROM_INTENT",
+            payload={
+                "intent": intent,
+                "case_type": updated_dossier["case_type"],
+                "status_global": updated_dossier["status_global"],
+            },
+        )
+
     create_dossier_event(
         org_id="demo_agency",
         dossier_id=dossier_id,
@@ -110,5 +129,6 @@ async def receive_whatsapp_message(request: Request):
         "client_id": str(client_id),
         "dossier_id": str(dossier_id),
         "intent": intent,
+        "updated_dossier": updated_dossier,
         "normalized_message": normalized_message.model_dump(mode="json"),
     }

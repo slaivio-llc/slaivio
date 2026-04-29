@@ -162,3 +162,81 @@ def create_dossier_event(
         )
 
         conn.commit()
+
+def update_dossier_from_intent(org_id: str, dossier_id: str, intent: str):
+    case_type = None
+    status_global = None
+
+    if intent == "SEND_CARGO_REQUEST":
+        case_type = "SEND_CARGO"
+        status_global = "PARTIAL"
+
+    elif intent == "TRANSITAIRE_REQUEST":
+        case_type = "TRANSITAIRE"
+        status_global = "PARTIAL"
+
+    elif intent == "PRICE_REQUEST":
+        case_type = "PRICE_INQUIRY"
+        status_global = "LEAD"
+
+    elif intent == "TRACKING_REQUEST":
+        case_type = "TRACKING_SUPPORT"
+        status_global = "ACTIVE"
+
+    elif intent == "WAREHOUSE_ADDRESS_REQUEST":
+        case_type = "INFO_REQUEST"
+        status_global = "LEAD"
+
+    elif intent == "DEPARTURE_SCHEDULE_REQUEST":
+        case_type = "INFO_REQUEST"
+        status_global = "LEAD"
+
+    elif intent == "HUMAN_HELP_REQUEST":
+        case_type = "SUPPORT"
+        status_global = "NEEDS_HUMAN"
+
+    elif intent == "GREETING":
+        case_type = "GENERAL_CONVERSATION"
+        status_global = "LEAD"
+
+    else:
+        return None
+
+    fields = []
+    params = {
+        "org_id": org_id,
+        "dossier_id": dossier_id,
+    }
+
+    if case_type:
+        fields.append("case_type = :case_type")
+        params["case_type"] = case_type
+
+    if status_global:
+        fields.append("status_global = :status_global")
+        params["status_global"] = status_global
+
+    fields.append("updated_at = now()")
+
+    query = text(f"""
+        update dossiers
+        set {", ".join(fields)}
+        where org_id = :org_id
+          and id = :dossier_id
+        returning id, case_type, status_global, intake_status, validation_status
+    """)
+
+    with engine.connect() as conn:
+        result = conn.execute(query, params).fetchone()
+        conn.commit()
+
+        if not result:
+            return None
+
+        return {
+            "id": result[0],
+            "case_type": result[1],
+            "status_global": result[2],
+            "intake_status": result[3],
+            "validation_status": result[4],
+        }

@@ -8,6 +8,7 @@ from app.db.message_repository import (
     get_or_create_active_dossier,
     create_dossier_event,
 )
+from app.services.intent_detector import detect_intent
 
 router = APIRouter()
 
@@ -41,6 +42,15 @@ async def receive_whatsapp_message(request: Request):
 
     normalized_message = normalize_whatsapp_payload(payload)
 
+    if is_duplicate(normalized_message.dedupe_key):
+        return {
+            "status": "duplicate",
+            "message": "Message already processed",
+            "dedupe_key": normalized_message.dedupe_key,
+        }
+
+    mark_as_seen(normalized_message.dedupe_key)
+
     client_id = get_or_create_client(
         org_id="demo_agency",
         phone=normalized_message.from_phone,
@@ -60,6 +70,19 @@ async def receive_whatsapp_message(request: Request):
         dossier_id=dossier_id,
     )
 
+    intent = detect_intent(normalized_message.text_body)
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="INTENT_DETECTED",
+        payload={
+            "intent": intent,
+            "text": normalized_message.text_body,
+            "source": "rules",
+        },
+    )
+
     create_dossier_event(
         org_id="demo_agency",
         dossier_id=dossier_id,
@@ -69,41 +92,23 @@ async def receive_whatsapp_message(request: Request):
             "phone": normalized_message.from_phone,
         },
     )
-    
+
     create_dossier_event(
         org_id="demo_agency",
         dossier_id=dossier_id,
         event_type="MESSAGE_RECEIVED",
         payload={
+            "intent": intent,
             "text": normalized_message.text_body,
             "phone": normalized_message.from_phone,
+            "source": "rules",
         },
     )
-
-    print("=== CLIENT ID ===")
-    print(client_id)
-
-    print("=== DOSSIER ID ===")
-    print(dossier_id)
-
-    if is_duplicate(normalized_message.dedupe_key):
-        return {
-            "status": "duplicate",
-            "message": "Message already processed",
-            "dedupe_key": normalized_message.dedupe_key,
-        }
-        
-    mark_as_seen(normalized_message.dedupe_key)
-
-    print("=== WHATSAPP WEBHOOK RECEIVED ===")
-    print(payload)
-
-    print("=== NORMALIZED MESSAGE ===")
-    print(normalized_message.model_dump())
 
     return {
         "status": "stored",
         "client_id": str(client_id),
         "dossier_id": str(dossier_id),
+        "intent": intent,
         "normalized_message": normalized_message.model_dump(mode="json"),
     }

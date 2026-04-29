@@ -1,0 +1,134 @@
+def detect_intent(text: str | None) -> str:
+    if not text:
+        return "UNKNOWN"
+
+    normalized_text = text.lower().strip()
+
+    greeting_keywords = [
+        "bonjour",
+        "bonsoir",
+        "salut",
+        "hello",
+        "hi",
+        "good morning",
+        "good day",
+        "good evening",
+    ]
+
+    tracking_keywords = [
+        "tracking",
+        "suivi",
+        "mon colis",
+        "où est",
+        "ou est",
+        "colis est où",
+        "colis est ou",
+        "track",
+        "statut colis",
+    ]
+
+    price_keywords = [
+        "prix",
+        "tarif",
+        "combien",
+        "ça coûte",
+        "ca coute",
+        "coût",
+        "cout",
+        "cost",
+        "price",
+        "how much",
+    ]
+
+    transitaire_keywords = [
+        "acheter",
+        "achat",
+        "fournisseur",
+        "supplier",
+        "transitaire",
+        "commande",
+        "buy",
+        "purchase",
+        "quality control",
+        "contrôle qualité",
+        "controle qualite",
+        "faire venir",
+        "importer",
+        "paiement fournisseur",
+        "wechat",
+        "alipay",
+        "rmb",
+    ]
+
+    send_cargo_keywords = [
+        "envoyer",
+        "expédier",
+        "expedier",
+        "ship",
+        "shipping",
+        "send",
+        "colis",
+        "cargo",
+        "marchandise",
+        "marchandises",
+        "paquet",
+    ]
+
+    warehouse_keywords = [
+        "adresse",
+        "entrepôt",
+        "entrepot",
+        "warehouse",
+        "location",
+        "bureau",
+        "localisation",
+    ]
+
+    departure_keywords = [
+        "départ",
+        "depart",
+        "prochain départ",
+        "prochain depart",
+        "vol",
+        "bateau",
+        "schedule",
+        "next shipment",
+    ]
+
+    human_keywords = [
+        "agent",
+        "humain",
+        "responsable",
+        "appeler",
+        "call",
+        "parler",
+        "manager",
+        "gérant",
+        "gerant",
+    ]
+
+    if any(keyword in normalized_text for keyword in tracking_keywords):
+        return "TRACKING_REQUEST"
+
+    if any(keyword in normalized_text for keyword in price_keywords):
+        return "PRICE_REQUEST"
+
+    if any(keyword in normalized_text for keyword in transitaire_keywords):
+        return "TRANSITAIRE_REQUEST"
+
+    if any(keyword in normalized_text for keyword in warehouse_keywords):
+        return "WAREHOUSE_ADDRESS_REQUEST"
+
+    if any(keyword in normalized_text for keyword in departure_keywords):
+        return "DEPARTURE_SCHEDULE_REQUEST"
+
+    if any(keyword in normalized_text for keyword in human_keywords):
+        return "HUMAN_HELP_REQUEST"
+
+    if any(keyword in normalized_text for keyword in send_cargo_keywords):
+        return "SEND_CARGO_REQUEST"
+
+    if any(keyword in normalized_text for keyword in greeting_keywords):
+        return "GREETING"
+
+    return "UNKNOWN"

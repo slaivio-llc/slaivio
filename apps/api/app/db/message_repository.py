@@ -3,7 +3,14 @@ from sqlalchemy import text
 from app.db.database import engine
 
 
-def insert_raw_message(org_id: str, phone: str, text_msg: str, payload: dict):
+def insert_raw_message(
+    org_id: str,
+    phone: str,
+    text_msg: str,
+    payload: dict,
+    client_id: str,
+    dossier_id: str,
+):
     with engine.connect() as conn:
         conn.execute(
             text("""
@@ -11,13 +18,17 @@ def insert_raw_message(org_id: str, phone: str, text_msg: str, payload: dict):
                     org_id,
                     sender_phone,
                     message_text,
-                    raw_payload
+                    raw_payload,
+                    client_id,
+                    dossier_id
                 )
                 values (
                     :org_id,
                     :phone,
                     :text_msg,
-                    CAST(:payload AS jsonb)
+                    CAST(:payload AS jsonb),
+                    :client_id,
+                    :dossier_id
                 )
             """),
             {
@@ -25,8 +36,11 @@ def insert_raw_message(org_id: str, phone: str, text_msg: str, payload: dict):
                 "phone": phone,
                 "text_msg": text_msg,
                 "payload": json.dumps(payload),
-            }
+                "client_id": client_id,
+                "dossier_id": dossier_id,
+            },
         )
+
         conn.commit()
 
 def get_or_create_client(org_id: str, phone: str):

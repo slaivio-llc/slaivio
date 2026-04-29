@@ -6,6 +6,7 @@ from app.db.message_repository import (
     insert_raw_message, 
     get_or_create_client,
     get_or_create_active_dossier,
+    create_dossier_event,
 )
 
 router = APIRouter()
@@ -57,7 +58,27 @@ async def receive_whatsapp_message(request: Request):
         payload=payload,
         client_id=client_id,
         dossier_id=dossier_id,
-)
+    )
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="CLIENT_IDENTIFIED",
+        payload={
+            "client_id": str(client_id),
+            "phone": normalized_message.from_phone,
+        },
+    )
+    
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="MESSAGE_RECEIVED",
+        payload={
+            "text": normalized_message.text_body,
+            "phone": normalized_message.from_phone,
+        },
+    )
 
     print("=== CLIENT ID ===")
     print(client_id)

@@ -130,3 +130,35 @@ def get_or_create_active_dossier(org_id: str, client_id: str):
         conn.commit()
 
         return result.fetchone()[0]
+    
+def create_dossier_event(
+    org_id: str,
+    dossier_id: str,
+    event_type: str,
+    payload: dict,
+):
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                insert into dossier_events (
+                    org_id,
+                    dossier_id,
+                    event_type,
+                    payload
+                )
+                values (
+                    :org_id,
+                    :dossier_id,
+                    :event_type,
+                    CAST(:payload AS jsonb)
+                )
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+                "event_type": event_type,
+                "payload": json.dumps(payload),
+            },
+        )
+
+        conn.commit()

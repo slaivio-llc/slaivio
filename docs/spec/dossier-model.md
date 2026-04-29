@@ -26,3 +26,16 @@ created_at
 - A dossier can exist without shipment
 - A dossier can be partial
 - A dossier can be created automatically or manually
+
+## Relation avec configuration agence
+
+Chaque dossier est lié à une agence.
+
+Le comportement du dossier dépend de :
+
+- agency_workflow_config
+- status_machine
+- notification_templates
+
+Le dossier ne contient PAS la logique,
+il utilise la configuration de l’agence.

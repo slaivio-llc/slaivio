@@ -333,3 +333,22 @@ Supplier has not deposited
 - All changes logged
 - All critical steps require validation
 - No automatic risky decisions
+
+## Relation avec agency configuration
+
+La machine de statut est universelle.
+
+Les actions déclenchées par les statuts dépendent de :
+
+- templates de l’agence
+- règles de notification
+- règles de relance
+- règles de paiement
+
+Exemple :
+
+Status = ARRIVED_DESTINATION
+
+→ template différent selon l’agence
+→ règles de paiement différentes
+→ règles de relance différentes

@@ -10,6 +10,7 @@ from app.db.message_repository import (
     update_dossier_from_intent,
 )
 from app.services.intent_detector import detect_intent
+from app.services.reply_generator import generate_reply
 
 router = APIRouter()
 
@@ -90,6 +91,20 @@ async def receive_whatsapp_message(request: Request):
                 "status_global": updated_dossier["status_global"],
             },
         )
+    
+    reply = generate_reply(intent)
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="REPLY_GENERATED",
+        payload={
+            "intent": intent,
+            "reply_type": reply["reply_type"],
+            "should_escalate": reply["should_escalate"],
+            "message": reply["message"],
+        },
+    )
 
     create_dossier_event(
         org_id="demo_agency",
@@ -130,5 +145,6 @@ async def receive_whatsapp_message(request: Request):
         "dossier_id": str(dossier_id),
         "intent": intent,
         "updated_dossier": updated_dossier,
+        "reply": reply,
         "normalized_message": normalized_message.model_dump(mode="json"),
     }

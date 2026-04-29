@@ -2,7 +2,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from app.services.deduplication import is_duplicate, mark_as_seen
 from app.models.message import NormalizedMessage
-from app.db.message_repository import insert_raw_message, get_or_create_client
+from app.db.message_repository import (
+    insert_raw_message, 
+    get_or_create_client,
+    get_or_create_active_dossier,
+)
 
 router = APIRouter()
 
@@ -44,12 +48,21 @@ async def receive_whatsapp_message(request: Request):
     print("=== CLIENT ID ===")
     print(client_id)
 
+    dossier_id = get_or_create_active_dossier(
+        org_id="demo_agency",
+        client_id=client_id,
+    )
+
+    print("=== DOSSIER ID ===")
+    print(dossier_id)
+
     if is_duplicate(normalized_message.dedupe_key):
         return {
             "status": "duplicate",
             "message": "Message already processed",
             "dedupe_key": normalized_message.dedupe_key,
         }
+        
 
     mark_as_seen(normalized_message.dedupe_key)
 
@@ -70,4 +83,5 @@ async def receive_whatsapp_message(request: Request):
         "status": "stored",
         "normalized_message": normalized_message.model_dump(mode="json"),
         "client_id": str(client_id),
+        "dossier_id": str(dossier_id),
     }

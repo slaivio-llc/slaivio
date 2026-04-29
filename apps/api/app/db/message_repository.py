@@ -63,3 +63,56 @@ def get_or_create_client(org_id: str, phone: str):
         conn.commit()
 
         return result.fetchone()[0]
+    
+def get_or_create_active_dossier(org_id: str, client_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select id
+                from dossiers
+                where org_id = :org_id
+                  and client_id = :client_id
+                  and status_global not in ('COMPLETED', 'CLOSED', 'CANCELLED')
+                order by created_at desc
+                limit 1
+            """),
+            {
+                "org_id": org_id,
+                "client_id": client_id,
+            },
+        ).fetchone()
+
+        if result:
+            return result[0]
+
+        result = conn.execute(
+            text("""
+                insert into dossiers (
+                    org_id,
+                    client_id,
+                    case_type,
+                    status_global,
+                    intake_status,
+                    validation_status,
+                    primary_channel
+                )
+                values (
+                    :org_id,
+                    :client_id,
+                    'UNKNOWN',
+                    'LEAD',
+                    'PARTIAL',
+                    'PENDING',
+                    'whatsapp'
+                )
+                returning id
+            """),
+            {
+                "org_id": org_id,
+                "client_id": client_id,
+            },
+        )
+
+        conn.commit()
+
+        return result.fetchone()[0]

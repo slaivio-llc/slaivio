@@ -9,7 +9,7 @@ from app.db.message_repository import (
     create_dossier_event,
     update_dossier_from_intent,
 )
-from app.services.intent_detector import detect_intent
+from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
 
 router = APIRouter()
@@ -72,7 +72,11 @@ async def receive_whatsapp_message(request: Request):
         dossier_id=dossier_id,
     )
 
-    intent = detect_intent(normalized_message.text_body)
+    understanding = understand_message(normalized_message.text_body)
+    intent = understanding["intent"]
+
+    print("=== UNDERSTANDING ===")
+    print(understanding)
 
     updated_dossier = update_dossier_from_intent(
         org_id="demo_agency",
@@ -113,8 +117,17 @@ async def receive_whatsapp_message(request: Request):
         payload={
             "intent": intent,
             "text": normalized_message.text_body,
-            "source": "rules",
+            "source": understanding["source"],
+            "confidence": understanding["confidence"],
+            "ai_result": understanding["ai_result"],
         },
+    )
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="UNDERSTANDING_COMPLETED",
+        payload=understanding,
     )
 
     create_dossier_event(
@@ -140,11 +153,12 @@ async def receive_whatsapp_message(request: Request):
     )
 
     return {
-        "status": "stored",
-        "client_id": str(client_id),
-        "dossier_id": str(dossier_id),
-        "intent": intent,
-        "updated_dossier": updated_dossier,
-        "reply": reply,
-        "normalized_message": normalized_message.model_dump(mode="json"),
-    }
+    "status": "stored",
+    "client_id": str(client_id),
+    "dossier_id": str(dossier_id),
+    "intent": intent,
+    "understanding": understanding,
+    "updated_dossier": updated_dossier,
+    "reply": reply,
+    "normalized_message": normalized_message.model_dump(mode="json"),
+}

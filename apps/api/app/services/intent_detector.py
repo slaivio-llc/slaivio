@@ -168,4 +168,12 @@ def detect_intent(text: str | None) -> str:
     ]):
         return "PRICING_REQUEST"
 
+    if any(word in text.lower() for word in [
+            "ok je confirme",
+            "je confirme",
+            "confirm",
+            "i confirm",
+            "yes proceed"]):
+        return "CONFIRMATION"
+
     return "UNKNOWN"

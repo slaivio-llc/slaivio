@@ -26,6 +26,7 @@ from app.db.followup_repository import create_followup_task
 from app.db.followup_repository import cancel_pending_followups_for_dossier
 from app.db.message_repository import update_dossier_pricing
 from app.services.pricing_orchestrator import handle_pricing_request
+from app.db.message_repository import mark_dossier_confirmed
 
 router = APIRouter()
 
@@ -76,6 +77,24 @@ async def receive_whatsapp_message(request: Request):
     dossier_id = get_or_create_active_dossier(
         org_id="demo_agency",
         client_id=client_id,
+    )
+
+    if intent == "CONFIRMATION":
+        updated_dossier = mark_dossier_confirmed(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+        )
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="CLIENT_CONFIRMED",
+        payload={},
+    )
+
+    dossier_full = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
     )
 
     cancelled_followups = cancel_pending_followups_for_dossier(

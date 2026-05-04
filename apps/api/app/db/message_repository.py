@@ -411,3 +411,27 @@ def update_dossier_pricing(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+    
+def mark_dossier_confirmed(org_id: str, dossier_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    validation_status = 'CONFIRMED_BY_CLIENT',
+                    intake_status = 'PARTIAL',
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None

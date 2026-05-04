@@ -2,6 +2,10 @@ from app.services.address_service import handle_address_request
 from app.services.pricing_engine import calculate_price
 from app.services.pricing_parser import extract_pricing_info
 from app.services.pricing_orchestrator import handle_pricing_request
+from app.services.intake_service import (
+    get_missing_intake_fields,
+    build_intake_question,
+)
 
 def _merge_fields(dossier: dict, understanding: dict | None):
     fields = {}
@@ -308,6 +312,23 @@ def generate_reply(
             "should_escalate": False,
             "pricing": pricing,
         }
+    
+    if intent == "CONFIRMATION":
+        missing = get_missing_intake_fields(dossier)
+
+        if missing:
+            return {
+                "reply_type": "INTAKE_REQUIRED",
+                "message": build_intake_question(missing),
+                "should_escalate": False,
+            }
+
+        return {
+            "reply_type": "CONFIRMED_COMPLETE",
+            "message": "Merci. Votre dossier est complet. Nous allons procéder à la suite.",
+            "should_escalate": False,
+        }
+
     return {
         "reply_type": "unknown",
         "should_escalate": False,

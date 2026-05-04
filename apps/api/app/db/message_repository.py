@@ -262,3 +262,40 @@ def get_organization(org_id: str):
             "country": result[2],
             "city": result[3],
         }
+
+def update_dossier_from_ai_fields(org_id: str, dossier_id: str, fields: dict):
+    if not fields:
+        return None
+
+    query = """
+        update dossiers
+        set
+            origin_country = coalesce(:origin_country, origin_country),
+            origin_city = coalesce(:origin_city, origin_city),
+            destination_country = coalesce(:destination_country, destination_country),
+            destination_city = coalesce(:destination_city, destination_city),
+            goods_type = coalesce(:goods_type, goods_type),
+            estimated_weight_kg = coalesce(:estimated_weight_kg, estimated_weight_kg),
+            estimated_volume_cbm = coalesce(:estimated_volume_cbm, estimated_volume_cbm),
+            shipping_mode = coalesce(:shipping_mode, shipping_mode),
+            tracking_id = coalesce(:tracking_id, tracking_id),
+            supplier_payment_amount = coalesce(:supplier_payment_amount, supplier_payment_amount),
+            supplier_payment_currency = coalesce(:supplier_payment_currency, supplier_payment_currency)
+        where id = :dossier_id and org_id = :org_id
+        returning *
+    """
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(query),
+            {
+                "dossier_id": dossier_id,
+                "org_id": org_id,
+                **fields,
+            },
+        )
+
+        conn.commit()
+
+        row = result.fetchone()
+        return dict(row._mapping) if row else None

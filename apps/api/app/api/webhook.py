@@ -8,11 +8,11 @@ from app.db.message_repository import (
     get_or_create_active_dossier,
     create_dossier_event,
     update_dossier_from_intent,
+    get_organization,
+    update_dossier_from_ai_fields,
 )
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
-from app.db.message_repository import get_organization
-
 
 router = APIRouter()
 
@@ -79,6 +79,30 @@ async def receive_whatsapp_message(request: Request):
 
     print("=== UNDERSTANDING ===")
     print(understanding)
+
+    ai_fields = None
+
+    if understanding.get("ai_result"):
+        ai_fields = understanding["ai_result"].get("extracted_fields")
+
+    updated_from_ai = None
+
+    if ai_fields:
+        updated_from_ai = update_dossier_from_ai_fields(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            fields=ai_fields,
+        )
+
+    if updated_from_ai:
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            event_type="DOSSIER_UPDATED_FROM_AI",
+            payload={
+                "fields": ai_fields
+            },
+        )
 
     updated_dossier = update_dossier_from_intent(
         org_id="demo_agency",

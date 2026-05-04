@@ -1,20 +1,70 @@
 from app.db.notification_repository import create_notification_outbox
+from app.db.office_repository import find_office
 
-
-def get_shipment_status_message(status: str, shipment: dict) -> str | None:
+def get_shipment_status_message(
+    status: str,
+    shipment: dict,
+    org_id: str = "demo_agency",
+) -> str | None:
     tracking_id = shipment.get("tracking_id")
+    destination_city = shipment.get("destination_city")
+    destination_country = shipment.get("destination_country")
+
+    destination_office = None
+
+    if destination_city or destination_country:
+        destination_office = find_office(
+            org_id=org_id,
+            country=destination_country,
+            city=destination_city,
+        )
+
+    office_block = format_office_block(destination_office)
 
     messages = {
-        "RECEIVED_AT_ORIGIN": f"Votre colis ({tracking_id}) a été reçu à notre entrepôt.",
-        "SCHEDULED_FOR_DEPARTURE": f"Votre colis ({tracking_id}) est programmé pour expédition.",
-        "DEPARTED": f"Votre colis ({tracking_id}) a quitté le pays d’origine.",
-        "IN_TRANSIT": f"Votre colis ({tracking_id}) est en transit.",
-        "ARRIVED_HUB": f"Votre colis ({tracking_id}) est arrivé à un hub logistique.",
-        "ARRIVED_DESTINATION": f"Votre colis ({tracking_id}) est arrivé dans le pays de destination.",
-        "READY_FOR_PICKUP": f"Votre colis ({tracking_id}) est prêt pour retrait.",
-        "DELIVERED": f"Votre colis ({tracking_id}) a été livré.",
-        "BLOCKED": f"Votre colis ({tracking_id}) est temporairement bloqué. Veuillez contacter l’agence.",
-        "ISSUE": f"Un problème est survenu avec votre colis ({tracking_id}). Contactez l’agence.",
+        "RECEIVED_AT_ORIGIN": (
+            f"Votre colis ({tracking_id}) a été reçu à notre entrepôt."
+        ),
+
+        "SCHEDULED_FOR_DEPARTURE": (
+            f"Votre colis ({tracking_id}) est programmé pour expédition."
+        ),
+
+        "DEPARTED": (
+            f"Votre colis ({tracking_id}) a quitté le pays d’origine."
+        ),
+
+        "IN_TRANSIT": (
+            f"Votre colis ({tracking_id}) est en transit."
+        ),
+
+        "ARRIVED_HUB": (
+            f"Votre colis ({tracking_id}) est arrivé à un hub logistique."
+        ),
+
+        "ARRIVED_DESTINATION": (
+            f"Votre colis ({tracking_id}) est arrivé à destination.\n\n"
+            f"{office_block}"
+        ),
+
+        "READY_FOR_PICKUP": (
+            f"Votre colis ({tracking_id}) est prêt pour retrait.\n\n"
+            f"{office_block}"
+        ),
+
+        "DELIVERED": (
+            f"Votre colis ({tracking_id}) a été livré."
+        ),
+
+        "BLOCKED": (
+            f"Votre colis ({tracking_id}) est temporairement bloqué. "
+            f"Veuillez contacter l’agence."
+        ),
+
+        "ISSUE": (
+            f"Un problème est survenu avec votre colis ({tracking_id}). "
+            f"Contactez l’agence."
+        ),
     }
 
     return messages.get(status)
@@ -26,8 +76,9 @@ def create_shipment_notification(
     client_phone: str,
 ):
     message = get_shipment_status_message(
-        shipment["status"],
-        shipment,
+        status=shipment["status"],
+        shipment=shipment,
+        org_id=org_id,
     )
 
     if not message:
@@ -78,3 +129,27 @@ def create_payment_reminder_notification(
         notification_type="PAYMENT_REMINDER",
         message=message,
     )
+
+def format_office_block(office: dict | None) -> str:
+    if not office:
+        return (
+            "L’adresse exacte de retrait sera confirmée par l’agence."
+        )
+
+    lines = []
+
+    lines.append(f"📍 Adresse : {office.get('address')}")
+
+    if office.get("phone"):
+        lines.append(f"📞 Téléphone : {office.get('phone')}")
+
+    if office.get("whatsapp"):
+        lines.append(f"WhatsApp : {office.get('whatsapp')}")
+
+    if office.get("opening_hours"):
+        lines.append(f"🕒 Horaires : {office.get('opening_hours')}")
+
+    if office.get("pickup_instructions"):
+        lines.append(f"ℹ️ Instructions : {office.get('pickup_instructions')}")
+
+    return "\n".join(lines)

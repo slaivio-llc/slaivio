@@ -341,6 +341,30 @@ def generate_reply(
                 case_type=dossier.get("case_type") if dossier else None,
             ),
         }
+    
+    if dossier and dossier.get("validation_status") == "CONFIRMED_BY_CLIENT":
+        missing = get_missing_intake_fields(dossier)
+
+        if missing:
+            return {
+                "reply_type": "INTAKE_STILL_REQUIRED",
+                "should_escalate": False,
+                "message": build_human_intake_message(
+                    missing_fields=missing,
+                    org_name=org_name,
+                    case_type=dossier.get("case_type"),
+                ),
+            }
+
+        return {
+            "reply_type": "INTAKE_COMPLETE",
+            "should_escalate": False,
+            "message": (
+                f"Parfait chef 🙏\n\n"
+                f"Votre dossier est maintenant bien enregistré chez {org_name}. "
+                "L’équipe va vérifier la suite et vous confirmer dès que le colis sera reçu ou validé."
+            ),
+        }
 
     return {
         "reply_type": "unknown",

@@ -28,6 +28,14 @@ from app.db.followup_repository import cancel_pending_followups_for_dossier
 from app.db.message_repository import update_dossier_pricing
 from app.services.pricing_orchestrator import handle_pricing_request
 from app.db.message_repository import mark_dossier_confirmed
+from app.services.intake_parser import parse_intake_message
+from app.services.intake_service import (
+    is_intake_in_progress,
+    get_missing_intake_fields,
+    build_human_intake_message,
+)
+from app.db.message_repository import update_dossier_intake_fields
+from app.db.message_repository import mark_dossier_intake_complete
 
 router = APIRouter()
 
@@ -222,6 +230,65 @@ async def receive_whatsapp_message(request: Request):
             dossier_id=dossier_id,
         )
 
+    updated_intake_dossier = None
+    intake_fields = None
+
+    if is_intake_in_progress(dossier_full) and intent != "CONFIRMATION":
+        intake_fields = parse_intake_message(normalized_message.text_body or "")
+
+        # garder seulement les champs trouvés
+        clean_fields = {
+            key: value
+            for key, value in intake_fields.items()
+            if value is not None
+        }
+
+        if clean_fields:
+            updated_intake_dossier = update_dossier_intake_fields(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+                fields=clean_fields,
+            )
+
+            create_dossier_event(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+                event_type="INTAKE_FIELDS_UPDATED",
+                payload={
+                    "fields": clean_fields,
+                },
+            )
+
+            dossier_full = get_dossier_full(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+            )
+
+    completed_intake_dossier = None
+
+    if is_intake_in_progress(dossier_full):
+        missing = get_missing_intake_fields(dossier_full)
+
+        if not missing:
+            completed_intake_dossier = mark_dossier_intake_complete(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+            )
+
+            create_dossier_event(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+                event_type="INTAKE_COMPLETED",
+                payload={
+                    "status": "COMPLETE",
+                },
+            )
+
+            dossier_full = get_dossier_full(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+            )
+
     business_action = decide_business_action(
         intent=intent,
         dossier=dossier_full,
@@ -400,6 +467,9 @@ async def receive_whatsapp_message(request: Request):
     "created_followup": created_followup,
     "pricing_result": pricing_result,
     "confirmed_dossier": confirmed_dossier,
+    "completed_intake_dossier": completed_intake_dossier,
+    "intake_fields": intake_fields,
+    "updated_intake_dossier": updated_intake_dossier,
     "updated_pricing_dossier": updated_pricing_dossier,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),

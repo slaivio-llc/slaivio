@@ -435,3 +435,65 @@ def mark_dossier_confirmed(org_id: str, dossier_id: str):
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+    
+def update_dossier_intake_fields(
+    org_id: str,
+    dossier_id: str,
+    fields: dict,
+):
+    if not fields:
+        return None
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    client_full_name = coalesce(:client_full_name, client_full_name),
+                    destination_country = coalesce(:destination_country, destination_country),
+                    destination_city = coalesce(:destination_city, destination_city),
+                    shipping_mode = coalesce(:shipping_mode, shipping_mode),
+                    goods_type = coalesce(:goods_type, goods_type),
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+                "client_full_name": fields.get("client_full_name"),
+                "destination_country": fields.get("destination_country"),
+                "destination_city": fields.get("destination_city"),
+                "shipping_mode": fields.get("shipping_mode"),
+                "goods_type": fields.get("goods_type"),
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None
+    
+def mark_dossier_intake_complete(org_id: str, dossier_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    intake_status = 'COMPLETE',
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None

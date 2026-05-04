@@ -78,3 +78,22 @@ def build_human_intake_message(
     ])
 
     return "\n".join(lines)
+
+
+def is_intake_in_progress(dossier: dict | None) -> bool:
+    if not dossier:
+        return False
+
+    return (
+        dossier.get("validation_status") == "CONFIRMED_BY_CLIENT"
+        and dossier.get("intake_status") == "PARTIAL"
+    )
+
+
+def get_intake_completion_status(dossier: dict | None) -> str:
+    missing = get_missing_intake_fields(dossier)
+
+    if not missing:
+        return "COMPLETE"
+
+    return "PARTIAL"

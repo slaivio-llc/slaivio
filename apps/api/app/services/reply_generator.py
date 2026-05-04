@@ -1,3 +1,5 @@
+from app.services.address_service import handle_address_request
+
 def _merge_fields(dossier: dict, understanding: dict | None):
     fields = {}
 
@@ -108,9 +110,22 @@ def generate_reply(
         org_name: str, 
         understanding: dict | None = None,
         dossier: dict | None = None,
+        text: str = "",
         ) -> dict:
     fields = _merge_fields(dossier or {}, understanding)
     known_fields_text = _format_known_fields(fields)
+
+    if intent == "ADDRESS_REQUEST":
+        result = handle_address_request(
+            org_id="demo_agency",
+            text=text,
+        )
+
+        return {
+            "reply_type": "ADDRESS_RESPONSE",
+            "message": result["message"],
+            "should_escalate": not result["found"],
+        }
 
     if intent == "GREETING":
         return {

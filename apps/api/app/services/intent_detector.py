@@ -152,5 +152,10 @@ def detect_intent(text: str | None) -> str:
 
     if any(keyword in normalized_text for keyword in greeting_keywords):
         return "GREETING"
+    
+    if any(word in text.lower() for word in [
+        "où", "ou", "adresse", "localisation", "situer", "situé",
+        "where", "location", "address"]):
+        return "ADDRESS_REQUEST"
 
     return "UNKNOWN"

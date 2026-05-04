@@ -222,6 +222,7 @@ async def receive_whatsapp_message(request: Request):
         org_name=org_name,
         understanding=understanding,
         dossier=dossier_full,
+        text=normalized_message.text_body,
     )
 
     queued_notification = None

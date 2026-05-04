@@ -91,3 +91,42 @@ def get_dossier_detail(org_id: str, dossier_id: str):
             "events": [dict(row._mapping) for row in events],
             "notifications": [dict(row._mapping) for row in notifications],
         }
+    
+def list_active_dossiers(org_id: str = "demo_agency", limit: int = 50):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select
+                    d.id,
+                    d.org_id,
+                    d.client_id,
+                    c.phone as client_phone,
+                    c.name as client_name,
+                    d.case_type,
+                    d.status_global,
+                    d.intake_status,
+                    d.validation_status,
+                    d.origin_country,
+                    d.origin_city,
+                    d.destination_country,
+                    d.destination_city,
+                    d.goods_type,
+                    d.estimated_weight_kg,
+                    d.estimated_volume_cbm,
+                    d.shipping_mode,
+                    d.created_at,
+                    d.updated_at
+                from dossiers d
+                join clients c on c.id = d.client_id
+                where d.org_id = :org_id
+                  and d.status_global not in ('COMPLETED', 'CLOSED', 'CANCELLED')
+                order by d.updated_at desc
+                limit :limit
+            """),
+            {
+                "org_id": org_id,
+                "limit": limit,
+            },
+        )
+
+        return [dict(row._mapping) for row in result.fetchall()]

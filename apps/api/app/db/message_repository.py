@@ -368,3 +368,46 @@ def update_dossier_from_action(org_id: str, dossier_id: str, action: dict):
 
         row = result.fetchone()
         return dict(row._mapping) if row else None
+    
+def update_dossier_pricing(
+    org_id: str,
+    dossier_id: str,
+    origin_country: str | None,
+    destination_country: str | None,
+    weight_kg: float | None,
+    quoted_total: float | None,
+    quoted_currency: str | None,
+    pricing_status: str,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    origin_country = coalesce(:origin_country, origin_country),
+                    destination_country = coalesce(:destination_country, destination_country),
+                    estimated_weight_kg = coalesce(:weight_kg, estimated_weight_kg),
+                    quoted_total = :quoted_total,
+                    quoted_currency = :quoted_currency,
+                    pricing_status = :pricing_status,
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+                "origin_country": origin_country,
+                "destination_country": destination_country,
+                "weight_kg": weight_kg,
+                "quoted_total": quoted_total,
+                "quoted_currency": quoted_currency,
+                "pricing_status": pricing_status,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None

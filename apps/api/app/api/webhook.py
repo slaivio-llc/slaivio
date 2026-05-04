@@ -24,6 +24,8 @@ from app.db.notification_repository import create_notification_outbox
 from app.services.followup_engine import build_followup_for_business_action
 from app.db.followup_repository import create_followup_task
 from app.db.followup_repository import cancel_pending_followups_for_dossier
+from app.db.message_repository import update_dossier_pricing
+from app.services.pricing_orchestrator import handle_pricing_request
 
 router = APIRouter()
 
@@ -136,6 +138,46 @@ async def receive_whatsapp_message(request: Request):
         org_id="demo_agency",
         dossier_id=dossier_id,
     )
+
+    pricing_result = None
+    updated_pricing_dossier = None
+
+    if intent == "PRICING_REQUEST":
+        pricing_result = handle_pricing_request(
+            org_id="demo_agency",
+            text=normalized_message.text_body or "",
+            dossier=dossier_full,
+        )
+
+        parsed = pricing_result.get("parsed") or {}
+        result = pricing_result.get("result")
+
+        updated_pricing_dossier = update_dossier_pricing(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            origin_country=parsed.get("origin_country"),
+            destination_country=parsed.get("destination_country"),
+            weight_kg=parsed.get("weight_kg"),
+            quoted_total=result.get("total") if result else None,
+            quoted_currency=result.get("currency") if result else None,
+            pricing_status=pricing_result["pricing_status"],
+        )
+
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            event_type="PRICING_CALCULATED",
+            payload={
+                "pricing_status": pricing_result["pricing_status"],
+                "parsed": parsed,
+                "result": result,
+            },
+        )
+
+        dossier_full = get_dossier_full(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+        )
 
     business_action = decide_business_action(
         intent=intent,
@@ -313,6 +355,8 @@ async def receive_whatsapp_message(request: Request):
     "queued_notification": queued_notification,
     "cancelled_followups": cancelled_followups,
     "created_followup": created_followup,
+    "pricing_result": pricing_result,
+    "updated_pricing_dossier": updated_pricing_dossier,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),
 }

@@ -1,6 +1,7 @@
 from app.services.address_service import handle_address_request
 from app.services.pricing_engine import calculate_price
 from app.services.pricing_parser import extract_pricing_info
+from app.services.pricing_orchestrator import handle_pricing_request
 
 def _merge_fields(dossier: dict, understanding: dict | None):
     fields = {}
@@ -261,55 +262,52 @@ def generate_reply(
         }
     
     if intent == "PRICING_REQUEST":
-        info = extract_pricing_info(text)
-
-        if not info["origin_country"] or not info["destination_country"]:
-            return {
-                "reply_type": "PRICING_INCOMPLETE",
-                "message": (
-                    "Veuillez préciser le pays de départ et de destination."
-                ),
-                "should_escalate": False,
-            }
-
-        if not info["weight_kg"]:
-            return {
-                "reply_type": "PRICING_INCOMPLETE",
-                "message": (
-                    "Veuillez préciser le poids estimé en kg."
-                ),
-                "should_escalate": False,
-            }
-
-        result = calculate_price(
+        pricing = handle_pricing_request(
             org_id="demo_agency",
-            origin_country=info["origin_country"].capitalize(),
-            destination_country=info["destination_country"].capitalize(),
-            weight_kg=info["weight_kg"],
+            text=text,
+            dossier=dossier,
         )
 
-        if not result:
+        if pricing["pricing_status"] == "MISSING_ROUTE":
+            return {
+                "reply_type": "PRICING_INCOMPLETE",
+                "message": "Veuillez préciser le pays de départ et le pays de destination.",
+                "should_escalate": False,
+            }
+
+        if pricing["pricing_status"] == "MISSING_WEIGHT":
+            return {
+                "reply_type": "PRICING_INCOMPLETE",
+                "message": "Veuillez préciser le poids estimé en kg.",
+                "should_escalate": False,
+            }
+
+        if pricing["pricing_status"] == "NO_RULE_FOUND":
             return {
                 "reply_type": "PRICING_NOT_FOUND",
                 "message": (
-                    "Nous n’avons pas encore de tarif disponible pour cette destination. Veuillez contacter l’agence."
+                    "Nous n’avons pas encore de tarif disponible pour cette route. "
+                    "Veuillez contacter l’agence pour une confirmation."
                 ),
                 "should_escalate": True,
             }
+
+        parsed = pricing["parsed"]
+        result = pricing["result"]
 
         return {
             "reply_type": "PRICING_RESPONSE",
             "message": (
                 f"💰 Estimation de votre envoi :\n\n"
-                f"Origine : {info['origin_country']}\n"
-                f"Destination : {info['destination_country']}\n"
-                f"Poids : {info['weight_kg']} kg\n\n"
+                f"Origine : {parsed['origin_country']}\n"
+                f"Destination : {parsed['destination_country']}\n"
+                f"Poids : {parsed['weight_kg']} kg\n\n"
                 f"Prix : {result['total']} {result['currency']}\n\n"
                 f"Veuillez confirmer pour continuer votre dossier."
             ),
             "should_escalate": False,
+            "pricing": pricing,
         }
-
     return {
         "reply_type": "unknown",
         "should_escalate": False,

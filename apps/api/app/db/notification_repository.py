@@ -53,3 +53,32 @@ def create_notification_outbox(
             "id": row[0],
             "status": row[1],
         }
+    
+def list_pending_notifications(org_id: str = "demo_agency", limit: int = 20):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select
+                    id,
+                    org_id,
+                    client_id,
+                    dossier_id,
+                    channel,
+                    recipient_phone,
+                    notification_type,
+                    message,
+                    status,
+                    created_at
+                from notification_outbox
+                where org_id = :org_id
+                  and status = 'PENDING'
+                order by created_at desc
+                limit :limit
+            """),
+            {
+                "org_id": org_id,
+                "limit": limit,
+            },
+        )
+
+        return [dict(row._mapping) for row in result.fetchall()]

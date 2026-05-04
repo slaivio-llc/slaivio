@@ -2,10 +2,12 @@ from fastapi import FastAPI, Request
 from app.api.webhook import router as webhook_router
 from app.db.database import test_db_connection
 from app.db.message_repository import insert_raw_message
+from app.api.notifications import router as notifications_router
 
 app = FastAPI(title="SLAIVO CARGO OS API")
 
 app.include_router(webhook_router)
+app.include_router(notifications_router)
 
 
 @app.get("/")

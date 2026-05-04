@@ -11,6 +11,16 @@ def create_followup_task(
     due_minutes: int = 1440,
     shipment_id: str | None = None,
 ):
+    existing = get_pending_followup_by_type(
+        org_id=org_id,
+        dossier_id=dossier_id,
+        followup_type=followup_type,
+    )
+
+    if existing:
+        existing["already_exists"] = True
+        return existing
+
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -48,8 +58,12 @@ def create_followup_task(
         conn.commit()
         row = result.fetchone()
 
-        return dict(row._mapping) if row else None
+        followup = dict(row._mapping) if row else None
 
+        if followup:
+            followup["already_exists"] = False
+
+        return followup
 
 def list_due_followups(org_id: str = "demo_agency", limit: int = 50):
     with engine.connect() as conn:
@@ -136,3 +150,29 @@ def cancel_pending_followups_for_dossier(
         conn.commit()
 
         return [dict(row._mapping) for row in result.fetchall()]
+    
+def get_pending_followup_by_type(
+    org_id: str,
+    dossier_id: str,
+    followup_type: str,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select *
+                from followup_tasks
+                where org_id = :org_id
+                  and dossier_id = :dossier_id
+                  and followup_type = :followup_type
+                  and status = 'PENDING'
+                order by created_at desc
+                limit 1
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+                "followup_type": followup_type,
+            },
+        ).fetchone()
+
+        return dict(result._mapping) if result else None

@@ -7,6 +7,7 @@ def create_office(
     country: str,
     city: str,
     address: str,
+    office_type: str = "OFFICE",
     phone: str | None = None,
     whatsapp: str | None = None,
     opening_hours: str | None = None,
@@ -20,6 +21,7 @@ def create_office(
                     country,
                     city,
                     address,
+                    office_type,
                     phone,
                     whatsapp,
                     opening_hours,
@@ -30,6 +32,7 @@ def create_office(
                     :country,
                     :city,
                     :address,
+                    :office_type,
                     :phone,
                     :whatsapp,
                     :opening_hours,
@@ -42,6 +45,7 @@ def create_office(
                 "country": country,
                 "city": city,
                 "address": address,
+                "office_type": office_type,
                 "phone": phone,
                 "whatsapp": whatsapp,
                 "opening_hours": opening_hours,
@@ -55,35 +59,18 @@ def create_office(
         return dict(row._mapping) if row else None
 
 
-def list_offices(org_id: str = "demo_agency"):
-    with engine.connect() as conn:
-        result = conn.execute(
-            text("""
-                select *
-                from agency_offices
-                where org_id = :org_id
-                  and is_active = true
-                order by country asc, city asc
-            """),
-            {"org_id": org_id},
-        )
-
-        return [dict(row._mapping) for row in result.fetchall()]
-
-
-def find_office(
-    org_id: str,
+def list_offices(
+    org_id: str = "demo_agency",
     country: str | None = None,
     city: str | None = None,
+    office_type: str | None = None,
 ):
     filters = [
         "org_id = :org_id",
         "is_active = true",
     ]
 
-    params = {
-        "org_id": org_id,
-    }
+    params = {"org_id": org_id}
 
     if country:
         filters.append("lower(country) = lower(:country)")
@@ -93,6 +80,10 @@ def find_office(
         filters.append("lower(city) = lower(:city)")
         params["city"] = city
 
+    if office_type:
+        filters.append("office_type = :office_type")
+        params["office_type"] = office_type
+
     where_clause = " and ".join(filters)
 
     with engine.connect() as conn:
@@ -101,10 +92,25 @@ def find_office(
                 select *
                 from agency_offices
                 where {where_clause}
-                order by created_at desc
-                limit 1
+                order by country asc, city asc, created_at desc
             """),
             params,
-        ).fetchone()
+        )
 
-        return dict(result._mapping) if result else None
+        return [dict(row._mapping) for row in result.fetchall()]
+
+
+def find_office(
+    org_id: str,
+    country: str | None = None,
+    city: str | None = None,
+    office_type: str | None = None,
+):
+    offices = list_offices(
+        org_id=org_id,
+        country=country,
+        city=city,
+        office_type=office_type,
+    )
+
+    return offices[0] if offices else None

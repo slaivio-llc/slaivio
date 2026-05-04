@@ -73,3 +73,52 @@ def create_shipment(
         row = result.fetchone()
 
         return dict(row._mapping)
+    
+ALLOWED_SHIPMENT_STATUSES = {
+    "CREATED",
+    "RECEIVED_AT_ORIGIN",
+    "SCHEDULED_FOR_DEPARTURE",
+    "DEPARTED",
+    "IN_TRANSIT",
+    "ARRIVED_HUB",
+    "IN_LOCAL_TRANSIT",
+    "ARRIVED_DESTINATION",
+    "READY_FOR_PICKUP",
+    "DELIVERED",
+    "BLOCKED",
+    "ISSUE",
+    "CANCELLED",
+}
+
+
+def update_shipment_status(
+    org_id: str,
+    shipment_id: str,
+    new_status: str,
+):
+    if new_status not in ALLOWED_SHIPMENT_STATUSES:
+        return None
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update shipments
+                set
+                    status = :new_status,
+                    updated_at = now()
+                where id = :shipment_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "shipment_id": shipment_id,
+                "new_status": new_status,
+            },
+        )
+
+        conn.commit()
+
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None

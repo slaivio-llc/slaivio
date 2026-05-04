@@ -82,3 +82,28 @@ def list_pending_notifications(org_id: str = "demo_agency", limit: int = 20):
         )
 
         return [dict(row._mapping) for row in result.fetchall()]
+    
+def mark_notification_as_sent(notification_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update notification_outbox
+                set
+                    status = 'SENT',
+                    sent_at = now()
+                where id = :notification_id
+                returning id, status, sent_at
+            """),
+            {
+                "notification_id": notification_id
+            }
+        )
+
+        conn.commit()
+
+        row = result.fetchone()
+
+        if not row:
+            return None
+
+        return dict(row._mapping)

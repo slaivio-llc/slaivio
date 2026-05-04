@@ -11,6 +11,8 @@ from app.db.message_repository import (
 )
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
+from app.db.message_repository import get_organization
+
 
 router = APIRouter()
 
@@ -95,8 +97,10 @@ async def receive_whatsapp_message(request: Request):
                 "status_global": updated_dossier["status_global"],
             },
         )
-    
-    reply = generate_reply(intent)
+
+    org = get_organization("demo_agency")
+    org_name = org["name"] if org else "Notre agence"
+    reply = generate_reply(intent, org_name)
 
     create_dossier_event(
         org_id="demo_agency",

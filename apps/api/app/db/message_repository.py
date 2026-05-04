@@ -240,3 +240,25 @@ def update_dossier_from_intent(org_id: str, dossier_id: str, intent: str):
             "intake_status": result[3],
             "validation_status": result[4],
         }
+
+def get_organization(org_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select id, name, country, city
+                from organizations
+                where id = :org_id
+                limit 1
+            """),
+            {"org_id": org_id}
+        ).fetchone()
+
+        if not result:
+            return None
+
+        return {
+            "id": result[0],
+            "name": result[1],
+            "country": result[2],
+            "city": result[3],
+        }

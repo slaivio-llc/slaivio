@@ -1,17 +1,9 @@
-def generate_reply(intent: str) -> dict:
+def generate_reply(intent: str, org_name: str) -> dict:
     if intent == "GREETING":
         return {
-            "reply_type": "greeting",
+            "reply_type": "text",
             "should_escalate": False,
-            "message": (
-                "Bonjour 👋 Merci de nous avoir contactés.\n\n"
-                "Comment pouvons-nous vous aider aujourd’hui ?\n"
-                "Vous pouvez écrire par exemple :\n"
-                "- Je veux envoyer un colis\n"
-                "- Je veux connaître le prix\n"
-                "- Je veux suivre mon colis\n"
-                "- Je veux utiliser votre service transitaire"
-            ),
+            "message": f"Bonjour 👋, merci d’avoir contacté {org_name}. Comment pouvons-nous vous aider ?"
         }
 
     if intent == "SEND_CARGO_REQUEST":
@@ -42,15 +34,9 @@ def generate_reply(intent: str) -> dict:
 
     if intent == "PRICE_REQUEST":
         return {
-            "reply_type": "qualification_needed",
+            "reply_type": "text",
             "should_escalate": False,
-            "message": (
-                "Pour vous donner une information correcte, merci de préciser :\n"
-                "1. Pays d’origine\n"
-                "2. Pays de destination\n"
-                "3. Type de marchandise\n"
-                "4. Poids ou volume approximatif"
-            ),
+            "message": f"{org_name} 📦\nPour vous donner un prix, merci de préciser :\n- Pays d’origine\n- Ville destination\n- Poids estimé"
         }
 
     if intent == "TRACKING_REQUEST":

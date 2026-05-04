@@ -90,3 +90,20 @@ def mark_followup_executed(followup_id: str):
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+
+def get_followup_with_client_phone(followup_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select
+                    f.*,
+                    c.phone as client_phone
+                from followup_tasks f
+                left join clients c on c.id = f.client_id
+                where f.id = :followup_id
+                limit 1
+            """),
+            {"followup_id": followup_id},
+        ).fetchone()
+
+        return dict(result._mapping) if result else None

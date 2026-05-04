@@ -6,6 +6,9 @@ from app.api.notifications import router as notifications_router
 from app.api.dossiers import router as dossiers_router
 from app.api.followups import router as followups_router
 from app.api.offices import router as offices_router
+from app.api.pricing import router as pricing_router
+
+
 
 app = FastAPI(title="SLAIVO CARGO OS API")
 
@@ -14,6 +17,7 @@ app.include_router(notifications_router)
 app.include_router(dossiers_router)
 app.include_router(followups_router)
 app.include_router(offices_router)
+app.include_router(pricing_router)
 
 @app.get("/")
 def root():

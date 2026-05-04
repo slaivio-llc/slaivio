@@ -1,3 +1,29 @@
+def _merge_fields(dossier: dict, understanding: dict | None):
+    fields = {}
+
+    # 1. mémoire dossier
+    if dossier:
+        fields.update({
+            "origin_country": dossier.get("origin_country"),
+            "origin_city": dossier.get("origin_city"),
+            "destination_country": dossier.get("destination_country"),
+            "destination_city": dossier.get("destination_city"),
+            "goods_type": dossier.get("goods_type"),
+            "estimated_weight_kg": dossier.get("estimated_weight_kg"),
+            "estimated_volume_cbm": dossier.get("estimated_volume_cbm"),
+            "shipping_mode": dossier.get("shipping_mode"),
+            "tracking_id": dossier.get("tracking_id"),
+        })
+
+    # 2. AI override si présent
+    if understanding and understanding.get("ai_result"):
+        ai_fields = understanding["ai_result"].get("extracted_fields") or {}
+        for k, v in ai_fields.items():
+            if v:
+                fields[k] = v
+
+    return fields
+
 def _get_extracted_fields(understanding: dict | None) -> dict:
     if not understanding:
         return {}
@@ -77,8 +103,13 @@ def _format_missing_questions(missing_fields: list[str]) -> str:
     return "Merci de préciser aussi :\n" + "\n".join(lines)
 
 
-def generate_reply(intent: str, org_name: str, understanding: dict | None = None) -> dict:
-    fields = _get_extracted_fields(understanding)
+def generate_reply(
+        intent: str, 
+        org_name: str, 
+        understanding: dict | None = None,
+        dossier: dict | None = None,
+        ) -> dict:
+    fields = _merge_fields(dossier or {}, understanding)
     known_fields_text = _format_known_fields(fields)
 
     if intent == "GREETING":

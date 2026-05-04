@@ -299,3 +299,20 @@ def update_dossier_from_ai_fields(org_id: str, dossier_id: str, fields: dict):
 
         row = result.fetchone()
         return dict(row._mapping) if row else None
+    
+def get_dossier_full(org_id: str, dossier_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select *
+                from dossiers
+                where id = :dossier_id and org_id = :org_id
+                limit 1
+            """),
+            {"dossier_id": dossier_id, "org_id": org_id}
+        ).fetchone()
+
+        if not result:
+            return None
+
+        return dict(result._mapping)

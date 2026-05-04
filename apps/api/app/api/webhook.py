@@ -10,6 +10,7 @@ from app.db.message_repository import (
     update_dossier_from_intent,
     get_organization,
     update_dossier_from_ai_fields,
+    get_dossier_full,
 )
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
@@ -103,6 +104,11 @@ async def receive_whatsapp_message(request: Request):
                 "fields": ai_fields
             },
         )
+    
+    dossier_full = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+    )
 
     updated_dossier = update_dossier_from_intent(
         org_id="demo_agency",
@@ -129,6 +135,7 @@ async def receive_whatsapp_message(request: Request):
         intent=intent,
         org_name=org_name,
         understanding=understanding,
+        dossier=dossier_full,
     )
 
     create_dossier_event(

@@ -107,3 +107,53 @@ def mark_notification_as_sent(notification_id: str):
             return None
 
         return dict(row._mapping)
+
+def get_notification_by_id(notification_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select *
+                from notification_outbox
+                where id = :id
+                limit 1
+            """),
+            {"id": notification_id}
+        ).fetchone()
+
+        return dict(result._mapping) if result else None
+
+
+def mark_notification_sent(notification_id: str, provider_message_id: str):
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                update notification_outbox
+                set status = 'SENT',
+                    sent_at = now(),
+                    provider_message_id = :provider_message_id
+                where id = :id
+            """),
+            {
+                "id": notification_id,
+                "provider_message_id": provider_message_id,
+            },
+        )
+        conn.commit()
+
+
+def mark_notification_failed(notification_id: str, error: str):
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                update notification_outbox
+                set status = 'FAILED',
+                    failed_at = now(),
+                    error_message = :error
+                where id = :id
+            """),
+            {
+                "id": notification_id,
+                "error": error,
+            },
+        )
+        conn.commit()

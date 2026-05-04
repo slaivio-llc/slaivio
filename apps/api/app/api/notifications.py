@@ -3,6 +3,7 @@ from app.db.notification_repository import list_pending_notifications
 from fastapi import HTTPException
 from app.db.notification_repository import mark_notification_as_sent
 from app.db.message_repository import create_dossier_event
+from app.services.notification_sender import send_notification
 
 router = APIRouter()
 
@@ -38,3 +39,8 @@ def mark_notification_sent(notification_id: str):
         "status": "ok",
         "notification": result
     }
+
+@router.post("/notifications/{notification_id}/send")
+def send_notification_endpoint(notification_id: str):
+    result = send_notification(notification_id)
+    return result

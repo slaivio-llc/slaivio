@@ -107,3 +107,32 @@ def get_followup_with_client_phone(followup_id: str):
         ).fetchone()
 
         return dict(result._mapping) if result else None
+    
+def cancel_pending_followups_for_dossier(
+    org_id: str,
+    dossier_id: str,
+    reason: str = "client_replied",
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update followup_tasks
+                set
+                    status = 'CANCELLED',
+                    cancelled_at = now(),
+                    error_message = :reason
+                where org_id = :org_id
+                  and dossier_id = :dossier_id
+                  and status = 'PENDING'
+                returning id, followup_type, status, cancelled_at
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+                "reason": reason,
+            },
+        )
+
+        conn.commit()
+
+        return [dict(row._mapping) for row in result.fetchall()]

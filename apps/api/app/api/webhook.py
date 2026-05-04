@@ -23,6 +23,7 @@ from app.services.notification_engine import (
 from app.db.notification_repository import create_notification_outbox
 from app.services.followup_engine import build_followup_for_business_action
 from app.db.followup_repository import create_followup_task
+from app.db.followup_repository import cancel_pending_followups_for_dossier
 
 router = APIRouter()
 
@@ -74,6 +75,23 @@ async def receive_whatsapp_message(request: Request):
         org_id="demo_agency",
         client_id=client_id,
     )
+
+    cancelled_followups = cancel_pending_followups_for_dossier(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        reason="client_replied",
+    )
+
+    if cancelled_followups:
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            event_type="FOLLOWUPS_CANCELLED_ON_REPLY",
+            payload={
+                "count": len(cancelled_followups),
+                "followups": cancelled_followups,
+            },
+        )
 
     insert_raw_message(
         org_id="demo_agency",
@@ -291,6 +309,7 @@ async def receive_whatsapp_message(request: Request):
     "updated_dossier": updated_dossier,
     "business_action": business_action,
     "queued_notification": queued_notification,
+    "cancelled_followups": cancelled_followups,
     "created_followup": created_followup,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),

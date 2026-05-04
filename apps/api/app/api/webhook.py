@@ -14,6 +14,7 @@ from app.db.message_repository import (
 )
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
+from app.services.business_action_engine import decide_business_action
 
 router = APIRouter()
 
@@ -110,6 +111,18 @@ async def receive_whatsapp_message(request: Request):
         dossier_id=dossier_id,
     )
 
+    business_action = decide_business_action(
+        intent=intent,
+        dossier=dossier_full,
+    )
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="BUSINESS_ACTION_DECIDED",
+        payload=business_action,
+    )
+
     updated_dossier = update_dossier_from_intent(
         org_id="demo_agency",
         dossier_id=dossier_id,
@@ -199,6 +212,7 @@ async def receive_whatsapp_message(request: Request):
     "intent": intent,
     "understanding": understanding,
     "updated_dossier": updated_dossier,
+    "business_action": business_action,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),
 }

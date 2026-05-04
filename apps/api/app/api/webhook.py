@@ -21,6 +21,8 @@ from app.services.notification_engine import (
     build_notification_type,
 )
 from app.db.notification_repository import create_notification_outbox
+from app.services.followup_engine import build_followup_for_business_action
+from app.db.followup_repository import create_followup_task
 
 router = APIRouter()
 
@@ -121,7 +123,7 @@ async def receive_whatsapp_message(request: Request):
         intent=intent,
         dossier=dossier_full,
     )
-
+    
     create_dossier_event(
         org_id="demo_agency",
         dossier_id=dossier_id,
@@ -134,6 +136,35 @@ async def receive_whatsapp_message(request: Request):
         dossier_id=dossier_id,
         action=business_action,
     )
+
+    followup = build_followup_for_business_action(
+        org_name=org_name,
+        business_action=business_action,
+        dossier=dossier_full,
+    )
+
+    created_followup = None
+
+    if followup:
+        created_followup = create_followup_task(
+            org_id="demo_agency",
+            client_id=client_id,
+            dossier_id=dossier_id,
+            followup_type=followup["followup_type"],
+            message=followup["message"],
+            due_minutes=followup["due_minutes"],
+        )
+
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            event_type="FOLLOWUP_CREATED",
+            payload={
+                "followup_id": str(created_followup["id"]),
+                "followup_type": created_followup["followup_type"],
+                "due_at": str(created_followup["due_at"]),
+            },
+        )
 
     if updated_status: create_dossier_event(
         org_id="demo_agency",
@@ -260,6 +291,7 @@ async def receive_whatsapp_message(request: Request):
     "updated_dossier": updated_dossier,
     "business_action": business_action,
     "queued_notification": queued_notification,
+    "created_followup": created_followup,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),
 }

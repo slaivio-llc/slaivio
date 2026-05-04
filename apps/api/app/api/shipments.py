@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.db.shipment_repository import create_shipment, update_shipment_status
 from app.services.shipment_notification import create_shipment_notification
 from app.db.message_repository import get_dossier_full
+from app.services.shipment_notification import create_payment_reminder_notification
 
 router = APIRouter()
 
@@ -71,10 +72,39 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
                 },
             )
 
+    payment_notification = None
+
+    if shipment["status"] == "READY_FOR_PICKUP":
+        dossier = get_dossier_full(
+            org_id="demo_agency",
+            dossier_id=str(shipment["dossier_id"]),
+        )
+
+        client_phone = dossier.get("client_phone") or dossier.get("phone")
+
+        if client_phone:
+            payment_notification = create_payment_reminder_notification(
+                org_id="demo_agency",
+                shipment=shipment,
+                client_phone=client_phone,
+            )
+
+            if payment_notification:
+                create_dossier_event(
+                    org_id="demo_agency",
+                    dossier_id=str(shipment["dossier_id"]),
+                    event_type="PAYMENT_REMINDER_CREATED",
+                    payload={
+                        "shipment_id": str(shipment["id"]),
+                        "notification_id": str(payment_notification["id"]),
+                    },
+                )
+
     return {
         "status": "ok",
         "shipment": shipment,
         "notification": notification,
+        "payment_notification": payment_notification,
     }
 
 @router.post("/shipments/{dossier_id}")

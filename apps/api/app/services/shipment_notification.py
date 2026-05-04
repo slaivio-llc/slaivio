@@ -41,3 +41,40 @@ def create_shipment_notification(
         notification_type=f"SHIPMENT_STATUS:{shipment['status']}",
         message=message,
     )
+
+def get_payment_reminder_message(shipment: dict) -> str | None:
+    total = shipment.get("fees_total") or 0
+    paid = shipment.get("fees_paid") or 0
+
+    balance_due = total - paid
+
+    if balance_due <= 0:
+        return None
+
+    currency = shipment.get("currency") or "USD"
+    tracking_id = shipment.get("tracking_id")
+
+    return (
+        f"Votre colis ({tracking_id}) est prêt pour retrait.\n"
+        f"Montant restant : {balance_due} {currency}.\n"
+        f"Veuillez régler avant retrait."
+    )
+
+def create_payment_reminder_notification(
+    org_id: str,
+    shipment: dict,
+    client_phone: str,
+):
+    message = get_payment_reminder_message(shipment)
+
+    if not message:
+        return None
+
+    return create_notification_outbox(
+        org_id=org_id,
+        client_id=shipment["client_id"],
+        dossier_id=shipment["dossier_id"],
+        recipient_phone=client_phone,
+        notification_type="PAYMENT_REMINDER",
+        message=message,
+    )

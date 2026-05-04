@@ -16,6 +16,11 @@ from app.db.message_repository import (
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
 from app.services.business_action_engine import decide_business_action
+from app.services.notification_engine import (
+    should_queue_notification,
+    build_notification_type,
+)
+from app.db.notification_repository import create_notification_outbox
 
 router = APIRouter()
 
@@ -169,6 +174,29 @@ async def receive_whatsapp_message(request: Request):
         dossier=dossier_full,
     )
 
+    queued_notification = None
+
+    if should_queue_notification(business_action, reply):
+        queued_notification = create_notification_outbox(
+            org_id="demo_agency",
+            client_id=client_id,
+            dossier_id=dossier_id,
+            recipient_phone=normalized_message.from_phone,
+            notification_type=build_notification_type(intent, business_action),
+            message=reply["message"],
+        )
+
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            event_type="NOTIFICATION_QUEUED",
+            payload={
+                "notification_id": str(queued_notification["id"]),
+                "notification_status": queued_notification["status"],
+                "notification_type": build_notification_type(intent, business_action),
+            },
+        )
+
     create_dossier_event(
         org_id="demo_agency",
         dossier_id=dossier_id,
@@ -231,6 +259,7 @@ async def receive_whatsapp_message(request: Request):
     "understanding": understanding,
     "updated_dossier": updated_dossier,
     "business_action": business_action,
+    "queued_notification": queued_notification,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),
 }

@@ -316,3 +316,55 @@ def get_dossier_full(org_id: str, dossier_id: str):
             return None
 
         return dict(result._mapping)
+    
+def update_dossier_from_action(org_id: str, dossier_id: str, action: dict):
+    action_type = action.get("action_type")
+
+    intake_status = None
+    validation_status = None
+
+    # mapping métier
+    if action_type in [
+        "CONTINUE_SHIPPING_INTAKE",
+        "CONTINUE_TRANSITAIRE_INTAKE",
+        "CONTINUE_SUPPLIER_PAYMENT_INTAKE",
+        "CHECK_PRICING_REQUIREMENTS",
+        "ASK_CLARIFICATION",
+    ]:
+        intake_status = "PARTIAL"
+
+    if action_type in [
+        "READY_FOR_SHIPPING_REVIEW",
+        "READY_FOR_TRANSITAIRE_REVIEW",
+        "READY_FOR_SUPPLIER_PAYMENT_REVIEW",
+    ]:
+        intake_status = "COMPLETE"
+        validation_status = "READY_FOR_REVIEW"
+
+    if action_type == "ESCALATE_TO_HUMAN":
+        validation_status = "NEEDS_HUMAN"
+
+    query = """
+        update dossiers
+        set
+            intake_status = coalesce(:intake_status, intake_status),
+            validation_status = coalesce(:validation_status, validation_status)
+        where id = :dossier_id and org_id = :org_id
+        returning *
+    """
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(query),
+            {
+                "dossier_id": dossier_id,
+                "org_id": org_id,
+                "intake_status": intake_status,
+                "validation_status": validation_status,
+            },
+        )
+
+        conn.commit()
+
+        row = result.fetchone()
+        return dict(row._mapping) if row else None

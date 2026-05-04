@@ -11,6 +11,7 @@ from app.db.message_repository import (
     get_organization,
     update_dossier_from_ai_fields,
     get_dossier_full,
+    update_dossier_from_action,
 )
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
@@ -121,6 +122,23 @@ async def receive_whatsapp_message(request: Request):
         dossier_id=dossier_id,
         event_type="BUSINESS_ACTION_DECIDED",
         payload=business_action,
+    )
+
+    updated_status = update_dossier_from_action(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        action=business_action,
+    )
+
+    if updated_status: create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=dossier_id,
+        event_type="DOSSIER_STATUS_UPDATED",
+        payload={
+            "action_type": business_action["action_type"],
+            "intake_status": updated_status.get("intake_status"),
+            "validation_status": updated_status.get("validation_status"),
+        },
     )
 
     updated_dossier = update_dossier_from_intent(

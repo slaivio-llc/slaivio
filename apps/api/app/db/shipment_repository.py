@@ -122,3 +122,62 @@ def update_shipment_status(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+    
+def set_shipment_total(
+    org_id: str,
+    shipment_id: str,
+    total: float,
+    currency: str,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update shipments
+                set
+                    fees_total = :total,
+                    currency = :currency,
+                    updated_at = now()
+                where id = :shipment_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "shipment_id": shipment_id,
+                "total": total,
+                "currency": currency,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None
+    
+def record_shipment_payment(
+    org_id: str,
+    shipment_id: str,
+    amount: float,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update shipments
+                set
+                    fees_paid = coalesce(fees_paid, 0) + :amount,
+                    updated_at = now()
+                where id = :shipment_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "shipment_id": shipment_id,
+                "amount": amount,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None

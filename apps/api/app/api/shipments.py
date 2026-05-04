@@ -11,6 +11,13 @@ router = APIRouter()
 class UpdateShipmentStatusRequest(BaseModel):
     status: str
 
+class SetTotalRequest(BaseModel):
+    total: float
+    currency: str
+
+class RecordPaymentRequest(BaseModel):
+    amount: float
+
 
 @router.patch("/shipments/{shipment_id}/status")
 def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
@@ -94,6 +101,23 @@ def create_shipment_from_dossier(dossier_id: str):
             "tracking_id": shipment["tracking_id"],
         },
     )
+
+    return {
+        "status": "ok",
+        "shipment": shipment,
+    }
+
+@router.post("/shipments/{shipment_id}/set-total")
+def set_total(shipment_id: str, body: SetTotalRequest):
+    shipment = set_shipment_total(
+        org_id="demo_agency",
+        shipment_id=shipment_id,
+        total=body.total,
+        currency=body.currency,
+    )
+
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found")
 
     return {
         "status": "ok",

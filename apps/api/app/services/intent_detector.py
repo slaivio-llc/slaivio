@@ -112,6 +112,28 @@ def detect_intent(text: str | None) -> str:
 
     if any(keyword in normalized_text for keyword in price_keywords):
         return "PRICE_REQUEST"
+    
+    if any(word in text.lower() for word in [
+        "tracking",
+        "suivi",
+        "numéro de suivi",
+        "numero de suivi",
+        "slaivo-",
+    ]):
+        return "TRACKING_REQUEST"
+
+
+    if any(word in text.lower() for word in [
+        "payer mon fournisseur",
+        "payer fournisseur",
+        "paiement fournisseur",
+        "alipay",
+        "wechat",
+        "wechat pay",
+        "rmb",
+        "yuan",
+    ]):
+        return "SUPPLIER_PAYMENT_REQUEST"
 
     if any(keyword in normalized_text for keyword in transitaire_keywords):
         return "TRANSITAIRE_REQUEST"

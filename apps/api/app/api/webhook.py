@@ -100,7 +100,12 @@ async def receive_whatsapp_message(request: Request):
 
     org = get_organization("demo_agency")
     org_name = org["name"] if org else "Notre agence"
-    reply = generate_reply(intent, org_name)
+    
+    reply = generate_reply(
+        intent=intent,
+        org_name=org_name,
+        understanding=understanding,
+    )
 
     create_dossier_event(
         org_id="demo_agency",

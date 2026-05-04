@@ -92,41 +92,73 @@ def get_dossier_detail(org_id: str, dossier_id: str):
             "notifications": [dict(row._mapping) for row in notifications],
         }
     
-def list_active_dossiers(org_id: str = "demo_agency", limit: int = 50):
-    with engine.connect() as conn:
-        result = conn.execute(
-            text("""
-                select
-                    d.id,
-                    d.org_id,
-                    d.client_id,
-                    c.phone as client_phone,
-                    c.name as client_name,
-                    d.case_type,
-                    d.status_global,
-                    d.intake_status,
-                    d.validation_status,
-                    d.origin_country,
-                    d.origin_city,
-                    d.destination_country,
-                    d.destination_city,
-                    d.goods_type,
-                    d.estimated_weight_kg,
-                    d.estimated_volume_cbm,
-                    d.shipping_mode,
-                    d.created_at,
-                    d.updated_at
-                from dossiers d
-                join clients c on c.id = d.client_id
-                where d.org_id = :org_id
-                  and d.status_global not in ('COMPLETED', 'CLOSED', 'CANCELLED')
-                order by d.updated_at desc
-                limit :limit
-            """),
-            {
-                "org_id": org_id,
-                "limit": limit,
-            },
-        )
+def list_active_dossiers(
+    org_id: str = "demo_agency",
+    status_global: str | None = None,
+    case_type: str | None = None,
+    intake_status: str | None = None,
+    validation_status: str | None = None,
+    limit: int = 50,
+):
+    filters = [
+        "d.org_id = :org_id",
+        "d.status_global not in ('COMPLETED', 'CLOSED', 'CANCELLED')",
+    ]
 
+    params = {
+        "org_id": org_id,
+        "limit": limit,
+    }
+
+    if status_global:
+        filters.append("d.status_global = :status_global")
+        params["status_global"] = status_global
+
+    if case_type:
+        filters.append("d.case_type = :case_type")
+        params["case_type"] = case_type
+
+    if intake_status:
+        filters.append("d.intake_status = :intake_status")
+        params["intake_status"] = intake_status
+
+    if validation_status:
+        filters.append("d.validation_status = :validation_status")
+        params["validation_status"] = validation_status
+
+    where_clause = " and ".join(filters)
+
+    query = text(f"""
+        select
+            d.id,
+            d.org_id,
+            d.client_id,
+            c.phone as client_phone,
+            c.name as client_name,
+
+            d.case_type,
+            d.status_global,
+            d.intake_status,
+            d.validation_status,
+
+            d.origin_country,
+            d.origin_city,
+            d.destination_country,
+            d.destination_city,
+            d.goods_type,
+            d.estimated_weight_kg,
+            d.estimated_volume_cbm,
+            d.shipping_mode,
+
+            d.created_at,
+            d.updated_at
+        from dossiers d
+        join clients c on c.id = d.client_id
+        where {where_clause}
+        order by d.updated_at desc
+        limit :limit
+    """)
+
+    with engine.connect() as conn:
+        result = conn.execute(query, params)
         return [dict(row._mapping) for row in result.fetchall()]

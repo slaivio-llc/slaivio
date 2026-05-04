@@ -12,6 +12,7 @@ from app.db.message_repository import (
     update_dossier_from_ai_fields,
     get_dossier_full,
     update_dossier_from_action,
+    mark_dossier_confirmed,
 )
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
@@ -198,6 +199,29 @@ async def receive_whatsapp_message(request: Request):
             dossier_id=dossier_id,
         )
 
+    confirmed_dossier = None
+
+    if intent == "CONFIRMATION":
+        confirmed_dossier = mark_dossier_confirmed(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+        )
+
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+            event_type="CLIENT_CONFIRMED",
+            payload={
+                "validation_status": "CONFIRMED_BY_CLIENT",
+                "intake_status": "PARTIAL",
+            },
+        )
+
+        dossier_full = get_dossier_full(
+            org_id="demo_agency",
+            dossier_id=dossier_id,
+        )
+
     business_action = decide_business_action(
         intent=intent,
         dossier=dossier_full,
@@ -375,6 +399,7 @@ async def receive_whatsapp_message(request: Request):
     "cancelled_followups": cancelled_followups,
     "created_followup": created_followup,
     "pricing_result": pricing_result,
+    "confirmed_dossier": confirmed_dossier,
     "updated_pricing_dossier": updated_pricing_dossier,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),

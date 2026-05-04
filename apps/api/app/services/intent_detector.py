@@ -107,6 +107,21 @@ def detect_intent(text: str | None) -> str:
         "gerant",
     ]
 
+    if any(phrase in text.lower() for phrase in [
+        "ok je confirme",
+        "je confirme",
+        "c'est bon je confirme",
+        "c’est bon je confirme",
+        "d'accord je confirme",
+        "d’accord je confirme",
+        "oui je confirme",
+        "confirm",
+        "i confirm",
+        "yes proceed",
+        "go ahead",
+    ]):
+        return "CONFIRMATION"
+
     if any(keyword in normalized_text for keyword in tracking_keywords):
         return "TRACKING_REQUEST"
 
@@ -167,13 +182,5 @@ def detect_intent(text: str | None) -> str:
         "price"
     ]):
         return "PRICING_REQUEST"
-
-    if any(word in text.lower() for word in [
-            "ok je confirme",
-            "je confirme",
-            "confirm",
-            "i confirm",
-            "yes proceed"]):
-        return "CONFIRMATION"
 
     return "UNKNOWN"

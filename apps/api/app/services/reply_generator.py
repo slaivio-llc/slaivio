@@ -4,7 +4,7 @@ from app.services.pricing_parser import extract_pricing_info
 from app.services.pricing_orchestrator import handle_pricing_request
 from app.services.intake_service import (
     get_missing_intake_fields,
-    build_intake_question,
+    build_human_intake_message,
 )
 
 def _merge_fields(dossier: dict, understanding: dict | None):
@@ -327,6 +327,19 @@ def generate_reply(
             "reply_type": "CONFIRMED_COMPLETE",
             "message": "Merci. Votre dossier est complet. Nous allons procéder à la suite.",
             "should_escalate": False,
+        }
+    
+    if intent == "CONFIRMATION":
+        missing = get_missing_intake_fields(dossier)
+
+        return {
+            "reply_type": "CONFIRMATION_INTAKE",
+            "should_escalate": False,
+            "message": build_human_intake_message(
+                missing_fields=missing,
+                org_name=org_name,
+                case_type=dossier.get("case_type") if dossier else None,
+            ),
         }
 
     return {

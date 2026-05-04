@@ -157,5 +157,15 @@ def detect_intent(text: str | None) -> str:
         "où", "ou", "adresse", "localisation", "situer", "situé",
         "where", "location", "address"]):
         return "ADDRESS_REQUEST"
+    
+    if any(word in text.lower() for word in [
+        "combien",
+        "prix",
+        "coût",
+        "tarif",
+        "cost",
+        "price"
+    ]):
+        return "PRICING_REQUEST"
 
     return "UNKNOWN"

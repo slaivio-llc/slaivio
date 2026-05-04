@@ -3,6 +3,8 @@ from app.db.message_repository import get_dossier_full, create_dossier_event
 from app.db.shipment_repository import create_shipment, update_shipment_status
 from pydantic import BaseModel
 from app.db.shipment_repository import create_shipment, update_shipment_status
+from app.services.shipment_notification import create_shipment_notification
+from app.db.message_repository import get_dossier_full
 
 router = APIRouter()
 
@@ -33,9 +35,39 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
             },
         )
 
+    # récupérer téléphone client
+    dossier = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=str(shipment["dossier_id"]),
+    )
+
+    client_phone = dossier.get("client_phone") or dossier.get("phone")
+
+    notification = None
+
+    if client_phone:
+        notification = create_shipment_notification(
+            org_id="demo_agency",
+            shipment=shipment,
+            client_phone=client_phone,
+        )
+
+        if notification:
+            create_dossier_event(
+                org_id="demo_agency",
+                dossier_id=str(shipment["dossier_id"]),
+                event_type="SHIPMENT_NOTIFICATION_CREATED",
+                payload={
+                    "shipment_id": str(shipment["id"]),
+                    "status": shipment["status"],
+                    "notification_id": str(notification["id"]),
+                },
+            )
+
     return {
         "status": "ok",
         "shipment": shipment,
+        "notification": notification,
     }
 
 @router.post("/shipments/{dossier_id}")

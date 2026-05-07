@@ -70,6 +70,10 @@ def get_shipment_status_message(
             f"Montant total : {shipment.get('final_total')} {shipment.get('final_currency')}\n\n"
             f"Merci de procéder au paiement pour lancer l’expédition."
         ),
+        "READY_FOR_DEPARTURE": (
+            f"Votre colis ({tracking_id}) est prêt pour expédition.\n\n"
+            f"Merci pour votre paiement. Le départ est prévu prochainement."
+        ),
     }
 
     return messages.get(status)

@@ -17,6 +17,11 @@ class ConfirmPackageRequest(BaseModel):
     volume_cbm: float | None = None
     notes: str | None = None
 
+class ConfirmPaymentRequest(BaseModel):
+    dossier_id: str
+    payment_method: str | None = None
+    notes: str | None = None
+
 
 @router.post("/manager/confirm-package")
 def confirm_package(body: ConfirmPackageRequest):
@@ -92,3 +97,65 @@ with engine.connect() as conn:
         },
     )
     conn.commit()
+
+
+@router.post("/manager/confirm-payment")
+def confirm_payment(body: ConfirmPaymentRequest):
+    from app.db.database import engine
+    from sqlalchemy import text
+    from app.db.message_repository import create_dossier_event
+
+    updated_dossier = None
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    payment_status = 'PAID',
+                    status_global = 'READY_FOR_DEPARTURE',
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": "demo_agency",
+                "dossier_id": body.dossier_id,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+        updated_dossier = dict(row._mapping) if row else None
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+        event_type="PAYMENT_CONFIRMED",
+        payload={
+            "payment_method": body.payment_method,
+            "notes": body.notes,
+        },
+    )
+
+    # update shipment status
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                update shipments
+                set status = 'READY_FOR_DEPARTURE'
+                where dossier_id = :dossier_id
+                and org_id = :org_id
+            """),
+            {
+                "org_id": "demo_agency",
+                "dossier_id": body.dossier_id,
+            },
+        )
+        conn.commit()
+
+    return {
+        "status": "ok",
+        "updated_dossier": updated_dossier,
+    }

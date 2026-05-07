@@ -65,6 +65,11 @@ def get_shipment_status_message(
             f"Un problème est survenu avec votre colis ({tracking_id}). "
             f"Contactez l’agence."
         ),
+        "WAITING_PAYMENT": (
+            f"💰 Votre colis ({tracking_id}) a été reçu.\n\n"
+            f"Montant total : {shipment.get('final_total')} {shipment.get('final_currency')}\n\n"
+            f"Merci de procéder au paiement pour lancer l’expédition."
+        ),
     }
 
     return messages.get(status)

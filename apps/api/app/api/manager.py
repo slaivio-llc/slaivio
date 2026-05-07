@@ -4,7 +4,9 @@ from app.db.message_repository import create_dossier_event
 from app.db.shipment_repository import create_shipment
 from app.db.database import engine
 from sqlalchemy import text
-
+from app.services.final_pricing_service import calculate_final_price
+from app.db.message_repository import update_dossier_final_pricing
+from app.db.message_repository import get_dossier_full
 
 router = APIRouter()
 
@@ -36,6 +38,40 @@ def confirm_package(body: ConfirmPackageRequest):
             "shipment_id": shipment.get("id") if shipment else None,
         },
     )
+
+    # récupérer dossier
+
+    dossier = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    final_price = calculate_final_price(
+        org_id="demo_agency",
+        dossier=dossier,
+        weight_kg=body.weight_kg,
+        volume_cbm=body.volume_cbm,
+    )
+
+    updated_dossier = None
+
+    if final_price:
+        updated_dossier = update_dossier_final_pricing(
+            org_id="demo_agency",
+            dossier_id=body.dossier_id,
+            total=final_price["total"],
+            currency=final_price["currency"],
+        )
+
+        create_dossier_event(
+            org_id="demo_agency",
+            dossier_id=body.dossier_id,
+            event_type="FINAL_PRICE_CALCULATED",
+            payload={
+                "total": final_price["total"],
+                "currency": final_price["currency"],
+            },
+        )
 
     return {
         "status": "ok",

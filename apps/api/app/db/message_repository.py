@@ -498,3 +498,36 @@ def mark_dossier_waiting_for_package(org_id: str, dossier_id: str):
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+    
+def update_dossier_final_pricing(
+    org_id: str,
+    dossier_id: str,
+    total: float | None,
+    currency: str | None,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    final_total = :total,
+                    final_currency = :currency,
+                    payment_status = 'WAITING',
+                    status_global = 'WAITING_PAYMENT',
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+                "total": total,
+                "currency": currency,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None

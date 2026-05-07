@@ -181,3 +181,22 @@ def record_shipment_payment(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+    
+def get_shipment_by_dossier(org_id: str, dossier_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select *
+                from shipments
+                where org_id = :org_id
+                  and dossier_id = :dossier_id
+                order by created_at desc
+                limit 1
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+            },
+        ).fetchone()
+
+        return dict(result._mapping) if result else None

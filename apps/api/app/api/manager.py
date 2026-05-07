@@ -29,6 +29,14 @@ class ConfirmDepartureRequest(BaseModel):
     dossier_id: str
     departure_note: str | None = None
 
+class ConfirmArrivalHubRequest(BaseModel):
+    dossier_id: str
+    hub_name: str | None = None
+
+class ConfirmArrivalDestinationRequest(BaseModel):
+    dossier_id: str
+
+
 @router.post("/manager/confirm-package")
 def confirm_package(body: ConfirmPackageRequest):
     shipment = create_shipment(
@@ -263,5 +271,148 @@ def confirm_departure(body: ConfirmDepartureRequest):
         "status": "ok",
         "shipment": updated_shipment,
         "dossier": updated_dossier,
+        "notification": notification,
+    }
+
+@router.post("/manager/confirm-arrival-hub")
+def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
+    from app.db.database import engine
+    from sqlalchemy import text
+    from app.db.shipment_repository import get_shipment_by_dossier, update_shipment_status
+    from app.db.notification_repository import create_notification_outbox
+    from app.db.message_repository import get_dossier_full, create_dossier_event
+
+    shipment = get_shipment_by_dossier(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    if not shipment:
+        return {"status": "error", "message": "Shipment not found"}
+
+    updated_shipment = update_shipment_status(
+        org_id="demo_agency",
+        shipment_id=str(shipment["id"]),
+        new_status="ARRIVED_HUB",
+    )
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+        event_type="SHIPMENT_ARRIVED_HUB",
+        payload={
+            "hub_name": body.hub_name,
+            "tracking_id": updated_shipment["tracking_id"],
+        },
+    )
+
+    dossier_full = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    client_phone = dossier_full["client"]["phone"]
+
+    notification = create_notification_outbox(
+        org_id="demo_agency",
+        client_id=updated_shipment["client_id"],
+        dossier_id=body.dossier_id,
+        recipient_phone=client_phone,
+        notification_type="ARRIVED_HUB",
+        message=(
+            f"Votre colis ({updated_shipment['tracking_id']}) est arrivé à un centre logistique.\n\n"
+            f"{'Lieu : ' + body.hub_name if body.hub_name else ''}\n"
+            "Il poursuit son acheminement vers la destination."
+        ),
+    )
+
+    return {
+        "status": "ok",
+        "shipment": updated_shipment,
+        "notification": notification,
+    }
+
+
+@router.post("/manager/confirm-arrival-destination")
+def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
+    from app.db.database import engine
+    from sqlalchemy import text
+    from app.db.shipment_repository import get_shipment_by_dossier, update_shipment_status
+    from app.db.notification_repository import create_notification_outbox
+    from app.db.message_repository import get_dossier_full, create_dossier_event
+    from app.db.office_repository import find_office
+
+    shipment = get_shipment_by_dossier(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    if not shipment:
+        return {"status": "error", "message": "Shipment not found"}
+
+    updated_shipment = update_shipment_status(
+        org_id="demo_agency",
+        shipment_id=str(shipment["id"]),
+        new_status="ARRIVED_DESTINATION",
+    )
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                update dossiers
+                set status_global = 'ARRIVED_DESTINATION'
+                where id = :dossier_id
+                  and org_id = :org_id
+            """),
+            {
+                "org_id": "demo_agency",
+                "dossier_id": body.dossier_id,
+            },
+        )
+        conn.commit()
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+        event_type="SHIPMENT_ARRIVED_DESTINATION",
+        payload={
+            "tracking_id": updated_shipment["tracking_id"],
+        },
+    )
+
+    dossier_full = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    office = find_office(
+        org_id="demo_agency",
+        country=dossier_full.get("destination_country"),
+        city=dossier_full.get("destination_city"),
+    )
+
+    office_text = ""
+
+    if office:
+        office_text = f"\n\n📍 Adresse : {office.get('address')}"
+
+    client_phone = dossier_full["client"]["phone"]
+
+    notification = create_notification_outbox(
+        org_id="demo_agency",
+        client_id=updated_shipment["client_id"],
+        dossier_id=body.dossier_id,
+        recipient_phone=client_phone,
+        notification_type="ARRIVED_DESTINATION",
+        message=(
+            f"Votre colis ({updated_shipment['tracking_id']}) est arrivé à destination.\n"
+            f"{office_text}\n\n"
+            "Nous vous informerons lorsqu’il sera prêt pour retrait."
+        ),
+    )
+
+    return {
+        "status": "ok",
+        "shipment": updated_shipment,
         "notification": notification,
     }

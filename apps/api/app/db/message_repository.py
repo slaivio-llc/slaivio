@@ -475,13 +475,13 @@ def update_dossier_intake_fields(
 
         return dict(row._mapping) if row else None
     
-def mark_dossier_intake_complete(org_id: str, dossier_id: str):
+def mark_dossier_waiting_for_package(org_id: str, dossier_id: str):
     with engine.connect() as conn:
         result = conn.execute(
             text("""
                 update dossiers
                 set
-                    intake_status = 'COMPLETE',
+                    status_global = 'WAITING_FOR_PACKAGE',
                     updated_at = now()
                 where id = :dossier_id
                   and org_id = :org_id
@@ -494,6 +494,7 @@ def mark_dossier_intake_complete(org_id: str, dossier_id: str):
         )
 
         conn.commit()
+
         row = result.fetchone()
 
         return dict(row._mapping) if row else None

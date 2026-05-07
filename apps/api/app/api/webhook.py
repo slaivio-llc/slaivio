@@ -7,12 +7,16 @@ from app.db.message_repository import (
     get_or_create_client,
     get_or_create_active_dossier,
     create_dossier_event,
+    mark_dossier_waiting_for_package,
     update_dossier_from_intent,
     get_organization,
     update_dossier_from_ai_fields,
     get_dossier_full,
     update_dossier_from_action,
     mark_dossier_confirmed,
+    update_dossier_intake_fields,
+    mark_dossier_intake_complete,
+
 )
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
@@ -34,8 +38,7 @@ from app.services.intake_service import (
     get_missing_intake_fields,
     build_human_intake_message,
 )
-from app.db.message_repository import update_dossier_intake_fields
-from app.db.message_repository import mark_dossier_intake_complete
+
 
 router = APIRouter()
 
@@ -66,6 +69,8 @@ def normalize_whatsapp_payload(payload: dict) -> NormalizedMessage:
 @router.post("/webhook/whatsapp")
 async def receive_whatsapp_message(request: Request):
     payload = await request.json()
+
+    waiting_dossier = None
 
     normalized_message = normalize_whatsapp_payload(payload)
 
@@ -288,6 +293,36 @@ async def receive_whatsapp_message(request: Request):
                 org_id="demo_agency",
                 dossier_id=dossier_id,
             )
+        
+            waiting_dossier = mark_dossier_waiting_for_package(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+            )
+
+            create_dossier_event(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+                event_type="DOSSIER_WAITING_FOR_PACKAGE",
+                payload={
+                    "status_global": "WAITING_FOR_PACKAGE",
+                    "reason": "intake_completed_package_not_received_yet",
+                },
+            )
+
+            create_dossier_event(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+                event_type="INTERNAL_ACTION_REQUIRED",
+                payload={
+                    "action": "WAIT_FOR_PACKAGE",
+                    "note": "Attente dépôt client ou dépôt fournisseur à l’entrepôt.",
+                },
+            )
+
+            dossier_full = get_dossier_full(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+            )
 
     business_action = decide_business_action(
         intent=intent,
@@ -470,6 +505,7 @@ async def receive_whatsapp_message(request: Request):
     "completed_intake_dossier": completed_intake_dossier,
     "intake_fields": intake_fields,
     "updated_intake_dossier": updated_intake_dossier,
+    "waiting_dossier": waiting_dossier,
     "updated_pricing_dossier": updated_pricing_dossier,
     "reply": reply,
     "normalized_message": normalized_message.model_dump(mode="json"),

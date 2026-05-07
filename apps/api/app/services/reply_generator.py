@@ -356,15 +356,19 @@ def generate_reply(
                 ),
             }
 
-        return {
-            "reply_type": "INTAKE_COMPLETE",
-            "should_escalate": False,
-            "message": (
-                f"Parfait chef 🙏\n\n"
-                f"Votre dossier est maintenant bien enregistré chez {org_name}. "
-                "L’équipe va vérifier la suite et vous confirmer dès que le colis sera reçu ou validé."
-            ),
-        }
+        if dossier.get("intake_status") == "COMPLETE":
+            return {
+                "reply_type": "WAITING_PACKAGE",
+                "should_escalate": False,
+                "message": (
+                    f"Parfait chef 🙏\n\n"
+                    f"Votre dossier est bien enregistré chez {org_name}.\n\n"
+                    "Nous attendons maintenant que le colis soit déposé au bureau "
+                    "ou reçu à notre entrepôt par votre fournisseur.\n\n"
+                    "Dès réception, l’équipe va confirmer le poids réel, le prix final "
+                    "et vous envoyer le suivi."
+                ),
+            }
 
     return {
         "reply_type": "unknown",

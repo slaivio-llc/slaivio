@@ -36,6 +36,13 @@ class ConfirmArrivalHubRequest(BaseModel):
 class ConfirmArrivalDestinationRequest(BaseModel):
     dossier_id: str
 
+class ReadyForPickupRequest(BaseModel):
+    dossier_id: str
+
+class ConfirmDeliveredRequest(BaseModel):
+    dossier_id: str
+
+
 
 @router.post("/manager/confirm-package")
 def confirm_package(body: ConfirmPackageRequest):
@@ -415,4 +422,140 @@ def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
         "status": "ok",
         "shipment": updated_shipment,
         "notification": notification,
+    }
+
+
+@router.post("/manager/ready-for-pickup")
+def ready_for_pickup(body: ReadyForPickupRequest):
+    from app.db.database import engine
+    from sqlalchemy import text
+    from app.db.shipment_repository import get_shipment_by_dossier, update_shipment_status
+    from app.db.notification_repository import create_notification_outbox
+    from app.db.message_repository import get_dossier_full, create_dossier_event
+    from app.db.office_repository import find_office
+
+    shipment = get_shipment_by_dossier(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    if not shipment:
+        return {"status": "error", "message": "Shipment not found"}
+
+    updated_shipment = update_shipment_status(
+        org_id="demo_agency",
+        shipment_id=str(shipment["id"]),
+        new_status="READY_FOR_PICKUP",
+    )
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                update dossiers
+                set status_global = 'READY_FOR_PICKUP'
+                where id = :dossier_id
+                  and org_id = :org_id
+            """),
+            {
+                "org_id": "demo_agency",
+                "dossier_id": body.dossier_id,
+            },
+        )
+        conn.commit()
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+        event_type="READY_FOR_PICKUP",
+        payload={
+            "tracking_id": updated_shipment["tracking_id"],
+        },
+    )
+
+    dossier_full = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    office = find_office(
+        org_id="demo_agency",
+        country=dossier_full.get("destination_country"),
+        city=dossier_full.get("destination_city"),
+    )
+
+    office_text = ""
+
+    if office:
+        office_text = f"\n\n📍 Adresse : {office.get('address')}"
+
+    client_phone = dossier_full["client"]["phone"]
+
+    notification = create_notification_outbox(
+        org_id="demo_agency",
+        client_id=updated_shipment["client_id"],
+        dossier_id=body.dossier_id,
+        recipient_phone=client_phone,
+        notification_type="READY_FOR_PICKUP",
+        message=(
+            f"📦 Votre colis ({updated_shipment['tracking_id']}) est prêt pour retrait.\n"
+            f"{office_text}\n\n"
+            "Merci de passer au bureau avec une pièce d’identité."
+        ),
+    )
+
+    return {
+        "status": "ok",
+        "shipment": updated_shipment,
+        "notification": notification,
+    }
+
+
+@router.post("/manager/confirm-delivered")
+def confirm_delivered(body: ConfirmDeliveredRequest):
+    from app.db.database import engine
+    from sqlalchemy import text
+    from app.db.shipment_repository import get_shipment_by_dossier, update_shipment_status
+    from app.db.message_repository import create_dossier_event
+
+    shipment = get_shipment_by_dossier(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    if not shipment:
+        return {"status": "error", "message": "Shipment not found"}
+
+    updated_shipment = update_shipment_status(
+        org_id="demo_agency",
+        shipment_id=str(shipment["id"]),
+        new_status="DELIVERED",
+    )
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                update dossiers
+                set status_global = 'COMPLETED'
+                where id = :dossier_id
+                  and org_id = :org_id
+            """),
+            {
+                "org_id": "demo_agency",
+                "dossier_id": body.dossier_id,
+            },
+        )
+        conn.commit()
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+        event_type="SHIPMENT_DELIVERED",
+        payload={
+            "tracking_id": updated_shipment["tracking_id"],
+        },
+    )
+
+    return {
+        "status": "ok",
+        "shipment": updated_shipment,
     }

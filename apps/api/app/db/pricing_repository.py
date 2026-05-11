@@ -13,19 +13,21 @@ def find_pricing_rules(
         "is_active = true",
     ]
 
-    params = {"org_id": org_id}
+    params = {
+        "org_id": org_id,
+    }
 
     if origin_country:
-        filters.append("origin_country = :origin_country")
-        params["origin_country"] = origin_country
+        filters.append("lower(origin_country) = lower(:origin_country)")
+        params["origin_country"] = origin_country.strip()
 
     if destination_country:
-        filters.append("destination_country = :destination_country")
-        params["destination_country"] = destination_country
+        filters.append("lower(destination_country) = lower(:destination_country)")
+        params["destination_country"] = destination_country.strip()
 
     if goods_type:
-        filters.append("(goods_type is null or goods_type = :goods_type)")
-        params["goods_type"] = goods_type
+        filters.append("(goods_type is null or lower(goods_type) = lower(:goods_type))")
+        params["goods_type"] = goods_type.strip()
 
     where_clause = " and ".join(filters)
 
@@ -35,7 +37,9 @@ def find_pricing_rules(
                 select *
                 from pricing_rules
                 where {where_clause}
-                order by priority desc
+                order by
+                    priority desc,
+                    created_at desc
             """),
             params,
         )

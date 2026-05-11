@@ -4,10 +4,10 @@ def normalize_shipping_mode(text: str | None) -> str | None:
 
     value = text.lower()
 
-    if "avion" in value or "air" in value:
+    if "avion" in value or "air" in value or "aérien" in value or "aerien" in value:
         return "AIR"
 
-    if "maritime" in value or "bateau" in value or "sea" in value:
+    if "maritime" in value or "bateau" in value or "sea" in value or "mer" in value:
         return "SEA"
 
     return None
@@ -32,11 +32,32 @@ def extract_destination(text: str) -> dict:
         "montréal": ("Montréal", "Canada"),
     }
 
+    known_countries = {
+        "cameroun": "Cameroun",
+        "cameroon": "Cameroun",
+        "rdc": "RDC",
+        "congo": "RDC",
+        "uganda": "Ouganda",
+        "ouganda": "Ouganda",
+        "ghana": "Ghana",
+        "kenya": "Kenya",
+        "benin": "Bénin",
+        "bénin": "Bénin",
+        "canada": "Canada",
+    }
+
     for key, value in known_destinations.items():
         if key in text_lower:
             city, country = value
             return {
                 "destination_city": city,
+                "destination_country": country,
+            }
+
+    for key, country in known_countries.items():
+        if key in text_lower:
+            return {
+                "destination_city": None,
                 "destination_country": country,
             }
 
@@ -56,6 +77,7 @@ def extract_goods_type(text: str) -> str | None:
         "chaussures",
         "téléphone",
         "telephone",
+        "phones",
         "phone",
         "laptop",
         "ordinateur",
@@ -69,6 +91,10 @@ def extract_goods_type(text: str) -> str | None:
         "courrier",
         "médicaments",
         "medicaments",
+        "perruque",
+        "greffe",
+        "sac",
+        "sacs",
     ]
 
     for item in known_goods:
@@ -79,10 +105,6 @@ def extract_goods_type(text: str) -> str | None:
 
 
 def extract_full_name(text: str) -> str | None:
-    # Version simple V1 :
-    # Si le client écrit sous forme :
-    # "Jean Mbala, Douala Cameroun, avion, vêtements"
-    # on prend la première partie avant la virgule comme nom.
     parts = [part.strip() for part in text.split(",")]
 
     if len(parts) >= 2 and len(parts[0].split()) >= 2:

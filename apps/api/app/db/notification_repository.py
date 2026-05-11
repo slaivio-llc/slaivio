@@ -32,7 +32,7 @@ def create_notification_outbox(
                     :notification_type,
                     :message
                 )
-                returning id, status
+                returning *
             """),
             {
                 "org_id": org_id,
@@ -49,12 +49,13 @@ def create_notification_outbox(
 
         row = result.fetchone()
 
-        return {
-            "id": row[0],
-            "status": row[1],
-        }
-    
-def list_pending_notifications(org_id: str = "demo_agency", limit: int = 20):
+        return dict(row._mapping) if row else None
+
+
+def list_pending_notifications(
+    org_id: str,
+    limit: int = 20,
+):
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -68,11 +69,16 @@ def list_pending_notifications(org_id: str = "demo_agency", limit: int = 20):
                     notification_type,
                     message,
                     status,
-                    created_at
+                    provider,
+                    provider_message_id,
+                    error_message,
+                    created_at,
+                    sent_at,
+                    failed_at
                 from notification_outbox
                 where org_id = :org_id
                   and status = 'PENDING'
-                order by created_at desc
+                order by created_at asc
                 limit :limit
             """),
             {
@@ -82,78 +88,90 @@ def list_pending_notifications(org_id: str = "demo_agency", limit: int = 20):
         )
 
         return [dict(row._mapping) for row in result.fetchall()]
-    
-def mark_notification_as_sent(notification_id: str):
+
+
+def get_notification_by_id(
+    org_id: str,
+    notification_id: str,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select *
+                from notification_outbox
+                where org_id = :org_id
+                  and id = :notification_id
+                limit 1
+            """),
+            {
+                "org_id": org_id,
+                "notification_id": notification_id,
+            },
+        ).fetchone()
+
+        return dict(result._mapping) if result else None
+
+
+def mark_notification_as_sent(
+    org_id: str,
+    notification_id: str,
+    provider_message_id: str | None = None,
+):
     with engine.connect() as conn:
         result = conn.execute(
             text("""
                 update notification_outbox
                 set
                     status = 'SENT',
-                    sent_at = now()
-                where id = :notification_id
-                returning id, status, sent_at
+                    sent_at = now(),
+                    provider_message_id = coalesce(
+                        :provider_message_id,
+                        provider_message_id
+                    )
+                where org_id = :org_id
+                  and id = :notification_id
+                returning *
             """),
             {
-                "notification_id": notification_id
-            }
+                "org_id": org_id,
+                "notification_id": notification_id,
+                "provider_message_id": provider_message_id,
+            },
         )
 
         conn.commit()
 
         row = result.fetchone()
 
-        if not row:
-            return None
+        return dict(row._mapping) if row else None
 
-        return dict(row._mapping)
 
-def get_notification_by_id(notification_id: str):
+def mark_notification_failed(
+    org_id: str,
+    notification_id: str,
+    error: str,
+):
     with engine.connect() as conn:
         result = conn.execute(
             text("""
-                select *
-                from notification_outbox
-                where id = :id
-                limit 1
-            """),
-            {"id": notification_id}
-        ).fetchone()
-
-        return dict(result._mapping) if result else None
-
-
-def mark_notification_sent(notification_id: str, provider_message_id: str):
-    with engine.connect() as conn:
-        conn.execute(
-            text("""
                 update notification_outbox
-                set status = 'SENT',
-                    sent_at = now(),
-                    provider_message_id = :provider_message_id
-                where id = :id
-            """),
-            {
-                "id": notification_id,
-                "provider_message_id": provider_message_id,
-            },
-        )
-        conn.commit()
-
-
-def mark_notification_failed(notification_id: str, error: str):
-    with engine.connect() as conn:
-        conn.execute(
-            text("""
-                update notification_outbox
-                set status = 'FAILED',
+                set
+                    status = 'FAILED',
                     failed_at = now(),
                     error_message = :error
-                where id = :id
+                where org_id = :org_id
+                  and id = :notification_id
+                returning *
             """),
             {
-                "id": notification_id,
+                "org_id": org_id,
+                "notification_id": notification_id,
                 "error": error,
             },
         )
+
         conn.commit()
+
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None

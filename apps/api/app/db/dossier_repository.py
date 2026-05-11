@@ -27,10 +27,14 @@ def get_dossier_detail(org_id: str, dossier_id: str):
             text("""
                 select *
                 from clients
-                where id = :client_id
+                where org_id = :org_id
+                  and id = :client_id
                 limit 1
             """),
-            {"client_id": dossier_dict["client_id"]},
+            {
+                "org_id": org_id,
+                "client_id": dossier_dict["client_id"],
+            },
         ).fetchone()
 
         messages = conn.execute(
@@ -42,10 +46,14 @@ def get_dossier_detail(org_id: str, dossier_id: str):
                     raw_payload,
                     created_at
                 from messages_raw
-                where dossier_id = :dossier_id
+                where org_id = :org_id
+                  and dossier_id = :dossier_id
                 order by created_at asc
             """),
-            {"dossier_id": dossier_id},
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+            },
         ).fetchall()
 
         events = conn.execute(
@@ -56,10 +64,14 @@ def get_dossier_detail(org_id: str, dossier_id: str):
                     payload,
                     created_at
                 from dossier_events
-                where dossier_id = :dossier_id
+                where org_id = :org_id
+                  and dossier_id = :dossier_id
                 order by created_at asc
             """),
-            {"dossier_id": dossier_id},
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+            },
         ).fetchall()
 
         notifications = conn.execute(
@@ -78,10 +90,14 @@ def get_dossier_detail(org_id: str, dossier_id: str):
                     failed_at,
                     error_message
                 from notification_outbox
-                where dossier_id = :dossier_id
+                where org_id = :org_id
+                  and dossier_id = :dossier_id
                 order by created_at asc
             """),
-            {"dossier_id": dossier_id},
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+            },
         ).fetchall()
 
         return {
@@ -91,9 +107,10 @@ def get_dossier_detail(org_id: str, dossier_id: str):
             "events": [dict(row._mapping) for row in events],
             "notifications": [dict(row._mapping) for row in notifications],
         }
-    
+
+
 def list_active_dossiers(
-    org_id: str = "demo_agency",
+    org_id: str,
     status_global: str | None = None,
     case_type: str | None = None,
     intake_status: str | None = None,
@@ -153,7 +170,9 @@ def list_active_dossiers(
             d.created_at,
             d.updated_at
         from dossiers d
-        join clients c on c.id = d.client_id
+        join clients c
+          on c.id = d.client_id
+         and c.org_id = d.org_id
         where {where_clause}
         order by d.updated_at desc
         limit :limit

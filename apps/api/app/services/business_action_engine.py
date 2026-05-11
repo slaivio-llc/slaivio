@@ -34,6 +34,24 @@ def _shipping_missing_fields(dossier: dict | None) -> list[str]:
     return missing
 
 
+def _supplier_payment_missing_fields(dossier: dict | None) -> list[str]:
+    if not dossier:
+        return [
+            "supplier_payment_amount",
+            "supplier_payment_currency",
+        ]
+
+    missing = []
+
+    if not _has_value(dossier.get("supplier_payment_amount")):
+        missing.append("supplier_payment_amount")
+
+    if not _has_value(dossier.get("supplier_payment_currency")):
+        missing.append("supplier_payment_currency")
+
+    return missing
+
+
 def decide_business_action(intent: str, dossier: dict | None) -> dict:
     if intent == "SEND_CARGO_REQUEST":
         missing = _shipping_missing_fields(dossier)
@@ -71,7 +89,7 @@ def decide_business_action(intent: str, dossier: dict | None) -> dict:
             "reason": "Transitaire intake has minimum required fields.",
         }
 
-    if intent == "PRICE_REQUEST":
+    if intent in ["PRICE_REQUEST", "PRICING_REQUEST"]:
         missing = _shipping_missing_fields(dossier)
 
         if missing:
@@ -86,7 +104,7 @@ def decide_business_action(intent: str, dossier: dict | None) -> dict:
             "action_type": "READY_FOR_PRICING_LOOKUP",
             "ready_for_manager_review": False,
             "missing_fields": [],
-            "reason": "Enough information exists to look up pricing rules later.",
+            "reason": "Enough information exists to look up pricing rules.",
         }
 
     if intent == "TRACKING_REQUEST":
@@ -108,14 +126,7 @@ def decide_business_action(intent: str, dossier: dict | None) -> dict:
         }
 
     if intent == "SUPPLIER_PAYMENT_REQUEST":
-        amount = dossier.get("supplier_payment_amount") if dossier else None
-        currency = dossier.get("supplier_payment_currency") if dossier else None
-
-        missing = []
-        if not _has_value(amount):
-            missing.append("supplier_payment_amount")
-        if not _has_value(currency):
-            missing.append("supplier_payment_currency")
+        missing = _supplier_payment_missing_fields(dossier)
 
         if missing:
             return {
@@ -132,12 +143,20 @@ def decide_business_action(intent: str, dossier: dict | None) -> dict:
             "reason": "Supplier payment request has minimum required fields.",
         }
 
-    if intent in ["WAREHOUSE_ADDRESS_REQUEST", "DEPARTURE_SCHEDULE_REQUEST"]:
+    if intent == "WAREHOUSE_ADDRESS_REQUEST":
+        return {
+            "action_type": "ANSWER_WITH_AGENCY_OFFICE",
+            "ready_for_manager_review": False,
+            "missing_fields": [],
+            "reason": "Address answer depends on agency offices.",
+        }
+
+    if intent == "DEPARTURE_SCHEDULE_REQUEST":
         return {
             "action_type": "NEEDS_AGENCY_KNOWLEDGE",
             "ready_for_manager_review": False,
             "missing_fields": [],
-            "reason": "Answer depends on agency configuration/knowledge base.",
+            "reason": "Departure schedule depends on agency configuration.",
         }
 
     if intent == "HUMAN_HELP_REQUEST":
@@ -146,6 +165,14 @@ def decide_business_action(intent: str, dossier: dict | None) -> dict:
             "ready_for_manager_review": True,
             "missing_fields": [],
             "reason": "Customer requested human assistance.",
+        }
+
+    if intent == "CONFIRMATION":
+        return {
+            "action_type": "START_CONFIRMED_INTAKE",
+            "ready_for_manager_review": False,
+            "missing_fields": [],
+            "reason": "Customer confirmed intent to proceed.",
         }
 
     if intent == "GREETING":

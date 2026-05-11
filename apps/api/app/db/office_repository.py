@@ -42,10 +42,10 @@ def create_office(
             """),
             {
                 "org_id": org_id,
-                "country": country,
-                "city": city,
-                "address": address,
-                "office_type": office_type,
+                "country": country.strip(),
+                "city": city.strip(),
+                "address": address.strip(),
+                "office_type": office_type.strip().upper(),
                 "phone": phone,
                 "whatsapp": whatsapp,
                 "opening_hours": opening_hours,
@@ -60,7 +60,7 @@ def create_office(
 
 
 def list_offices(
-    org_id: str = "demo_agency",
+    org_id: str,
     country: str | None = None,
     city: str | None = None,
     office_type: str | None = None,
@@ -70,19 +70,21 @@ def list_offices(
         "is_active = true",
     ]
 
-    params = {"org_id": org_id}
+    params = {
+        "org_id": org_id,
+    }
 
     if country:
         filters.append("lower(country) = lower(:country)")
-        params["country"] = country
+        params["country"] = country.strip()
 
     if city:
         filters.append("lower(city) = lower(:city)")
-        params["city"] = city
+        params["city"] = city.strip()
 
     if office_type:
-        filters.append("office_type = :office_type")
-        params["office_type"] = office_type
+        filters.append("upper(office_type) = upper(:office_type)")
+        params["office_type"] = office_type.strip()
 
     where_clause = " and ".join(filters)
 

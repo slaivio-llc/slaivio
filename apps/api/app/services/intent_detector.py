@@ -1,30 +1,51 @@
+def contains_any(text: str, keywords: list[str]) -> bool:
+    return any(keyword in text for keyword in keywords)
+
+
 def detect_intent(text: str | None) -> str:
     if not text:
         return "UNKNOWN"
 
     normalized_text = text.lower().strip()
 
-    greeting_keywords = [
-        "bonjour",
-        "bonsoir",
-        "salut",
-        "hello",
-        "hi",
-        "good morning",
-        "good day",
-        "good evening",
+    confirmation_keywords = [
+        "ok je confirme",
+        "je confirme",
+        "c'est bon je confirme",
+        "c’est bon je confirme",
+        "d'accord je confirme",
+        "d’accord je confirme",
+        "oui je confirme",
+        "confirm",
+        "i confirm",
+        "yes proceed",
+        "go ahead",
+    ]
+
+    supplier_payment_keywords = [
+        "payer mon fournisseur",
+        "payer fournisseur",
+        "paiement fournisseur",
+        "alipay",
+        "wechat",
+        "wechat pay",
+        "rmb",
+        "yuan",
     ]
 
     tracking_keywords = [
         "tracking",
         "suivi",
+        "numéro de suivi",
+        "numero de suivi",
+        "slaivo-",
         "mon colis",
-        "où est",
-        "ou est",
+        "où est mon colis",
+        "ou est mon colis",
         "colis est où",
         "colis est ou",
-        "track",
         "statut colis",
+        "track",
     ]
 
     price_keywords = [
@@ -40,40 +61,6 @@ def detect_intent(text: str | None) -> str:
         "how much",
     ]
 
-    transitaire_keywords = [
-        "acheter",
-        "achat",
-        "fournisseur",
-        "supplier",
-        "transitaire",
-        "commande",
-        "buy",
-        "purchase",
-        "quality control",
-        "contrôle qualité",
-        "controle qualite",
-        "faire venir",
-        "importer",
-        "paiement fournisseur",
-        "wechat",
-        "alipay",
-        "rmb",
-    ]
-
-    send_cargo_keywords = [
-        "envoyer",
-        "expédier",
-        "expedier",
-        "ship",
-        "shipping",
-        "send",
-        "colis",
-        "cargo",
-        "marchandise",
-        "marchandises",
-        "paquet",
-    ]
-
     warehouse_keywords = [
         "adresse",
         "entrepôt",
@@ -82,6 +69,10 @@ def detect_intent(text: str | None) -> str:
         "location",
         "bureau",
         "localisation",
+        "situer",
+        "situé",
+        "where",
+        "address",
     ]
 
     departure_keywords = [
@@ -107,80 +98,75 @@ def detect_intent(text: str | None) -> str:
         "gerant",
     ]
 
-    if any(phrase in text.lower() for phrase in [
-        "ok je confirme",
-        "je confirme",
-        "c'est bon je confirme",
-        "c’est bon je confirme",
-        "d'accord je confirme",
-        "d’accord je confirme",
-        "oui je confirme",
-        "confirm",
-        "i confirm",
-        "yes proceed",
-        "go ahead",
-    ]):
+    transitaire_keywords = [
+        "acheter",
+        "achat",
+        "fournisseur",
+        "supplier",
+        "transitaire",
+        "commande",
+        "buy",
+        "purchase",
+        "quality control",
+        "contrôle qualité",
+        "controle qualite",
+        "faire venir",
+        "importer",
+    ]
+
+    send_cargo_keywords = [
+        "envoyer",
+        "expédier",
+        "expedier",
+        "ship",
+        "shipping",
+        "send",
+        "colis",
+        "cargo",
+        "marchandise",
+        "marchandises",
+        "paquet",
+    ]
+
+    greeting_keywords = [
+        "bonjour",
+        "bonsoir",
+        "salut",
+        "hello",
+        "hi",
+        "good morning",
+        "good day",
+        "good evening",
+    ]
+
+    if contains_any(normalized_text, confirmation_keywords):
         return "CONFIRMATION"
 
-    if any(keyword in normalized_text for keyword in tracking_keywords):
-        return "TRACKING_REQUEST"
-
-    if any(keyword in normalized_text for keyword in price_keywords):
-        return "PRICE_REQUEST"
-    
-    if any(word in text.lower() for word in [
-        "tracking",
-        "suivi",
-        "numéro de suivi",
-        "numero de suivi",
-        "slaivo-",
-    ]):
-        return "TRACKING_REQUEST"
-
-
-    if any(word in text.lower() for word in [
-        "payer mon fournisseur",
-        "payer fournisseur",
-        "paiement fournisseur",
-        "alipay",
-        "wechat",
-        "wechat pay",
-        "rmb",
-        "yuan",
-    ]):
+    if contains_any(normalized_text, supplier_payment_keywords):
         return "SUPPLIER_PAYMENT_REQUEST"
 
-    if any(keyword in normalized_text for keyword in transitaire_keywords):
-        return "TRANSITAIRE_REQUEST"
+    if contains_any(normalized_text, tracking_keywords):
+        return "TRACKING_REQUEST"
 
-    if any(keyword in normalized_text for keyword in warehouse_keywords):
+    if contains_any(normalized_text, price_keywords):
+        return "PRICING_REQUEST"
+
+    if contains_any(normalized_text, warehouse_keywords):
         return "WAREHOUSE_ADDRESS_REQUEST"
 
-    if any(keyword in normalized_text for keyword in departure_keywords):
+    if contains_any(normalized_text, departure_keywords):
         return "DEPARTURE_SCHEDULE_REQUEST"
 
-    if any(keyword in normalized_text for keyword in human_keywords):
+    if contains_any(normalized_text, human_keywords):
         return "HUMAN_HELP_REQUEST"
 
-    if any(keyword in normalized_text for keyword in send_cargo_keywords):
+    if contains_any(normalized_text, transitaire_keywords):
+        return "TRANSITAIRE_REQUEST"
+
+    if contains_any(normalized_text, send_cargo_keywords):
         return "SEND_CARGO_REQUEST"
 
-    if any(keyword in normalized_text for keyword in greeting_keywords):
+    if contains_any(normalized_text, greeting_keywords):
         return "GREETING"
-    
-    if any(word in text.lower() for word in [
-        "où", "ou", "adresse", "localisation", "situer", "situé",
-        "where", "location", "address"]):
-        return "ADDRESS_REQUEST"
-    
-    if any(word in text.lower() for word in [
-        "combien",
-        "prix",
-        "coût",
-        "tarif",
-        "cost",
-        "price"
-    ]):
-        return "PRICING_REQUEST"
 
     return "UNKNOWN"

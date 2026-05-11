@@ -9,7 +9,7 @@ REQUIRED_INTAKE_FIELDS = [
 
 def get_missing_intake_fields(dossier: dict | None) -> list[str]:
     if not dossier:
-        return REQUIRED_INTAKE_FIELDS
+        return REQUIRED_INTAKE_FIELDS.copy()
 
     missing = []
 
@@ -26,11 +26,11 @@ def build_human_intake_message(
     case_type: str | None = None,
 ) -> str:
     human_labels = {
-        "client_full_name": "Nom complet",
-        "destination_country": "Pays de destination",
-        "destination_city": "Ville de destination",
-        "shipping_mode": "Mode d’envoi : avion ou maritime",
-        "goods_type": "Type de marchandise",
+        "client_full_name": "votre nom complet",
+        "destination_country": "le pays de destination",
+        "destination_city": "la ville de destination",
+        "shipping_mode": "le mode d’envoi souhaité, par exemple avion ou maritime",
+        "goods_type": "le type de marchandise",
     }
 
     needed = [
@@ -42,39 +42,39 @@ def build_human_intake_message(
     if not needed:
         return (
             f"Parfait chef 🙏\n\n"
-            f"Votre dossier chez {org_name} est bien confirmé. "
-            "L’équipe va maintenant vérifier la suite."
+            f"Votre dossier chez {org_name} est bien confirmé.\n\n"
+            "Nous attendons maintenant que le colis soit déposé au bureau "
+            "ou reçu à notre entrepôt par votre fournisseur."
         )
-
-    intro = "D’accord chef, c’est noté 🙏"
 
     if case_type == "TRANSITAIRE":
         context = (
-            "Pour bien préparer votre dossier transitaire, "
-            "envoyez-nous simplement ces informations en un seul message :"
+            "Pour bien préparer votre dossier transitaire, envoyez-nous simplement "
+            "les informations restantes en un seul message."
         )
     else:
         context = (
-            "Pour bien enregistrer votre dossier, "
-            "envoyez-nous simplement ces informations en un seul message :"
+            "Pour bien enregistrer votre dossier, envoyez-nous simplement "
+            "les informations restantes en un seul message."
         )
 
     lines = [
-        intro,
+        "D’accord chef, c’est noté 🙏",
         "",
         context,
         "",
+        "Il nous manque encore :",
     ]
 
     for item in needed:
-        lines.append(f"{item} :")
+        lines.append(f"- {item}")
 
     lines.extend([
         "",
-        "Exemple :",
+        "Vous pouvez écrire par exemple :",
         "Jean Mbala, Douala Cameroun, avion, vêtements.",
         "",
-        "Dès que nous recevons ça, l’équipe pourra préparer la suite de votre dossier.",
+        "Dès qu’on reçoit ça, votre dossier sera prêt et l’équipe pourra suivre la suite.",
     ])
 
     return "\n".join(lines)

@@ -1,8 +1,15 @@
 from fastapi import APIRouter, HTTPException
-from app.db.dossier_repository import get_dossier_detail
-from app.db.dossier_repository import get_dossier_detail, list_active_dossiers
+
+from app.db.dossier_repository import (
+    get_dossier_detail,
+    list_active_dossiers,
+)
+
 
 router = APIRouter()
+
+ORG_ID = "demo_agency"
+
 
 @router.get("/dossiers")
 def get_dossiers(
@@ -13,6 +20,7 @@ def get_dossiers(
     limit: int = 50,
 ):
     dossiers = list_active_dossiers(
+        org_id=ORG_ID,
         status_global=status_global,
         case_type=case_type,
         intake_status=intake_status,
@@ -33,10 +41,11 @@ def get_dossiers(
         "dossiers": dossiers,
     }
 
+
 @router.get("/dossiers/{dossier_id}")
 def get_dossier(dossier_id: str):
     dossier = get_dossier_detail(
-        org_id="demo_agency",
+        org_id=ORG_ID,
         dossier_id=dossier_id,
     )
 

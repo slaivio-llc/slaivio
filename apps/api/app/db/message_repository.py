@@ -43,6 +43,7 @@ def insert_raw_message(
 
         conn.commit()
 
+
 def get_or_create_client(org_id: str, phone: str):
     with engine.connect() as conn:
         result = conn.execute(
@@ -77,7 +78,8 @@ def get_or_create_client(org_id: str, phone: str):
         conn.commit()
 
         return result.fetchone()[0]
-    
+
+
 def get_or_create_active_dossier(org_id: str, client_id: str):
     with engine.connect() as conn:
         result = conn.execute(
@@ -130,7 +132,8 @@ def get_or_create_active_dossier(org_id: str, client_id: str):
         conn.commit()
 
         return result.fetchone()[0]
-    
+
+
 def create_dossier_event(
     org_id: str,
     dossier_id: str,
@@ -163,6 +166,7 @@ def create_dossier_event(
 
         conn.commit()
 
+
 def update_dossier_from_intent(org_id: str, dossier_id: str, intent: str):
     case_type = None
     status_global = None
@@ -175,7 +179,7 @@ def update_dossier_from_intent(org_id: str, dossier_id: str, intent: str):
         case_type = "TRANSITAIRE"
         status_global = "PARTIAL"
 
-    elif intent == "PRICE_REQUEST":
+    elif intent in ["PRICE_REQUEST", "PRICING_REQUEST"]:
         case_type = "PRICE_INQUIRY"
         status_global = "LEAD"
 
@@ -183,13 +187,17 @@ def update_dossier_from_intent(org_id: str, dossier_id: str, intent: str):
         case_type = "TRACKING_SUPPORT"
         status_global = "ACTIVE"
 
-    elif intent == "WAREHOUSE_ADDRESS_REQUEST":
+    elif intent in ["WAREHOUSE_ADDRESS_REQUEST", "ADDRESS_REQUEST"]:
         case_type = "INFO_REQUEST"
         status_global = "LEAD"
 
     elif intent == "DEPARTURE_SCHEDULE_REQUEST":
         case_type = "INFO_REQUEST"
         status_global = "LEAD"
+
+    elif intent == "SUPPLIER_PAYMENT_REQUEST":
+        case_type = "SUPPLIER_PAYMENT"
+        status_global = "PARTIAL"
 
     elif intent == "HUMAN_HELP_REQUEST":
         case_type = "SUPPORT"
@@ -198,6 +206,9 @@ def update_dossier_from_intent(org_id: str, dossier_id: str, intent: str):
     elif intent == "GREETING":
         case_type = "GENERAL_CONVERSATION"
         status_global = "LEAD"
+
+    elif intent == "CONFIRMATION":
+        return None
 
     else:
         return None
@@ -241,6 +252,7 @@ def update_dossier_from_intent(org_id: str, dossier_id: str, intent: str):
             "validation_status": result[4],
         }
 
+
 def get_organization(org_id: str):
     with engine.connect() as conn:
         result = conn.execute(
@@ -250,7 +262,7 @@ def get_organization(org_id: str):
                 where id = :org_id
                 limit 1
             """),
-            {"org_id": org_id}
+            {"org_id": org_id},
         ).fetchone()
 
         if not result:
@@ -263,35 +275,50 @@ def get_organization(org_id: str):
             "city": result[3],
         }
 
+
 def update_dossier_from_ai_fields(org_id: str, dossier_id: str, fields: dict):
     if not fields:
         return None
 
-    query = """
-        update dossiers
-        set
-            origin_country = coalesce(:origin_country, origin_country),
-            origin_city = coalesce(:origin_city, origin_city),
-            destination_country = coalesce(:destination_country, destination_country),
-            destination_city = coalesce(:destination_city, destination_city),
-            goods_type = coalesce(:goods_type, goods_type),
-            estimated_weight_kg = coalesce(:estimated_weight_kg, estimated_weight_kg),
-            estimated_volume_cbm = coalesce(:estimated_volume_cbm, estimated_volume_cbm),
-            shipping_mode = coalesce(:shipping_mode, shipping_mode),
-            tracking_id = coalesce(:tracking_id, tracking_id),
-            supplier_payment_amount = coalesce(:supplier_payment_amount, supplier_payment_amount),
-            supplier_payment_currency = coalesce(:supplier_payment_currency, supplier_payment_currency)
-        where id = :dossier_id and org_id = :org_id
-        returning *
-    """
+    allowed_fields = {
+        "origin_country": fields.get("origin_country"),
+        "origin_city": fields.get("origin_city"),
+        "destination_country": fields.get("destination_country"),
+        "destination_city": fields.get("destination_city"),
+        "goods_type": fields.get("goods_type"),
+        "estimated_weight_kg": fields.get("estimated_weight_kg"),
+        "estimated_volume_cbm": fields.get("estimated_volume_cbm"),
+        "shipping_mode": fields.get("shipping_mode"),
+        "tracking_id": fields.get("tracking_id"),
+        "supplier_payment_amount": fields.get("supplier_payment_amount"),
+        "supplier_payment_currency": fields.get("supplier_payment_currency"),
+    }
 
     with engine.connect() as conn:
         result = conn.execute(
-            text(query),
+            text("""
+                update dossiers
+                set
+                    origin_country = coalesce(:origin_country, origin_country),
+                    origin_city = coalesce(:origin_city, origin_city),
+                    destination_country = coalesce(:destination_country, destination_country),
+                    destination_city = coalesce(:destination_city, destination_city),
+                    goods_type = coalesce(:goods_type, goods_type),
+                    estimated_weight_kg = coalesce(:estimated_weight_kg, estimated_weight_kg),
+                    estimated_volume_cbm = coalesce(:estimated_volume_cbm, estimated_volume_cbm),
+                    shipping_mode = coalesce(:shipping_mode, shipping_mode),
+                    tracking_id = coalesce(:tracking_id, tracking_id),
+                    supplier_payment_amount = coalesce(:supplier_payment_amount, supplier_payment_amount),
+                    supplier_payment_currency = coalesce(:supplier_payment_currency, supplier_payment_currency),
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
             {
                 "dossier_id": dossier_id,
                 "org_id": org_id,
-                **fields,
+                **allowed_fields,
             },
         )
 
@@ -299,31 +326,54 @@ def update_dossier_from_ai_fields(org_id: str, dossier_id: str, fields: dict):
 
         row = result.fetchone()
         return dict(row._mapping) if row else None
-    
+
+
 def get_dossier_full(org_id: str, dossier_id: str):
     with engine.connect() as conn:
-        result = conn.execute(
+        dossier = conn.execute(
             text("""
                 select *
                 from dossiers
-                where id = :dossier_id and org_id = :org_id
+                where id = :dossier_id
+                  and org_id = :org_id
                 limit 1
             """),
-            {"dossier_id": dossier_id, "org_id": org_id}
+            {
+                "dossier_id": dossier_id,
+                "org_id": org_id,
+            },
         ).fetchone()
 
-        if not result:
+        if not dossier:
             return None
 
-        return dict(result._mapping)
-    
+        dossier_dict = dict(dossier._mapping)
+
+        client = conn.execute(
+            text("""
+                select *
+                from clients
+                where id = :client_id
+                  and org_id = :org_id
+                limit 1
+            """),
+            {
+                "client_id": dossier_dict["client_id"],
+                "org_id": org_id,
+            },
+        ).fetchone()
+
+        dossier_dict["client"] = dict(client._mapping) if client else None
+
+        return dossier_dict
+
+
 def update_dossier_from_action(org_id: str, dossier_id: str, action: dict):
     action_type = action.get("action_type")
 
     intake_status = None
     validation_status = None
 
-    # mapping métier
     if action_type in [
         "CONTINUE_SHIPPING_INTAKE",
         "CONTINUE_TRANSITAIRE_INTAKE",
@@ -344,18 +394,18 @@ def update_dossier_from_action(org_id: str, dossier_id: str, action: dict):
     if action_type == "ESCALATE_TO_HUMAN":
         validation_status = "NEEDS_HUMAN"
 
-    query = """
-        update dossiers
-        set
-            intake_status = coalesce(:intake_status, intake_status),
-            validation_status = coalesce(:validation_status, validation_status)
-        where id = :dossier_id and org_id = :org_id
-        returning *
-    """
-
     with engine.connect() as conn:
         result = conn.execute(
-            text(query),
+            text("""
+                update dossiers
+                set
+                    intake_status = coalesce(:intake_status, intake_status),
+                    validation_status = coalesce(:validation_status, validation_status),
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
             {
                 "dossier_id": dossier_id,
                 "org_id": org_id,
@@ -368,7 +418,8 @@ def update_dossier_from_action(org_id: str, dossier_id: str, action: dict):
 
         row = result.fetchone()
         return dict(row._mapping) if row else None
-    
+
+
 def update_dossier_pricing(
     org_id: str,
     dossier_id: str,
@@ -411,7 +462,8 @@ def update_dossier_pricing(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
-    
+
+
 def mark_dossier_confirmed(org_id: str, dossier_id: str):
     with engine.connect() as conn:
         result = conn.execute(
@@ -435,7 +487,8 @@ def mark_dossier_confirmed(org_id: str, dossier_id: str):
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
-    
+
+
 def update_dossier_intake_fields(
     org_id: str,
     dossier_id: str,
@@ -474,7 +527,32 @@ def update_dossier_intake_fields(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
-    
+
+
+def mark_dossier_intake_complete(org_id: str, dossier_id: str):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    intake_status = 'COMPLETE',
+                    updated_at = now()
+                where id = :dossier_id
+                  and org_id = :org_id
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+
+        return dict(row._mapping) if row else None
+
+
 def mark_dossier_waiting_for_package(org_id: str, dossier_id: str):
     with engine.connect() as conn:
         result = conn.execute(
@@ -498,7 +576,8 @@ def mark_dossier_waiting_for_package(org_id: str, dossier_id: str):
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
-    
+
+
 def update_dossier_final_pricing(
     org_id: str,
     dossier_id: str,

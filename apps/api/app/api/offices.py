@@ -1,13 +1,15 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-
 from app.db.office_repository import (
     create_office,
     list_offices,
     find_office,
 )
 
+
 router = APIRouter()
+
+ORG_ID = "demo_agency"
 
 
 class CreateOfficeRequest(BaseModel):
@@ -24,7 +26,7 @@ class CreateOfficeRequest(BaseModel):
 @router.post("/offices")
 def create_agency_office(body: CreateOfficeRequest):
     office = create_office(
-        org_id="demo_agency",
+        org_id=ORG_ID,
         country=body.country,
         city=body.city,
         address=body.address,
@@ -48,7 +50,7 @@ def get_offices(
     office_type: str | None = None,
 ):
     offices = list_offices(
-        org_id="demo_agency",
+        org_id=ORG_ID,
         country=country,
         city=city,
         office_type=office_type,
@@ -68,7 +70,7 @@ def search_office(
     office_type: str | None = None,
 ):
     office = find_office(
-        org_id="demo_agency",
+        org_id=ORG_ID,
         country=country,
         city=city,
         office_type=office_type,

@@ -1,16 +1,20 @@
 from app.services.address_service import handle_address_request
-from app.services.pricing_engine import calculate_price
-from app.services.pricing_parser import extract_pricing_info
 from app.services.pricing_orchestrator import handle_pricing_request
 from app.services.intake_service import (
     get_missing_intake_fields,
     build_human_intake_message,
 )
 
-def _merge_fields(dossier: dict, understanding: dict | None):
+
+ORG_ID = "demo_agency"
+
+
+def _merge_fields(
+    dossier: dict | None,
+    understanding: dict | None,
+):
     fields = {}
 
-    # 1. mémoire dossier
     if dossier:
         fields.update({
             "origin_country": dossier.get("origin_country"),
@@ -22,27 +26,19 @@ def _merge_fields(dossier: dict, understanding: dict | None):
             "estimated_volume_cbm": dossier.get("estimated_volume_cbm"),
             "shipping_mode": dossier.get("shipping_mode"),
             "tracking_id": dossier.get("tracking_id"),
+            "supplier_payment_amount": dossier.get("supplier_payment_amount"),
+            "supplier_payment_currency": dossier.get("supplier_payment_currency"),
+            "supplier_mentioned": dossier.get("supplier_mentioned"),
         })
 
-    # 2. AI override si présent
     if understanding and understanding.get("ai_result"):
         ai_fields = understanding["ai_result"].get("extracted_fields") or {}
-        for k, v in ai_fields.items():
-            if v:
-                fields[k] = v
+
+        for key, value in ai_fields.items():
+            if value not in [None, ""]:
+                fields[key] = value
 
     return fields
-
-def _get_extracted_fields(understanding: dict | None) -> dict:
-    if not understanding:
-        return {}
-
-    ai_result = understanding.get("ai_result")
-
-    if not ai_result:
-        return {}
-
-    return ai_result.get("extracted_fields") or {}
 
 
 def _format_known_fields(fields: dict) -> str:
@@ -105,34 +101,192 @@ def _missing_shipping_fields(fields: dict) -> list[str]:
 
 def _format_missing_questions(missing_fields: list[str]) -> str:
     if not missing_fields:
-        return "Nous avons les premières informations. L’équipe pourra vérifier les détails et vous confirmer la suite."
+        return (
+            "Nous avons les premières informations. "
+            "L’équipe pourra vérifier les détails et vous confirmer la suite."
+        )
 
-    lines = [f"{index}. {field}" for index, field in enumerate(missing_fields, start=1)]
+    lines = [
+        f"{index}. {field}"
+        for index, field in enumerate(missing_fields, start=1)
+    ]
 
     return "Merci de préciser aussi :\n" + "\n".join(lines)
 
 
-def generate_reply(
-        intent: str, 
-        org_name: str, 
-        understanding: dict | None = None,
-        dossier: dict | None = None,
-        text: str = "",
-        ) -> dict:
-    fields = _merge_fields(dossier or {}, understanding)
-    known_fields_text = _format_known_fields(fields)
+def _supplier_payment_reply(
+    org_name: str,
+    fields: dict,
+):
+    amount = fields.get("supplier_payment_amount")
+    currency = fields.get("supplier_payment_currency")
 
-    if intent == "ADDRESS_REQUEST":
-        result = handle_address_request(
-            org_id="demo_agency",
-            text=text,
+    known_payment = ""
+
+    if amount and currency:
+        known_payment = (
+            f"J’ai bien noté le montant : {amount} {currency}.\n\n"
         )
 
+    return {
+        "reply_type": "supplier_payment_intake",
+        "should_escalate": False,
+        "message": (
+            f"Merci d’avoir contacté {org_name}.\n\n"
+            f"{known_payment}"
+            "Pour le paiement fournisseur, merci de préciser :\n"
+            "1. le montant exact\n"
+            "2. la devise\n"
+            "3. le moyen souhaité si connu : WeChat Pay, Alipay ou autre\n"
+            "4. les informations du fournisseur"
+        ),
+    }
+
+
+def _tracking_reply(
+    org_name: str,
+    fields: dict,
+):
+    tracking_id = fields.get("tracking_id")
+
+    if tracking_id:
+        message = (
+            f"Merci d’avoir contacté {org_name}.\n\n"
+            f"J’ai bien reçu votre numéro de suivi : {tracking_id}.\n"
+            "Nous allons vérifier le statut de votre colis."
+        )
+
+    else:
+        message = (
+            f"Merci d’avoir contacté {org_name}.\n\n"
+            "Veuillez nous envoyer votre numéro de tracking afin que nous puissions "
+            "vérifier le statut de votre colis."
+        )
+
+    return {
+        "reply_type": "tracking_lookup_needed",
+        "should_escalate": False,
+        "message": message,
+    }
+
+
+def _pricing_reply(
+    text: str,
+    dossier: dict | None,
+):
+    pricing = handle_pricing_request(
+        org_id=ORG_ID,
+        text=text,
+        dossier=dossier,
+    )
+
+    if pricing["pricing_status"] == "MISSING_ROUTE":
         return {
-            "reply_type": "ADDRESS_RESPONSE",
-            "message": result["message"],
-            "should_escalate": not result["found"],
+            "reply_type": "PRICING_INCOMPLETE",
+            "message": (
+                "Veuillez préciser le pays de départ et le pays de destination."
+            ),
+            "should_escalate": False,
+            "pricing": pricing,
         }
+
+    if pricing["pricing_status"] == "MISSING_WEIGHT":
+        return {
+            "reply_type": "PRICING_INCOMPLETE",
+            "message": "Veuillez préciser le poids estimé en kg.",
+            "should_escalate": False,
+            "pricing": pricing,
+        }
+
+    if pricing["pricing_status"] == "NO_RULE_FOUND":
+        return {
+            "reply_type": "PRICING_NOT_FOUND",
+            "message": (
+                "Nous n’avons pas encore de tarif disponible pour cette route. "
+                "Veuillez contacter l’agence pour une confirmation."
+            ),
+            "should_escalate": True,
+            "pricing": pricing,
+        }
+
+    parsed = pricing["parsed"]
+    result = pricing["result"]
+
+    return {
+        "reply_type": "PRICING_RESPONSE",
+        "message": (
+            "💰 Estimation de votre envoi :\n\n"
+            f"Origine : {parsed['origin_country']}\n"
+            f"Destination : {parsed['destination_country']}\n"
+            f"Poids : {parsed['weight_kg']} kg\n\n"
+            f"Prix : {result['total']} {result['currency']}\n\n"
+            "Veuillez confirmer pour continuer votre dossier."
+        ),
+        "should_escalate": False,
+        "pricing": pricing,
+    }
+
+
+def _confirmed_client_reply(
+    org_name: str,
+    dossier: dict | None,
+):
+    missing = get_missing_intake_fields(dossier)
+
+    if missing:
+        return {
+            "reply_type": "CONFIRMATION_INTAKE",
+            "should_escalate": False,
+            "message": build_human_intake_message(
+                missing_fields=missing,
+                org_name=org_name,
+                case_type=dossier.get("case_type") if dossier else None,
+            ),
+        }
+
+    if dossier and dossier.get("intake_status") == "COMPLETE":
+        return {
+            "reply_type": "WAITING_PACKAGE",
+            "should_escalate": False,
+            "message": (
+                f"Parfait chef 🙏\n\n"
+                f"Votre dossier est bien enregistré chez {org_name}.\n\n"
+                "Nous attendons maintenant que le colis soit déposé au bureau "
+                "ou reçu à notre entrepôt par votre fournisseur.\n\n"
+                "Dès réception, l’équipe va confirmer le poids réel, le prix final "
+                "et vous envoyer le suivi."
+            ),
+        }
+
+    return {
+        "reply_type": "CONFIRMED_COMPLETE",
+        "should_escalate": False,
+        "message": (
+            f"Merci. Votre dossier est bien enregistré chez {org_name}. "
+            "Nous allons procéder à la suite."
+        ),
+    }
+
+
+def generate_reply(
+    intent: str,
+    org_name: str,
+    understanding: dict | None = None,
+    dossier: dict | None = None,
+    text: str = "",
+) -> dict:
+    fields = _merge_fields(
+        dossier=dossier,
+        understanding=understanding,
+    )
+
+    known_fields_text = _format_known_fields(fields)
+
+    if dossier and dossier.get("validation_status") == "CONFIRMED_BY_CLIENT":
+        return _confirmed_client_reply(
+            org_name=org_name,
+            dossier=dossier,
+        )
 
     if intent == "GREETING":
         return {
@@ -179,71 +333,34 @@ def generate_reply(
             ),
         }
 
-    if intent == "PRICE_REQUEST":
-        missing = _missing_shipping_fields(fields)
-
-        return {
-            "reply_type": "qualification_needed",
-            "should_escalate": False,
-            "message": (
-                f"{org_name} 📦\n\n"
-                f"{known_fields_text}"
-                "Pour vous donner une information correcte sur le prix, merci de préciser :\n"
-                + "\n".join(f"{index}. {field}" for index, field in enumerate(missing, start=1))
-            ),
-        }
+    if intent in ["PRICE_REQUEST", "PRICING_REQUEST"]:
+        return _pricing_reply(
+            text=text,
+            dossier=dossier,
+        )
 
     if intent == "SUPPLIER_PAYMENT_REQUEST":
-        amount = fields.get("supplier_payment_amount")
-        currency = fields.get("supplier_payment_currency")
-
-        known_payment = ""
-        if amount and currency:
-            known_payment = f"J’ai bien noté le montant : {amount} {currency}.\n\n"
-
-        return {
-            "reply_type": "supplier_payment_intake",
-            "should_escalate": False,
-            "message": (
-                f"Merci d’avoir contacté {org_name}.\n\n"
-                f"{known_payment}"
-                "Pour le paiement fournisseur, merci de préciser :\n"
-                "1. Le montant exact\n"
-                "2. La devise\n"
-                "3. Le moyen souhaité si connu : WeChat Pay, Alipay ou autre\n"
-                "4. Les informations du fournisseur"
-            ),
-        }
+        return _supplier_payment_reply(
+            org_name=org_name,
+            fields=fields,
+        )
 
     if intent == "TRACKING_REQUEST":
-        tracking_id = fields.get("tracking_id")
-
-        if tracking_id:
-            message = (
-                f"Merci d’avoir contacté {org_name}.\n\n"
-                f"J’ai bien reçu votre numéro de suivi : {tracking_id}.\n"
-                "Nous allons vérifier le statut de votre colis."
-            )
-        else:
-            message = (
-                f"Merci d’avoir contacté {org_name}.\n\n"
-                "Veuillez nous envoyer votre numéro de tracking afin que nous puissions vérifier le statut de votre colis."
-            )
-
-        return {
-            "reply_type": "tracking_lookup_needed",
-            "should_escalate": False,
-            "message": message,
-        }
+        return _tracking_reply(
+            org_name=org_name,
+            fields=fields,
+        )
 
     if intent == "WAREHOUSE_ADDRESS_REQUEST":
+        result = handle_address_request(
+            org_id=ORG_ID,
+            text=text,
+        )
+
         return {
-            "reply_type": "needs_agency_knowledge",
-            "should_escalate": False,
-            "message": (
-                f"Merci d’avoir contacté {org_name}.\n\n"
-                "Pour vous donner la bonne adresse, nous devons vérifier les informations exactes configurées par l’agence."
-            ),
+            "reply_type": "ADDRESS_RESPONSE",
+            "message": result["message"],
+            "should_escalate": not result["found"],
         }
 
     if intent == "DEPARTURE_SCHEDULE_REQUEST":
@@ -252,7 +369,8 @@ def generate_reply(
             "should_escalate": False,
             "message": (
                 f"Merci d’avoir contacté {org_name}.\n\n"
-                "Nous devons vérifier le prochain départ disponible afin de vous donner une information correcte."
+                "Nous devons vérifier le prochain départ disponible afin de vous "
+                "donner une information correcte."
             ),
         }
 
@@ -264,111 +382,12 @@ def generate_reply(
                 f"D’accord. {org_name} transmet votre demande à un membre de l’équipe."
             ),
         }
-    
-    if intent == "PRICING_REQUEST":
-        pricing = handle_pricing_request(
-            org_id="demo_agency",
-            text=text,
+
+    if intent == "CONFIRMATION":
+        return _confirmed_client_reply(
+            org_name=org_name,
             dossier=dossier,
         )
-
-        if pricing["pricing_status"] == "MISSING_ROUTE":
-            return {
-                "reply_type": "PRICING_INCOMPLETE",
-                "message": "Veuillez préciser le pays de départ et le pays de destination.",
-                "should_escalate": False,
-            }
-
-        if pricing["pricing_status"] == "MISSING_WEIGHT":
-            return {
-                "reply_type": "PRICING_INCOMPLETE",
-                "message": "Veuillez préciser le poids estimé en kg.",
-                "should_escalate": False,
-            }
-
-        if pricing["pricing_status"] == "NO_RULE_FOUND":
-            return {
-                "reply_type": "PRICING_NOT_FOUND",
-                "message": (
-                    "Nous n’avons pas encore de tarif disponible pour cette route. "
-                    "Veuillez contacter l’agence pour une confirmation."
-                ),
-                "should_escalate": True,
-            }
-
-        parsed = pricing["parsed"]
-        result = pricing["result"]
-
-        return {
-            "reply_type": "PRICING_RESPONSE",
-            "message": (
-                f"💰 Estimation de votre envoi :\n\n"
-                f"Origine : {parsed['origin_country']}\n"
-                f"Destination : {parsed['destination_country']}\n"
-                f"Poids : {parsed['weight_kg']} kg\n\n"
-                f"Prix : {result['total']} {result['currency']}\n\n"
-                f"Veuillez confirmer pour continuer votre dossier."
-            ),
-            "should_escalate": False,
-            "pricing": pricing,
-        }
-    
-    if intent == "CONFIRMATION":
-        missing = get_missing_intake_fields(dossier)
-
-        if missing:
-            return {
-                "reply_type": "INTAKE_REQUIRED",
-                "message": build_intake_question(missing),
-                "should_escalate": False,
-            }
-
-        return {
-            "reply_type": "CONFIRMED_COMPLETE",
-            "message": "Merci. Votre dossier est complet. Nous allons procéder à la suite.",
-            "should_escalate": False,
-        }
-    
-    if intent == "CONFIRMATION":
-        missing = get_missing_intake_fields(dossier)
-
-        return {
-            "reply_type": "CONFIRMATION_INTAKE",
-            "should_escalate": False,
-            "message": build_human_intake_message(
-                missing_fields=missing,
-                org_name=org_name,
-                case_type=dossier.get("case_type") if dossier else None,
-            ),
-        }
-    
-    if dossier and dossier.get("validation_status") == "CONFIRMED_BY_CLIENT":
-        missing = get_missing_intake_fields(dossier)
-
-        if missing:
-            return {
-                "reply_type": "INTAKE_STILL_REQUIRED",
-                "should_escalate": False,
-                "message": build_human_intake_message(
-                    missing_fields=missing,
-                    org_name=org_name,
-                    case_type=dossier.get("case_type"),
-                ),
-            }
-
-        if dossier.get("intake_status") == "COMPLETE":
-            return {
-                "reply_type": "WAITING_PACKAGE",
-                "should_escalate": False,
-                "message": (
-                    f"Parfait chef 🙏\n\n"
-                    f"Votre dossier est bien enregistré chez {org_name}.\n\n"
-                    "Nous attendons maintenant que le colis soit déposé au bureau "
-                    "ou reçu à notre entrepôt par votre fournisseur.\n\n"
-                    "Dès réception, l’équipe va confirmer le poids réel, le prix final "
-                    "et vous envoyer le suivi."
-                ),
-            }
 
     return {
         "reply_type": "unknown",
@@ -376,8 +395,7 @@ def generate_reply(
         "message": (
             f"Merci d’avoir contacté {org_name}.\n\n"
             "Pouvez-vous préciser votre besoin ?\n"
-            "Par exemple : envoyer un colis, connaître le prix, suivre un colis, ou utiliser le service transitaire."
+            "Par exemple : envoyer un colis, connaître le prix, suivre un colis, "
+            "ou utiliser le service transitaire."
         ),
     }
-
-    

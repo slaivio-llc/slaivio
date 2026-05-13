@@ -11,19 +11,47 @@ def _to_float(value):
         return None
 
 
+def _rule_matches_quantity(
+    rule: dict,
+    quantity: float | None,
+) -> bool:
+    if quantity is None:
+        return False
+
+    min_value = _to_float(rule.get("min_value"))
+    max_value = _to_float(rule.get("max_value"))
+
+    if min_value is not None and quantity < min_value:
+        return False
+
+    if max_value is not None and quantity > max_value:
+        return False
+
+    return True
+
+
 def calculate_price(
     org_id: str,
-    origin_country: str,
-    destination_country: str,
+    origin_country: str | None,
+    destination_country: str | None,
     weight_kg: float | None = None,
     volume_cbm: float | None = None,
     goods_type: str | None = None,
     declared_value: float | None = None,
+    origin_city: str | None = None,
+    destination_city: str | None = None,
+    shipping_mode: str | None = None,
 ):
+    if not origin_country or not destination_country:
+        return None
+
     rules = find_pricing_rules(
         org_id=org_id,
         origin_country=origin_country,
         destination_country=destination_country,
+        origin_city=origin_city,
+        destination_city=destination_city,
+        shipping_mode=shipping_mode,
         goods_type=goods_type,
     )
 
@@ -38,68 +66,72 @@ def calculate_price(
         if price is None:
             continue
 
-        min_value = _to_float(rule.get("min_value"))
-        max_value = _to_float(rule.get("max_value"))
+        if rule.get("requires_manual_confirmation"):
+            return {
+                "total": None,
+                "currency": rule.get("currency"),
+                "applied_rule": rule,
+                "requires_manual_confirmation": True,
+                "message": rule.get("note") or "Tarif à confirmer avec l’agence.",
+            }
 
-        if rule_type == "PER_KG" and weight is not None:
-            if min_value is not None and weight < min_value:
+        if rule_type == "PER_KG":
+            if not _rule_matches_quantity(rule, weight):
                 continue
-
-            if max_value is not None and weight > max_value:
-                continue
-
-            total = weight * price
 
             return {
-                "total": total,
+                "total": weight * price,
                 "currency": rule["currency"],
                 "applied_rule": rule,
+                "requires_manual_confirmation": False,
                 "calculation": {
                     "rule_type": rule_type,
                     "quantity": weight,
                     "unit_price": price,
+                    "unit": "KG",
                 },
             }
 
-        if rule_type == "PER_CBM" and volume is not None:
-            if min_value is not None and volume < min_value:
+        if rule_type == "PER_CBM":
+            if not _rule_matches_quantity(rule, volume):
                 continue
-
-            if max_value is not None and volume > max_value:
-                continue
-
-            total = volume * price
 
             return {
-                "total": total,
+                "total": volume * price,
                 "currency": rule["currency"],
                 "applied_rule": rule,
+                "requires_manual_confirmation": False,
                 "calculation": {
                     "rule_type": rule_type,
                     "quantity": volume,
                     "unit_price": price,
+                    "unit": "CBM",
                 },
             }
 
-        if rule_type == "FIXED":
+        if rule_type in ["FIXED", "PER_PIECE"]:
             return {
                 "total": price,
                 "currency": rule["currency"],
                 "applied_rule": rule,
+                "requires_manual_confirmation": False,
                 "calculation": {
                     "rule_type": rule_type,
                     "quantity": 1,
                     "unit_price": price,
+                    "unit": rule.get("unit") or "PIECE",
                 },
             }
 
-        if rule_type == "PERCENTAGE" and declared is not None:
-            total = declared * (price / 100)
+        if rule_type == "PERCENTAGE":
+            if declared is None:
+                continue
 
             return {
-                "total": total,
+                "total": declared * (price / 100),
                 "currency": rule["currency"],
                 "applied_rule": rule,
+                "requires_manual_confirmation": False,
                 "calculation": {
                     "rule_type": rule_type,
                     "declared_value": declared,

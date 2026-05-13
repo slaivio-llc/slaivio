@@ -1,9 +1,19 @@
+from app.services.client_shipments_service import (
+    is_multiple_shipments_question,
+    get_client_shipments_reply,
+)
+
 from app.services.address_service import handle_address_request
 from app.services.pricing_orchestrator import handle_pricing_request
 from app.services.intake_service import (
     get_missing_intake_fields,
     build_human_intake_message,
 )
+from app.services.goods_rules_engine import (
+    find_goods_rule_answer,
+    build_goods_reply,
+)
+from app.services.ai_knowledge_router import route_knowledge_answer
 
 
 ORG_ID = "demo_agency"
@@ -190,13 +200,27 @@ def _pricing_reply(
             "pricing": pricing,
         }
 
-    if pricing["pricing_status"] == "MISSING_WEIGHT":
+    if pricing["pricing_status"] == "MISSING_QUANTITY":
         return {
             "reply_type": "PRICING_INCOMPLETE",
             "message": "Veuillez préciser le poids estimé en kg.",
             "should_escalate": False,
             "pricing": pricing,
         }
+    
+     if pricing["pricing_status"] == "MANUAL_CONFIRMATION_REQUIRED":
+        result = pricing["result"]
+
+        return {
+            "reply_type": "PRICING_MANUAL_CONFIRMATION_REQUIRED",
+            "message": (
+                "Cette tarification doit être confirmée par l’agence.\n\n"
+                f"{result.get('message') or 'Un membre de l’équipe va vérifier le tarif exact.'}"
+            ),
+            "should_escalate": True,
+            "pricing": pricing,
+        }
+
 
     if pricing["pricing_status"] == "NO_RULE_FOUND":
         return {
@@ -281,6 +305,56 @@ def generate_reply(
     )
 
     known_fields_text = _format_known_fields(fields)
+
+     if is_multiple_shipments_question(text):
+        client_phone = None
+
+        if dossier and dossier.get("client"):
+            client_phone = dossier["client"].get("phone")
+
+        if not client_phone and dossier:
+            client_phone = dossier.get("client_phone") or dossier.get("phone")
+
+        if client_phone:
+            return get_client_shipments_reply(
+                org_id=ORG_ID,
+                org_name=org_name,
+                phone=client_phone,
+            )
+
+
+    knowledge_result = route_knowledge_answer(
+        org_id=ORG_ID,
+        org_name=org_name,
+        intent=intent,
+        text=text,
+        understanding=understanding,
+    )
+
+    goods_result = find_goods_rule_answer(
+        org_id=ORG_ID,
+        text=text,
+    )
+
+    if goods_result["found"]:
+        return {
+            "reply_type": "GOODS_RULE_RESPONSE",
+            "should_escalate": bool(
+                goods_result["rule"].get("requires_manual_validation")
+            ),
+            "message": build_goods_reply(
+                org_name=org_name,
+                answer=goods_result["answer"],
+            ),
+        }
+
+
+    if knowledge_result["reply"] and knowledge_result["found"]:
+        return knowledge_result["reply"]
+
+    if knowledge_result["reply"] and knowledge_result["reply"].get("should_escalate"):
+        return knowledge_result["reply"]
+
 
     if dossier and dossier.get("validation_status") == "CONFIRMED_BY_CLIENT":
         return _confirmed_client_reply(

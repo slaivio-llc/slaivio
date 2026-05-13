@@ -1,9 +1,6 @@
 from datetime import datetime, timezone
-
 from fastapi import APIRouter, Request
-
 from app.models.message import NormalizedMessage
-
 from app.services.deduplication import is_duplicate, mark_as_seen
 from app.services.understanding_orchestrator import understand_message
 from app.services.reply_generator import generate_reply
@@ -19,7 +16,6 @@ from app.services.intake_service import (
     is_intake_in_progress,
     get_missing_intake_fields,
 )
-
 from app.db.message_repository import (
     insert_raw_message,
     get_or_create_client,
@@ -42,6 +38,15 @@ from app.db.followup_repository import (
     create_followup_task,
     cancel_pending_followups_for_dossier,
 )
+from app.services.escalation_service import (
+    should_create_escalation,
+    create_escalation_from_context,
+)
+from app.services.manager_event_service import (
+    emit_client_message_event,
+    emit_escalation_event,
+)
+
 
 router = APIRouter()
 
@@ -68,15 +73,10 @@ def normalize_whatsapp_payload(payload: dict) -> NormalizedMessage:
         dedupe_key=dedupe_key,
     )
 
-
-@router.post("/webhook/whatsapp")
-async def receive_whatsapp_message(request: Request):
-    payload = await request.json()
-
-    org_id = "demo_agency"
-
-    normalized_message = normalize_whatsapp_payload(payload)
-
+async def process_normalized_whatsapp_message(
+    normalized_message: NormalizedMessage,
+    payload: dict,
+):
     if is_duplicate(normalized_message.dedupe_key):
         return {
             "status": "duplicate",
@@ -143,6 +143,16 @@ async def receive_whatsapp_message(request: Request):
             "ai_result": understanding["ai_result"],
         },
     )
+
+    emit_client_message_event(
+        org_id="demo_agency",
+        client_id=str(client_id),
+        dossier_id=str(dossier_id),
+        phone=normalized_message.from_phone,
+        text=normalized_message.text_body,
+        intent=intent,
+    )
+
 
     create_dossier_event(
         org_id=org_id,
@@ -423,6 +433,40 @@ async def receive_whatsapp_message(request: Request):
     )
 
     queued_notification = None
+    created_escalation = None
+
+    if should_create_escalation(
+        reply=reply,
+        business_action=business_action,
+        understanding=understanding,
+    ):
+        shipment_id = None
+
+        if dossier_full and dossier_full.get("shipment"):
+            shipment_id = str(dossier_full["shipment"]["id"])
+
+        created_escalation = create_escalation_from_context(
+            org_id="demo_agency",
+            client_id=str(client_id) if client_id else None,
+            dossier_id=str(dossier_id) if dossier_id else None,
+            shipment_id=shipment_id,
+            text=normalized_message.text_body,
+            reply=reply,
+            business_action=business_action,
+            understanding=understanding,
+        )
+
+        if created_escalation:
+            create_dossier_event(
+                org_id="demo_agency",
+                dossier_id=dossier_id,
+                event_type="ESCALATION_CASE_CREATED",
+                payload={
+                    "escalation_id": str(created_escalation["id"]),
+                    "reason": created_escalation["reason"],
+                    "priority": created_escalation["priority"],
+                },
+            )
 
     if should_queue_notification(business_action, reply):
         queued_notification = create_notification_outbox(
@@ -499,5 +543,19 @@ async def receive_whatsapp_message(request: Request):
         "waiting_dossier": waiting_dossier,
         "updated_pricing_dossier": updated_pricing_dossier,
         "reply": reply,
+        "shipment_id": str(dossier_full["shipment"]["id"]) if dossier_full and dossier_full.get("shipment") else None,
         "normalized_message": normalized_message.model_dump(mode="json"),
     }
+
+@router.post("/webhook/whatsapp")
+async def receive_whatsapp_message(request: Request):
+    payload = await request.json()
+    normalized_message = normalize_whatsapp_payload(payload)
+
+    return await process_normalized_whatsapp_message(
+        normalized_message=normalized_message,
+        payload=payload,
+        org_id=org_id,
+    )
+
+    

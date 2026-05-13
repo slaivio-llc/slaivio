@@ -1,22 +1,21 @@
 from abc import ABC, abstractmethod
 
+class WhatsAppProvider:
+    def send_message(self, to: str, message: str) -> dict:
+        raise NotImplementedError
 
-class WhatsAppProvider(ABC):
-
-    @abstractmethod
-    def send_message(
+    def send_media_message(
         self,
         to: str,
         message: str,
+        media_url: str,
     ) -> dict:
-        """
-        Send WhatsApp message.
+        raise NotImplementedError
 
-        Returns:
-        {
-            "success": bool,
-            "provider_message_id": str | None,
-            "error": str | None,
-        }
-        """
-        pass
+    def send_template_message(
+        self,
+        to: str,
+        content_sid: str,
+        content_variables: dict,
+    ) -> dict:
+        raise NotImplementedError

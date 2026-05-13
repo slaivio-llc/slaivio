@@ -1,48 +1,6 @@
 import re
 
 
-KNOWN_COUNTRIES = {
-    "chine": "Chine",
-    "china": "Chine",
-    "rdc": "RDC",
-    "congo": "RDC",
-    "cameroun": "Cameroun",
-    "cameroon": "Cameroun",
-    "ghana": "Ghana",
-    "canada": "Canada",
-    "dubai": "Dubai",
-    "turquie": "Turquie",
-    "turkey": "Turquie",
-    "france": "France",
-    "belgique": "Belgique",
-    "belgium": "Belgique",
-    "kenya": "Kenya",
-    "ouganda": "Ouganda",
-    "uganda": "Ouganda",
-}
-
-
-def extract_goods_type(text: str) -> str | None:
-    text = text.lower()
-
-    mapping = {
-        "phone": ["téléphone", "telephone", "phone", "iphone", "samsung"],
-        "laptop": ["laptop", "ordinateur", "pc", "macbook"],
-        "cosmetics": ["cosmétique", "cosmetique", "maquillage", "parfum"],
-        "jewelry": ["bijou", "bijoux", "jewelry"],
-        "clothes": ["vêtement", "vetement", "habits", "chaussures"],
-        "documents": ["document", "documents", "courrier"],
-        "machines": ["machine", "machines"],
-    }
-
-    for normalized_type, keywords in mapping.items():
-        for keyword in keywords:
-            if keyword in text:
-                return normalized_type
-
-    return None
-
-
 def extract_weight(text: str) -> float | None:
     text = text.lower()
 
@@ -55,10 +13,7 @@ def extract_weight(text: str) -> float | None:
         match = re.search(pattern, text)
 
         if match:
-            try:
-                return float(match.group(1))
-            except ValueError:
-                return None
+            return float(match.group(1))
 
     return None
 
@@ -75,36 +30,36 @@ def extract_volume(text: str) -> float | None:
         match = re.search(pattern, text)
 
         if match:
-            try:
-                return float(match.group(1))
-            except ValueError:
-                return None
+            return float(match.group(1))
 
     return None
 
 
-def extract_countries(text: str) -> list[str]:
-    text_lower = text.lower()
+def extract_shipping_mode(text: str) -> str | None:
+    value = text.lower()
 
-    detected = []
+    if "avion" in value or "aérien" in value or "aerien" in value or "air" in value:
+        return "AIR"
 
-    for keyword, normalized in KNOWN_COUNTRIES.items():
-        if keyword in text_lower and normalized not in detected:
-            detected.append(normalized)
+    if "maritime" in value or "bateau" in value or "sea" in value:
+        return "SEA"
 
-    return detected
+    return None
 
 
-def extract_pricing_info(text: str):
-    detected = extract_countries(text)
-
-    origin = detected[0] if len(detected) > 0 else None
-    destination = detected[1] if len(detected) > 1 else None
+def extract_pricing_info_from_ai_or_text(
+    text: str,
+    ai_fields: dict | None = None,
+) -> dict:
+    ai_fields = ai_fields or {}
 
     return {
-        "origin_country": origin,
-        "destination_country": destination,
-        "weight_kg": extract_weight(text),
-        "volume_cbm": extract_volume(text),
-        "goods_type": extract_goods_type(text),
+        "origin_country": ai_fields.get("origin_country"),
+        "origin_city": ai_fields.get("origin_city"),
+        "destination_country": ai_fields.get("destination_country"),
+        "destination_city": ai_fields.get("destination_city"),
+        "goods_type": ai_fields.get("goods_type"),
+        "weight_kg": ai_fields.get("estimated_weight_kg") or extract_weight(text),
+        "volume_cbm": ai_fields.get("estimated_volume_cbm") or extract_volume(text),
+        "shipping_mode": ai_fields.get("shipping_mode") or extract_shipping_mode(text),
     }

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
-
+from app.services.private_arrival_service import create_private_arrival_media_and_notification
 from app.db.database import engine
 from app.db.message_repository import (
     create_dossier_event,
@@ -16,6 +16,9 @@ from app.db.shipment_repository import (
 from app.db.notification_repository import create_notification_outbox
 from app.db.office_repository import find_office
 from app.services.final_pricing_service import calculate_final_price
+from fastapi import Depends
+from app.core.security import require_manager_api_key
+
 
 
 router = APIRouter()
@@ -58,6 +61,16 @@ class ConfirmDeliveredRequest(BaseModel):
     dossier_id: str
 
 
+class ConfirmPrivateArrivalRequest(BaseModel):
+    dossier_id: str
+    media_url: str | None = None
+    media_type: str = "ARRIVAL_PROOF"
+    caption: str | None = None
+    weight_kg: float | None = None
+    arrival_note: str | None = None
+    uploaded_by: str | None = None
+
+
 def update_dossier_status(dossier_id: str, status_global: str):
     with engine.connect() as conn:
         result = conn.execute(
@@ -90,7 +103,7 @@ def get_client_phone_from_dossier(dossier_full: dict) -> str | None:
     return None
 
 
-@router.post("/manager/confirm-package")
+@router.post("/manager/confirm-package", dependencies=[Depends(require_manager_api_key)])
 def confirm_package(body: ConfirmPackageRequest):
     dossier = get_dossier_full(
         org_id=ORG_ID,
@@ -170,7 +183,7 @@ def confirm_package(body: ConfirmPackageRequest):
     }
 
 
-@router.post("/manager/confirm-payment")
+@router.post("/manager/confirm-payment", dependencies=[Depends(require_manager_api_key)])
 def confirm_payment(body: ConfirmPaymentRequest):
     with engine.connect() as conn:
         result = conn.execute(
@@ -225,7 +238,7 @@ def confirm_payment(body: ConfirmPaymentRequest):
     }
 
 
-@router.post("/manager/confirm-departure")
+@router.post("/manager/confirm-departure", dependencies=[Depends(require_manager_api_key)])
 def confirm_departure(body: ConfirmDepartureRequest):
     shipment = get_shipment_by_dossier(
         org_id=ORG_ID,
@@ -297,7 +310,7 @@ def confirm_departure(body: ConfirmDepartureRequest):
     }
 
 
-@router.post("/manager/confirm-arrival-hub")
+@router.post("/manager/confirm-arrival-hub", dependencies=[Depends(require_manager_api_key)])
 def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
     shipment = get_shipment_by_dossier(
         org_id=ORG_ID,
@@ -352,7 +365,7 @@ def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
     }
 
 
-@router.post("/manager/confirm-arrival-destination")
+@router.post("/manager/confirm-arrival-destination", dependencies=[Depends(require_manager_api_key)])
 def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
     shipment = get_shipment_by_dossier(
         org_id=ORG_ID,
@@ -423,7 +436,7 @@ def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
     }
 
 
-@router.post("/manager/ready-for-pickup")
+@router.post("/manager/ready-for-pickup", dependencies=[Depends(require_manager_api_key)])
 def ready_for_pickup(body: ReadyForPickupRequest):
     shipment = get_shipment_by_dossier(
         org_id=ORG_ID,
@@ -494,7 +507,7 @@ def ready_for_pickup(body: ReadyForPickupRequest):
     }
 
 
-@router.post("/manager/confirm-delivered")
+@router.post("/manager/confirm-delivered", dependencies=[Depends(require_manager_api_key)])
 def confirm_delivered(body: ConfirmDeliveredRequest):
     shipment = get_shipment_by_dossier(
         org_id=ORG_ID,
@@ -528,4 +541,101 @@ def confirm_delivered(body: ConfirmDeliveredRequest):
         "status": "ok",
         "shipment": updated_shipment,
         "dossier": updated_dossier,
+    }
+
+@router.post("/manager/confirm-private-arrival", dependencies=[Depends(require_manager_api_key)])
+def confirm_private_arrival(body: ConfirmPrivateArrivalRequest):
+    from app.db.shipment_repository import get_shipment_by_dossier, update_shipment_status
+    from app.db.message_repository import get_dossier_full, create_dossier_event
+    from app.db.database import engine
+    from sqlalchemy import text
+
+    shipment = get_shipment_by_dossier(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    if not shipment:
+        return {
+            "status": "error",
+            "message": "Shipment not found",
+        }
+
+    updated_shipment = update_shipment_status(
+        org_id="demo_agency",
+        shipment_id=str(shipment["id"]),
+        new_status="ARRIVED_DESTINATION",
+    )
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                update dossiers
+                set
+                    status_global = 'ARRIVED_DESTINATION',
+                    updated_at = now()
+                where org_id = :org_id
+                  and id = :dossier_id
+                returning *
+            """),
+            {
+                "org_id": "demo_agency",
+                "dossier_id": body.dossier_id,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+        updated_dossier = dict(row._mapping) if row else None
+
+    dossier_full = get_dossier_full(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+    )
+
+    client_phone = None
+
+    if dossier_full and dossier_full.get("client"):
+        client_phone = dossier_full["client"].get("phone")
+
+    if not client_phone:
+        return {
+            "status": "error",
+            "message": "Client phone not found",
+            "shipment": updated_shipment,
+            "dossier": updated_dossier,
+        }
+
+    result = create_private_arrival_media_and_notification(
+        org_id="demo_agency",
+        org_name="SLAIVO Demo Agency",
+        shipment=updated_shipment,
+        client_phone=client_phone,
+        media_url=body.media_url,
+        media_type=body.media_type,
+        caption=body.caption,
+        uploaded_by=body.uploaded_by,
+        weight_kg=body.weight_kg,
+        arrival_note=body.arrival_note,
+    )
+
+    create_dossier_event(
+        org_id="demo_agency",
+        dossier_id=body.dossier_id,
+        event_type="PACKAGE_PRIVATE_ARRIVAL_CONFIRMED",
+        payload={
+            "shipment_id": str(updated_shipment["id"]),
+            "tracking_id": updated_shipment.get("tracking_id"),
+            "media_url": body.media_url,
+            "weight_kg": body.weight_kg,
+        },
+    )
+
+    return {
+        "status": "ok",
+        "shipment": updated_shipment,
+        "dossier": updated_dossier,
+        "media": result["media"],
+        "notification": result["notification"],
+        "message": result["message"],
     }

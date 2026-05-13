@@ -1,74 +1,74 @@
-from app.services.mock_whatsapp_provider import MockWhatsAppProvider
+from app.services.whatsapp_provider_factory import get_whatsapp_provider
 
 from app.db.notification_repository import (
     get_notification_by_id,
-    mark_notification_as_sent,
+    mark_notification_sent,
     mark_notification_failed,
 )
-
-from app.db.message_repository import create_dossier_event
-
-
-provider = MockWhatsAppProvider()
+from app.services.manager_event_service import emit_notification_event
 
 
-def send_notification(
-    org_id: str,
-    notification_id: str,
-):
-    notification = get_notification_by_id(
-        org_id=org_id,
-        notification_id=notification_id,
-    )
+def send_notification(notification_id: str):
+    notification = get_notification_by_id(notification_id)
 
     if not notification:
         return {
             "status": "error",
-            "message": "notification_not_found",
+            "message": "not found",
         }
 
     if notification["status"] != "PENDING":
         return {
             "status": "error",
-            "message": "already_processed",
+            "message": "already processed",
         }
 
     try:
+        provider = get_whatsapp_provider()
+
         result = provider.send_message(
             to=notification["recipient_phone"],
             message=notification["message"],
         )
 
         if result.get("success"):
-            mark_notification_as_sent(
-                org_id=org_id,
+            mark_notification_sent(
                 notification_id=notification_id,
                 provider_message_id=result.get("provider_message_id"),
+                provider=result.get("provider") or "twilio",
+                provider_status=result.get("status"),
+            )
+            emit_notification_event(
+                org_id=notification["org_id"],
+                notification_id=notification_id,
+                dossier_id=str(notification["dossier_id"]) if notification.get("dossier_id") else None,
+                title="Notification envoyée",
+                message=f"Notification envoyée à {notification['recipient_phone']}",
+                status="SENT",
             )
 
-            if notification.get("dossier_id"):
-                create_dossier_event(
-                    org_id=org_id,
-                    dossier_id=str(notification["dossier_id"]),
-                    event_type="NOTIFICATION_SENT",
-                    payload={
-                        "notification_id": notification_id,
-                        "provider_message_id": result.get("provider_message_id"),
-                        "recipient_phone": notification["recipient_phone"],
-                        "notification_type": notification["notification_type"],
-                    },
-                )
+
 
             return {
                 "status": "sent",
-                "provider_result": result,
+                "provider": result.get("provider"),
+                "provider_message_id": result.get("provider_message_id"),
+                "provider_status": result.get("status"),
             }
 
         mark_notification_failed(
-            org_id=org_id,
             notification_id=notification_id,
             error="provider_error",
         )
+        emit_notification_event(
+                org_id=notification["org_id"],
+                notification_id=notification_id,
+                dossier_id=str(notification["dossier_id"]) if notification.get("dossier_id") else None,
+                title="Notification envoyée",
+                message=f"Notification envoyée à {notification['recipient_phone']}",
+                status="SENT",
+            )
+
 
         return {
             "status": "failed",
@@ -77,7 +77,6 @@ def send_notification(
 
     except Exception as e:
         mark_notification_failed(
-            org_id=org_id,
             notification_id=notification_id,
             error=str(e),
         )

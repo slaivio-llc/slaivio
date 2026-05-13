@@ -330,6 +330,7 @@ def update_dossier_from_ai_fields(org_id: str, dossier_id: str, fields: dict):
 
 def get_dossier_full(org_id: str, dossier_id: str):
     with engine.connect() as conn:
+
         dossier = conn.execute(
             text("""
                 select *
@@ -354,16 +355,37 @@ def get_dossier_full(org_id: str, dossier_id: str):
                 select *
                 from clients
                 where id = :client_id
-                  and org_id = :org_id
                 limit 1
             """),
             {
                 "client_id": dossier_dict["client_id"],
-                "org_id": org_id,
             },
         ).fetchone()
 
-        dossier_dict["client"] = dict(client._mapping) if client else None
+        shipment = conn.execute(
+            text("""
+                select *
+                from shipments
+                where dossier_id = :dossier_id
+                order by created_at desc
+                limit 1
+            """),
+            {
+                "dossier_id": dossier_id,
+            },
+        ).fetchone()
+
+        dossier_dict["client"] = (
+            dict(client._mapping)
+            if client
+            else None
+        )
+
+        dossier_dict["shipment"] = (
+            dict(shipment._mapping)
+            if shipment
+            else None
+        )
 
         return dossier_dict
 

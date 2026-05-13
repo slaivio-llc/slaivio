@@ -247,3 +247,78 @@ def record_shipment_payment(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+
+def list_shipments_by_client(
+    org_id: str,
+    client_id: str,
+    include_completed: bool = True,
+    limit: int = 20,
+):
+    filters = [
+        "s.org_id = :org_id",
+        "s.client_id = :client_id",
+    ]
+
+    params = {
+        "org_id": org_id,
+        "client_id": client_id,
+        "limit": limit,
+    }
+
+    if not include_completed:
+        filters.append("s.status not in ('DELIVERED', 'CANCELLED')")
+
+    where_clause = " and ".join(filters)
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(f"""
+                select
+                    s.*,
+                    d.status_global as dossier_status_global,
+                    d.intake_status as dossier_intake_status,
+                    d.validation_status as dossier_validation_status
+                from shipments s
+                left join dossiers d on d.id = s.dossier_id
+                where {where_clause}
+                order by s.created_at desc
+                limit :limit
+            """),
+            params,
+        )
+
+        return [dict(row._mapping) for row in result.fetchall()]
+
+
+def list_shipments_by_phone(
+    org_id: str,
+    phone: str,
+    include_completed: bool = True,
+    limit: int = 20,
+):
+    with engine.connect() as conn:
+        client = conn.execute(
+            text("""
+                select id
+                from clients
+                where org_id = :org_id
+                  and phone = :phone
+                limit 1
+            """),
+            {
+                "org_id": org_id,
+                "phone": phone,
+            },
+        ).fetchone()
+
+        if not client:
+            return []
+
+        client_id = str(client[0])
+
+    return list_shipments_by_client(
+        org_id=org_id,
+        client_id=client_id,
+        include_completed=include_completed,
+        limit=limit,
+    )

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from app.db.notification_repository import (
     list_pending_notifications,
-    mark_notification_as_sent,
+    mark_notification_sent,
 )
 from app.db.message_repository import create_dossier_event
 from app.services.notification_sender import send_notification

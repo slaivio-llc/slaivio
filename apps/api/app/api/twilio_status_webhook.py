@@ -58,7 +58,7 @@ async def receive_twilio_status_callback(request: Request):
             error_message=parsed.get("error_message"),
         )
 
-         if provider_status.lower() in {"failed", "undelivered"}:
+        if provider_status.lower() in {"failed", "undelivered"}:
             retryable = is_retryable_failure(
                 provider_status=provider_status,
                 error_code=parsed.get("error_code"),

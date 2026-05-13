@@ -32,7 +32,7 @@ async def receive_twilio_whatsapp(request: Request):
     normalized_message = normalize_twilio_whatsapp_form(form_data)
     payload = twilio_form_to_payload(form_data)
 
-     result = await process_normalized_whatsapp_message(
+    result = await process_normalized_whatsapp_message(
         normalized_message=normalized_message,
         payload=payload,
     )

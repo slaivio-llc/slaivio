@@ -1,8 +1,6 @@
 from sqlalchemy import text
 from app.db.database import engine
 import json
-from sqlalchemy import text
-from app.db.database import engine
 
 
 

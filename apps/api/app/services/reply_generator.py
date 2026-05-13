@@ -203,7 +203,7 @@ def _pricing_reply(
             "pricing": pricing,
         }
     
-     if pricing["pricing_status"] == "MANUAL_CONFIRMATION_REQUIRED":
+    if pricing["pricing_status"] == "MANUAL_CONFIRMATION_REQUIRED":
         result = pricing["result"]
 
         return {
@@ -301,7 +301,7 @@ def generate_reply(
 
     known_fields_text = _format_known_fields(fields)
 
-     if is_multiple_shipments_question(text):
+    if is_multiple_shipments_question(text):
         client_phone = None
 
         if dossier and dossier.get("client"):

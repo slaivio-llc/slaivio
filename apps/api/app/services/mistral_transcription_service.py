@@ -1,4 +1,4 @@
-from mistralai import Mistral
+from mistralai.client import Mistral
 
 from app.core.config import settings
 

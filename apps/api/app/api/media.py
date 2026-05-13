@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from app.services.whatsapp_provider_factory import get_whatsapp_provider
 from app.db.notification_repository import create_notification_outbox, mark_notification_sent
 
+router = APIRouter()
+
 class SendMediaMessageRequest(BaseModel):
     recipient_phone: str
     message: str

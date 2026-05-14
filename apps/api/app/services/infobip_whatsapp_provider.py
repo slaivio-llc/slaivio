@@ -103,16 +103,40 @@ class InfobipWhatsAppProvider(WhatsAppProvider):
         to: str,
         message: str,
         media_url: str,
+        media_type: str = "image",
     ) -> dict:
-        url = f"{self.base_url}/whatsapp/1/message/image"
+        media_type = media_type.lower()
+
+        endpoint_by_type = {
+            "image": "image",
+            "photo": "image",
+            "document": "document",
+            "video": "video",
+            "audio": "audio",
+        }
+
+        endpoint = endpoint_by_type.get(media_type, "image")
+
+        url = f"{self.base_url}/whatsapp/1/message/{endpoint}"
+
+        content = {
+            "mediaUrl": media_url,
+        }
+
+        if endpoint == "image":
+            content["caption"] = message
+
+        elif endpoint == "document":
+            content["caption"] = message
+            content["filename"] = "slaivo-document"
+
+        elif endpoint == "video":
+            content["caption"] = message
 
         payload = {
             "from": self.from_number,
             "to": to,
-            "content": {
-                "mediaUrl": media_url,
-                "caption": message,
-            },
+            "content": content,
         }
 
         response = requests.post(
@@ -123,7 +147,6 @@ class InfobipWhatsAppProvider(WhatsAppProvider):
         )
 
         data = response.json()
-
         success = response.status_code < 300
 
         message_id = None
@@ -133,9 +156,7 @@ class InfobipWhatsAppProvider(WhatsAppProvider):
 
         if results:
             message_id = results[0].get("messageId")
-
             status_obj = results[0].get("status") or {}
-
             status = status_obj.get("groupName")
 
         return {
@@ -146,12 +167,62 @@ class InfobipWhatsAppProvider(WhatsAppProvider):
             "response": data,
         }
 
+
     def send_template_message(
         self,
         to: str,
         content_sid: str,
         content_variables: dict,
     ) -> dict:
-        raise NotImplementedError(
-            "Infobip template support later"
+        url = f"{self.base_url}/whatsapp/1/message/template"
+
+        payload = {
+            "messages": [
+                {
+                    "from": self.from_number,
+                    "to": to,
+                    "content": {
+                        "templateName": content_sid,
+                        "templateData": {
+                            "body": {
+                                "placeholders": [
+                                    str(value)
+                                    for value in content_variables.values()
+                                ]
+                            }
+                        },
+                        "language": content_variables.get("_language", "fr")
+                    }
+                }
+            ]
+        }
+
+        response = requests.post(
+            url,
+            headers=self.build_headers(),
+            json=payload,
+            timeout=30,
         )
+
+        data = response.json()
+        success = response.status_code < 300
+
+        message_id = None
+        status = None
+
+        messages = data.get("messages") or []
+
+        if messages:
+            message_id = messages[0].get("messageId")
+            status_obj = messages[0].get("status") or {}
+            status = status_obj.get("groupName")
+
+        return {
+            "success": success,
+            "provider": "infobip",
+            "provider_message_id": message_id,
+            "status": status,
+            "response": data,
+            "template_name": content_sid,
+        }
+

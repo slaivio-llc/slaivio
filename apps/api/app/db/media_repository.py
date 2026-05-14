@@ -6,12 +6,13 @@ from app.db.database import engine
 ALLOWED_MEDIA_TYPES = {
     "PHOTO",
     "VIDEO",
+    "AUDIO",
+    "DOCUMENT",
+    "VOICE_NOTE",
     "WEIGHT_PROOF",
     "ARRIVAL_PROOF",
     "PICKUP_PROOF",
     "DELIVERY_PROOF",
-    "VOICE_NOTE",
-
 }
 
 
@@ -113,6 +114,7 @@ def create_shipment_media(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+
 
 
 

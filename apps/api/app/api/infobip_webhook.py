@@ -1,14 +1,13 @@
 from fastapi import APIRouter
 from fastapi import Request
-
+from app.services.infobip_media_parser import extract_infobip_media_items
+from app.services.inbound_media_service import store_inbound_infobip_media
 from app.services.infobip_payload import (
     normalize_infobip_payload,
 )
-
 from app.api.webhook import (
     process_normalized_whatsapp_message,
 )
-
 from app.db.organization_whatsapp_repository import (
     find_org_by_twilio_to_number,
 )
@@ -37,8 +36,23 @@ async def infobip_whatsapp_webhook(
         else "demo_agency"
     )
 
-    return await process_normalized_whatsapp_message(
+    result = await process_normalized_whatsapp_message(
         normalized_message=normalized_message,
         payload=payload,
         org_id=org_id,
     )
+
+    media_items = extract_infobip_media_items(payload)
+
+    if media_items:
+        store_inbound_infobip_media(
+            org_id=org_id,
+            client_id=result["client_id"],
+            dossier_id=result["dossier_id"],
+            shipment_id=result.get("shipment_id"),
+            media_items=media_items,
+            raw_payload=payload,
+        )
+
+    return result
+

@@ -1,11 +1,9 @@
-from app.services.normalized_message import (
-    NormalizedMessage,
-)
+from datetime import datetime, timezone
+
+from app.models.message import NormalizedMessage
 
 
-def normalize_infobip_payload(
-    payload: dict,
-) -> NormalizedMessage:
+def normalize_infobip_payload(payload: dict) -> NormalizedMessage:
     results = payload.get("results") or []
 
     if not results:
@@ -13,26 +11,26 @@ def normalize_infobip_payload(
 
     item = results[0]
 
-    from_number = item.get("from")
-    to_number = item.get("to")
-
-    text_body = None
-
     message = item.get("message") or {}
 
-    if message.get("type") == "TEXT":
-        text_obj = message.get("text") or {}
+    text_body = ""
 
-        text_body = text_obj.get("body")
+    if (message.get("type") or "").upper() == "TEXT":
+        text_obj = message.get("text") or {}
+        text_body = text_obj.get("body") or ""
 
     provider_message_id = item.get("messageId")
 
+    from_phone = item.get("from") or "unknown"
+    to_phone = item.get("to")
+
     return NormalizedMessage(
-        provider="infobip",
         provider_message_id=provider_message_id,
-        from_phone=from_number,
-        to_phone=to_number,
+        from_phone=from_phone,
+        to_phone=to_phone,
         text_body=text_body,
         message_type="text",
-        raw_payload=payload,
+        received_at=datetime.now(timezone.utc),
+        source_channel="whatsapp",
+        dedupe_key=provider_message_id or f"infobip:{from_phone}:{text_body}",
     )

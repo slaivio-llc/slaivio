@@ -76,7 +76,9 @@ def normalize_whatsapp_payload(payload: dict) -> NormalizedMessage:
 async def process_normalized_whatsapp_message(
     normalized_message: NormalizedMessage,
     payload: dict,
+    org_id: str = "demo_agency",
 ):
+
     if is_duplicate(normalized_message.dedupe_key):
         return {
             "status": "duplicate",

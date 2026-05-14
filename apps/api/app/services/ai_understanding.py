@@ -1,5 +1,5 @@
 import json
-from mistralai.client import Mistral
+from mistralai import Mistral
 from app.core.config import settings
 
 

@@ -23,7 +23,7 @@ from app.api.voice_notes import router as voice_notes_router
 from app.api.whatsapp_templates import router as whatsapp_templates_router
 from app.api.manager_events import router as manager_events_router
 from app.api.infobip_templates import router as infobip_templates_router
-
+from app.api.infobip_webhook import router as infobip_webhook_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -52,7 +52,7 @@ app.include_router(voice_notes_router)
 app.include_router(whatsapp_templates_router)
 app.include_router(manager_events_router)
 app.include_router(infobip_templates_router)
-
+app.include_router(infobip_webhook_router)
 
 
 @app.get("/")

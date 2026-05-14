@@ -9,7 +9,7 @@ from app.api.webhook import (
     process_normalized_whatsapp_message,
 )
 from app.db.organization_whatsapp_repository import (
-    find_org_by_twilio_to_number,
+    find_org_by_infobip_number,
 )
 
 
@@ -26,9 +26,10 @@ async def infobip_whatsapp_webhook(
         payload,
     )
 
-    org_settings = find_org_by_twilio_to_number(
+    org_settings = find_org_by_infobip_number(
         normalized_message.to_phone,
     )
+
 
     org_id = (
         org_settings["org_id"]

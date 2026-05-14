@@ -658,3 +658,71 @@ def update_dossier_final_pricing(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+
+def create_message(
+    org_id: str,
+    dossier_id: str,
+    client_id: str,
+    provider_message_id: str | None,
+    from_phone: str,
+    to_phone: str | None,
+    text_body: str | None,
+    message_type: str,
+    source_channel: str,
+    direction: str,
+    dedupe_key: str,
+    received_at,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                insert into messages (
+                    org_id,
+                    dossier_id,
+                    client_id,
+                    provider_message_id,
+                    from_phone,
+                    to_phone,
+                    text_body,
+                    message_type,
+                    source_channel,
+                    direction,
+                    dedupe_key,
+                    received_at
+                )
+                values (
+                    :org_id,
+                    :dossier_id,
+                    :client_id,
+                    :provider_message_id,
+                    :from_phone,
+                    :to_phone,
+                    :text_body,
+                    :message_type,
+                    :source_channel,
+                    :direction,
+                    :dedupe_key,
+                    :received_at
+                )
+                on conflict (dedupe_key) do nothing
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "dossier_id": dossier_id,
+                "client_id": client_id,
+                "provider_message_id": provider_message_id,
+                "from_phone": from_phone,
+                "to_phone": to_phone,
+                "text_body": text_body,
+                "message_type": message_type,
+                "source_channel": source_channel,
+                "direction": direction,
+                "dedupe_key": dedupe_key,
+                "received_at": received_at,
+            },
+        )
+
+        conn.commit()
+        row = result.fetchone()
+        return dict(row._mapping) if row else None

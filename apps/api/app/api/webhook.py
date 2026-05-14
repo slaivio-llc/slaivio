@@ -9,6 +9,7 @@ from app.services.notification_engine import (
     should_queue_notification,
     build_notification_type,
 )
+from app.db.message_repository import create_message
 from app.services.followup_engine import build_followup_for_business_action
 from app.services.pricing_orchestrator import handle_pricing_request
 from app.services.intake_parser import parse_intake_message
@@ -97,6 +98,22 @@ async def process_normalized_whatsapp_message(
         org_id=org_id,
         client_id=client_id,
     )
+
+    create_message(
+        org_id=org_id,
+        dossier_id=str(dossier_id),
+        client_id=str(client_id),
+        provider_message_id=normalized_message.provider_message_id,
+        from_phone=normalized_message.from_phone,
+        to_phone=normalized_message.to_phone,
+        text_body=normalized_message.text_body,
+        message_type=normalized_message.message_type,
+        source_channel=normalized_message.source_channel,
+        direction="inbound",
+        dedupe_key=normalized_message.dedupe_key,
+        received_at=normalized_message.received_at,
+    )
+
 
     insert_raw_message(
         org_id=org_id,

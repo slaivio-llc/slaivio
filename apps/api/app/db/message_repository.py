@@ -1,6 +1,9 @@
 import json
 from sqlalchemy import text
 from app.db.database import engine
+from uuid import UUID
+from datetime import datetime, date
+
 
 
 def insert_raw_message(
@@ -132,6 +135,29 @@ def get_or_create_active_dossier(org_id: str, client_id: str):
         conn.commit()
 
         return result.fetchone()[0]
+    
+
+def make_json_safe(value):
+    if isinstance(value, UUID):
+        return str(value)
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    if isinstance(value, dict):
+        return {
+            key: make_json_safe(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, list):
+        return [
+            make_json_safe(item)
+            for item in value
+        ]
+
+    return value
+
 
 
 def create_dossier_event(
@@ -160,7 +186,7 @@ def create_dossier_event(
                 "org_id": org_id,
                 "dossier_id": dossier_id,
                 "event_type": event_type,
-                "payload": json.dumps(payload),
+                "payload": json.dumps(make_json_safe(payload or {})),
             },
         )
 

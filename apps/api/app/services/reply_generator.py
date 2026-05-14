@@ -9,6 +9,8 @@ from app.services.intake_service import (
     get_missing_intake_fields,
     build_human_intake_message,
 )
+from app.services.goods_rules_engine import find_goods_rule_answer
+
 
 
 ORG_ID = "demo_agency"

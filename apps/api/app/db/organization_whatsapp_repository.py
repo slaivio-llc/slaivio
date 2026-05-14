@@ -156,34 +156,25 @@ def get_active_whatsapp_settings(
         return dict(result._mapping) if result else None
 
 
-def find_org_by_twilio_to_number(
-    to_number: str,
+def find_org_by_infobip_number(
+    infobip_whatsapp_from: str,
 ):
-    normalized = normalize_whatsapp_number(to_number)
-
     with engine.connect() as conn:
         result = conn.execute(
             text("""
                 select *
                 from organization_whatsapp_settings
-                where provider = 'twilio'
-                  and twilio_whatsapp_from = :to_number
+                where infobip_whatsapp_from = :infobip_whatsapp_from
                   and is_active = true
-                order by
-                    case environment
-                        when 'production' then 2
-                        when 'sandbox' then 1
-                        else 0
-                    end desc,
-                    updated_at desc
                 limit 1
             """),
             {
-                "to_number": normalized,
+                "infobip_whatsapp_from": infobip_whatsapp_from,
             },
         ).fetchone()
 
         return dict(result._mapping) if result else None
+
 
 
 def list_whatsapp_settings(org_id: str):

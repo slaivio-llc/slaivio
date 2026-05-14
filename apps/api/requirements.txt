@@ -16,7 +16,7 @@ python-multipart==0.0.20
 
 twilio==9.6.1
 
-mistralai==1.7.0
+mistralai==2.4.5
 
 aiofiles==24.1.0
 

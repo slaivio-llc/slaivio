@@ -2,7 +2,7 @@ from app.services.client_shipments_service import (
     is_multiple_shipments_question,
     get_client_shipments_reply,
 )
-
+from app.services.ai_knowledge_router import route_knowledge_answer
 from app.services.address_service import handle_address_request
 from app.services.pricing_orchestrator import handle_pricing_request
 from app.services.intake_service import (

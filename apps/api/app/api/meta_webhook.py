@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request, Response, HTTPException
-
 from app.core.config import settings
 from app.api.webhook import process_normalized_whatsapp_message
 from app.services.meta_payload import (
@@ -13,6 +12,9 @@ from app.db.notification_repository import (
     update_notification_provider_status,
     create_notification_delivery_event,
 )
+from app.services.meta_media_parser import extract_meta_media_items
+from app.services.inbound_media_service import store_inbound_meta_media
+
 
 
 router = APIRouter()
@@ -105,5 +107,18 @@ async def meta_whatsapp_webhook(request: Request):
         payload=payload,
         org_id=org_id,
     )
+
+    media_items = extract_meta_media_items(payload)
+
+    if media_items:
+        store_inbound_meta_media(
+            org_id=org_id,
+            client_id=result["client_id"],
+            dossier_id=result["dossier_id"],
+            shipment_id=result.get("shipment_id"),
+            media_items=media_items,
+            raw_payload=payload,
+            phone_number_id=phone_number_id,
+        )
 
     return result

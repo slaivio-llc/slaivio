@@ -58,7 +58,6 @@ def mark_notification_sent(notification_id: str):
 @router.post("/notifications/{notification_id}/send")
 def send_notification_endpoint(notification_id: str):
     result = send_notification(
-        org_id=ORG_ID,
         notification_id=notification_id,
     )
 

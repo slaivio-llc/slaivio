@@ -5,6 +5,7 @@ from app.db.notification_repository import (
     mark_notification_sent,
     mark_notification_failed,
 )
+
 from app.services.manager_event_service import emit_notification_event
 
 
@@ -24,30 +25,41 @@ def send_notification(notification_id: str):
         }
 
     try:
-        provider = get_whatsapp_provider()
+        provider = get_whatsapp_provider(
+            org_id=notification["org_id"],
+        )
+
+        recipient_phone = (
+            notification.get("recipient_phone")
+            or notification.get("destination")
+        )
+
+        message = (
+            notification.get("message")
+            or notification.get("message_body")
+        )
 
         result = provider.send_message(
-            to=notification["recipient_phone"],
-            message=notification["message"],
+            to=recipient_phone,
+            message=message,
         )
 
         if result.get("success"):
             mark_notification_sent(
                 notification_id=notification_id,
                 provider_message_id=result.get("provider_message_id"),
-                provider=result.get("provider") or "twilio",
+                provider=result.get("provider") or "meta",
                 provider_status=result.get("status"),
             )
+
             emit_notification_event(
                 org_id=notification["org_id"],
                 notification_id=notification_id,
                 dossier_id=str(notification["dossier_id"]) if notification.get("dossier_id") else None,
                 title="Notification envoyée",
-                message=f"Notification envoyée à {notification['recipient_phone']}",
+                message=f"Notification envoyée à {recipient_phone}",
                 status="SENT",
             )
-
-
 
             return {
                 "status": "sent",
@@ -58,27 +70,37 @@ def send_notification(notification_id: str):
 
         mark_notification_failed(
             notification_id=notification_id,
-            error="provider_error",
+            error=str(result.get("response") or "provider_error"),
         )
-        emit_notification_event(
-                org_id=notification["org_id"],
-                notification_id=notification_id,
-                dossier_id=str(notification["dossier_id"]) if notification.get("dossier_id") else None,
-                title="Notification envoyée",
-                message=f"Notification envoyée à {notification['recipient_phone']}",
-                status="SENT",
-            )
 
+        emit_notification_event(
+            org_id=notification["org_id"],
+            notification_id=notification_id,
+            dossier_id=str(notification["dossier_id"]) if notification.get("dossier_id") else None,
+            title="Échec notification",
+            message=f"Échec envoi à {recipient_phone}",
+            status="FAILED",
+        )
 
         return {
             "status": "failed",
             "message": "provider_error",
+            "provider_response": result.get("response"),
         }
 
     except Exception as e:
         mark_notification_failed(
             notification_id=notification_id,
             error=str(e),
+        )
+
+        emit_notification_event(
+            org_id=notification["org_id"],
+            notification_id=notification_id,
+            dossier_id=str(notification["dossier_id"]) if notification.get("dossier_id") else None,
+            title="Échec notification",
+            message=str(e),
+            status="FAILED",
         )
 
         return {

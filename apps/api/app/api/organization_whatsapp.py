@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-
 from app.db.organization_whatsapp_repository import (
     upsert_whatsapp_settings,
     get_active_whatsapp_settings,
@@ -26,6 +25,11 @@ class UpsertWhatsappSettingsRequest(BaseModel):
     sender_country: str | None = None
     default_language: str = "fr"
     default_timezone: str = "Africa/Kinshasa"
+    meta_phone_number_id: str | None = None
+    meta_waba_id: str | None = None
+    meta_whatsapp_display_phone: str | None = None
+    meta_app_id: str | None = None
+
 
 
 @router.post("/organization/whatsapp-settings")
@@ -44,6 +48,11 @@ def save_whatsapp_settings(body: UpsertWhatsappSettingsRequest):
         sender_country=body.sender_country,
         default_language=body.default_language,
         default_timezone=body.default_timezone,
+        meta_phone_number_id=body.meta_phone_number_id,
+        meta_waba_id=body.meta_waba_id,
+        meta_whatsapp_display_phone=body.meta_whatsapp_display_phone,
+        meta_app_id=body.meta_app_id,
+
     )
 
     return {

@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     app_org_id: str = "demo_agency"
     manager_api_key: str = "change-me-dev-key"
 
+    meta_wa_access_token: str | None = None
+    meta_wa_verify_token: str = "slaivo_verify_token_secret"
+    meta_wa_api_version: str = "v20.0"
+
+
     whatsapp_provider: str = "mock"
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None

@@ -31,6 +31,11 @@ def upsert_whatsapp_settings(
     infobip_whatsapp_from: str | None = None,
     infobip_sender_name: str | None = None,
     infobip_webhook_secret: str | None = None,
+    meta_phone_number_id: str | None = None,
+    meta_waba_id: str | None = None,
+    meta_whatsapp_display_phone: str | None = None,
+    meta_app_id: str | None = None,
+
 
 ):
     with engine.connect() as conn:
@@ -53,6 +58,10 @@ def upsert_whatsapp_settings(
                     infobip_whatsapp_from,
                     infobip_sender_name,
                     infobip_webhook_secret,
+                    meta_phone_number_id,
+                    meta_waba_id,
+                    meta_whatsapp_display_phone,
+                    meta_app_id,
                 )
                 values (
                     :org_id,
@@ -71,6 +80,10 @@ def upsert_whatsapp_settings(
                     :infobip_whatsapp_from,
                     :infobip_sender_name,
                     :infobip_webhook_secret,
+                    :meta_phone_number_id,:meta_phone_number_id,
+                    :meta_waba_id,
+                    :meta_whatsapp_display_phone,
+                    :meta_app_id,
                 )
                 on conflict (org_id, provider, environment)
                 do update set
@@ -82,6 +95,10 @@ def upsert_whatsapp_settings(
                     status_callback_url = excluded.status_callback_url,
                     sender_status = excluded.sender_status,
                     sender_country = excluded.sender_country,
+                    meta_phone_number_id = excluded.meta_phone_number_id,
+                    meta_waba_id = excluded.meta_waba_id,
+                    meta_whatsapp_display_phone = excluded.meta_whatsapp_display_phone,
+                    meta_app_id = excluded.meta_app_id,
                     default_language = excluded.default_language,
                     default_timezone = excluded.default_timezone,
                     updated_at = now()
@@ -104,6 +121,10 @@ def upsert_whatsapp_settings(
                 "infobip_whatsapp_from": infobip_whatsapp_from,
                 "infobip_sender_name": infobip_sender_name,
                 "infobip_webhook_secret": infobip_webhook_secret,
+                "meta_phone_number_id": meta_phone_number_id,
+                "meta_waba_id": meta_waba_id,
+                "meta_whatsapp_display_phone": meta_whatsapp_display_phone,
+                "meta_app_id": meta_app_id,
             },
         )
 
@@ -190,3 +211,24 @@ def list_whatsapp_settings(org_id: str):
         )
 
         return [dict(row._mapping) for row in result.fetchall()]
+
+
+def find_org_by_meta_phone_number_id(
+    meta_phone_number_id: str,
+):
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+                select *
+                from organization_whatsapp_settings
+                where provider = 'meta'
+                  and meta_phone_number_id = :meta_phone_number_id
+                  and is_active = true
+                limit 1
+            """),
+            {
+                "meta_phone_number_id": meta_phone_number_id,
+            },
+        ).fetchone()
+
+        return dict(result._mapping) if result else None

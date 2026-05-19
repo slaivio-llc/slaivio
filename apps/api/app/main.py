@@ -26,6 +26,7 @@ from app.api.infobip_templates import router as infobip_templates_router
 from app.api.infobip_webhook import router as infobip_webhook_router
 from app.api.meta_webhook import router as meta_webhook_router
 from app.api.organization_whatsapp import router as organization_whatsapp_router
+from app.api.meta_templates import router as meta_templates_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -57,7 +58,7 @@ app.include_router(infobip_templates_router)
 app.include_router(infobip_webhook_router)
 app.include_router(meta_webhook_router)
 app.include_router(organization_whatsapp_router)
-
+app.include_router(meta_templates_router)
 
 @app.get("/")
 def root():

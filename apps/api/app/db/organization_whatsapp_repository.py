@@ -16,27 +16,31 @@ def normalize_whatsapp_number(value: str | None) -> str | None:
 
 def upsert_whatsapp_settings(
     org_id: str,
-    provider: str = "twilio",
-    environment: str = "sandbox",
-    twilio_whatsapp_from: str | None = None,
+    provider: str = "meta",
+    environment: str = "production",
+
     twilio_account_sid: str | None = None,
     twilio_subaccount_sid: str | None = None,
+    twilio_whatsapp_from: str | None = None,
     twilio_messaging_service_sid: str | None = None,
-    inbound_webhook_url: str | None = None,
-    status_callback_url: str | None = None,
-    sender_status: str = "PENDING",
-    sender_country: str | None = None,
-    default_language: str = "fr",
-    default_timezone: str = "Africa/Kinshasa",
+
     infobip_whatsapp_from: str | None = None,
     infobip_sender_name: str | None = None,
     infobip_webhook_secret: str | None = None,
+
     meta_phone_number_id: str | None = None,
     meta_waba_id: str | None = None,
     meta_whatsapp_display_phone: str | None = None,
     meta_app_id: str | None = None,
 
+    inbound_webhook_url: str | None = None,
+    status_callback_url: str | None = None,
 
+    sender_status: str = "ACTIVE",
+    sender_country: str | None = None,
+    default_language: str = "fr",
+    default_timezone: str = "Africa/Kinshasa",
+    is_active: bool = True,
 ):
     with engine.connect() as conn:
         result = conn.execute(
@@ -45,45 +49,57 @@ def upsert_whatsapp_settings(
                     org_id,
                     provider,
                     environment,
+
                     twilio_account_sid,
                     twilio_subaccount_sid,
                     twilio_whatsapp_from,
                     twilio_messaging_service_sid,
-                    inbound_webhook_url,
-                    status_callback_url,
-                    sender_status,
-                    sender_country,
-                    default_language,
-                    default_timezone
+
                     infobip_whatsapp_from,
                     infobip_sender_name,
                     infobip_webhook_secret,
+
                     meta_phone_number_id,
                     meta_waba_id,
                     meta_whatsapp_display_phone,
                     meta_app_id,
+
+                    inbound_webhook_url,
+                    status_callback_url,
+
+                    sender_status,
+                    sender_country,
+                    default_language,
+                    default_timezone,
+                    is_active
                 )
                 values (
                     :org_id,
                     :provider,
                     :environment,
+
                     :twilio_account_sid,
                     :twilio_subaccount_sid,
                     :twilio_whatsapp_from,
                     :twilio_messaging_service_sid,
-                    :inbound_webhook_url,
-                    :status_callback_url,
-                    :sender_status,
-                    :sender_country,
-                    :default_language,
-                    :default_timezone
+
                     :infobip_whatsapp_from,
                     :infobip_sender_name,
                     :infobip_webhook_secret,
-                    :meta_phone_number_id,:meta_phone_number_id,
+
+                    :meta_phone_number_id,
                     :meta_waba_id,
                     :meta_whatsapp_display_phone,
                     :meta_app_id,
+
+                    :inbound_webhook_url,
+                    :status_callback_url,
+
+                    :sender_status,
+                    :sender_country,
+                    :default_language,
+                    :default_timezone,
+                    :is_active
                 )
                 on conflict (org_id, provider, environment)
                 do update set
@@ -91,40 +107,54 @@ def upsert_whatsapp_settings(
                     twilio_subaccount_sid = excluded.twilio_subaccount_sid,
                     twilio_whatsapp_from = excluded.twilio_whatsapp_from,
                     twilio_messaging_service_sid = excluded.twilio_messaging_service_sid,
-                    inbound_webhook_url = excluded.inbound_webhook_url,
-                    status_callback_url = excluded.status_callback_url,
-                    sender_status = excluded.sender_status,
-                    sender_country = excluded.sender_country,
+
+                    infobip_whatsapp_from = excluded.infobip_whatsapp_from,
+                    infobip_sender_name = excluded.infobip_sender_name,
+                    infobip_webhook_secret = excluded.infobip_webhook_secret,
+
                     meta_phone_number_id = excluded.meta_phone_number_id,
                     meta_waba_id = excluded.meta_waba_id,
                     meta_whatsapp_display_phone = excluded.meta_whatsapp_display_phone,
                     meta_app_id = excluded.meta_app_id,
+
+                    inbound_webhook_url = excluded.inbound_webhook_url,
+                    status_callback_url = excluded.status_callback_url,
+
+                    sender_status = excluded.sender_status,
+                    sender_country = excluded.sender_country,
                     default_language = excluded.default_language,
                     default_timezone = excluded.default_timezone,
+                    is_active = excluded.is_active,
                     updated_at = now()
                 returning *
             """),
             {
                 "org_id": org_id,
-                "provider": provider.strip().lower(),
-                "environment": environment.strip().lower(),
+                "provider": provider,
+                "environment": environment,
+
                 "twilio_account_sid": twilio_account_sid,
                 "twilio_subaccount_sid": twilio_subaccount_sid,
-                "twilio_whatsapp_from": normalize_whatsapp_number(twilio_whatsapp_from),
+                "twilio_whatsapp_from": twilio_whatsapp_from,
                 "twilio_messaging_service_sid": twilio_messaging_service_sid,
-                "inbound_webhook_url": inbound_webhook_url,
-                "status_callback_url": status_callback_url,
-                "sender_status": sender_status.strip().upper(),
-                "sender_country": sender_country,
-                "default_language": default_language,
-                "default_timezone": default_timezone,
+
                 "infobip_whatsapp_from": infobip_whatsapp_from,
                 "infobip_sender_name": infobip_sender_name,
                 "infobip_webhook_secret": infobip_webhook_secret,
+
                 "meta_phone_number_id": meta_phone_number_id,
                 "meta_waba_id": meta_waba_id,
                 "meta_whatsapp_display_phone": meta_whatsapp_display_phone,
                 "meta_app_id": meta_app_id,
+
+                "inbound_webhook_url": inbound_webhook_url,
+                "status_callback_url": status_callback_url,
+
+                "sender_status": sender_status,
+                "sender_country": sender_country,
+                "default_language": default_language,
+                "default_timezone": default_timezone,
+                "is_active": is_active,
             },
         )
 

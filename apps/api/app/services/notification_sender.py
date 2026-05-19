@@ -72,6 +72,7 @@ def send_notification(notification_id: str):
             }
 
         mark_notification_failed(
+            org_id=notification["org_id"],
             notification_id=notification_id,
             error=str(result.get("response") or "provider_error"),
         )
@@ -93,6 +94,7 @@ def send_notification(notification_id: str):
 
     except Exception as e:
         mark_notification_failed(
+            org_id=notification["org_id"],
             notification_id=notification_id,
             error=str(e),
         )

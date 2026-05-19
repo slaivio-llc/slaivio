@@ -10,7 +10,10 @@ from app.services.manager_event_service import emit_notification_event
 
 
 def send_notification(notification_id: str):
-    notification = get_notification_by_id(notification_id)
+    notification = get_notification_by_id(
+        "demo_agency",
+        notification_id,
+    )
 
     if not notification:
         return {

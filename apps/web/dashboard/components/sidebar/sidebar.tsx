@@ -70,3 +70,40 @@ function logout() {
 >
   Déconnexion
 </button>
+
+import Link from "next/link";
+<Link
+  href="/inbox"
+  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium hover:bg-muted transition"
+>
+  <MessageSquare size={18} />
+  Inbox
+</Link>
+
+import Link from "next/link";
+<Link
+  href="/dossiers"
+  className="
+    flex items-center gap-3
+    rounded-xl px-4 py-3
+    text-sm font-medium
+    hover:bg-muted transition
+  "
+>
+  <Package size={18} />
+  Dossiers
+</Link>
+
+
+<Link
+  href="/shipments"
+  className="
+    flex items-center gap-3
+    rounded-xl px-4 py-3
+    text-sm font-medium
+    hover:bg-muted transition
+  "
+>
+  <Truck size={18} />
+  Shipments
+</Link>

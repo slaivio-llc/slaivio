@@ -54,3 +54,19 @@ export function Sidebar() {
     </div>
   );
 }
+
+
+
+function logout() {
+  localStorage.removeItem("slaivo_token");
+  localStorage.removeItem("slaivo_manager");
+  window.location.href = "/login";
+}
+
+
+<button
+  onClick={logout}
+  className="mt-8 rounded-xl px-4 py-3 text-left text-sm text-red-600 hover:bg-muted"
+>
+  Déconnexion
+</button>

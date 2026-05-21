@@ -24,8 +24,9 @@ export default function LoginPage() {
       localStorage.setItem("slaivo_manager", JSON.stringify(result.manager));
 
       router.push("/");
-    } catch {
-      setError("Email ou mot de passe incorrect.");
+    } catch (error) {
+      console.error("LOGIN_ERROR", error);
+      setError("Erreur login. Regarde la console navigateur.");
     }
   }
 

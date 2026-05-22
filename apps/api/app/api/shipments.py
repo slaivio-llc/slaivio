@@ -1,5 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import text
+
+from app.db.database import engine
 from app.db.message_repository import (
     get_dossier_full,
     create_dossier_event,
@@ -22,6 +25,7 @@ ORG_ID = "demo_agency"
 
 class UpdateShipmentStatusRequest(BaseModel):
     status: str
+    notes: str | None = None
 
 
 class SetTotalRequest(BaseModel):
@@ -39,6 +43,147 @@ def get_client_phone_from_dossier(dossier_full: dict) -> str | None:
         return dossier_full["client"].get("phone")
 
     return None
+
+
+@router.get("/shipments")
+def list_shipments():
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("""
+                select
+                    s.id,
+                    s.org_id,
+                    s.client_id,
+                    s.dossier_id,
+                    s.tracking_id,
+                    s.status,
+                    s.origin_country,
+                    s.origin_city,
+                    s.destination_country,
+                    s.destination_city,
+                    s.goods_type,
+
+                    s.weight_kg as estimated_weight_kg,
+                    s.weight_kg as actual_weight_kg,
+                    s.volume_cbm as estimated_volume_cbm,
+                    s.volume_cbm as actual_volume_cbm,
+
+                    s.fees_total as final_total,
+                    s.currency as final_currency,
+
+                    c.phone as client_phone,
+                    c.name as client_name,
+
+                    d.case_type,
+                    d.status_global as dossier_status,
+
+                    s.created_at,
+                    s.updated_at
+                from shipments s
+                left join clients c
+                    on c.id = s.client_id
+                left join dossiers d
+                    on d.id = s.dossier_id
+                where s.org_id = :org_id
+                order by s.created_at desc
+            """),
+            {"org_id": ORG_ID},
+        ).fetchall()
+
+    return {
+        "status": "ok",
+        "shipments": [dict(row._mapping) for row in rows],
+    }
+
+
+@router.get("/shipments/{shipment_id}")
+def get_shipment(shipment_id: str):
+    with engine.connect() as conn:
+        shipment_row = conn.execute(
+            text("""
+                select
+                    s.id,
+                    s.org_id,
+                    s.client_id,
+                    s.dossier_id,
+                    s.tracking_id,
+                    s.status,
+                    s.origin_country,
+                    s.origin_city,
+                    s.destination_country,
+                    s.destination_city,
+                    s.goods_type,
+
+                    s.weight_kg as estimated_weight_kg,
+                    s.weight_kg as actual_weight_kg,
+                    s.volume_cbm as estimated_volume_cbm,
+                    s.volume_cbm as actual_volume_cbm,
+
+                    s.fees_total as final_total,
+                    s.currency as final_currency,
+
+                    c.phone as client_phone,
+                    c.name as client_name,
+
+                    d.case_type,
+                    d.status_global as dossier_status,
+
+                    s.created_at,
+                    s.updated_at
+                from shipments s
+                left join clients c
+                    on c.id = s.client_id
+                left join dossiers d
+                    on d.id = s.dossier_id
+                where s.org_id = :org_id
+                  and s.id = :shipment_id
+                limit 1
+            """),
+            {
+                "org_id": ORG_ID,
+                "shipment_id": shipment_id,
+            },
+        ).fetchone()
+
+        if not shipment_row:
+            raise HTTPException(status_code=404, detail="Shipment not found")
+
+        timeline_rows = conn.execute(
+            text("""
+                select
+                    id,
+                    event_type,
+                    event_payload,
+                    created_at
+                from shipment_timeline_events
+                where shipment_id = :shipment_id
+                order by created_at desc
+            """),
+            {"shipment_id": shipment_id},
+        ).fetchall()
+
+        media_rows = conn.execute(
+            text("""
+                select
+                    id,
+                    media_type,
+                    media_url,
+                    caption,
+                    content_type,
+                    created_at
+                from shipment_media
+                where shipment_id = :shipment_id
+                order by created_at desc
+            """),
+            {"shipment_id": shipment_id},
+        ).fetchall()
+
+    return {
+        "status": "ok",
+        "shipment": dict(shipment_row._mapping),
+        "timeline": [dict(row._mapping) for row in timeline_rows],
+        "media": [dict(row._mapping) for row in media_rows],
+    }
 
 
 @router.post("/shipments/{dossier_id}")
@@ -107,6 +252,7 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
             "shipment_id": str(shipment["id"]),
             "tracking_id": shipment["tracking_id"],
             "new_status": shipment["status"],
+            "notes": body.notes,
         },
     )
 

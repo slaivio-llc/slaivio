@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Response
 from app.api.webhook import router as webhook_router
 from app.api.notifications import router as notifications_router
 from app.api.dossiers import router as dossiers_router
@@ -31,6 +33,14 @@ from app.api.auth import router as auth_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 app.include_router(webhook_router)
@@ -68,3 +78,14 @@ def root():
         "status": "ok",
         "service": "SLAIVIO OS API",
     }
+
+@app.options("/{full_path:path}")
+def options_handler(full_path: str):
+    return Response(
+        status_code=204,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )

@@ -1,7 +1,6 @@
 export type Shipment = {
   id: string;
   org_id: string;
-
   client_id: string | null;
   dossier_id: string | null;
 
@@ -10,7 +9,6 @@ export type Shipment = {
 
   origin_country: string | null;
   origin_city: string | null;
-
   destination_country: string | null;
   destination_city: string | null;
 
@@ -18,7 +16,6 @@ export type Shipment = {
 
   estimated_weight_kg: number | null;
   actual_weight_kg: number | null;
-
   estimated_volume_cbm: number | null;
   actual_volume_cbm: number | null;
 
@@ -27,7 +24,6 @@ export type Shipment = {
 
   client_phone: string | null;
   client_name: string | null;
-
   case_type: string | null;
   dossier_status: string | null;
 
@@ -44,8 +40,8 @@ export type ShipmentTimelineEvent = {
 
 export type ShipmentMedia = {
   id: string;
-  media_type: string;
-  media_url: string;
+  media_type: string | null;
+  media_url: string | null;
   caption: string | null;
   content_type: string | null;
   created_at: string;

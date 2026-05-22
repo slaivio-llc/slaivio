@@ -15,7 +15,6 @@ import type {
   ShipmentDetails,
 } from "@/types/shipments";
 
-
 const STATUS_OPTIONS = [
   "CREATED",
   "RECEIVED_AT_ORIGIN",
@@ -29,67 +28,78 @@ const STATUS_OPTIONS = [
   "ISSUE",
 ];
 
-
 export default function ShipmentsPage() {
   const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [selected, setSelected] =
-    useState<ShipmentDetails | null>(null);
-
+  const [selected, setSelected] = useState<ShipmentDetails | null>(null);
   const [loading, setLoading] = useState(true);
-
+  const [error, setError] = useState("");
 
   useEffect(() => {
     getShipments()
       .then(setShipments)
+      .catch(() => {
+        setError("Impossible de charger les shipments.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
-
   async function openShipment(shipmentId: string) {
-    const details = await getShipment(shipmentId);
-
-    setSelected(details);
+    try {
+      const details = await getShipment(shipmentId);
+      setSelected(details);
+    } catch {
+      setError("Impossible de charger ce shipment.");
+    }
   }
-
 
   async function changeStatus(status: string) {
     if (!selected) return;
 
-    await updateShipmentStatus(
-      selected.shipment.id,
-      status,
-      "Updated from dashboard"
-    );
+    try {
+      await updateShipmentStatus(
+        selected.shipment.id,
+        status,
+        "Updated from dashboard"
+      );
 
-    const refreshed = await getShipment(
-      selected.shipment.id
-    );
+      const refreshed = await getShipment(selected.shipment.id);
+      setSelected(refreshed);
 
-    setSelected(refreshed);
-
-    const list = await getShipments();
-    setShipments(list);
+      const list = await getShipments();
+      setShipments(list);
+    } catch {
+      setError("Impossible de modifier le statut.");
+    }
   }
-
 
   return (
     <DashboardLayout>
       <div className="flex h-screen">
         <section className="w-[440px] border-r">
           <div className="border-b p-6">
-            <h1 className="text-2xl font-bold">
-              Shipments
-            </h1>
+            <h1 className="text-2xl font-bold">Shipments</h1>
 
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-500">
               Suivi des colis et expéditions
             </p>
           </div>
 
+          {error && (
+            <div className="m-4 rounded-xl bg-red-50 p-4 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
           <div className="divide-y overflow-auto">
             {loading && (
-              <div className="p-6 text-muted-foreground">
+              <div className="p-6 text-gray-500">
                 Chargement...
+              </div>
+            )}
+
+            {!loading && shipments.length === 0 && (
+              <div className="p-6 text-sm text-gray-500">
+                Aucun shipment pour le moment.
               </div>
             )}
 
@@ -97,7 +107,7 @@ export default function ShipmentsPage() {
               <button
                 key={shipment.id}
                 onClick={() => openShipment(shipment.id)}
-                className="w-full p-5 text-left hover:bg-muted"
+                className="w-full p-5 text-left transition hover:bg-gray-50"
               >
                 <div className="flex items-center justify-between">
                   <div className="font-semibold">
@@ -109,7 +119,7 @@ export default function ShipmentsPage() {
                   </span>
                 </div>
 
-                <div className="mt-2 text-sm text-muted-foreground">
+                <div className="mt-2 text-sm text-gray-500">
                   {shipment.client_phone || "Client inconnu"}
                 </div>
 
@@ -120,7 +130,7 @@ export default function ShipmentsPage() {
                     "Destination ?"}
                 </div>
 
-                <div className="mt-3 text-xs text-muted-foreground">
+                <div className="mt-3 text-xs text-gray-500">
                   {shipment.goods_type || "Marchandise non précisée"}
                 </div>
               </button>
@@ -130,7 +140,7 @@ export default function ShipmentsPage() {
 
         <section className="flex-1 overflow-auto">
           {!selected && (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-gray-500">
               Sélectionnez un shipment
             </div>
           )}
@@ -141,26 +151,21 @@ export default function ShipmentsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-3xl font-bold">
-                      {selected.shipment.tracking_id}
+                      {selected.shipment.tracking_id || "Sans tracking"}
                     </h2>
 
-                    <p className="mt-2 text-muted-foreground">
-                      {selected.shipment.client_phone}
+                    <p className="mt-2 text-gray-500">
+                      {selected.shipment.client_phone || "Client inconnu"}
                     </p>
                   </div>
 
                   <select
                     value={selected.shipment.status}
-                    onChange={(event) =>
-                      changeStatus(event.target.value)
-                    }
+                    onChange={(event) => changeStatus(event.target.value)}
                     className="rounded-xl border px-4 py-3"
                   >
                     {STATUS_OPTIONS.map((status) => (
-                      <option
-                        key={status}
-                        value={status}
-                      >
+                      <option key={status} value={status}>
                         {status}
                       </option>
                     ))}
@@ -210,11 +215,15 @@ export default function ShipmentsPage() {
 
               <div className="grid grid-cols-2 gap-8 p-8">
                 <section>
-                  <h3 className="text-xl font-bold">
-                    Timeline
-                  </h3>
+                  <h3 className="text-xl font-bold">Timeline</h3>
 
                   <div className="mt-5 space-y-4">
+                    {selected.timeline.length === 0 && (
+                      <div className="rounded-2xl border p-5 text-sm text-gray-500">
+                        Aucun événement pour le moment.
+                      </div>
+                    )}
+
                     {selected.timeline.map((event) => (
                       <div
                         key={event.id}
@@ -224,18 +233,12 @@ export default function ShipmentsPage() {
                           {event.event_type}
                         </div>
 
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          {new Date(
-                            event.created_at
-                          ).toLocaleString()}
+                        <div className="mt-2 text-xs text-gray-500">
+                          {new Date(event.created_at).toLocaleString()}
                         </div>
 
-                        <pre className="mt-4 rounded-xl bg-muted p-4 text-xs">
-                          {JSON.stringify(
-                            event.event_payload,
-                            null,
-                            2
-                          )}
+                        <pre className="mt-4 overflow-auto rounded-xl bg-gray-50 p-4 text-xs">
+                          {JSON.stringify(event.event_payload, null, 2)}
                         </pre>
                       </div>
                     ))}
@@ -243,30 +246,41 @@ export default function ShipmentsPage() {
                 </section>
 
                 <section>
-                  <h3 className="text-xl font-bold">
-                    Médias
-                  </h3>
+                  <h3 className="text-xl font-bold">Médias</h3>
 
                   <div className="mt-5 space-y-4">
+                    {selected.media.length === 0 && (
+                      <div className="rounded-2xl border p-5 text-sm text-gray-500">
+                        Aucun média pour le moment.
+                      </div>
+                    )}
+
                     {selected.media.map((media) => (
                       <div
                         key={media.id}
                         className="rounded-2xl border p-5"
                       >
                         <div className="font-semibold">
-                          {media.media_type}
+                          {media.media_type || "Média"}
                         </div>
 
-                        <a
-                          href={media.media_url}
-                          target="_blank"
-                          className="mt-2 block text-sm text-blue-600 underline"
-                        >
-                          Ouvrir média
-                        </a>
+                        {media.media_url ? (
+                          <a
+                            href={media.media_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 block text-sm text-blue-600 underline"
+                          >
+                            Ouvrir média
+                          </a>
+                        ) : (
+                          <p className="mt-2 text-sm text-gray-500">
+                            Média sans URL publique
+                          </p>
+                        )}
 
                         {media.caption && (
-                          <p className="mt-3 text-sm text-muted-foreground">
+                          <p className="mt-3 text-sm text-gray-500">
                             {media.caption}
                           </p>
                         )}
@@ -283,7 +297,6 @@ export default function ShipmentsPage() {
   );
 }
 
-
 function InfoCard({
   label,
   value,
@@ -293,7 +306,7 @@ function InfoCard({
 }) {
   return (
     <div className="rounded-2xl border p-4">
-      <div className="text-xs text-muted-foreground">
+      <div className="text-xs text-gray-500">
         {label}
       </div>
 

@@ -1,10 +1,9 @@
-mport { api } from "@/services/api";
+import { api } from "@/services/api";
 
 import type {
   Dossier,
   DossierDetails,
 } from "@/types/dossiers";
-
 
 export async function getDossiers(): Promise<Dossier[]> {
   const response = await api.get("/dossiers");
@@ -12,13 +11,10 @@ export async function getDossiers(): Promise<Dossier[]> {
   return response.data.dossiers;
 }
 
-
 export async function getDossier(
   dossierId: string
 ): Promise<DossierDetails> {
-  const response = await api.get(
-    `/dossiers/${dossierId}`
-  );
+  const response = await api.get(`/dossiers/${dossierId}`);
 
   return response.data;
 }

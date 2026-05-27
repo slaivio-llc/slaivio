@@ -14,6 +14,10 @@ from app.db.notification_repository import (
 )
 from app.services.meta_media_parser import extract_meta_media_items
 from app.services.inbound_media_service import store_inbound_meta_media
+from app.services.whatsapp_routing_service import (
+    resolve_inbound_route,
+)
+
 
 
 

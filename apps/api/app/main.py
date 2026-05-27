@@ -40,6 +40,10 @@ from app.api.whatsapp_enterprise import (
 from app.api.whatsapp_templates import (
     router as whatsapp_templates_router,
 )
+from app.api.whatsapp_health import (
+    router as whatsapp_health_router,
+)
+
 
 
 
@@ -92,6 +96,7 @@ app.include_router(whatsapp_enterprise_router)
 app.include_router(
     whatsapp_templates_router
 )
+app.include_router(whatsapp_health_router)
 
 
 

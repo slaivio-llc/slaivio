@@ -17,6 +17,17 @@ from app.services.inbound_media_service import store_inbound_meta_media
 from app.services.whatsapp_routing_service import (
     resolve_inbound_route,
 )
+from app.services.meta_delivery_parser import (
+    extract_meta_delivery_statuses,
+)
+from app.db.whatsapp_delivery_repository import (
+    create_delivery_event,
+    update_notification_delivery_status,
+)
+from app.services.whatsapp_routing_service import (
+    resolve_inbound_route,
+)
+
 
 
 
@@ -47,6 +58,57 @@ async def verify_meta_webhook(request: Request):
 @router.post("/webhook/meta/whatsapp")
 async def meta_whatsapp_webhook(request: Request):
     payload = await request.json()
+
+    delivery_statuses = extract_meta_delivery_statuses(payload)
+
+    if delivery_statuses:
+        for item in delivery_statuses:
+            provider_phone_number_id = item.get("phone_number_id")
+
+            route = resolve_inbound_route(
+                provider_phone_number_id
+            ) if provider_phone_number_id else {
+                "resolved": False
+            }
+
+            if route.get("resolved"):
+                org_id = route["org_id"]
+                whatsapp_number_id = str(route["number"]["id"])
+            else:
+                org_id = "demo_agency"
+                whatsapp_number_id = None
+
+            create_delivery_event(
+                org_id=org_id,
+                provider_message_id=item["provider_message_id"],
+                status=item["status"],
+                waba_id=item.get("waba_id"),
+                phone_number_id=item.get("phone_number_id"),
+                whatsapp_number_id=whatsapp_number_id,
+                recipient_phone=item.get("recipient_phone"),
+                timestamp_at=item.get("timestamp"),
+                error_code=item.get("error_code"),
+                error_title=item.get("error_title"),
+                error_message=item.get("error_message"),
+                error_details=item.get("error_details"),
+                raw_payload=item.get("raw"),
+            )
+
+            update_notification_delivery_status(
+                provider_message_id=item["provider_message_id"],
+                status=item["status"],
+                error_code=item.get("error_code"),
+                error_title=item.get("error_title"),
+                error_message=item.get("error_message"),
+                error_details=item.get("error_details"),
+            )
+
+        return {
+            "status": "ok",
+            "type": "delivery_status",
+            "count": len(delivery_statuses),
+        }
+
 
     phone_number_id = extract_meta_phone_number_id(payload)
 

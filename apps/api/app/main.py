@@ -37,6 +37,10 @@ from app.api.meta_embedded_signup import (
 from app.api.whatsapp_enterprise import (
     router as whatsapp_enterprise_router,
 )
+from app.api.whatsapp_templates import (
+    router as whatsapp_templates_router,
+)
+
 
 
 
@@ -85,6 +89,10 @@ app.include_router(
     meta_embedded_signup_router
 )
 app.include_router(whatsapp_enterprise_router)
+app.include_router(
+    whatsapp_templates_router
+)
+
 
 
 @app.get("/")

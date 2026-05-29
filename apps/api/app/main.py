@@ -31,19 +31,19 @@ from app.api.organization_whatsapp import router as organization_whatsapp_router
 from app.api.meta_templates import router as meta_templates_router
 from app.api.auth import router as auth_router
 from app.api.inbox import router as inbox_router
-from app.api.meta_embedded_signup import (
-    router as meta_embedded_signup_router,
-)
-from app.api.whatsapp_enterprise import (
-    router as whatsapp_enterprise_router,
-)
-from app.api.whatsapp_templates import (
-    router as whatsapp_templates_router,
-)
+from app.api.knowledge_settings import router as knowledge_settings_router
+from app.api.goods_settings import router as goods_settings_router
+from app.api.pricing_settings import router as pricing_settings_router
+from app.api.whatsapp_enterprise import router as whatsapp_enterprise_router
 from app.api.whatsapp_health import (
     router as whatsapp_health_router,
 )
-
+from app.core.exceptions import (
+    global_exception_handler,
+)
+from app.api.system_health import (
+    router as system_health_router,
+)
 
 
 
@@ -58,6 +58,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_exception_handler(
+    Exception,
+    global_exception_handler,
+)
+
 
 
 app.include_router(webhook_router)
@@ -89,14 +95,12 @@ app.include_router(organization_whatsapp_router)
 app.include_router(meta_templates_router)
 app.include_router(auth_router)
 app.include_router(inbox_router)
-app.include_router(
-    meta_embedded_signup_router
-)
+app.include_router(knowledge_settings_router)
+app.include_router(goods_settings_router)
+app.include_router(pricing_settings_router)
 app.include_router(whatsapp_enterprise_router)
-app.include_router(
-    whatsapp_templates_router
-)
 app.include_router(whatsapp_health_router)
+app.include_router(system_health_router)
 
 
 

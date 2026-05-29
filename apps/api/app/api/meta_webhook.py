@@ -27,6 +27,13 @@ from app.db.whatsapp_delivery_repository import (
 from app.services.whatsapp_routing_service import (
     resolve_inbound_route,
 )
+from app.core.logger import logger
+
+from app.db.webhook_idempotency_repository import (
+    is_event_processed,
+    mark_event_processed,
+)
+
 
 
 

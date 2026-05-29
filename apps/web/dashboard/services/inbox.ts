@@ -1,8 +1,18 @@
 import { api } from "@/services/api";
-import type { Conversation, InboxMessage } from "@/types/inbox";
 
-export async function getConversations(): Promise<Conversation[]> {
-  const response = await api.get("/inbox/conversations");
+import type {
+  Conversation,
+  InboxMessage,
+} from "@/types/inbox";
+
+export async function getConversations(filters?: {
+  number_role?: string;
+  status?: string;
+}): Promise<Conversation[]> {
+  const response = await api.get("/inbox/conversations", {
+    params: filters,
+  });
+
   return response.data.conversations;
 }
 

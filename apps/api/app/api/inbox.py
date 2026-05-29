@@ -6,58 +6,122 @@ from app.db.database import engine
 
 router = APIRouter()
 
+ORG_ID = "demo_agency"
+
 
 @router.get("/inbox/conversations")
-def list_conversations():
-    org_id = "demo_agency"
+def list_conversations(
+    number_role: str | None = None,
+    status: str | None = None,
+):
+    where_clauses = [
+        "org_id = :org_id"
+    ]
+
+    params = {
+        "org_id": ORG_ID,
+    }
+
+    if number_role:
+        where_clauses.append("number_role = :number_role")
+        params["number_role"] = number_role
+
+    if status:
+        where_clauses.append("conversation_status = :status")
+        params["status"] = status
+
+    where_sql = " and ".join(where_clauses)
 
     with engine.connect() as conn:
-        result = conn.execute(
-            text("""
+        rows = conn.execute(
+            text(f"""
                 select
+                    org_id,
                     from_phone,
-                    max(created_at) as last_message_at,
-                    (array_agg(text_body order by created_at desc))[1] as last_message,
-                    count(*) as message_count
-                from messages
-                where org_id = :org_id
-                  and direction = 'inbound'
-                group by from_phone
-                order by max(created_at) desc
+                    last_message_at,
+                    last_message,
+                    message_count,
+                    number_role,
+                    provider_phone_number_id,
+                    whatsapp_number_id,
+                    conversation_status,
+                    priority,
+                    assigned_manager_id
+                from inbox_conversations_view
+                where {where_sql}
+                order by last_message_at desc
             """),
-            {"org_id": org_id},
-        )
-
-        conversations = [dict(row._mapping) for row in result.fetchall()]
+            params,
+        ).fetchall()
 
     return {
         "status": "ok",
-        "conversations": conversations,
+        "conversations": [dict(row._mapping) for row in rows],
     }
 
 
 @router.get("/inbox/conversations/{phone}/messages")
 def get_conversation_messages(phone: str):
-    org_id = "demo_agency"
-
     with engine.connect() as conn:
-        result = conn.execute(
+        rows = conn.execute(
             text("""
-                select *
+                select
+                    id,
+                    org_id,
+                    from_phone,
+                    to_phone,
+                    direction,
+                    text_body,
+                    provider,
+                    provider_message_id,
+                    provider_phone_number_id,
+                    whatsapp_number_id,
+                    waba_id,
+                    number_role,
+                    conversation_status,
+                    priority,
+                    assigned_manager_id,
+                    created_at
                 from messages
                 where org_id = :org_id
                   and from_phone = :phone
                 order by created_at asc
             """),
             {
-                "org_id": org_id,
+                "org_id": ORG_ID,
                 "phone": phone,
             },
-        )
-
-        messages = [dict(row._mapping) for row in result.fetchall()]
+        ).fetchall()
 
     return {
         "status": "ok",
-        "messages": messages,
+        "messages": [dict(row._mapping) for row in rows],
+    }
+
+
+@router.patch("/inbox/conversations/{phone}/status")
+def update_conversation_status(
+    phone: str,
+    status: str,
+):
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                update messages
+                set conversation_status = :status
+                where org_id = :org_id
+                  and from_phone = :phone
+            """),
+            {
+                "org_id": ORG_ID,
+                "phone": phone,
+                "status": status,
+            },
+        )
+
+        conn.commit()
+
+    return {
+        "status": "ok",
+        "conversation_status": status,
     }

@@ -218,3 +218,68 @@ def mark_template_send_failed(
         row = result.fetchone()
 
         return dict(row._mapping) if row else None
+
+import requests
+
+
+GRAPH_API_VERSION = "v22.0"
+
+
+def create_meta_template(
+    waba_id: str,
+    access_token: str,
+    template_name: str,
+    category: str,
+    language_code: str,
+    body_text: str,
+):
+    payload = {
+        "name": template_name,
+        "category": category,
+        "language": language_code,
+        "components": [
+            {
+                "type": "BODY",
+                "text": body_text,
+            }
+        ],
+    }
+
+    response = requests.post(
+        f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba_id}/message_templates",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=30,
+    )
+
+    data = response.json()
+
+    return {
+        "ok": response.ok,
+        "status_code": response.status_code,
+        "data": data,
+    }
+
+
+def list_meta_templates(
+    waba_id: str,
+    access_token: str,
+):
+    response = requests.get(
+        f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba_id}/message_templates",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+        },
+        timeout=30,
+    )
+
+    data = response.json()
+
+    return {
+        "ok": response.ok,
+        "status_code": response.status_code,
+        "data": data,
+    }

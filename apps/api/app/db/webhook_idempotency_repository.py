@@ -1,5 +1,6 @@
-from sqlalchemy import text
+import json
 
+from sqlalchemy import text
 from app.db.database import engine
 
 
@@ -41,15 +42,52 @@ def mark_event_processed(
                     :event_key,
                     :event_type,
                     :payload_hash,
-                    :raw_payload
+                    CAST(:raw_payload AS jsonb)
                 )
             """),
             {
                 "event_key": event_key,
                 "event_type": event_type,
                 "payload_hash": payload_hash,
-                "raw_payload": raw_payload,
+                "raw_payload": json.dumps(raw_payload or {}),
             },
         )
 
         conn.commit()
+
+
+def claim_event(
+    event_key: str,
+    event_type: str | None = None,
+    payload_hash: str | None = None,
+    raw_payload: dict | None = None,
+) -> bool:
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("""
+                insert into processed_webhook_events (
+                    event_key,
+                    event_type,
+                    payload_hash,
+                    raw_payload
+                )
+                values (
+                    :event_key,
+                    :event_type,
+                    :payload_hash,
+                    CAST(:raw_payload AS jsonb)
+                )
+                on conflict (event_key) do nothing
+                returning id
+            """),
+            {
+                "event_key": event_key,
+                "event_type": event_type,
+                "payload_hash": payload_hash,
+                "raw_payload": json.dumps(raw_payload or {}),
+            },
+        ).fetchone()
+
+        conn.commit()
+
+        return row is not None

@@ -10,6 +10,8 @@ export type Conversation = {
   conversation_status: string | null;
   priority: string | null;
   assigned_manager_id: string | null;
+  assigned_manager_name: string | null;
+  last_note: string | null;
 };
 
 export type InboxMessage = {
@@ -29,4 +31,17 @@ export type InboxMessage = {
   priority: string | null;
   assigned_manager_id: string | null;
   created_at: string;
+};
+
+export type ConversationAssignment = {
+  id: string;
+  org_id: string;
+  client_phone: string;
+  assigned_manager_id: string | null;
+  assigned_manager_name: string | null;
+  status: string;
+  priority: string;
+  last_note: string | null;
+  created_at: string;
+  updated_at: string;
 };

@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Response
 from app.api.webhook import router as webhook_router
@@ -27,6 +27,7 @@ from app.api.manager_events import router as manager_events_router
 from app.api.infobip_templates import router as infobip_templates_router
 from app.api.infobip_webhook import router as infobip_webhook_router
 from app.api.meta_webhook import router as meta_webhook_router
+from app.api.meta_embedded_signup import router as meta_embedded_signup_router
 from app.api.organization_whatsapp import router as organization_whatsapp_router
 from app.api.meta_templates import router as meta_templates_router
 from app.api.auth import router as auth_router
@@ -44,6 +45,12 @@ from app.core.exceptions import (
 from app.api.system_health import (
     router as system_health_router,
 )
+from app.core.logger import logger
+from app.core.request_context import generate_request_id
+from app.api.conversation_assignments import (
+    router as conversation_assignments_router,
+)
+
 
 
 
@@ -63,6 +70,24 @@ app.add_exception_handler(
     Exception,
     global_exception_handler,
 )
+
+
+@app.middleware("http")
+async def request_context_middleware(
+    request: Request,
+    call_next,
+):
+    request_id = request.headers.get("X-Request-ID") or generate_request_id()
+    request.state.request_id = request_id
+    logger.info(
+        f"request_started:{request_id}:{request.method}:{request.url.path}"
+    )
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        f"request_completed:{request_id}:{response.status_code}"
+    )
+    return response
 
 
 
@@ -91,6 +116,7 @@ app.include_router(manager_events_router)
 app.include_router(infobip_templates_router)
 app.include_router(infobip_webhook_router)
 app.include_router(meta_webhook_router)
+app.include_router(meta_embedded_signup_router)
 app.include_router(organization_whatsapp_router)
 app.include_router(meta_templates_router)
 app.include_router(auth_router)
@@ -101,6 +127,7 @@ app.include_router(pricing_settings_router)
 app.include_router(whatsapp_enterprise_router)
 app.include_router(whatsapp_health_router)
 app.include_router(system_health_router)
+app.include_router(conversation_assignments_router)
 
 
 

@@ -30,8 +30,7 @@ from app.services.whatsapp_routing_service import (
 from app.core.logger import logger
 
 from app.db.webhook_idempotency_repository import (
-    is_event_processed,
-    mark_event_processed,
+    claim_event,
 )
 
 
@@ -70,6 +69,20 @@ async def meta_whatsapp_webhook(request: Request):
 
     if delivery_statuses:
         for item in delivery_statuses:
+            event_key = (
+                f"delivery:{item['provider_message_id']}:{item['status']}"
+            )
+
+            if not claim_event(
+                event_key=event_key,
+                event_type="delivery_status",
+                raw_payload=item.get("raw"),
+            ):
+                logger.info(
+                    f"webhook_duplicate:{event_key}"
+                )
+                continue
+
             provider_phone_number_id = item.get("phone_number_id")
 
             route = resolve_inbound_route(
@@ -119,16 +132,15 @@ async def meta_whatsapp_webhook(request: Request):
 
     phone_number_id = extract_meta_phone_number_id(payload)
 
-    org_settings = None
-
-    if phone_number_id:
-        org_settings = find_org_by_meta_phone_number_id(phone_number_id)
-
-    org_id = org_settings["org_id"] if org_settings else "demo_agency"
-
     statuses = extract_meta_statuses(payload)
 
     if statuses:
+        org_settings = None
+
+        if phone_number_id:
+            org_settings = find_org_by_meta_phone_number_id(phone_number_id)
+
+        org_id = org_settings["org_id"] if org_settings else "demo_agency"
         handled = []
 
         for status_item in statuses:
@@ -173,12 +185,57 @@ async def meta_whatsapp_webhook(request: Request):
             "handled": handled,
         }
 
+    route = resolve_inbound_route(
+        phone_number_id
+    ) if phone_number_id else {
+        "resolved": False,
+        "reason": "phone_number_id_missing",
+    }
+
+    if not route["resolved"]:
+        logger.error(
+            f"routing_failed:{phone_number_id}"
+        )
+
+        return {
+            "status": "routing_failed",
+            "provider_phone_number_id": phone_number_id,
+            "reason": route.get("reason"),
+        }
+
+    resolved_number = route["number"]
+    org_id = route["org_id"]
+
+    logger.info(
+        f"route_resolved:{org_id}:{route['number_role']}"
+    )
+
     normalized_message = normalize_meta_payload(payload)
+    event_key = f"message:{normalized_message.dedupe_key}"
+
+    if not claim_event(
+        event_key=event_key,
+        event_type="message",
+        raw_payload=payload,
+    ):
+        logger.info(
+            f"webhook_duplicate:{event_key}"
+        )
+
+        return {
+            "status": "duplicate",
+            "event_key": event_key,
+        }
 
     result = await process_normalized_whatsapp_message(
         normalized_message=normalized_message,
         payload=payload,
         org_id=org_id,
+        provider="META",
+        provider_phone_number_id=phone_number_id,
+        whatsapp_number_id=str(resolved_number["id"]),
+        waba_id=route["waba_id"],
+        number_role=route["number_role"],
     )
 
     media_items = extract_meta_media_items(payload)

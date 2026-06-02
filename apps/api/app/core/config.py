@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     meta_wa_access_token: str | None = None
     meta_wa_verify_token: str = "slaivo_verify_token_secret"
     meta_wa_api_version: str = "v20.0"
+    meta_app_id: str | None = None
+    meta_app_secret: str | None = None
+    meta_redirect_uri: str | None = None
+    meta_oauth_frontend_redirect_uri: str | None = None
 
 
     whatsapp_provider: str = "mock"

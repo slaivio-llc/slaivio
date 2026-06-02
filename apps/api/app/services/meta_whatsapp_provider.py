@@ -1,16 +1,33 @@
-import requests
 from app.core.config import settings
 from app.services.whatsapp_provider import WhatsAppProvider
 from app.db.organization_whatsapp_repository import get_active_whatsapp_settings
+from app.services.meta_http_client import meta_post
+from app.services.whatsapp_routing_service import resolve_outbound_number
 
 
 class MetaWhatsAppProvider(WhatsAppProvider):
-    def __init__(self, org_id: str | None = None):
-        if not settings.meta_wa_access_token:
-            raise ValueError("META_WA_ACCESS_TOKEN is missing")
-
-        self.access_token = settings.meta_wa_access_token
+    def __init__(
+        self,
+        org_id: str | None = None,
+        preferred_role: str | None = None,
+    ):
         self.api_version = settings.meta_wa_api_version
+        route = resolve_outbound_number(
+            org_id=org_id,
+            preferred_role=preferred_role,
+        ) if org_id else {
+            "resolved": False,
+        }
+
+        if route["resolved"]:
+            number = route["number"]
+            self.phone_number_id = number["phone_number_id"]
+            self.access_token = number.get("access_token") or settings.meta_wa_access_token
+
+            if not self.access_token:
+                raise ValueError("Meta access token missing for WhatsApp number")
+
+            return
 
         org_settings = None
 
@@ -29,6 +46,10 @@ class MetaWhatsAppProvider(WhatsAppProvider):
             raise ValueError("meta_phone_number_id missing for organization")
 
         self.phone_number_id = phone_number_id
+        self.access_token = settings.meta_wa_access_token
+
+        if not self.access_token:
+            raise ValueError("META_WA_ACCESS_TOKEN is missing")
 
     def build_headers(self) -> dict:
         return {
@@ -212,21 +233,14 @@ class MetaWhatsAppProvider(WhatsAppProvider):
         return self._post_message(payload)
 
     def _post_message(self, payload: dict) -> dict:
-        response = requests.post(
+        response = meta_post(
             self.build_messages_url(),
             headers=self.build_headers(),
             json=payload,
-            timeout=30,
         )
 
-        try:
-            data = response.json()
-        except Exception:
-            data = {
-                "raw": response.text,
-            }
-
-        success = response.status_code < 300
+        data = response["data"]
+        success = response["ok"]
 
         provider_message_id = None
 

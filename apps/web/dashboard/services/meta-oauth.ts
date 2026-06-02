@@ -1,5 +1,30 @@
 import { api } from "@/services/api";
 
+export async function getMetaOauthUrl() {
+  const response = await api.get("/meta/oauth/url");
+
+  return response.data as {
+    status: string;
+    state: string;
+    authorization_url: string;
+  };
+}
+
+export async function onboardWhatsapp(
+  code: string,
+  orgId: string
+) {
+  const response = await api.post(
+    "/meta/oauth/onboard",
+    {
+      code,
+      org_id: orgId,
+    }
+  );
+
+  return response.data;
+}
+
 export async function exchangeCode(
   code: string
 ) {

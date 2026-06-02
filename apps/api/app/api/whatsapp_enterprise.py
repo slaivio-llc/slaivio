@@ -11,6 +11,7 @@ from app.db.whatsapp_number_repository import (
     get_default_whatsapp_number,
     update_whatsapp_number_role,
 )
+from app.services.whatsapp_routing_service import resolve_inbound_route
 
 
 router = APIRouter()
@@ -70,4 +71,12 @@ def update_number_role(
     return {
         "status": "ok",
         "number": number,
+    }
+
+
+@router.get("/whatsapp/routing/{phone_number_id}")
+def debug_route(phone_number_id: str):
+    return {
+        "status": "ok",
+        "route": resolve_inbound_route(phone_number_id),
     }

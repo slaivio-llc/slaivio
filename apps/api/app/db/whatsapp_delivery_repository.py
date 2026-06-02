@@ -1,5 +1,6 @@
-from sqlalchemy import text
+import json
 
+from sqlalchemy import text
 from app.db.database import engine
 
 
@@ -51,9 +52,11 @@ def create_delivery_event(
                     :error_code,
                     :error_title,
                     :error_message,
-                    :error_details,
-                    :raw_payload
+                    CAST(:error_details AS jsonb),
+                    CAST(:raw_payload AS jsonb)
                 )
+                on conflict (provider, provider_message_id, status)
+                do nothing
                 returning *
             """),
             {
@@ -69,8 +72,8 @@ def create_delivery_event(
                 "error_code": error_code,
                 "error_title": error_title,
                 "error_message": error_message,
-                "error_details": error_details,
-                "raw_payload": raw_payload,
+                "error_details": json.dumps(error_details or {}),
+                "raw_payload": json.dumps(raw_payload or {}),
             },
         ).fetchone()
 
@@ -106,7 +109,7 @@ def update_notification_delivery_status(
                         error_code = :error_code,
                         error_title = :error_title,
                         error_message = :error_message,
-                        error_details = :error_details,
+                        error_details = CAST(:error_details AS jsonb),
                         updated_at = now()
                     where provider_message_id = :provider_message_id
                 """),
@@ -116,7 +119,7 @@ def update_notification_delivery_status(
                     "error_code": error_code,
                     "error_title": error_title,
                     "error_message": error_message,
-                    "error_details": error_details,
+                    "error_details": json.dumps(error_details or {}),
                 },
             )
         else:

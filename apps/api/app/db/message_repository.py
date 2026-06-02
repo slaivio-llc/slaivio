@@ -672,6 +672,11 @@ def create_message(
     direction: str,
     dedupe_key: str,
     received_at,
+    provider: str | None = None,
+    provider_phone_number_id: str | None = None,
+    whatsapp_number_id: str | None = None,
+    waba_id: str | None = None,
+    number_role: str | None = None,
 ):
     with engine.connect() as conn:
         result = conn.execute(
@@ -688,7 +693,12 @@ def create_message(
                     source_channel,
                     direction,
                     dedupe_key,
-                    received_at
+                    received_at,
+                    provider,
+                    provider_phone_number_id,
+                    whatsapp_number_id,
+                    waba_id,
+                    number_role
                 )
                 values (
                     :org_id,
@@ -702,7 +712,12 @@ def create_message(
                     :source_channel,
                     :direction,
                     :dedupe_key,
-                    :received_at
+                    :received_at,
+                    :provider,
+                    :provider_phone_number_id,
+                    :whatsapp_number_id,
+                    :waba_id,
+                    :number_role
                 )
                 on conflict (dedupe_key) do nothing
                 returning *
@@ -720,6 +735,11 @@ def create_message(
                 "direction": direction,
                 "dedupe_key": dedupe_key,
                 "received_at": received_at,
+                "provider": provider,
+                "provider_phone_number_id": provider_phone_number_id,
+                "whatsapp_number_id": whatsapp_number_id,
+                "waba_id": waba_id,
+                "number_role": number_role,
             },
         )
 

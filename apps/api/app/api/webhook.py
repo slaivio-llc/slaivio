@@ -78,6 +78,11 @@ async def process_normalized_whatsapp_message(
     normalized_message: NormalizedMessage,
     payload: dict,
     org_id: str = "demo_agency",
+    provider: str | None = None,
+    provider_phone_number_id: str | None = None,
+    whatsapp_number_id: str | None = None,
+    waba_id: str | None = None,
+    number_role: str | None = None,
 ):
 
     if is_duplicate(normalized_message.dedupe_key):
@@ -112,6 +117,11 @@ async def process_normalized_whatsapp_message(
         direction="inbound",
         dedupe_key=normalized_message.dedupe_key,
         received_at=normalized_message.received_at,
+        provider=provider,
+        provider_phone_number_id=provider_phone_number_id,
+        whatsapp_number_id=whatsapp_number_id,
+        waba_id=waba_id,
+        number_role=number_role,
     )
 
 
@@ -574,7 +584,5 @@ async def receive_whatsapp_message(request: Request):
     return await process_normalized_whatsapp_message(
         normalized_message=normalized_message,
         payload=payload,
-        org_id=org_id,
+        org_id="demo_agency",
     )
-
-    

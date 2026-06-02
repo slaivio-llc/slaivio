@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import {
+  getConversationAssignment,
+  updateConversationAssignment,
+} from "@/services/conversation-assignments";
 
+import type {
+  ConversationAssignment,
+} from "@/types/inbox";
 import {
   getConversations,
   getConversationMessages,
@@ -31,6 +37,12 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [error, setError] = useState("");
+  const [assignment, setAssignment] =
+    useState<ConversationAssignment | null>(null);
+  const [managerName, setManagerName] = useState("");
+  const [conversationStatus, setConversationStatus] = useState("OPEN");
+  const [priority, setPriority] = useState("NORMAL");
+  const [note, setNote] = useState("");
 
   async function loadConversations(role = roleFilter) {
     setLoading(true);
@@ -63,10 +75,37 @@ export default function InboxPage() {
     try {
       const data = await getConversationMessages(phone);
       setMessages(data);
+      const assignmentData = await getConversationAssignment(phone);
+      setAssignment(assignmentData);
+      setManagerName(assignmentData?.assigned_manager_name || "");
+      setConversationStatus(assignmentData?.status || "OPEN");
+      setPriority(assignmentData?.priority || "NORMAL");
+      setNote(assignmentData?.last_note || "");
+
     } catch {
       setError("Impossible de charger les messages.");
     }
   }
+
+  async function saveAssignment() {
+    if (!selectedPhone) return;
+
+    const updated = await updateConversationAssignment(
+      selectedPhone,
+      {
+        assigned_manager_id: managerName || null,
+        assigned_manager_name: managerName || null,
+        status: conversationStatus,
+        priority,
+        last_note: note || null,
+      }
+    );
+
+    setAssignment(updated);
+
+    await loadConversations(roleFilter);
+}
+
 
   function handleRoleChange(role: string) {
     setRoleFilter(role);

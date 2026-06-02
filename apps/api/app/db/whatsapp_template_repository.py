@@ -219,67 +219,86 @@ def mark_template_send_failed(
 
         return dict(row._mapping) if row else None
 
-import requests
-
-
-GRAPH_API_VERSION = "v22.0"
-
-
-def create_meta_template(
-    waba_id: str,
-    access_token: str,
-    template_name: str,
-    category: str,
-    language_code: str,
-    body_text: str,
+def update_meta_template_sync(
+    template_id: str,
+    status: str,
+    meta_template_id: str | None = None,
+    body_text: str | None = None,
+    quality_score: str | None = None,
+    rejection_reason: str | None = None,
+    raw_payload: dict | None = None,
 ):
-    payload = {
-        "name": template_name,
-        "category": category,
-        "language": language_code,
-        "components": [
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("""
+                update whatsapp_templates
+                set
+                    content_sid = coalesce(:meta_template_id, content_sid),
+                    meta_template_id = :meta_template_id,
+                    body_text = coalesce(:body_text, body_text),
+                    status = :status,
+                    quality_score = :quality_score,
+                    rejection_reason = :rejection_reason,
+                    raw_payload = CAST(:raw_payload AS jsonb),
+                    last_synced_at = now(),
+                    updated_at = now()
+                where id = :template_id
+                returning *
+            """),
             {
-                "type": "BODY",
-                "text": body_text,
-            }
-        ],
-    }
+                "template_id": template_id,
+                "meta_template_id": meta_template_id,
+                "body_text": body_text,
+                "status": status.strip().upper(),
+                "quality_score": quality_score,
+                "rejection_reason": rejection_reason,
+                "raw_payload": json.dumps(raw_payload or {}),
+            },
+        ).fetchone()
 
-    response = requests.post(
-        f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba_id}/message_templates",
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=30,
-    )
+        conn.commit()
 
-    data = response.json()
-
-    return {
-        "ok": response.ok,
-        "status_code": response.status_code,
-        "data": data,
-    }
+        return dict(row._mapping) if row else None
 
 
-def list_meta_templates(
-    waba_id: str,
-    access_token: str,
+def update_meta_template_by_name(
+    org_id: str,
+    template_name: str,
+    language: str,
+    status: str,
+    meta_template_id: str | None = None,
+    quality_score: str | None = None,
+    raw_payload: dict | None = None,
 ):
-    response = requests.get(
-        f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba_id}/message_templates",
-        headers={
-            "Authorization": f"Bearer {access_token}",
-        },
-        timeout=30,
-    )
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("""
+                update whatsapp_templates
+                set
+                    content_sid = coalesce(:meta_template_id, content_sid),
+                    meta_template_id = :meta_template_id,
+                    status = :status,
+                    quality_score = :quality_score,
+                    raw_payload = CAST(:raw_payload AS jsonb),
+                    last_synced_at = now(),
+                    updated_at = now()
+                where org_id = :org_id
+                  and template_name = :template_name
+                  and language = :language
+                  and provider = 'meta'
+                returning *
+            """),
+            {
+                "org_id": org_id,
+                "template_name": template_name,
+                "language": language,
+                "status": status.strip().upper(),
+                "meta_template_id": meta_template_id,
+                "quality_score": quality_score,
+                "raw_payload": json.dumps(raw_payload or {}),
+            },
+        ).fetchone()
 
-    data = response.json()
+        conn.commit()
 
-    return {
-        "ok": response.ok,
-        "status_code": response.status_code,
-        "data": data,
-    }
+        return dict(row._mapping) if row else None

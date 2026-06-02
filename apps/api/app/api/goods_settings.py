@@ -87,24 +87,3 @@ def create_goods_rule(
         "status": "ok",
         "rule": dict(row._mapping),
     }
-
-
-0.D — SQL Goods Rules
-create table if not exists goods_rules (
-    id uuid primary key default gen_random_uuid(),
-
-    org_id text references organizations(id),
-
-    goods_name text not null,
-    category text default 'GENERAL',
-
-    is_accepted boolean default true,
-
-    pricing_mode text,
-    note text,
-
-    requires_manager_review boolean default false,
-
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
-);

@@ -36,24 +36,21 @@ from app.api.knowledge_settings import router as knowledge_settings_router
 from app.api.goods_settings import router as goods_settings_router
 from app.api.pricing_settings import router as pricing_settings_router
 from app.api.whatsapp_enterprise import router as whatsapp_enterprise_router
-from app.api.whatsapp_health import (
-    router as whatsapp_health_router,
-)
-from app.core.exceptions import (
-    global_exception_handler,
-)
-from app.api.system_health import (
-    router as system_health_router,
-)
+from app.api.whatsapp_health import router as whatsapp_health_router
+from app.core.exceptions import global_exception_handler
+from app.api.system_health import router as system_health_router
 from app.core.logger import logger
 from app.core.request_context import generate_request_id
 from app.api.conversation_assignments import (
     router as conversation_assignments_router,
 )
-
-
-
-
+from app.api.conversation_timeline import (
+    router as conversation_timeline_router,
+)
+from app.api.inbox_replies import router as inbox_replies_router
+from app.api.queues import router as queues_router
+from app.api.realtime import router as realtime_router
+from app.api.presence import router as presence_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -88,7 +85,6 @@ async def request_context_middleware(
         f"request_completed:{request_id}:{response.status_code}"
     )
     return response
-
 
 
 app.include_router(webhook_router)
@@ -128,7 +124,11 @@ app.include_router(whatsapp_enterprise_router)
 app.include_router(whatsapp_health_router)
 app.include_router(system_health_router)
 app.include_router(conversation_assignments_router)
-
+app.include_router(conversation_timeline_router)
+app.include_router(inbox_replies_router)
+app.include_router(queues_router)
+app.include_router(realtime_router)
+app.include_router(presence_router)
 
 
 @app.get("/")
@@ -137,6 +137,7 @@ def root():
         "status": "ok",
         "service": "SLAIVIO OS API",
     }
+
 
 @app.options("/{full_path:path}")
 def options_handler(full_path: str):

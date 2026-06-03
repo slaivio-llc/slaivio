@@ -1,8 +1,5 @@
 import { api } from "@/services/api";
-
-import type {
-  ConversationAssignment,
-} from "@/types/inbox";
+import type { ConversationAssignment } from "@/types/inbox";
 
 export async function getConversationAssignment(
   phone: string

@@ -13,11 +13,13 @@ ORG_ID = "demo_agency"
 def list_conversations(
     number_role: str | None = None,
     status: str | None = None,
+    queue_name: str | None = None,
+    priority: str | None = None,
+    requires_attention: bool | None = None,
 ):
     where_clauses = [
-        "org_id = :org_id"
+        "org_id = :org_id",
     ]
-
     params = {
         "org_id": ORG_ID,
     }
@@ -29,6 +31,18 @@ def list_conversations(
     if status:
         where_clauses.append("conversation_status = :status")
         params["status"] = status
+
+    if queue_name:
+        where_clauses.append("queue_name = :queue_name")
+        params["queue_name"] = queue_name
+
+    if priority:
+        where_clauses.append("priority = :priority")
+        params["priority"] = priority
+
+    if requires_attention is not None:
+        where_clauses.append("requires_attention = :requires_attention")
+        params["requires_attention"] = requires_attention
 
     where_sql = " and ".join(where_clauses)
 
@@ -46,7 +60,13 @@ def list_conversations(
                     whatsapp_number_id,
                     conversation_status,
                     priority,
-                    assigned_manager_id
+                    queue_name,
+                    unread_count,
+                    requires_attention,
+                    assigned_manager_id,
+                    assigned_manager_name,
+                    last_note,
+                    waiting_since
                 from inbox_conversations_view
                 where {where_sql}
                 order by last_message_at desc
@@ -81,10 +101,15 @@ def get_conversation_messages(phone: str):
                     conversation_status,
                     priority,
                     assigned_manager_id,
+                    send_status,
+                    error_message,
                     created_at
                 from messages
                 where org_id = :org_id
-                  and from_phone = :phone
+                  and (
+                    from_phone = :phone
+                    or to_phone = :phone
+                  )
                 order by created_at asc
             """),
             {
@@ -118,7 +143,6 @@ def update_conversation_status(
                 "status": status,
             },
         )
-
         conn.commit()
 
     return {

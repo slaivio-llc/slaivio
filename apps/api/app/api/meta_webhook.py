@@ -24,9 +24,7 @@ from app.db.whatsapp_delivery_repository import (
     create_delivery_event,
     update_notification_delivery_status,
 )
-from app.services.whatsapp_routing_service import (
-    resolve_inbound_route,
-)
+from app.core.websocket_manager import manager
 from app.core.logger import logger
 
 from app.db.webhook_idempotency_repository import (
@@ -236,6 +234,15 @@ async def meta_whatsapp_webhook(request: Request):
         whatsapp_number_id=str(resolved_number["id"]),
         waba_id=route["waba_id"],
         number_role=route["number_role"],
+    )
+
+    await manager.broadcast(
+        {
+            "event": "NEW_MESSAGE",
+            "phone": normalized_message.from_phone,
+            "message": normalized_message.text_body,
+            "direction": "inbound",
+        }
     )
 
     media_items = extract_meta_media_items(payload)

@@ -11,6 +11,8 @@ DEFAULT_AI_SETTINGS = {
     "enabled": True,
     "escalation_threshold": 0.60,
     "auto_escalation_enabled": True,
+    "auto_reply_enabled": False,
+    "auto_reply_min_confidence": 0.75,
 }
 
 
@@ -29,4 +31,3 @@ def get_ai_settings(org_id: str):
         ).fetchone()
 
         return dict(row._mapping) if row else DEFAULT_AI_SETTINGS
-

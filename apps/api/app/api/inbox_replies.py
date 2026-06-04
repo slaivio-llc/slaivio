@@ -10,7 +10,9 @@ from app.db.outbound_message_repository import (
 )
 from app.ai.repositories.draft_response_repository import mark_ai_draft_used
 from app.services.whatsapp_provider_factory import get_whatsapp_provider
-from app.services.whatsapp_routing_service import resolve_outbound_number
+from app.services.whatsapp_outbound_resolver import (
+    resolve_outbound_whatsapp_sender,
+)
 
 
 router = APIRouter()
@@ -39,7 +41,7 @@ async def send_reply(
             detail="Message is required",
         )
 
-    route = resolve_outbound_number(
+    route = resolve_outbound_whatsapp_sender(
         org_id=ORG_ID,
         preferred_role=body.preferred_role,
     )

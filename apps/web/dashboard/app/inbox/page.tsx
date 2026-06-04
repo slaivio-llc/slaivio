@@ -362,8 +362,21 @@ export default function InboxPage() {
       setTimeline(timelineData);
       setAiDrafts(draftsData);
       await loadConversations(roleFilter, queueFilter);
-    } catch {
-      setError("Impossible d'envoyer la reponse.");
+    } catch (err) {
+      const apiError = err as {
+        response?: {
+          data?: {
+            detail?: string;
+            message?: string;
+          };
+        };
+      };
+      const detail =
+        apiError.response?.data?.detail ||
+        apiError.response?.data?.message ||
+        "Impossible d'envoyer la reponse.";
+
+      setError(detail);
     } finally {
       setSendingReply(false);
     }

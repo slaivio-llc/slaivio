@@ -26,6 +26,9 @@ from app.db.whatsapp_delivery_repository import (
 )
 from app.core.websocket_manager import manager
 from app.core.logger import logger
+from app.ai.services.auto_reply_service import (
+    maybe_auto_reply_to_inbound_message,
+)
 
 from app.db.webhook_idempotency_repository import (
     claim_event,
@@ -257,5 +260,28 @@ async def meta_whatsapp_webhook(request: Request):
             raw_payload=payload,
             phone_number_id=phone_number_id,
         )
+
+    auto_reply_result = maybe_auto_reply_to_inbound_message(
+        org_id=org_id,
+        client_phone=normalized_message.from_phone,
+        inbound_text=normalized_message.text_body,
+        preferred_role=route["number_role"],
+    )
+
+    if auto_reply_result.get("status") == "sent":
+        await manager.broadcast(
+            {
+                "event": "NEW_MESSAGE",
+                "phone": normalized_message.from_phone,
+                "message": auto_reply_result["message"].get("text_body"),
+                "direction": "outbound",
+            }
+        )
+
+    result["auto_reply"] = {
+        "status": auto_reply_result.get("status"),
+        "reason": auto_reply_result.get("reason"),
+        "decision": auto_reply_result.get("decision"),
+    }
 
     return result

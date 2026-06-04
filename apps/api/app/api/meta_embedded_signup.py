@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.core.logger import logger
 from app.db.meta_connection_repository import create_whatsapp_connection
 from app.db.whatsapp_account_repository import upsert_whatsapp_account
 from app.services.meta_webhook_subscription_service import (
@@ -60,6 +61,42 @@ class CheckWabaWebhookRequest(BaseModel):
     access_token: str
 
 
+def _sanitize_meta_error(data):
+    if not isinstance(data, dict):
+        return data
+
+    sanitized = {}
+
+    for key, value in data.items():
+        if key in {"access_token", "token", "client_secret"}:
+            sanitized[key] = "***"
+        elif isinstance(value, dict):
+            sanitized[key] = _sanitize_meta_error(value)
+        elif isinstance(value, list):
+            sanitized[key] = [
+                _sanitize_meta_error(item)
+                for item in value
+            ]
+        else:
+            sanitized[key] = value
+
+    return sanitized
+
+
+def _raise_meta_error(stage: str, status_code: int, data):
+    detail = {
+        "stage": stage,
+        "meta_response": _sanitize_meta_error(data),
+    }
+    logger.error(
+        f"meta_onboard_failed:{stage}:{detail['meta_response']}"
+    )
+    raise HTTPException(
+        status_code=status_code,
+        detail=detail,
+    )
+
+
 def _exchange_oauth_code(code: str) -> str:
     if not settings.meta_app_id or not settings.meta_app_secret or not settings.meta_redirect_uri:
         raise HTTPException(
@@ -80,15 +117,20 @@ def _exchange_oauth_code(code: str) -> str:
     data = result["data"]
 
     if not result["ok"] or "access_token" not in data:
-        raise HTTPException(
+        _raise_meta_error(
+            stage="exchange_oauth_code",
             status_code=400,
-            detail=data,
+            data=data,
         )
 
     return data["access_token"]
 
 
-def _get_meta_collection(url: str, access_token: str) -> list[dict]:
+def _get_meta_collection(
+    stage: str,
+    url: str,
+    access_token: str,
+) -> list[dict]:
     result = meta_get(
         url,
         params={
@@ -97,9 +139,10 @@ def _get_meta_collection(url: str, access_token: str) -> list[dict]:
     )
 
     if not result["ok"]:
-        raise HTTPException(
+        _raise_meta_error(
+            stage=stage,
             status_code=400,
-            detail=result["data"],
+            data=result["data"],
         )
 
     return result["data"].get("data") or []
@@ -210,6 +253,7 @@ def get_phone_numbers(
 def onboard_whatsapp(body: OnboardWhatsappRequest):
     access_token = _exchange_oauth_code(body.code)
     businesses = _get_meta_collection(
+        "get_businesses",
         "https://graph.facebook.com/v22.0/me/businesses",
         access_token,
     )
@@ -219,6 +263,7 @@ def onboard_whatsapp(body: OnboardWhatsappRequest):
     for business in businesses:
         business_id = business["id"]
         wabas = _get_meta_collection(
+            "get_wabas",
             f"https://graph.facebook.com/v22.0/{business_id}/owned_whatsapp_business_accounts",
             access_token,
         )
@@ -236,6 +281,7 @@ def onboard_whatsapp(body: OnboardWhatsappRequest):
                 is_default=not connections,
             )
             phone_numbers = _get_meta_collection(
+                "get_phone_numbers",
                 f"https://graph.facebook.com/v22.0/{waba_id}/phone_numbers",
                 access_token,
             )

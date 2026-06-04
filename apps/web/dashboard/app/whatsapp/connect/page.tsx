@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import {
@@ -17,6 +17,7 @@ type ConnectionStatus =
 export default function WhatsappConnectPage() {
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [message, setMessage] = useState("");
+  const processedCodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -31,6 +32,9 @@ export default function WhatsappConnectPage() {
     }
 
     if (!code) return;
+
+    if (processedCodeRef.current === code) return;
+    processedCodeRef.current = code;
 
     const expectedState = sessionStorage.getItem("slaivo_meta_oauth_state");
 
@@ -56,9 +60,20 @@ export default function WhatsappConnectPage() {
           `${result.connection_count} numéro(s) WhatsApp connecté(s).`
         );
       })
-      .catch(() => {
+      .catch((error) => {
+        const detail = error?.response?.data?.detail;
+        const stage = detail?.stage;
+        const metaError =
+          detail?.meta_response?.error?.message
+          || detail?.meta_response?.error
+          || detail;
+
         setStatus("error");
-        setMessage("Impossible de terminer la connexion WhatsApp.");
+        setMessage(
+          stage
+            ? `Impossible de terminer la connexion WhatsApp (${stage}) : ${JSON.stringify(metaError)}`
+            : "Impossible de terminer la connexion WhatsApp."
+        );
       });
   }, []);
 

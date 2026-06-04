@@ -10,23 +10,34 @@ import {
   createKnowledgeItem,
   createGoodsRule,
   createPricingRule,
+  getAISettings,
+  updateAISettings,
+  type AISettings,
+  type WhatsAppSenderStatus,
 } from "@/services/settings";
 
 export default function SettingsPage() {
   const [knowledge, setKnowledge] = useState<any[]>([]);
   const [goods, setGoods] = useState<any[]>([]);
   const [pricing, setPricing] = useState<any[]>([]);
+  const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
+  const [whatsappSender, setWhatsappSender] =
+    useState<WhatsAppSenderStatus | null>(null);
+  const [savingAI, setSavingAI] = useState(false);
 
   async function load() {
-    const [k, g, p] = await Promise.all([
+    const [k, g, p, ai] = await Promise.all([
       getKnowledgeItems(),
       getGoodsRules(),
       getPricingRules(),
+      getAISettings(),
     ]);
 
     setKnowledge(k);
     setGoods(g);
     setPricing(p);
+    setAiSettings(ai.settings);
+    setWhatsappSender(ai.whatsapp_sender);
   }
 
   useEffect(() => {
@@ -68,6 +79,34 @@ export default function SettingsPage() {
     load();
   }
 
+  async function toggleAutoReply(enabled: boolean) {
+    setSavingAI(true);
+
+    try {
+      const updated = await updateAISettings({
+        auto_reply_enabled: enabled,
+      });
+      setAiSettings(updated.settings);
+      setWhatsappSender(updated.whatsapp_sender);
+    } finally {
+      setSavingAI(false);
+    }
+  }
+
+  async function updateConfidence(value: number) {
+    setSavingAI(true);
+
+    try {
+      const updated = await updateAISettings({
+        auto_reply_min_confidence: value,
+      });
+      setAiSettings(updated.settings);
+      setWhatsappSender(updated.whatsapp_sender);
+    } finally {
+      setSavingAI(false);
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="p-8">
@@ -78,6 +117,88 @@ export default function SettingsPage() {
         <p className="mt-2 text-muted-foreground">
           Knowledge, goods rules and pricing configuration.
         </p>
+
+        <section className="mt-8 rounded-2xl border p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">
+                AI Auto Reply
+              </h2>
+
+              <p className="mt-2 text-sm text-muted-foreground">
+                L'IA peut répondre seule aux demandes sûres. Les plaintes,
+                demandes humaines et cas incertains restent pour l'équipe.
+              </p>
+            </div>
+
+            <button
+              onClick={() =>
+                toggleAutoReply(!aiSettings?.auto_reply_enabled)
+              }
+              disabled={savingAI || !aiSettings}
+              className={`rounded-xl px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
+                aiSettings?.auto_reply_enabled
+                  ? "bg-red-600"
+                  : "bg-black"
+              }`}
+            >
+              {aiSettings?.auto_reply_enabled
+                ? "Désactiver"
+                : "Activer"}
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="rounded-xl bg-gray-50 p-4 text-sm">
+              <div className="font-semibold">Statut</div>
+              <div className="mt-2">
+                {aiSettings?.auto_reply_enabled
+                  ? "Auto-réponse activée"
+                  : "Auto-réponse désactivée"}
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 p-4 text-sm">
+              <div className="font-semibold">WhatsApp sender</div>
+              <div className="mt-2">
+                {whatsappSender?.can_send
+                  ? `Disponible (${whatsappSender.strategy})`
+                  : "Aucun numéro d'envoi disponible"}
+              </div>
+              {whatsappSender?.display_phone_number && (
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {whatsappSender.display_phone_number}
+                </div>
+              )}
+            </div>
+
+            <label className="rounded-xl bg-gray-50 p-4 text-sm">
+              <div className="font-semibold">
+                Confiance minimale
+              </div>
+
+              <input
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value={aiSettings?.auto_reply_min_confidence ?? 0.75}
+                onChange={(event) =>
+                  updateConfidence(Number(event.target.value))
+                }
+                className="mt-2 w-full rounded-xl border px-3 py-2"
+              />
+            </label>
+          </div>
+
+          {!whatsappSender?.can_send && (
+            <div className="mt-4 rounded-xl bg-yellow-50 p-4 text-sm text-yellow-800">
+              L'auto-réponse peut être activée ici, mais elle ne pourra pas
+              envoyer réellement tant qu'aucun numéro WhatsApp Business n'est
+              connecté.
+            </div>
+          )}
+        </section>
 
         <div className="mt-8 grid grid-cols-3 gap-6">
           <section className="rounded-2xl border p-6">

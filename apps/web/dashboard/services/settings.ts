@@ -46,3 +46,55 @@ export async function createPricingRule(data: {
   const response = await api.post("/settings/pricing-rules", data);
   return response.data.rule;
 }
+
+export type AISettings = {
+  id?: string;
+  org_id: string;
+  enabled: boolean;
+  provider: string;
+  model_name: string;
+  temperature: number;
+  max_tokens: number;
+  escalation_confidence: number;
+  escalation_threshold: number;
+  auto_escalation_enabled: boolean;
+  auto_reply_enabled: boolean;
+  auto_reply_min_confidence: number;
+};
+
+export type WhatsAppSenderStatus = {
+  can_send: boolean;
+  strategy: string | null;
+  display_phone_number: string | null;
+  phone_number_id: string | null;
+  has_access_token: boolean;
+};
+
+export async function getAISettings(): Promise<{
+  settings: AISettings;
+  whatsapp_sender: WhatsAppSenderStatus;
+}> {
+  const response = await api.get("/settings/ai");
+
+  return {
+    settings: response.data.settings,
+    whatsapp_sender: response.data.whatsapp_sender,
+  };
+}
+
+export async function updateAISettings(data: {
+  enabled?: boolean;
+  auto_reply_enabled?: boolean;
+  auto_reply_min_confidence?: number;
+  escalation_threshold?: number;
+}): Promise<{
+  settings: AISettings;
+  whatsapp_sender: WhatsAppSenderStatus;
+}> {
+  const response = await api.patch("/settings/ai", data);
+
+  return {
+    settings: response.data.settings,
+    whatsapp_sender: response.data.whatsapp_sender,
+  };
+}

@@ -55,6 +55,7 @@ from app.api.ai import router as ai_router
 from app.api.ai_drafts import router as ai_drafts_router
 from app.api.ai_workflows import router as ai_workflows_router
 from app.api.ai_dossier_drafts import router as ai_dossier_drafts_router
+from app.api.ai_settings import router as ai_settings_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -137,6 +138,7 @@ app.include_router(ai_router)
 app.include_router(ai_drafts_router)
 app.include_router(ai_workflows_router)
 app.include_router(ai_dossier_drafts_router)
+app.include_router(ai_settings_router)
 
 
 @app.get("/")

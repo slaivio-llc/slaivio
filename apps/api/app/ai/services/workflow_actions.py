@@ -1,0 +1,81 @@
+def build_proposed_actions(
+    workflow_type: str,
+    entities: dict,
+):
+    if workflow_type == "CREATE_SHIPMENT_DRAFT":
+        return [
+            {
+                "type": "CREATE_DOSSIER_DRAFT",
+                "label": "Préparer un dossier client",
+                "payload": {
+                    "origin_country": entities.get("origin_country"),
+                    "origin_city": entities.get("origin_city"),
+                    "destination_country": entities.get("destination_country"),
+                    "destination_city": entities.get("destination_city"),
+                    "goods_type": entities.get("goods_type"),
+                    "weight_kg": entities.get("weight_kg"),
+                    "shipping_mode": entities.get("shipping_mode"),
+                },
+            },
+            {
+                "type": "ASK_MISSING_DETAILS",
+                "label": "Demander les informations manquantes",
+                "payload": {},
+            },
+        ]
+
+    if workflow_type == "PRICING_ANSWER":
+        return [
+            {
+                "type": "GENERATE_PRICING_RESPONSE",
+                "label": "Répondre avec le tarif trouvé",
+                "payload": entities,
+            }
+        ]
+
+    if workflow_type == "TRACKING_LOOKUP":
+        return [
+            {
+                "type": "LOOKUP_TRACKING",
+                "label": "Chercher le colis par tracking",
+                "payload": {
+                    "tracking_id": entities.get("tracking_id"),
+                },
+            }
+        ]
+
+    if workflow_type == "SUPPLIER_DEPOSIT_DRAFT":
+        return [
+            {
+                "type": "CREATE_SUPPLIER_DEPOSIT_NOTE",
+                "label": "Préparer une note dépôt fournisseur",
+                "payload": {
+                    "supplier_name": entities.get("supplier_name"),
+                    "origin_country": entities.get("origin_country"),
+                },
+            }
+        ]
+
+    if workflow_type == "PAYMENT_HELP":
+        return [
+            {
+                "type": "GENERATE_PAYMENT_RESPONSE",
+                "label": "Répondre sur les règles de paiement",
+                "payload": entities,
+            }
+        ]
+
+    if workflow_type == "ESCALATION_REQUIRED":
+        return [
+            {
+                "type": "CREATE_ESCALATION",
+                "label": "Créer une escalation manager",
+                "payload": {
+                    "reason": "AI detected sensitive conversation",
+                    "entities": entities,
+                },
+            }
+        ]
+
+    return []
+

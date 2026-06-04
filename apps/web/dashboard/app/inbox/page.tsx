@@ -17,11 +17,29 @@ import {
   getConversationMessages,
 } from "@/services/inbox";
 import { sendConversationReply } from "@/services/inbox-replies";
+import {
+  generateAIDraft,
+  getAIDrafts,
+} from "@/services/ai-drafts";
+import {
+  getAIWorkflows,
+  prepareAIWorkflow,
+  updateAIWorkflowStatus,
+} from "@/services/ai-workflows";
+import {
+  executeDossierDraft,
+  getAIDossierDrafts,
+  prepareAIDossierDraft,
+  updateAIDossierDraftStatus,
+} from "@/services/ai-dossier-drafts";
 import { getPresence } from "@/services/presence";
 import { getQueues, updateQueue } from "@/services/queues";
 import { useInboxRealtime } from "@/hooks/useInboxRealtime";
 import type {
   AgentPresence,
+  AIDossierDraft,
+  AIDraftResponse,
+  AIWorkflowRun,
   Conversation,
   ConversationAssignment,
   ConversationInternalNote,
@@ -92,6 +110,13 @@ export default function InboxPage() {
   const [manager, setManager] = useState<Manager | null>(null);
   const [presence, setPresence] = useState<AgentPresence[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [aiDrafts, setAiDrafts] = useState<AIDraftResponse[]>([]);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [aiWorkflows, setAiWorkflows] = useState<AIWorkflowRun[]>([]);
+  const [preparingWorkflow, setPreparingWorkflow] = useState(false);
+  const [dossierDrafts, setDossierDrafts] = useState<AIDossierDraft[]>([]);
+  const [preparingDossierDraft, setPreparingDossierDraft] = useState(false);
 
   const loadConversations = useCallback(async (
     role: string,
@@ -166,12 +191,19 @@ export default function InboxPage() {
     setReplyText("");
     setSelectedQueue("UNASSIGNED");
     setTypingUsers([]);
+    setAiDrafts([]);
+    setSelectedDraftId(null);
+    setAiWorkflows([]);
+    setDossierDrafts([]);
 
     try {
       const data = await getConversationMessages(phone);
       const assignmentData = await getConversationAssignment(phone);
       const notesData = await getConversationNotes(phone);
       const timelineData = await getConversationTimeline(phone);
+      const draftsData = await getAIDrafts(phone);
+      const workflowsData = await getAIWorkflows(phone);
+      const dossierDraftsData = await getAIDossierDrafts(phone);
 
       setMessages(data);
       setAssignment(assignmentData);
@@ -181,6 +213,9 @@ export default function InboxPage() {
       setNote(assignmentData?.last_note || "");
       setNotes(notesData);
       setTimeline(timelineData);
+      setAiDrafts(draftsData);
+      setAiWorkflows(workflowsData);
+      setDossierDrafts(dossierDraftsData);
       setSelectedQueue(
         assignmentData
           ? conversations.find((item) => item.from_phone === phone)
@@ -202,6 +237,10 @@ export default function InboxPage() {
     setNewNote("");
     setReplyText("");
     setTypingUsers([]);
+    setAiDrafts([]);
+    setSelectedDraftId(null);
+    setAiWorkflows([]);
+    setDossierDrafts([]);
     loadConversations(role, queueFilter);
   }
 
@@ -215,6 +254,10 @@ export default function InboxPage() {
     setNewNote("");
     setReplyText("");
     setTypingUsers([]);
+    setAiDrafts([]);
+    setSelectedDraftId(null);
+    setAiWorkflows([]);
+    setDossierDrafts([]);
     loadConversations(roleFilter, queue);
   }
 
@@ -305,20 +348,156 @@ export default function InboxPage() {
         preferred_role: messages[0]?.number_role || "SUPPORT",
         manager_id: manager?.id || null,
         manager_name: manager?.full_name || null,
+        draft_id: selectedDraftId,
       });
 
       setReplyText("");
+      setSelectedDraftId(null);
 
       const data = await getConversationMessages(selectedPhone);
       const timelineData = await getConversationTimeline(selectedPhone);
+      const draftsData = await getAIDrafts(selectedPhone);
 
       setMessages(data);
       setTimeline(timelineData);
+      setAiDrafts(draftsData);
       await loadConversations(roleFilter, queueFilter);
     } catch {
       setError("Impossible d'envoyer la reponse.");
     } finally {
       setSendingReply(false);
+    }
+  }
+
+  function getLastInboundMessage() {
+    return [...messages]
+      .reverse()
+      .find((message) => message.direction === "inbound");
+  }
+
+  async function handleGenerateAIDraft() {
+    if (!selectedPhone) {
+      return;
+    }
+
+    const lastInbound = getLastInboundMessage();
+    if (!lastInbound?.text_body) {
+      setError("Aucun message client a analyser.");
+      return;
+    }
+
+    setGeneratingDraft(true);
+    setError("");
+
+    try {
+      const draft = await generateAIDraft(selectedPhone, {
+        source_message: lastInbound.text_body,
+        manager_id: manager?.id || null,
+        manager_name: manager?.full_name || null,
+      });
+
+      setReplyText(draft.draft_text);
+      setSelectedDraftId(draft.id);
+      setAiDrafts(await getAIDrafts(selectedPhone));
+    } catch {
+      setError("Impossible de generer le brouillon IA.");
+    } finally {
+      setGeneratingDraft(false);
+    }
+  }
+
+  async function handlePrepareAIWorkflow() {
+    if (!selectedPhone) {
+      return;
+    }
+
+    const lastInbound = getLastInboundMessage();
+    if (!lastInbound?.text_body) {
+      setError("Aucun message client a analyser.");
+      return;
+    }
+
+    setPreparingWorkflow(true);
+    setError("");
+
+    try {
+      await prepareAIWorkflow(selectedPhone, {
+        source_message: lastInbound.text_body,
+        manager_id: manager?.id || null,
+        manager_name: manager?.full_name || null,
+      });
+      setAiWorkflows(await getAIWorkflows(selectedPhone));
+    } catch {
+      setError("Impossible de preparer le workflow IA.");
+    } finally {
+      setPreparingWorkflow(false);
+    }
+  }
+
+  async function changeWorkflowStatus(
+    workflowId: string,
+    status: string
+  ) {
+    if (!selectedPhone) {
+      return;
+    }
+
+    await updateAIWorkflowStatus(workflowId, {
+      status,
+    });
+    setAiWorkflows(await getAIWorkflows(selectedPhone));
+  }
+
+  async function handlePrepareDossierDraft() {
+    if (!selectedPhone) {
+      return;
+    }
+
+    const lastInbound = getLastInboundMessage();
+    if (!lastInbound?.text_body) {
+      setError("Aucun message client a analyser.");
+      return;
+    }
+
+    setPreparingDossierDraft(true);
+    setError("");
+
+    try {
+      await prepareAIDossierDraft(selectedPhone, {
+        source_message: lastInbound.text_body,
+        manager_id: manager?.id || null,
+        manager_name: manager?.full_name || null,
+      });
+      setDossierDrafts(await getAIDossierDrafts(selectedPhone));
+    } catch {
+      setError("Impossible de preparer le dossier IA.");
+    } finally {
+      setPreparingDossierDraft(false);
+    }
+  }
+
+  async function changeDossierDraftStatus(
+    draftId: string,
+    status: string
+  ) {
+    if (!selectedPhone) {
+      return;
+    }
+
+    await updateAIDossierDraftStatus(draftId, status);
+    setDossierDrafts(await getAIDossierDrafts(selectedPhone));
+  }
+
+  async function executeDraft(draftId: string) {
+    if (!selectedPhone) {
+      return;
+    }
+
+    try {
+      await executeDossierDraft(draftId);
+      setDossierDrafts(await getAIDossierDrafts(selectedPhone));
+    } catch {
+      setError("Impossible de creer le dossier depuis le draft IA.");
     }
   }
 
@@ -709,6 +888,14 @@ export default function InboxPage() {
                 />
 
                 <button
+                  onClick={handleGenerateAIDraft}
+                  disabled={generatingDraft || !selectedPhone}
+                  className="rounded-md border px-5 py-3 text-sm font-semibold disabled:opacity-50"
+                >
+                  {generatingDraft ? "IA..." : "Generer IA"}
+                </button>
+
+                <button
                   onClick={sendReply}
                   disabled={sendingReply || !replyText.trim()}
                   className="rounded-md bg-black px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
@@ -716,6 +903,194 @@ export default function InboxPage() {
                   {sendingReply ? "Envoi..." : "Envoyer"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {selectedPhone && (
+            <div className="max-h-[44vh] overflow-auto border-t p-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="font-semibold">Assistant IA</h3>
+
+                <button
+                  onClick={handlePrepareAIWorkflow}
+                  disabled={preparingWorkflow}
+                  className="rounded-md border px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                >
+                  {preparingWorkflow ? "Preparation..." : "Preparer workflow IA"}
+                </button>
+
+                <button
+                  onClick={handlePrepareDossierDraft}
+                  disabled={preparingDossierDraft}
+                  className="rounded-md border px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                >
+                  {preparingDossierDraft
+                    ? "Preparation dossier..."
+                    : "Preparer dossier IA"}
+                </button>
+              </div>
+
+              {aiDrafts.length > 0 && (
+                <div className="mt-5">
+                  <h4 className="text-sm font-semibold">Brouillons IA</h4>
+                  <div className="mt-3 space-y-3">
+                    {aiDrafts.map((draft) => (
+                      <button
+                        key={draft.id}
+                        onClick={() => {
+                          setReplyText(draft.draft_text);
+                          setSelectedDraftId(draft.id);
+                        }}
+                        className="w-full rounded-md border p-4 text-left text-sm hover:bg-gray-50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">
+                            {draft.intent || "AI Draft"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {draft.status}
+                          </span>
+                        </div>
+                        <p className="mt-2 line-clamp-3 text-gray-600">
+                          {draft.draft_text}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {aiWorkflows.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold">Workflows IA</h4>
+                  <div className="mt-3 space-y-3">
+                    {aiWorkflows.map((workflow) => (
+                      <div
+                        key={workflow.id}
+                        className="rounded-md border p-4 text-sm"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-semibold">
+                              {workflow.workflow_type}
+                            </div>
+                            <div className="mt-1 text-xs text-gray-500">
+                              {workflow.intent} | {workflow.confidence ?? "-"}
+                            </div>
+                          </div>
+                          <span className="rounded-full border px-2 py-1 text-xs">
+                            {workflow.workflow_status}
+                          </span>
+                        </div>
+
+                        {workflow.proposed_actions?.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {workflow.proposed_actions.map((action, index) => (
+                              <div
+                                key={`${workflow.id}-${index}`}
+                                className="rounded-md bg-gray-50 p-3"
+                              >
+                                {action.label}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            onClick={() =>
+                              changeWorkflowStatus(workflow.id, "APPROVED")
+                            }
+                            className="rounded-md bg-black px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Approuver
+                          </button>
+                          <button
+                            onClick={() =>
+                              changeWorkflowStatus(workflow.id, "CANCELLED")
+                            }
+                            className="rounded-md border px-3 py-2 text-xs font-semibold"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {dossierDrafts.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold">
+                    Dossiers IA prepares
+                  </h4>
+                  <div className="mt-3 space-y-3">
+                    {dossierDrafts.map((draft) => (
+                      <div
+                        key={draft.id}
+                        className="rounded-md border p-4 text-sm"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="font-semibold">
+                            {draft.case_type || "SEND_CARGO"}
+                          </div>
+                          <span className="rounded-full border px-2 py-1 text-xs">
+                            {draft.status}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <span className="text-gray-500">Origine:</span>{" "}
+                            {draft.origin_city || draft.origin_country || "-"}
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Destination:</span>{" "}
+                            {draft.destination_city ||
+                              draft.destination_country ||
+                              "-"}
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Marchandise:</span>{" "}
+                            {draft.goods_type || "-"}
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Poids:</span>{" "}
+                            {draft.estimated_weight_kg
+                              ? `${draft.estimated_weight_kg} kg`
+                              : "-"}
+                          </div>
+                        </div>
+
+                        {draft.missing_fields?.length > 0 && (
+                          <div className="mt-4 rounded-md bg-yellow-50 p-3 text-xs text-yellow-800">
+                            Champs manquants :{" "}
+                            {draft.missing_fields.join(", ")}
+                          </div>
+                        )}
+
+                        <div className="mt-4 flex gap-2">
+                          <button
+                            onClick={() => executeDraft(draft.id)}
+                            className="rounded-md bg-black px-3 py-2 text-xs font-semibold text-white"
+                          >
+                            Creer dossier
+                          </button>
+                          <button
+                            onClick={() =>
+                              changeDossierDraftStatus(draft.id, "CANCELLED")
+                            }
+                            className="rounded-md border px-3 py-2 text-xs font-semibold"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

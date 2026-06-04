@@ -8,6 +8,7 @@ from app.db.outbound_message_repository import (
     mark_outbound_message_failed,
     mark_outbound_message_sent,
 )
+from app.ai.repositories.draft_response_repository import mark_ai_draft_used
 from app.services.whatsapp_provider_factory import get_whatsapp_provider
 from app.services.whatsapp_routing_service import resolve_outbound_number
 
@@ -22,6 +23,7 @@ class SendReplyRequest(BaseModel):
     preferred_role: str | None = "SUPPORT"
     manager_id: str | None = None
     manager_name: str | None = None
+    draft_id: str | None = None
 
 
 @router.post("/inbox/conversations/{phone}/reply")
@@ -108,6 +110,9 @@ async def send_reply(
                     "direction": "outbound",
                 }
             )
+
+            if body.draft_id:
+                mark_ai_draft_used(body.draft_id)
 
             return {
                 "status": "ok",

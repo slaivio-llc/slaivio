@@ -10,6 +10,7 @@ import {
   Settings,
   MessageCircle,
   LogOut,
+  BookOpen,
 } from "lucide-react";
 
 const items = [
@@ -37,6 +38,11 @@ const items = [
     label: "Escalations",
     href: "/escalations",
     icon: AlertTriangle,
+  },
+  {
+    label: "Knowledge",
+    href: "/knowledge",
+    icon: BookOpen,
   },
   {
     label: "Settings",

@@ -51,6 +51,10 @@ from app.api.inbox_replies import router as inbox_replies_router
 from app.api.queues import router as queues_router
 from app.api.realtime import router as realtime_router
 from app.api.presence import router as presence_router
+from app.api.ai import router as ai_router
+from app.api.ai_drafts import router as ai_drafts_router
+from app.api.ai_workflows import router as ai_workflows_router
+from app.api.ai_dossier_drafts import router as ai_dossier_drafts_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -129,6 +133,10 @@ app.include_router(inbox_replies_router)
 app.include_router(queues_router)
 app.include_router(realtime_router)
 app.include_router(presence_router)
+app.include_router(ai_router)
+app.include_router(ai_drafts_router)
+app.include_router(ai_workflows_router)
+app.include_router(ai_dossier_drafts_router)
 
 
 @app.get("/")

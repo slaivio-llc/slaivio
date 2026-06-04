@@ -89,3 +89,66 @@ export type AgentPresence = {
   last_seen: string;
   created_at: string;
 };
+
+export type AIDraftResponse = {
+  id: string;
+  org_id: string;
+  client_phone: string;
+  source_message: string;
+  intent: string | null;
+  decision: string | null;
+  draft_text: string;
+  status: string;
+  manager_id: string | null;
+  manager_name: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AIWorkflowRun = {
+  id: string;
+  org_id: string;
+  client_phone: string;
+  source_message: string;
+  intent: string;
+  confidence: number | null;
+  workflow_type: string;
+  workflow_status: string;
+  entities: Record<string, unknown>;
+  proposed_actions: Array<{
+    type: string;
+    label: string;
+    payload: Record<string, unknown>;
+  }>;
+  result_payload: Record<string, unknown>;
+  manager_id: string | null;
+  manager_name: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AIDossierDraft = {
+  id: string;
+  org_id: string;
+  client_phone: string;
+  workflow_id: string | null;
+  source_message: string;
+  client_name: string | null;
+  case_type: string | null;
+  origin_country: string | null;
+  origin_city: string | null;
+  destination_country: string | null;
+  destination_city: string | null;
+  goods_type: string | null;
+  estimated_weight_kg: number | null;
+  estimated_volume_cbm: number | null;
+  shipping_mode: string | null;
+  missing_fields: string[];
+  status: string;
+  created_dossier_id: string | null;
+  created_shipment_id: string | null;
+  manager_id: string | null;
+  manager_name: string | null;
+  created_at: string;
+  updated_at: string;
+};

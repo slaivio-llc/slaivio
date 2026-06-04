@@ -8,6 +8,7 @@ export async function sendConversationReply(
     preferred_role?: string | null;
     manager_id?: string | null;
     manager_name?: string | null;
+    draft_id?: string | null;
   }
 ): Promise<InboxMessage> {
   const response = await api.post(

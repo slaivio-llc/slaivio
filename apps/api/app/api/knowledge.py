@@ -1,81 +1,62 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.db.knowledge_repository import (
-    create_knowledge_item,
-    list_knowledge_items,
-    get_knowledge_item,
-    update_knowledge_item,
-    search_knowledge_items,
+from app.ai.repositories.knowledge_repository import (
+    create_document,
+    delete_document,
+    get_documents,
+    search_documents,
 )
 
 
 router = APIRouter()
-
 ORG_ID = "demo_agency"
 
 
-class CreateKnowledgeItemRequest(BaseModel):
-    category: str
+class CreateKnowledgeRequest(BaseModel):
     title: str
     content: str
-    language: str = "FR"
-    tags: list[str] | None = None
-    priority: int = 0
-
-
-class UpdateKnowledgeItemRequest(BaseModel):
+    source: str = "manual"
     category: str | None = None
-    title: str | None = None
-    content: str | None = None
-    language: str | None = None
-    tags: list[str] | None = None
-    priority: int | None = None
-    is_active: bool | None = None
-
-
-@router.post("/knowledge")
-def create_item(body: CreateKnowledgeItemRequest):
-    item = create_knowledge_item(
-        org_id=ORG_ID,
-        category=body.category,
-        title=body.title,
-        content=body.content,
-        language=body.language,
-        tags=body.tags,
-        priority=body.priority,
-    )
-
-    return {
-        "status": "ok",
-        "item": item,
-    }
+    tags: list[str] = []
 
 
 @router.get("/knowledge")
-def list_items(
-    category: str | None = None,
-    limit: int = 100,
-):
-    items = list_knowledge_items(
+def knowledge_list():
+    documents = get_documents(ORG_ID)
+
+    return {
+        "status": "ok",
+        "count": len(documents),
+        "documents": documents,
+        "items": documents,
+    }
+
+
+@router.post("/knowledge")
+def create_knowledge(body: CreateKnowledgeRequest):
+    document = create_document(
         org_id=ORG_ID,
-        category=category,
-        limit=limit,
+        title=body.title,
+        content=body.content,
+        source=body.source,
+        category=body.category,
+        tags=body.tags,
     )
 
     return {
         "status": "ok",
-        "count": len(items),
-        "items": items,
+        "document": document,
+        "item": document,
     }
 
 
 @router.get("/knowledge/search")
-def search_items(
+def search_knowledge(
     q: str,
     limit: int = 5,
 ):
-    items = search_knowledge_items(
+    documents = search_documents(
         org_id=ORG_ID,
         query=q,
         limit=limit,
@@ -83,54 +64,16 @@ def search_items(
 
     return {
         "status": "ok",
-        "count": len(items),
-        "items": items,
+        "count": len(documents),
+        "documents": documents,
+        "items": documents,
     }
 
 
-@router.get("/knowledge/{item_id}")
-def get_item(item_id: str):
-    item = get_knowledge_item(
-        org_id=ORG_ID,
-        item_id=item_id,
-    )
-
-    if not item:
-        raise HTTPException(
-            status_code=404,
-            detail="Knowledge item not found",
-        )
+@router.delete("/knowledge/{document_id}")
+def remove_document(document_id: str):
+    delete_document(document_id)
 
     return {
-        "status": "ok",
-        "item": item,
-    }
-
-
-@router.patch("/knowledge/{item_id}")
-def update_item(
-    item_id: str,
-    body: UpdateKnowledgeItemRequest,
-):
-    item = update_knowledge_item(
-        org_id=ORG_ID,
-        item_id=item_id,
-        category=body.category,
-        title=body.title,
-        content=body.content,
-        language=body.language,
-        tags=body.tags,
-        priority=body.priority,
-        is_active=body.is_active,
-    )
-
-    if not item:
-        raise HTTPException(
-            status_code=404,
-            detail="Knowledge item not found",
-        )
-
-    return {
-        "status": "ok",
-        "item": item,
+        "status": "deleted",
     }

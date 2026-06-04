@@ -69,7 +69,10 @@ async def send_reply(
     )
 
     try:
-        provider = get_whatsapp_provider(org_id=ORG_ID)
+        provider = get_whatsapp_provider(
+            org_id=ORG_ID,
+            preferred_role=body.preferred_role,
+        )
         result = provider.send_message(
             to=phone,
             message=message_text,

@@ -16,6 +16,8 @@ on conversation_assignments(org_id, queue_name);
 create index if not exists idx_conversation_assignments_attention
 on conversation_assignments(org_id, requires_attention);
 
+drop view if exists inbox_conversations_view;
+
 create or replace view inbox_conversations_view as
 select
     m.org_id,

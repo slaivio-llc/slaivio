@@ -14,6 +14,10 @@ import {
   BarChart3,
 } from "lucide-react";
 
+import { EntitlementGuard } from "@/components/entitlements/entitlement-guard";
+import { FeatureGuard } from "@/components/features/feature-guard";
+import { PermissionGuard } from "@/components/permissions/permission-guard";
+
 const items = [
   {
     label: "Inbox",
@@ -74,8 +78,7 @@ export function Sidebar() {
       <div className="flex flex-col gap-2">
         {items.map((item) => {
           const Icon = item.icon;
-
-          return (
+          const link = (
             <Link
               key={item.href}
               href={item.href}
@@ -85,6 +88,20 @@ export function Sidebar() {
               {item.label}
             </Link>
           );
+
+          if (item.href === "/financial") {
+            return (
+              <FeatureGuard key={item.href} feature="finance_dashboard">
+                <EntitlementGuard entitlement="finance_dashboard">
+                  <PermissionGuard permission="finance.read">
+                    {link}
+                  </PermissionGuard>
+                </EntitlementGuard>
+              </FeatureGuard>
+            );
+          }
+
+          return link;
         })}
       </div>
 

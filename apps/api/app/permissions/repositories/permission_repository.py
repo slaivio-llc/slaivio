@@ -48,3 +48,36 @@ def user_has_permission(
 
     return permission_code in permissions
 
+
+def assign_role_to_user(
+    user_id: str,
+    org_id: str,
+    role_id: str,
+):
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("""
+                insert into user_role_assignments (
+                    user_id,
+                    org_id,
+                    role_id
+                )
+                values (
+                    :user_id,
+                    :org_id,
+                    :role_id
+                )
+                on conflict (user_id, org_id, role_id)
+                do update set assignment_status = 'ACTIVE'
+                returning *
+            """),
+            {
+                "user_id": user_id,
+                "org_id": org_id,
+                "role_id": role_id,
+            },
+        ).fetchone()
+
+        conn.commit()
+
+        return dict(row._mapping) if row else None

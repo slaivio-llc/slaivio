@@ -67,6 +67,12 @@ from app.api.audit import router as audit_router
 from app.api.multi_agency import router as multi_agency_router
 from app.api.performance import router as performance_router
 from app.api.permissions import router as permissions_router
+from app.api.clerk_webhooks import router as clerk_webhook_router
+from app.api.entitlements import router as entitlements_router
+from app.api.features import router as features_router
+from app.api.invitations import router as invitations_router
+from app.api.me import router as me_router
+from app.api.tenant import router as tenant_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -161,6 +167,12 @@ app.include_router(audit_router)
 app.include_router(multi_agency_router)
 app.include_router(performance_router)
 app.include_router(permissions_router)
+app.include_router(clerk_webhook_router)
+app.include_router(entitlements_router)
+app.include_router(features_router)
+app.include_router(invitations_router)
+app.include_router(me_router)
+app.include_router(tenant_router)
 
 
 @app.get("/")

@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Sidebar } from "@/components/sidebar/sidebar";
+import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
 import { getCurrentManager } from "@/services/auth";
 import type { Manager } from "@/types/auth";
 
@@ -55,6 +56,10 @@ export function DashboardLayout({
           </div>
         </div>
 
+        <div className="px-4 pb-4">
+          <OrganizationSwitcher />
+        </div>
+
         <Sidebar />
       </aside>
 
@@ -64,4 +69,3 @@ export function DashboardLayout({
     </div>
   );
 }
-

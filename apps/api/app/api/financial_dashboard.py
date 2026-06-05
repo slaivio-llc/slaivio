@@ -4,6 +4,8 @@ from app.financial.repositories.audit_repository import list_financial_audit_log
 from app.financial.repositories.financial_event_repository import list_financial_events
 from app.financial.services.financial_dashboard_service import get_financial_dashboard
 from app.core.permissions import require_permission
+from app.core.entitlements import require_entitlement
+from app.core.features import require_feature
 
 
 router = APIRouter()
@@ -14,6 +16,8 @@ ORG_ID = "demo_agency"
     "/financial/dashboard",
     dependencies=[
         Depends(require_permission("finance.read")),
+        Depends(require_feature("finance_dashboard")),
+        Depends(require_entitlement("finance_dashboard")),
     ],
 )
 def financial_dashboard():
@@ -27,6 +31,8 @@ def financial_dashboard():
     "/financial/events",
     dependencies=[
         Depends(require_permission("finance.read")),
+        Depends(require_feature("finance_dashboard")),
+        Depends(require_entitlement("finance_dashboard")),
     ],
 )
 def financial_events():

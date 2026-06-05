@@ -104,9 +104,11 @@ async def send_reply(
                 created_by_name=body.manager_name,
             )
 
-            await manager.broadcast(
+            await manager.broadcast_to_org(
+                ORG_ID,
                 {
                     "event": "NEW_MESSAGE",
+                    "org_id": ORG_ID,
                     "phone": phone,
                     "message": message_text,
                     "direction": "outbound",

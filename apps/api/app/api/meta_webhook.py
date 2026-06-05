@@ -239,9 +239,11 @@ async def meta_whatsapp_webhook(request: Request):
         number_role=route["number_role"],
     )
 
-    await manager.broadcast(
+    await manager.broadcast_to_org(
+        org_id,
         {
             "event": "NEW_MESSAGE",
+            "org_id": org_id,
             "phone": normalized_message.from_phone,
             "message": normalized_message.text_body,
             "direction": "inbound",
@@ -269,9 +271,11 @@ async def meta_whatsapp_webhook(request: Request):
     )
 
     if auto_reply_result.get("status") == "sent":
-        await manager.broadcast(
+        await manager.broadcast_to_org(
+            org_id,
             {
                 "event": "NEW_MESSAGE",
+                "org_id": org_id,
                 "phone": normalized_message.from_phone,
                 "message": auto_reply_result["message"].get("text_body"),
                 "direction": "outbound",

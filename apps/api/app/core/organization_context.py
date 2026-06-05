@@ -18,4 +18,3 @@ def get_current_organization(
         "org_id": tenant_org_id,
         "legacy_org_id": manager.get("org_code") or "demo_agency",
     }
-

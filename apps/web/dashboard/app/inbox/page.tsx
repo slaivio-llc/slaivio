@@ -34,6 +34,7 @@ import {
 } from "@/services/ai-dossier-drafts";
 import { getPresence } from "@/services/presence";
 import { getQueues, updateQueue } from "@/services/queues";
+import { getTenantContext } from "@/services/tenant";
 import { useInboxRealtime } from "@/hooks/useInboxRealtime";
 import type {
   AgentPresence,
@@ -117,6 +118,7 @@ export default function InboxPage() {
   const [preparingWorkflow, setPreparingWorkflow] = useState(false);
   const [dossierDrafts, setDossierDrafts] = useState<AIDossierDraft[]>([]);
   const [preparingDossierDraft, setPreparingDossierDraft] = useState(false);
+  const [activeTenant, setActiveTenant] = useState<any>(null);
 
   const loadConversations = useCallback(async (
     role: string,
@@ -159,6 +161,13 @@ export default function InboxPage() {
       }
 
       await loadConversations("ALL", "ALL");
+
+      try {
+        const tenantData = await getTenantContext();
+        setActiveTenant(tenantData.active_tenant || null);
+      } catch {
+        setActiveTenant(null);
+      }
 
       try {
         const queueData = await getQueues();
@@ -568,14 +577,16 @@ export default function InboxPage() {
   }, [
     loadConversations,
     manager?.id,
+    activeTenant?.org_id,
     queueFilter,
     roleFilter,
     selectedPhone,
   ]);
 
   const socketRef = useInboxRealtime(
-    manager?.id || null,
-    manager?.full_name || null,
+    manager?.user_id || manager?.id || null,
+    manager?.full_name || manager?.name || null,
+    activeTenant?.org_id || manager?.tenant_org_id || manager?.org_id || null,
     handleRealtimeMessage
   );
 
@@ -588,6 +599,7 @@ export default function InboxPage() {
       socketRef.current.send(
         JSON.stringify({
           event: "ACTIVE_CONVERSATION",
+          org_id: activeTenant?.org_id,
           phone: selectedPhone,
         })
       );

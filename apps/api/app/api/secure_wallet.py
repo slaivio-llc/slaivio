@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.permissions import require_permission
+from app.core.entitlements import require_entitlement
+from app.core.features import require_feature
 from app.wallet.services.secure_wallet_service import apply_secure_wallet_transaction
 
 
@@ -23,6 +25,8 @@ class SecureWalletTransactionRequest(BaseModel):
     "/wallet/secure/transactions",
     dependencies=[
         Depends(require_permission("wallet.write")),
+        Depends(require_feature("wallet")),
+        Depends(require_entitlement("wallet")),
     ],
 )
 def secure_wallet_transaction(body: SecureWalletTransactionRequest):

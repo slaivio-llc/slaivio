@@ -2,13 +2,14 @@
   "name": "dashboard",
   "version": "0.1.0",
   "private": true,
- "scripts": {
+  "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.4.3",
     "axios": "^1.7.9",
     "lucide-react": "^0.468.0",
     "next": "^15.5.18",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppProviders } from "@/app-providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className="h-full">
       <body className="min-h-full flex flex-col">
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

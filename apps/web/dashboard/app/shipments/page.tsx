@@ -16,16 +16,21 @@ import type {
 } from "@/types/shipments";
 
 const STATUS_OPTIONS = [
-  "CREATED",
+  "DRAFT",
+  "PENDING_DEPOSIT",
+  "DEPOSIT_CONFIRMED",
+  "WAITING_SUPPLIER",
   "RECEIVED_AT_ORIGIN",
-  "SCHEDULED_FOR_DEPARTURE",
-  "DEPARTED",
+  "WAREHOUSE_PROCESSING",
+  "READY_FOR_DISPATCH",
   "IN_TRANSIT",
+  "CUSTOMS",
   "ARRIVED_DESTINATION",
-  "READY_FOR_PICKUP",
+  "READY_PICKUP",
   "DELIVERED",
-  "BLOCKED",
-  "ISSUE",
+  "CANCELLED",
+  "LOST",
+  "RETURNED",
 ];
 
 export default function ShipmentsPage() {
@@ -115,7 +120,7 @@ export default function ShipmentsPage() {
                   </div>
 
                   <span className="rounded-full border px-2 py-1 text-xs">
-                    {shipment.status}
+                    {shipment.current_status || shipment.status}
                   </span>
                 </div>
 
@@ -160,7 +165,10 @@ export default function ShipmentsPage() {
                   </div>
 
                   <select
-                    value={selected.shipment.status}
+                    value={
+                      selected.shipment.current_status ||
+                      selected.shipment.status
+                    }
                     onChange={(event) => changeStatus(event.target.value)}
                     className="rounded-xl border px-4 py-3"
                   >
@@ -208,7 +216,31 @@ export default function ShipmentsPage() {
                             selected.shipment.final_currency || ""
                           }`
                         : "-"
+                      }
+                  />
+
+                  <InfoCard
+                    label="ETA"
+                    value={
+                      selected.shipment.eta_at
+                        ? new Date(selected.shipment.eta_at).toLocaleDateString()
+                        : "-"
                     }
+                  />
+
+                  <InfoCard
+                    label="Batch"
+                    value={selected.shipment.batch_status || "-"}
+                  />
+
+                  <InfoCard
+                    label="Douane"
+                    value={selected.shipment.customs_status || "-"}
+                  />
+
+                  <InfoCard
+                    label="Livraison"
+                    value={selected.shipment.delivery_status || "-"}
                   />
                 </div>
               </div>

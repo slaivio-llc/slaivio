@@ -9,12 +9,14 @@ from app.db.message_repository import (
 )
 from app.db.shipment_repository import (
     create_shipment,
-    update_shipment_status,
     set_shipment_total,
 )
 from app.services.shipment_notification import (
     create_shipment_notification,
     create_payment_reminder_notification,
+)
+from app.shipment_lifecycle.services.lifecycle_service import (
+    change_shipment_status,
 )
 
 
@@ -57,6 +59,15 @@ def list_shipments():
                     s.dossier_id,
                     s.tracking_id,
                     s.status,
+                    s.current_status,
+                    s.eta_at,
+                    s.current_batch_id,
+                    s.batch_status,
+                    s.customs_status,
+                    s.delay_status,
+                    s.inventory_status,
+                    s.delivery_status,
+                    s.final_release_status,
                     s.origin_country,
                     s.origin_city,
                     s.destination_country,
@@ -108,6 +119,15 @@ def get_shipment(shipment_id: str):
                     s.dossier_id,
                     s.tracking_id,
                     s.status,
+                    s.current_status,
+                    s.eta_at,
+                    s.current_batch_id,
+                    s.batch_status,
+                    s.customs_status,
+                    s.delay_status,
+                    s.inventory_status,
+                    s.delivery_status,
+                    s.final_release_status,
                     s.origin_country,
                     s.origin_city,
                     s.destination_country,
@@ -230,11 +250,20 @@ def create_shipment_from_dossier(
 
 @router.patch("/shipments/{shipment_id}/status")
 def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
-    shipment = update_shipment_status(
+    lifecycle_result = change_shipment_status(
         org_id=ORG_ID,
         shipment_id=shipment_id,
-        new_status=body.status,
+        next_status=body.status,
+        event_type="STATUS_CHANGE",
+        event_source="MANAGER",
+        event_message=body.notes or "Shipment updated",
+        metadata={
+            "legacy_endpoint": "/shipments/{shipment_id}/status",
+        },
+        actor_id="demo_manager",
+        actor_name="Demo Manager",
     )
+    shipment = lifecycle_result["shipment"]
 
     if not shipment:
         raise HTTPException(

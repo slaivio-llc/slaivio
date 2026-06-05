@@ -6,6 +6,15 @@ export type Shipment = {
 
   tracking_id: string | null;
   status: string;
+  current_status?: string | null;
+  eta_at?: string | null;
+  current_batch_id?: string | null;
+  batch_status?: string | null;
+  customs_status?: string | null;
+  delay_status?: string | null;
+  inventory_status?: string | null;
+  delivery_status?: string | null;
+  final_release_status?: string | null;
 
   origin_country: string | null;
   origin_city: string | null;

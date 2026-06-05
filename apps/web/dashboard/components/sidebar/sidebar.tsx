@@ -12,6 +12,10 @@ import {
   LogOut,
   BookOpen,
   BarChart3,
+  Boxes,
+  ClipboardList,
+  FileText,
+  ShieldCheck,
 } from "lucide-react";
 
 import { EntitlementGuard } from "@/components/entitlements/entitlement-guard";
@@ -32,6 +36,31 @@ const items = [
   {
     label: "Shipments",
     href: "/shipments",
+    icon: Truck,
+  },
+  {
+    label: "Batches",
+    href: "/shipment-batches",
+    icon: Boxes,
+  },
+  {
+    label: "Receipts",
+    href: "/warehouse/receipts",
+    icon: ClipboardList,
+  },
+  {
+    label: "Manifests",
+    href: "/manifests",
+    icon: FileText,
+  },
+  {
+    label: "Customs",
+    href: "/customs/cases",
+    icon: ShieldCheck,
+  },
+  {
+    label: "Delivery",
+    href: "/delivery/jobs",
     icon: Truck,
   },
   {

@@ -6,7 +6,10 @@ from app.db.database import engine
 
 DEMO_MANAGER = {
     "id": "demo_manager",
+    "user_id": "demo_manager",
     "org_id": "demo_agency",
+    "org_code": "demo_agency",
+    "tenant_org_id": "demo_agency",
     "full_name": "Demo Manager",
     "email": "demo@slaivo.com",
     "role": "OWNER",
@@ -32,4 +35,12 @@ def get_manager_by_id(manager_id: str):
             conn.rollback()
             return DEMO_MANAGER
 
-        return dict(row._mapping) if row else DEMO_MANAGER
+        if not row:
+            return DEMO_MANAGER
+
+        manager = dict(row._mapping)
+        manager.setdefault("user_id", manager.get("id"))
+        manager.setdefault("org_code", manager.get("org_id"))
+        manager.setdefault("tenant_org_id", manager.get("org_id") or "demo_agency")
+
+        return manager

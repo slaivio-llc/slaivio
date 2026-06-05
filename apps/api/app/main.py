@@ -63,6 +63,10 @@ from app.api.payments import router as payments_router
 from app.api.secure_wallet import router as secure_wallet_router
 from app.api.shipment_financial import router as shipment_financial_router
 from app.api.wallet import router as wallet_router
+from app.api.audit import router as audit_router
+from app.api.multi_agency import router as multi_agency_router
+from app.api.performance import router as performance_router
+from app.api.permissions import router as permissions_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -153,6 +157,10 @@ app.include_router(payments_router)
 app.include_router(secure_wallet_router)
 app.include_router(shipment_financial_router)
 app.include_router(wallet_router)
+app.include_router(audit_router)
+app.include_router(multi_agency_router)
+app.include_router(performance_router)
+app.include_router(permissions_router)
 
 
 @app.get("/")

@@ -11,6 +11,7 @@ import {
   MessageCircle,
   LogOut,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 
 const items = [
@@ -43,6 +44,11 @@ const items = [
     label: "Knowledge",
     href: "/knowledge",
     icon: BookOpen,
+  },
+  {
+    label: "Finance",
+    href: "/financial",
+    icon: BarChart3,
   },
   {
     label: "Settings",

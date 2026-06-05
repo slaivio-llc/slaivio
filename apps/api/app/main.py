@@ -56,6 +56,13 @@ from app.api.ai_drafts import router as ai_drafts_router
 from app.api.ai_workflows import router as ai_workflows_router
 from app.api.ai_dossier_drafts import router as ai_dossier_drafts_router
 from app.api.ai_settings import router as ai_settings_router
+from app.api.accounting import router as accounting_router
+from app.api.billing import router as billing_router
+from app.api.financial_dashboard import router as financial_dashboard_router
+from app.api.payments import router as payments_router
+from app.api.secure_wallet import router as secure_wallet_router
+from app.api.shipment_financial import router as shipment_financial_router
+from app.api.wallet import router as wallet_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -139,6 +146,13 @@ app.include_router(ai_drafts_router)
 app.include_router(ai_workflows_router)
 app.include_router(ai_dossier_drafts_router)
 app.include_router(ai_settings_router)
+app.include_router(accounting_router)
+app.include_router(billing_router)
+app.include_router(financial_dashboard_router)
+app.include_router(payments_router)
+app.include_router(secure_wallet_router)
+app.include_router(shipment_financial_router)
+app.include_router(wallet_router)
 
 
 @app.get("/")

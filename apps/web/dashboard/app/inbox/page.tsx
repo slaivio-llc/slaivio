@@ -123,6 +123,9 @@ export default function InboxPage() {
   const [dossierDrafts, setDossierDrafts] = useState<AIDossierDraft[]>([]);
   const [preparingDossierDraft, setPreparingDossierDraft] = useState(false);
   const [activeTenant, setActiveTenant] = useState<any>(null);
+  const [activePanel, setActivePanel] = useState<"workflow" | "assistant" | "notes">(
+    "workflow"
+  );
 
   const loadConversations = useCallback(async (
     role: string,
@@ -193,6 +196,7 @@ export default function InboxPage() {
 
   async function openConversation(phone: string) {
     setSelectedPhone(phone);
+    setActivePanel("workflow");
     setAssignment(null);
     setManagerName("");
     setConversationStatus("OPEN");
@@ -786,71 +790,28 @@ export default function InboxPage() {
           </div>
 
           {selectedPhone && (
-            <div className="border-b border-slate-100 bg-slate-50/80 p-6">
-              <h3 className="font-black text-slate-950">Workflow equipe</h3>
-
-              <div className="mt-4 grid gap-3 xl:grid-cols-5">
-                <input
-                  value={managerName}
-                  onChange={(event) => setManagerName(event.target.value)}
-                  placeholder="Manager responsable"
-                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                />
-
-                <select
-                  value={conversationStatus}
-                  onChange={(event) =>
-                    setConversationStatus(event.target.value)
-                  }
-                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                >
-                  {STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={priority}
-                  onChange={(event) => setPriority(event.target.value)}
-                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                >
-                  {PRIORITY_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedQueue}
-                  onChange={(event) =>
-                    changeConversationQueue(event.target.value)
-                  }
-                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-                >
-                  {QUEUE_OPTIONS.map((queue) => (
-                    <option key={queue} value={queue}>
-                      {queue}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  onClick={saveAssignment}
-                  className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5"
-                >
-                  Sauvegarder
-                </button>
+            <div className="border-b border-slate-100 bg-white px-6 py-3">
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["workflow", "Workflow équipe"],
+                  ["assistant", "Assistant IA"],
+                  ["notes", "Notes & timeline"],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() =>
+                      setActivePanel(key as "workflow" | "assistant" | "notes")
+                    }
+                    className={`rounded-full border px-4 py-2 text-xs font-black transition ${
+                      activePanel === key
+                        ? "border-slate-950 bg-slate-950 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:text-emerald-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-
-              <textarea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="Note interne..."
-                className="slaivo-focus mt-3 min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
-              />
             </div>
           )}
 
@@ -941,14 +902,87 @@ export default function InboxPage() {
           )}
 
           {selectedPhone && (
-            <div className="max-h-[44vh] overflow-auto border-t p-6">
+            activePanel === "workflow" && (
+              <div className="max-h-[260px] overflow-auto border-t border-slate-100 bg-white p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-black text-slate-950">Workflow équipe</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Assignation, statut, priorité et file de traitement.
+                    </p>
+                  </div>
+                  <button
+                    onClick={saveAssignment}
+                    className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5"
+                  >
+                    Sauvegarder
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3 xl:grid-cols-4">
+                  <input
+                    value={managerName}
+                    onChange={(event) => setManagerName(event.target.value)}
+                    placeholder="Manager responsable"
+                    className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                  />
+
+                  <select
+                    value={conversationStatus}
+                    onChange={(event) => setConversationStatus(event.target.value)}
+                    className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                  >
+                    {STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={priority}
+                    onChange={(event) => setPriority(event.target.value)}
+                    className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                  >
+                    {PRIORITY_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={selectedQueue}
+                    onChange={(event) => changeConversationQueue(event.target.value)}
+                    className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                  >
+                    {QUEUE_OPTIONS.map((queue) => (
+                      <option key={queue} value={queue}>
+                        {queue}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <textarea
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Note interne du workflow..."
+                  className="slaivo-focus mt-3 min-h-[76px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                />
+              </div>
+            )
+          )}
+
+          {selectedPhone && activePanel === "assistant" && (
+            <div className="max-h-[300px] overflow-auto border-t border-slate-100 bg-white p-5">
               <div className="flex flex-wrap items-center gap-3">
-                <h3 className="font-semibold">Assistant IA</h3>
+                <h3 className="font-black text-slate-950">Assistant IA</h3>
 
                 <button
                   onClick={handlePrepareAIWorkflow}
                   disabled={preparingWorkflow}
-                  className="rounded-md border px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                  className="rounded-2xl border border-slate-200 px-4 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                 >
                   {preparingWorkflow ? "Preparation..." : "Preparer workflow IA"}
                 </button>
@@ -956,7 +990,7 @@ export default function InboxPage() {
                 <button
                   onClick={handlePrepareDossierDraft}
                   disabled={preparingDossierDraft}
-                  className="rounded-md border px-4 py-2 text-xs font-semibold disabled:opacity-50"
+                  className="rounded-2xl border border-slate-200 px-4 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                 >
                   {preparingDossierDraft
                     ? "Preparation dossier..."
@@ -975,13 +1009,13 @@ export default function InboxPage() {
                           setReplyText(draft.draft_text);
                           setSelectedDraftId(draft.id);
                         }}
-                        className="w-full rounded-md border p-4 text-left text-sm hover:bg-gray-50"
+                        className="w-full rounded-2xl border border-slate-200 p-4 text-left text-sm transition hover:bg-slate-50"
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">
                             {draft.intent || "AI Draft"}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs font-bold text-slate-500">
                             {draft.status}
                           </span>
                         </div>
@@ -1001,7 +1035,7 @@ export default function InboxPage() {
                     {aiWorkflows.map((workflow) => (
                       <div
                         key={workflow.id}
-                        className="rounded-md border p-4 text-sm"
+                        className="rounded-2xl border border-slate-200 p-4 text-sm"
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -1012,7 +1046,7 @@ export default function InboxPage() {
                               {workflow.intent} | {workflow.confidence ?? "-"}
                             </div>
                           </div>
-                          <span className="rounded-full border px-2 py-1 text-xs">
+                          <span className="rounded-full border border-slate-200 px-2 py-1 text-xs font-bold">
                             {workflow.workflow_status}
                           </span>
                         </div>
@@ -1022,7 +1056,7 @@ export default function InboxPage() {
                             {workflow.proposed_actions.map((action, index) => (
                               <div
                                 key={`${workflow.id}-${index}`}
-                                className="rounded-md bg-gray-50 p-3"
+                                className="rounded-2xl bg-slate-50 p-3"
                               >
                                 {action.label}
                               </div>
@@ -1035,7 +1069,7 @@ export default function InboxPage() {
                             onClick={() =>
                               changeWorkflowStatus(workflow.id, "APPROVED")
                             }
-                            className="rounded-md bg-black px-3 py-2 text-xs font-semibold text-white"
+                            className="rounded-2xl bg-slate-950 px-3 py-2 text-xs font-black text-white"
                           >
                             Approuver
                           </button>
@@ -1043,7 +1077,7 @@ export default function InboxPage() {
                             onClick={() =>
                               changeWorkflowStatus(workflow.id, "CANCELLED")
                             }
-                            className="rounded-md border px-3 py-2 text-xs font-semibold"
+                            className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black"
                           >
                             Annuler
                           </button>
@@ -1063,13 +1097,13 @@ export default function InboxPage() {
                     {dossierDrafts.map((draft) => (
                       <div
                         key={draft.id}
-                        className="rounded-md border p-4 text-sm"
+                        className="rounded-2xl border border-slate-200 p-4 text-sm"
                       >
                         <div className="flex items-center justify-between">
                           <div className="font-semibold">
                             {draft.case_type || "SEND_CARGO"}
                           </div>
-                          <span className="rounded-full border px-2 py-1 text-xs">
+                          <span className="rounded-full border border-slate-200 px-2 py-1 text-xs font-bold">
                             {draft.status}
                           </span>
                         </div>
@@ -1098,7 +1132,7 @@ export default function InboxPage() {
                         </div>
 
                         {draft.missing_fields?.length > 0 && (
-                          <div className="mt-4 rounded-md bg-yellow-50 p-3 text-xs text-yellow-800">
+                          <div className="mt-4 rounded-2xl bg-yellow-50 p-3 text-xs text-yellow-800">
                             Champs manquants :{" "}
                             {draft.missing_fields.join(", ")}
                           </div>
@@ -1107,7 +1141,7 @@ export default function InboxPage() {
                         <div className="mt-4 flex gap-2">
                           <button
                             onClick={() => executeDraft(draft.id)}
-                            className="rounded-md bg-black px-3 py-2 text-xs font-semibold text-white"
+                            className="rounded-2xl bg-slate-950 px-3 py-2 text-xs font-black text-white"
                           >
                             Creer dossier
                           </button>
@@ -1115,7 +1149,7 @@ export default function InboxPage() {
                             onClick={() =>
                               changeDossierDraftStatus(draft.id, "CANCELLED")
                             }
-                            className="rounded-md border px-3 py-2 text-xs font-semibold"
+                            className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black"
                           >
                             Annuler
                           </button>
@@ -1128,21 +1162,21 @@ export default function InboxPage() {
             </div>
           )}
 
-          {selectedPhone && (
-            <div className="max-h-[42vh] overflow-auto border-t p-6">
-              <h3 className="font-semibold">Notes internes</h3>
+          {selectedPhone && activePanel === "notes" && (
+            <div className="max-h-[300px] overflow-auto border-t border-slate-100 bg-white p-5">
+              <h3 className="font-black text-slate-950">Notes internes</h3>
 
               <div className="mt-3 flex gap-3">
                 <input
                   value={newNote}
                   onChange={(event) => setNewNote(event.target.value)}
                   placeholder="Ajouter une note interne..."
-                  className="flex-1 rounded-md border px-4 py-3 text-sm"
+                  className="slaivo-focus flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm"
                 />
 
                 <button
                   onClick={addInternalNote}
-                  className="rounded-md bg-black px-4 py-3 text-sm font-semibold text-white"
+                  className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white"
                 >
                   Ajouter
                 </button>
@@ -1152,7 +1186,7 @@ export default function InboxPage() {
                 {notes.map((item) => (
                   <div
                     key={item.id}
-                    className="rounded-md border bg-gray-50 p-4 text-sm"
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm"
                   >
                     <div className="font-medium">
                       {item.manager_name || "Manager"}
@@ -1169,11 +1203,11 @@ export default function InboxPage() {
 
               <h3 className="mt-8 font-semibold">Timeline</h3>
 
-              <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-3">
                 {timeline.map((event) => (
                   <div
                     key={event.id}
-                    className="rounded-md border p-4 text-sm"
+                    className="rounded-2xl border border-slate-200 p-4 text-sm"
                   >
                     <div className="font-medium">
                       {event.event_title || event.event_type}

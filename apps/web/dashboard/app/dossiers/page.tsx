@@ -277,17 +277,15 @@ function DossierDetail({
 
             {selected.timeline.map((event) => (
               <div key={event.id} className="relative pl-6">
-                <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-sky-500 ring-4 ring-sky-100" />
+                <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <div className="font-bold text-slate-950">
-                    {event.event_type}
+                    {formatEventTitle(event.event_type)}
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
                     {new Date(event.created_at).toLocaleString()}
                   </div>
-                  <pre className="mt-3 max-h-44 overflow-auto rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-                    {JSON.stringify(event.event_payload, null, 2)}
-                  </pre>
+                  <EventPayloadSummary payload={event.event_payload} />
                 </div>
               </div>
             ))}
@@ -340,6 +338,99 @@ function DossierDetail({
   );
 }
 
+function formatEventTitle(eventType: string) {
+  return (eventType || "EVENT")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+
+function EventPayloadSummary({
+  payload,
+}: {
+  payload: any;
+}) {
+  if (!payload || typeof payload !== "object") {
+    return (
+      <p className="mt-3 text-sm text-slate-500">
+        Aucun détail supplémentaire.
+      </p>
+    );
+  }
+
+  const aiResult = payload.ai_result || {};
+  const missingFields =
+    aiResult.missing_fields || payload.missing_fields || [];
+  const confidence = aiResult.confidence ?? payload.confidence;
+  const text = payload.text || payload.message || payload.content;
+  const intent = aiResult.intent || payload.intent;
+  const language = aiResult.language || payload.language;
+  const source = payload.source || aiResult.source;
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {intent && <SummaryItem label="Intention" value={intent} />}
+        {source && <SummaryItem label="Source" value={source} />}
+        {language && <SummaryItem label="Langue" value={language} />}
+        {confidence !== undefined && (
+          <SummaryItem
+            label="Confiance IA"
+            value={`${Math.round(Number(confidence) * 100)}%`}
+          />
+        )}
+      </div>
+
+      {text && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+            Message client
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-700">{text}</p>
+        </div>
+      )}
+
+      {missingFields.length > 0 && (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+          <div className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+            Informations manquantes
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {missingFields.map((field: string) => (
+              <MiniPill key={field} label={field} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!intent && !source && !language && confidence === undefined && !text && (
+        <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
+          Événement enregistré sans données métier affichables.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-3">
+      <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 truncate text-sm font-bold text-slate-800">
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function Metric({
   label,
   value,
@@ -370,7 +461,7 @@ function InfoCard({
   return (
     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-        <span className="text-sky-600">{icon}</span>
+        <span className="text-emerald-600">{icon}</span>
         {label}
       </div>
       <div className="mt-3 truncate text-lg font-black text-slate-950">
@@ -413,7 +504,7 @@ function StatusBadge({
   status: string;
 }) {
   return (
-    <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-black text-sky-700">
+    <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
       {status || "UNKNOWN"}
     </span>
   );
@@ -430,4 +521,3 @@ function MiniPill({
     </span>
   );
 }
-

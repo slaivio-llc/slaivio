@@ -7,6 +7,8 @@ import {
   CargoCard,
   CargoPageShell,
   EmptyState,
+  RefreshButton,
+  StatusPill,
 } from "@/components/cargo/cargo-page-shell";
 
 type Receipt = {
@@ -54,10 +56,8 @@ export default function WarehouseReceiptsPage() {
 
       <CargoCard>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Réceptions</h2>
-          <button onClick={load} className="rounded-xl border px-4 py-2 text-sm">
-            Rafraîchir
-          </button>
+          <h2 className="text-lg font-black text-slate-950">Réceptions</h2>
+          <RefreshButton onClick={load} />
         </div>
 
         <div className="mt-5 space-y-3">
@@ -66,17 +66,23 @@ export default function WarehouseReceiptsPage() {
             <EmptyState label="Aucune réception pour le moment." />
           )}
           {receipts.map((receipt) => (
-            <div key={receipt.id} className="rounded-xl border p-4 text-sm">
+            <div
+              key={receipt.id}
+              className="rounded-3xl border border-slate-200 bg-white p-5 text-sm shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
               <div className="flex items-center justify-between">
-                <div className="font-semibold">{receipt.receipt_code}</div>
-                <span className="rounded-full border px-2 py-1 text-xs">
-                  {receipt.package_condition || "UNKNOWN"}
-                </span>
+                <div className="font-black text-slate-950">
+                  {receipt.receipt_code}
+                </div>
+                <StatusPill
+                  label={receipt.package_condition || "UNKNOWN"}
+                  tone={receipt.package_condition === "GOOD" ? "success" : "warning"}
+                />
               </div>
-              <div className="mt-2 text-gray-500">
+              <div className="mt-2 text-slate-500">
                 Fournisseur : {receipt.supplier_name || "-"}
               </div>
-              <div className="mt-2 text-xs text-gray-500">
+              <div className="mt-2 text-xs font-medium text-slate-400">
                 Poids : {receipt.measured_weight_kg || "-"} kg • Reçu par{" "}
                 {receipt.received_by_name || "-"}
               </div>
@@ -87,4 +93,3 @@ export default function WarehouseReceiptsPage() {
     </CargoPageShell>
   );
 }
-

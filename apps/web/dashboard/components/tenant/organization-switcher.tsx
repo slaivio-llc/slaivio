@@ -7,7 +7,11 @@ import {
   switchTenant,
 } from "@/services/tenant";
 
-export function OrganizationSwitcher() {
+export function OrganizationSwitcher({
+  variant = "light",
+}: {
+  variant?: "light" | "dark";
+}) {
   const [tenants, setTenants] = useState<any[]>([]);
   const [activeTenant, setActiveTenant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +38,13 @@ export function OrganizationSwitcher() {
 
   if (loading) {
     return (
-      <div className="text-xs text-gray-500">
+      <div
+        className={
+          variant === "dark"
+            ? "text-xs text-slate-400"
+            : "text-xs text-gray-500"
+        }
+      >
         Chargement organisation...
       </div>
     );
@@ -42,22 +52,44 @@ export function OrganizationSwitcher() {
 
   if (!tenants.length) {
     return (
-      <div className="rounded-xl border p-3 text-xs text-gray-500">
+      <div
+        className={
+          variant === "dark"
+            ? "rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs text-slate-400"
+            : "rounded-xl border p-3 text-xs text-gray-500"
+        }
+      >
         Aucune organisation active.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border p-3">
-      <div className="text-xs text-gray-500">
+    <div
+      className={
+        variant === "dark"
+          ? "rounded-2xl border border-white/10 bg-white/[0.04] p-3"
+          : "rounded-xl border bg-white p-3"
+      }
+    >
+      <div
+        className={
+          variant === "dark"
+            ? "text-xs font-medium uppercase tracking-[0.18em] text-slate-400"
+            : "text-xs text-gray-500"
+        }
+      >
         Organisation active
       </div>
 
       <select
         value={activeTenant?.org_id || ""}
         onChange={(event) => handleSwitch(event.target.value)}
-        className="mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+        className={
+          variant === "dark"
+            ? "mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none"
+            : "mt-2 w-full rounded-lg border px-3 py-2 text-sm"
+        }
       >
         {tenants.map((tenant) => (
           <option key={tenant.org_id} value={tenant.org_id}>
@@ -68,4 +100,3 @@ export function OrganizationSwitcher() {
     </div>
   );
 }
-

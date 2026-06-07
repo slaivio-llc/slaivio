@@ -7,6 +7,8 @@ import {
   CargoCard,
   CargoPageShell,
   EmptyState,
+  RefreshButton,
+  StatusPill,
 } from "@/components/cargo/cargo-page-shell";
 
 type CustomsCase = {
@@ -55,10 +57,8 @@ export default function CustomsCasesPage() {
 
       <CargoCard>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Cas douane</h2>
-          <button onClick={load} className="rounded-xl border px-4 py-2 text-sm">
-            Rafraîchir
-          </button>
+          <h2 className="text-lg font-black text-slate-950">Cas douane</h2>
+          <RefreshButton onClick={load} />
         </div>
 
         <div className="mt-5 space-y-3">
@@ -67,17 +67,21 @@ export default function CustomsCasesPage() {
             <EmptyState label="Aucun cas douane pour le moment." />
           )}
           {cases.map((item) => (
-            <div key={item.id} className="rounded-xl border p-4 text-sm">
+            <div
+              key={item.id}
+              className="rounded-3xl border border-slate-200 bg-white p-5 text-sm shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
               <div className="flex items-center justify-between">
-                <div className="font-semibold">{item.case_code}</div>
-                <span className="rounded-full border px-2 py-1 text-xs">
-                  {item.customs_status}
-                </span>
+                <div className="font-black text-slate-950">{item.case_code}</div>
+                <StatusPill
+                  label={item.customs_status}
+                  tone={item.customs_status === "RESOLVED" ? "success" : "warning"}
+                />
               </div>
-              <div className="mt-2 text-gray-500">
+              <div className="mt-2 text-slate-500">
                 Risque : {item.risk_level} • {item.goods_description || "-"}
               </div>
-              <div className="mt-2 text-xs text-gray-500">
+              <div className="mt-2 text-xs font-medium text-slate-400">
                 {item.blocked_reason || "Aucun blocage renseigné"}
               </div>
             </div>
@@ -87,4 +91,3 @@ export default function CustomsCasesPage() {
     </CargoPageShell>
   );
 }
-

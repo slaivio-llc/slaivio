@@ -7,6 +7,8 @@ import {
   CargoCard,
   CargoPageShell,
   EmptyState,
+  RefreshButton,
+  StatusPill,
 } from "@/components/cargo/cargo-page-shell";
 
 type Manifest = {
@@ -55,10 +57,8 @@ export default function ManifestsPage() {
 
       <CargoCard>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Manifests</h2>
-          <button onClick={load} className="rounded-xl border px-4 py-2 text-sm">
-            Rafraîchir
-          </button>
+          <h2 className="text-lg font-black text-slate-950">Manifests</h2>
+          <RefreshButton onClick={load} />
         </div>
 
         <div className="mt-5 space-y-3">
@@ -67,17 +67,20 @@ export default function ManifestsPage() {
             <EmptyState label="Aucun manifest pour le moment." />
           )}
           {manifests.map((manifest) => (
-            <div key={manifest.id} className="rounded-xl border p-4 text-sm">
+            <div
+              key={manifest.id}
+              className="rounded-3xl border border-slate-200 bg-white p-5 text-sm shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
               <div className="flex items-center justify-between">
-                <div className="font-semibold">{manifest.manifest_code}</div>
-                <span className="rounded-full border px-2 py-1 text-xs">
-                  {manifest.status}
-                </span>
+                <div className="font-black text-slate-950">
+                  {manifest.manifest_code}
+                </div>
+                <StatusPill label={manifest.status} tone="success" />
               </div>
-              <div className="mt-2 text-gray-500">
+              <div className="mt-2 text-slate-500">
                 {manifest.total_shipments} colis • {manifest.total_weight_kg || 0} kg
               </div>
-              <div className="mt-2 text-xs text-gray-500">
+              <div className="mt-2 text-xs font-medium text-slate-400">
                 Généré par {manifest.generated_by_name || "-"}
               </div>
             </div>
@@ -87,4 +90,3 @@ export default function ManifestsPage() {
     </CargoPageShell>
   );
 }
-

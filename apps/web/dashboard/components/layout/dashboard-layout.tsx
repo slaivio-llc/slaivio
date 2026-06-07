@@ -49,7 +49,7 @@ export function DashboardLayout({
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white">
             <Sparkles size={22} />
           </div>
-          <div className="mt-5 text-lg font-bold">Chargement SLAIVO</div>
+          <div className="mt-5 text-lg font-bold">Chargement SLAIVIO</div>
           <div className="mt-2 text-sm text-slate-500">
             Préparation de votre centre opérationnel cargo...
           </div>
@@ -62,7 +62,7 @@ export function DashboardLayout({
     manager?.full_name ||
     manager?.name ||
     manager?.email ||
-    "Manager SLAIVO";
+    "Manager SLAIVIO";
   const orgLabel = manager?.org_id || manager?.tenant_org_id || "Organisation";
 
   return (
@@ -165,13 +165,13 @@ function SidebarHeader({
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 shadow-lg ring-1 ring-white/10">
           <img
-            src="/slaivo-icon.png"
-            alt="SLAIVO"
+            src="/slaivio-icon.png"
+            alt="SLAIVIO"
             className="h-full w-full object-cover"
           />
         </div>
         <div>
-          <div className="text-2xl font-black tracking-tight">SLAIVO</div>
+          <div className="text-2xl font-black tracking-tight">SLAIVIO</div>
           <div className="text-xs font-medium uppercase tracking-[0.22em] text-sky-300">
             Cargo OS
           </div>

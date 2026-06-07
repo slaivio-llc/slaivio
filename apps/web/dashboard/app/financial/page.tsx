@@ -63,7 +63,7 @@ export default function FinancialPage() {
           <div>
             <h1 className="text-3xl font-bold">Financial OS</h1>
             <p className="mt-2 text-sm text-gray-500">
-              Revenus, wallet, factures et événements financiers SLAIVO.
+              Revenus, wallet, factures et événements financiers SLAIVIO.
             </p>
           </div>
 

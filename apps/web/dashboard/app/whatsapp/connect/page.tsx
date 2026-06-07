@@ -100,7 +100,7 @@ export default function WhatsappConnectPage() {
         </h1>
 
         <p className="mt-3 text-gray-500">
-          Autorisez SLAIVO à récupérer vos WABA et vos numéros WhatsApp.
+          Autorisez SLAIVIO à récupérer vos WABA et vos numéros WhatsApp.
         </p>
 
         {message && (

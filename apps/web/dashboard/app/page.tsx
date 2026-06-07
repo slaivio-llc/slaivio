@@ -63,7 +63,7 @@ export default function HomePage() {
                 Pilotez vos opérations cargo de WhatsApp jusqu’à la livraison.
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-                SLAIVO centralise conversations, dossiers, expéditions, warehouse,
+                SLAIVIO centralise conversations, dossiers, expéditions, warehouse,
                 douane, paiements, batches et delivery dans une interface pensée
                 pour les agences cargo internationales.
               </p>
@@ -165,7 +165,7 @@ export default function HomePage() {
               Standards Plateforme
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Les repères qui rendent SLAIVO prêt pour des agences exigeantes.
+              Les repères qui rendent SLAIVIO prêt pour des agences exigeantes.
             </p>
 
             <div className="mt-6 space-y-4">

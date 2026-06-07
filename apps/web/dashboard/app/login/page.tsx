@@ -37,7 +37,7 @@ export default function LoginPage() {
         className="w-full max-w-md rounded-2xl border bg-background p-8 shadow-sm"
       >
         <h1 className="text-3xl font-bold">
-          SLAIVO
+          SLAIVIO
         </h1>
 
         <p className="mt-2 text-sm text-muted-foreground">

@@ -1171,7 +1171,7 @@ export default function InboxPage() {
                     </div>
 
                     <div className="mt-1 text-xs text-gray-500">
-                      {event.created_by_name || "SLAIVO"} |{" "}
+                      {event.created_by_name || "SLAIVIO"} |{" "}
                       {new Date(event.created_at).toLocaleString()}
                     </div>
                   </div>

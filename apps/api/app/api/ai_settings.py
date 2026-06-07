@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from app.core.auth import get_current_manager
+from app.core.tenant_context import get_current_tenant
 from app.db.database import engine
 from app.services.whatsapp_outbound_resolver import (
     resolve_outbound_whatsapp_sender,
@@ -101,8 +101,8 @@ def _sender_status(org_id: str):
 
 
 @router.get("/settings/ai")
-def read_ai_settings(manager=Depends(get_current_manager)):
-    org_id = manager["org_id"]
+def read_ai_settings(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
     settings = _get_or_create_ai_settings(org_id)
 
     return {
@@ -115,9 +115,9 @@ def read_ai_settings(manager=Depends(get_current_manager)):
 @router.patch("/settings/ai")
 def update_ai_settings(
     body: UpdateAISettingsRequest,
-    manager=Depends(get_current_manager),
+    tenant=Depends(get_current_tenant),
 ):
-    org_id = manager["org_id"]
+    org_id = tenant["org_id"]
     _get_or_create_ai_settings(org_id)
 
     with engine.connect() as conn:

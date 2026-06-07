@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.escalation_repository import (
     list_escalation_cases,
     get_escalation_case,
@@ -11,8 +12,6 @@ from app.db.escalation_repository import (
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class UpdateEscalationRequest(BaseModel):
@@ -27,9 +26,12 @@ def get_escalations(
     status: str | None = None,
     priority: str | None = None,
     limit: int = 100,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     escalations = list_escalation_cases(
-        org_id=ORG_ID,
+        org_id=org_id,
         status=status,
         priority=priority,
         limit=limit,
@@ -43,9 +45,14 @@ def get_escalations(
 
 
 @router.get("/escalations/{escalation_id}")
-def get_escalation(escalation_id: str):
+def get_escalation(
+    escalation_id: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     escalation = get_escalation_case(
-        org_id=ORG_ID,
+        org_id=org_id,
         escalation_id=escalation_id,
     )
 
@@ -56,7 +63,7 @@ def get_escalation(escalation_id: str):
         )
 
     events = list_escalation_events(
-        org_id=ORG_ID,
+        org_id=org_id,
         escalation_id=escalation_id,
     )
 
@@ -71,9 +78,12 @@ def get_escalation(escalation_id: str):
 def update_escalation(
     escalation_id: str,
     body: UpdateEscalationRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     escalation_before = get_escalation_case(
-        org_id=ORG_ID,
+        org_id=org_id,
         escalation_id=escalation_id,
     )
 
@@ -84,7 +94,7 @@ def update_escalation(
         )
 
     escalation = update_escalation_case(
-        org_id=ORG_ID,
+        org_id=org_id,
         escalation_id=escalation_id,
         status=body.status,
         priority=body.priority,
@@ -99,7 +109,7 @@ def update_escalation(
         )
 
     create_escalation_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         escalation_id=escalation_id,
         event_type="ESCALATION_UPDATED",
         payload={

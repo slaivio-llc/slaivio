@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.conversation_timeline_repository import (
     create_internal_note,
     create_timeline_event,
@@ -10,7 +11,6 @@ from app.db.conversation_timeline_repository import (
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class CreateNoteRequest(BaseModel):
@@ -20,11 +20,16 @@ class CreateNoteRequest(BaseModel):
 
 
 @router.get("/inbox/conversations/{phone}/notes")
-def get_notes(phone: str):
+def get_notes(
+    phone: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
         "notes": list_internal_notes(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_phone=phone,
         ),
     }
@@ -34,9 +39,12 @@ def get_notes(phone: str):
 def add_note(
     phone: str,
     body: CreateNoteRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     note = create_internal_note(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
         note=body.note,
         manager_id=body.manager_id,
@@ -44,7 +52,7 @@ def add_note(
     )
 
     create_timeline_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
         event_type="NOTE_CREATED",
         event_title="Note interne ajoutee",
@@ -63,11 +71,16 @@ def add_note(
 
 
 @router.get("/inbox/conversations/{phone}/timeline")
-def get_timeline(phone: str):
+def get_timeline(
+    phone: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
         "events": list_timeline_events(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_phone=phone,
         ),
     }

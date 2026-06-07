@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.ai.repositories.workflow_repository import (
     list_workflow_runs,
     update_workflow_status,
@@ -9,7 +10,6 @@ from app.ai.services.workflow_engine import prepare_ai_workflow
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class PrepareWorkflowRequest(BaseModel):
@@ -27,9 +27,12 @@ class UpdateWorkflowStatusRequest(BaseModel):
 def create_workflow(
     phone: str,
     body: PrepareWorkflowRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     return prepare_ai_workflow(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
         source_message=body.source_message,
         manager_id=body.manager_id,
@@ -38,11 +41,16 @@ def create_workflow(
 
 
 @router.get("/inbox/conversations/{phone}/ai-workflows")
-def get_workflows(phone: str):
+def get_workflows(
+    phone: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
         "workflows": list_workflow_runs(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_phone=phone,
         ),
     }
@@ -61,4 +69,3 @@ def change_workflow_status(
             result_payload=body.result_payload,
         ),
     }
-

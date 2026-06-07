@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 
+from app.core.tenant_context import get_current_tenant
 from app.db.database import engine
 from app.db.message_repository import (
     get_dossier_full,
@@ -21,8 +22,6 @@ from app.shipment_lifecycle.services.lifecycle_service import (
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class UpdateShipmentStatusRequest(BaseModel):
@@ -48,7 +47,11 @@ def get_client_phone_from_dossier(dossier_full: dict) -> str | None:
 
 
 @router.get("/shipments")
-def list_shipments():
+def list_shipments(
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     with engine.connect() as conn:
         rows = conn.execute(
             text("""
@@ -98,7 +101,7 @@ def list_shipments():
                 where s.org_id = :org_id
                 order by s.created_at desc
             """),
-            {"org_id": ORG_ID},
+            {"org_id": org_id},
         ).fetchall()
 
     return {
@@ -108,7 +111,12 @@ def list_shipments():
 
 
 @router.get("/shipments/{shipment_id}")
-def get_shipment(shipment_id: str):
+def get_shipment(
+    shipment_id: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     with engine.connect() as conn:
         shipment_row = conn.execute(
             text("""
@@ -160,7 +168,7 @@ def get_shipment(shipment_id: str):
                 limit 1
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
                 "shipment_id": shipment_id,
             },
         ).fetchone()
@@ -210,9 +218,12 @@ def get_shipment(shipment_id: str):
 def create_shipment_from_dossier(
     dossier_id: str,
     body: CreateShipmentRequest | None = None,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     dossier = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=dossier_id,
     )
 
@@ -223,7 +234,7 @@ def create_shipment_from_dossier(
     volume_cbm = body.volume_cbm if body else None
 
     shipment = create_shipment(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=dossier_id,
         weight_kg=weight_kg,
         volume_cbm=volume_cbm,
@@ -233,7 +244,7 @@ def create_shipment_from_dossier(
         raise HTTPException(status_code=500, detail="Shipment creation failed")
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=dossier_id,
         event_type="SHIPMENT_CREATED",
         payload={
@@ -249,9 +260,15 @@ def create_shipment_from_dossier(
 
 
 @router.patch("/shipments/{shipment_id}/status")
-def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
+def update_status(
+    shipment_id: str,
+    body: UpdateShipmentStatusRequest,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     lifecycle_result = change_shipment_status(
-        org_id=ORG_ID,
+        org_id=org_id,
         shipment_id=shipment_id,
         next_status=body.status,
         event_type="STATUS_CHANGE",
@@ -274,7 +291,7 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
     dossier_id = str(shipment["dossier_id"])
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=dossier_id,
         event_type="SHIPMENT_STATUS_UPDATED",
         payload={
@@ -286,7 +303,7 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
     )
 
     dossier = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=dossier_id,
     )
 
@@ -296,14 +313,14 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
 
     if client_phone:
         notification = create_shipment_notification(
-            org_id=ORG_ID,
+            org_id=org_id,
             shipment=shipment,
             client_phone=client_phone,
         )
 
         if notification:
             create_dossier_event(
-                org_id=ORG_ID,
+                org_id=org_id,
                 dossier_id=dossier_id,
                 event_type="SHIPMENT_NOTIFICATION_CREATED",
                 payload={
@@ -317,14 +334,14 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
 
     if shipment["status"] == "READY_FOR_PICKUP" and client_phone:
         payment_notification = create_payment_reminder_notification(
-            org_id=ORG_ID,
+            org_id=org_id,
             shipment=shipment,
             client_phone=client_phone,
         )
 
         if payment_notification:
             create_dossier_event(
-                org_id=ORG_ID,
+                org_id=org_id,
                 dossier_id=dossier_id,
                 event_type="PAYMENT_REMINDER_CREATED",
                 payload={
@@ -342,9 +359,15 @@ def update_status(shipment_id: str, body: UpdateShipmentStatusRequest):
 
 
 @router.post("/shipments/{shipment_id}/set-total")
-def set_total(shipment_id: str, body: SetTotalRequest):
+def set_total(
+    shipment_id: str,
+    body: SetTotalRequest,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     shipment = set_shipment_total(
-        org_id=ORG_ID,
+        org_id=org_id,
         shipment_id=shipment_id,
         total=body.total,
         currency=body.currency,

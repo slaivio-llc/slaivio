@@ -1,17 +1,20 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
+from app.core.tenant_context import get_current_tenant
 from app.db.database import engine
 from app.db.queue_repository import update_queue
 
 
 router = APIRouter()
 
-ORG_ID = "demo_agency"
-
 
 @router.get("/queues")
-def get_queues():
+def get_queues(
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     with engine.connect() as conn:
         rows = conn.execute(
             text("""
@@ -24,7 +27,7 @@ def get_queues():
                 order by total desc
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
             },
         ).fetchall()
 
@@ -38,9 +41,12 @@ def get_queues():
 def update_queue_route(
     phone: str,
     queue_name: str,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     assignment = update_queue(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
         queue_name=queue_name,
     )

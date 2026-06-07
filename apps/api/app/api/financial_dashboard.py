@@ -6,10 +6,10 @@ from app.financial.services.financial_dashboard_service import get_financial_das
 from app.core.permissions import require_permission
 from app.core.entitlements import require_entitlement
 from app.core.features import require_feature
+from app.core.tenant_context import get_current_tenant
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 @router.get(
@@ -20,10 +20,14 @@ ORG_ID = "demo_agency"
         Depends(require_entitlement("finance_dashboard")),
     ],
 )
-def financial_dashboard():
+def financial_dashboard(
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        "dashboard": get_financial_dashboard(ORG_ID),
+        "dashboard": get_financial_dashboard(org_id),
     }
 
 
@@ -35,10 +39,14 @@ def financial_dashboard():
         Depends(require_entitlement("finance_dashboard")),
     ],
 )
-def financial_events():
+def financial_events(
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        "events": list_financial_events(ORG_ID),
+        "events": list_financial_events(org_id),
     }
 
 
@@ -48,8 +56,12 @@ def financial_events():
         Depends(require_permission("audit.read")),
     ],
 )
-def financial_audit_logs():
+def financial_audit_logs(
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        "logs": list_financial_audit_logs(ORG_ID),
+        "logs": list_financial_audit_logs(org_id),
     }

@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.conversation_assignment_repository import (
     get_assignment,
     upsert_assignment,
@@ -9,7 +10,6 @@ from app.db.conversation_timeline_repository import create_timeline_event
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class AssignmentRequest(BaseModel):
@@ -21,9 +21,14 @@ class AssignmentRequest(BaseModel):
 
 
 @router.get("/inbox/conversations/{phone}/assignment")
-def read_assignment(phone: str):
+def read_assignment(
+    phone: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     assignment = get_assignment(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
     )
 
@@ -37,14 +42,17 @@ def read_assignment(phone: str):
 def update_assignment(
     phone: str,
     body: AssignmentRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     previous = get_assignment(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
     )
 
     assignment = upsert_assignment(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
         assigned_manager_id=body.assigned_manager_id,
         assigned_manager_name=body.assigned_manager_name,
@@ -55,7 +63,7 @@ def update_assignment(
 
     if previous is None:
         create_timeline_event(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_phone=phone,
             event_type="ASSIGNED",
             event_title="Conversation assignee",
@@ -71,7 +79,7 @@ def update_assignment(
     else:
         if previous.get("assigned_manager_id") != body.assigned_manager_id:
             create_timeline_event(
-                org_id=ORG_ID,
+                org_id=org_id,
                 client_phone=phone,
                 event_type="ASSIGNED",
                 event_title="Responsable modifie",
@@ -91,7 +99,7 @@ def update_assignment(
 
         if previous.get("status") != body.status:
             create_timeline_event(
-                org_id=ORG_ID,
+                org_id=org_id,
                 client_phone=phone,
                 event_type="STATUS_CHANGED",
                 event_title="Statut modifie",
@@ -105,7 +113,7 @@ def update_assignment(
 
         if previous.get("priority") != body.priority:
             create_timeline_event(
-                org_id=ORG_ID,
+                org_id=org_id,
                 client_phone=phone,
                 event_type="PRIORITY_CHANGED",
                 event_title="Priorite modifiee",

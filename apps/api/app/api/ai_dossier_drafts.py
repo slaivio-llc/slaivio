@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.ai.repositories.dossier_draft_repository import (
     get_dossier_draft,
     list_dossier_drafts,
@@ -13,7 +14,6 @@ from app.ai.services.dossier_execution_service import execute_dossier_draft
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class PrepareDossierDraftRequest(BaseModel):
@@ -31,9 +31,12 @@ class UpdateDraftStatusRequest(BaseModel):
 def create_ai_dossier_draft(
     phone: str,
     body: PrepareDossierDraftRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     return prepare_dossier_draft_from_message(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_phone=phone,
         source_message=body.source_message,
         workflow_id=body.workflow_id,
@@ -43,11 +46,16 @@ def create_ai_dossier_draft(
 
 
 @router.get("/inbox/conversations/{phone}/ai-dossier-drafts")
-def get_ai_dossier_drafts(phone: str):
+def get_ai_dossier_drafts(
+    phone: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
         "drafts": list_dossier_drafts(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_phone=phone,
         ),
     }
@@ -78,4 +86,3 @@ def execute_draft(draft_id: str):
         )
 
     return execute_dossier_draft(draft)
-

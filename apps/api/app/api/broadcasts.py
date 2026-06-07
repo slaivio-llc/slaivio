@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.broadcast_repository import (
     create_broadcast,
     get_broadcast,
@@ -12,16 +13,7 @@ from app.services.broadcast_service import (
     add_recipients_from_target,
     queue_broadcast_notifications,
 )
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from sqlalchemy import text
-from app.core.auth import get_current_manager
-from app.db.database import engine
-
-
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class CreateBroadcastRequest(BaseModel):
@@ -43,9 +35,14 @@ class AddTargetRecipientsRequest(BaseModel):
 
 
 @router.post("/broadcasts")
-def create_new_broadcast(body: CreateBroadcastRequest):
+def create_new_broadcast(
+    body: CreateBroadcastRequest,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     broadcast = create_broadcast(
-        org_id=ORG_ID,
+        org_id=org_id,
         title=body.title,
         message=body.message,
         broadcast_type=body.broadcast_type,
@@ -64,9 +61,12 @@ def create_new_broadcast(body: CreateBroadcastRequest):
 def get_broadcasts(
     status: str | None = None,
     limit: int = 100,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     broadcasts = list_broadcasts(
-        org_id=ORG_ID,
+        org_id=org_id,
         status=status,
         limit=limit,
     )
@@ -79,9 +79,14 @@ def get_broadcasts(
 
 
 @router.get("/broadcasts/{broadcast_id}")
-def get_one_broadcast(broadcast_id: str):
+def get_one_broadcast(
+    broadcast_id: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     broadcast = get_broadcast(
-        org_id=ORG_ID,
+        org_id=org_id,
         broadcast_id=broadcast_id,
     )
 
@@ -92,7 +97,7 @@ def get_one_broadcast(broadcast_id: str):
         )
 
     recipients = list_broadcast_recipients(
-        org_id=ORG_ID,
+        org_id=org_id,
         broadcast_id=broadcast_id,
     )
 
@@ -108,9 +113,12 @@ def get_one_broadcast(broadcast_id: str):
 def add_manual(
     broadcast_id: str,
     body: AddManualRecipientsRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     broadcast = get_broadcast(
-        org_id=ORG_ID,
+        org_id=org_id,
         broadcast_id=broadcast_id,
     )
 
@@ -121,7 +129,7 @@ def add_manual(
         )
 
     recipients = add_manual_recipients(
-        org_id=ORG_ID,
+        org_id=org_id,
         broadcast_id=broadcast_id,
         phones=body.phones,
     )
@@ -137,9 +145,12 @@ def add_manual(
 def add_target(
     broadcast_id: str,
     body: AddTargetRecipientsRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     broadcast = get_broadcast(
-        org_id=ORG_ID,
+        org_id=org_id,
         broadcast_id=broadcast_id,
     )
 
@@ -150,7 +161,7 @@ def add_target(
         )
 
     recipients = add_recipients_from_target(
-        org_id=ORG_ID,
+        org_id=org_id,
         broadcast_id=broadcast_id,
         target_type=body.target_type,
         status_global=body.status_global,
@@ -164,9 +175,14 @@ def add_target(
 
 
 @router.post("/broadcasts/{broadcast_id}/queue")
-def queue_broadcast(broadcast_id: str):
+def queue_broadcast(
+    broadcast_id: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     result = queue_broadcast_notifications(
-        org_id=ORG_ID,
+        org_id=org_id,
         broadcast_id=broadcast_id,
     )
 

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.conversation_timeline_repository import create_timeline_event
 from app.core.websocket_manager import manager
 from app.db.outbound_message_repository import (
@@ -17,8 +18,6 @@ from app.services.whatsapp_outbound_resolver import (
 
 router = APIRouter()
 
-ORG_ID = "demo_agency"
-
 
 class SendReplyRequest(BaseModel):
     message: str
@@ -32,7 +31,9 @@ class SendReplyRequest(BaseModel):
 async def send_reply(
     phone: str,
     body: SendReplyRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
     message_text = body.message.strip()
 
     if not message_text:
@@ -42,7 +43,7 @@ async def send_reply(
         )
 
     route = resolve_outbound_whatsapp_sender(
-        org_id=ORG_ID,
+        org_id=org_id,
         preferred_role=body.preferred_role,
     )
 
@@ -56,7 +57,7 @@ async def send_reply(
     whatsapp_number_id = number.get("id")
 
     outbound_message = create_outbound_message(
-        org_id=ORG_ID,
+        org_id=org_id,
         to_phone=phone,
         from_phone=number.get("display_phone_number"),
         text_body=message_text,
@@ -74,7 +75,7 @@ async def send_reply(
 
     try:
         provider = get_whatsapp_provider(
-            org_id=ORG_ID,
+            org_id=org_id,
             preferred_role=body.preferred_role,
         )
         result = provider.send_message(
@@ -89,7 +90,7 @@ async def send_reply(
             )
 
             create_timeline_event(
-                org_id=ORG_ID,
+                org_id=org_id,
                 client_phone=phone,
                 event_type="MESSAGE_SENT",
                 event_title="Reponse envoyee",
@@ -105,10 +106,10 @@ async def send_reply(
             )
 
             await manager.broadcast_to_org(
-                ORG_ID,
+                org_id,
                 {
                     "event": "NEW_MESSAGE",
-                    "org_id": ORG_ID,
+                    "org_id": org_id,
                     "phone": phone,
                     "message": message_text,
                     "direction": "outbound",

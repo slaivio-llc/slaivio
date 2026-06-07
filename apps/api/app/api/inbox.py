@@ -1,12 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
+from app.core.tenant_context import get_current_tenant
 from app.db.database import engine
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 @router.get("/inbox/conversations")
@@ -16,12 +15,14 @@ def list_conversations(
     queue_name: str | None = None,
     priority: str | None = None,
     requires_attention: bool | None = None,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
     where_clauses = [
         "org_id = :org_id",
     ]
     params = {
-        "org_id": ORG_ID,
+        "org_id": org_id,
     }
 
     if number_role:
@@ -81,7 +82,12 @@ def list_conversations(
 
 
 @router.get("/inbox/conversations/{phone}/messages")
-def get_conversation_messages(phone: str):
+def get_conversation_messages(
+    phone: str,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     with engine.connect() as conn:
         rows = conn.execute(
             text("""
@@ -113,7 +119,7 @@ def get_conversation_messages(phone: str):
                 order by created_at asc
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
                 "phone": phone,
             },
         ).fetchall()
@@ -128,7 +134,10 @@ def get_conversation_messages(phone: str):
 def update_conversation_status(
     phone: str,
     status: str,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     with engine.connect() as conn:
         conn.execute(
             text("""
@@ -138,7 +147,7 @@ def update_conversation_status(
                   and from_phone = :phone
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
                 "phone": phone,
                 "status": status,
             },

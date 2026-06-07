@@ -146,16 +146,16 @@ export function Sidebar() {
                     href={item.href}
                     className={`group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-semibold transition ${
                       isActive
-                        ? "bg-white text-slate-950 shadow-lg shadow-sky-950/10"
-                        : "text-slate-300 hover:bg-white/10 hover:text-white"
+                        ? "border border-white/10 bg-white text-slate-950 shadow-lg shadow-black/20"
+                        : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
                     }`}
                   >
                     <span className="flex items-center gap-3">
                       <span
                         className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
                           isActive
-                            ? "bg-sky-100 text-sky-700"
-                            : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-white"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-white/[0.04] text-slate-400 group-hover:bg-white/10 group-hover:text-white"
                         }`}
                       >
                         <item.icon size={18} />
@@ -163,7 +163,7 @@ export function Sidebar() {
                       {item.label}
                     </span>
                     {isActive && (
-                      <span className="h-2 w-2 rounded-full bg-sky-500" />
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     )}
                   </Link>
                 );
@@ -187,8 +187,8 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.04] p-3">
-        <div className="rounded-2xl bg-sky-400/10 p-3 text-xs text-sky-100">
+      <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
+        <div className="rounded-2xl border border-emerald-400/10 bg-emerald-400/10 p-3 text-xs text-emerald-100">
           <div className="font-bold">Enterprise Cargo Layer</div>
           <div className="mt-1 leading-5 text-slate-400">
             Multi-agency, WhatsApp, finance, warehouse and delivery workflows.
@@ -206,4 +206,3 @@ export function Sidebar() {
     </div>
   );
 }
-

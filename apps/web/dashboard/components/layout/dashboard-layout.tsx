@@ -67,7 +67,7 @@ export function DashboardLayout({
 
   return (
     <div className="slaivo-shell-bg min-h-screen">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-80 border-r border-white/10 bg-slate-950 text-white shadow-2xl xl:block">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-80 border-r border-white/10 bg-[#0b1120] text-white shadow-2xl xl:block">
         <div className="flex h-full flex-col">
           <SidebarHeader managerName={managerName} orgLabel={orgLabel} />
           <div className="px-5 pb-4">
@@ -84,7 +84,7 @@ export function DashboardLayout({
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <aside className="relative h-full w-[86vw] max-w-sm bg-slate-950 text-white shadow-2xl">
+          <aside className="relative h-full w-[86vw] max-w-sm bg-[#0b1120] text-white shadow-2xl">
             <div className="absolute right-4 top-4">
               <button
                 onClick={() => setMobileMenuOpen(false)}
@@ -103,7 +103,7 @@ export function DashboardLayout({
       )}
 
       <div className="min-h-screen xl:pl-80">
-        <header className="sticky top-0 z-30 border-b border-white/70 bg-white/75 px-4 py-3 backdrop-blur-xl md:px-8">
+        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur-xl md:px-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -112,7 +112,7 @@ export function DashboardLayout({
               <Menu size={19} />
             </button>
 
-            <div className="hidden min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:flex">
+            <div className="hidden min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition focus-within:border-emerald-300 focus-within:ring-4 focus-within:ring-emerald-100 md:flex">
               <Search size={18} className="text-slate-400" />
               <input
                 placeholder="Rechercher dossier, tracking, client, batch..."
@@ -121,17 +121,17 @@ export function DashboardLayout({
             </div>
 
             <div className="ml-auto flex items-center gap-3">
-              <div className="hidden items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 lg:flex">
+              <div className="hidden items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 lg:flex">
                 <ShieldCheck size={15} />
                 Production Ready
               </div>
 
-              <button className="rounded-2xl border border-slate-200 bg-white p-3 text-slate-600 shadow-sm">
+              <button className="rounded-2xl border border-slate-200 bg-white p-3 text-slate-600 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700">
                 <Bell size={18} />
               </button>
 
               <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-sm font-black text-white shadow-lg shadow-emerald-500/20">
                   {managerName.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="hidden text-sm md:block">
@@ -145,7 +145,7 @@ export function DashboardLayout({
           </div>
         </header>
 
-        <main className="min-h-[calc(100vh-73px)] overflow-auto">
+        <main className="slaivo-grid-bg min-h-[calc(100vh-73px)] overflow-auto">
           {children}
         </main>
       </div>
@@ -163,7 +163,7 @@ function SidebarHeader({
   return (
     <div className="p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 shadow-lg ring-1 ring-white/10">
+        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white/5 shadow-lg ring-1 ring-white/10">
           <img
             src="/slaivio-icon.png"
             alt="SLAIVIO"
@@ -172,15 +172,15 @@ function SidebarHeader({
         </div>
         <div>
           <div className="text-2xl font-black tracking-tight">SLAIVIO</div>
-          <div className="text-xs font-medium uppercase tracking-[0.22em] text-sky-300">
+          <div className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">
             Cargo OS
           </div>
         </div>
       </div>
 
-      <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.06] p-4">
+      <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.045] p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-400/20 text-sky-200">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-200">
             <Building2 size={18} />
           </div>
           <div className="min-w-0">
@@ -193,8 +193,8 @@ function SidebarHeader({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-900/80 px-3 py-2 text-xs text-slate-300">
-          <Globe2 size={14} className="text-sky-300" />
+        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-black/20 px-3 py-2 text-xs text-slate-300">
+          <Globe2 size={14} className="text-emerald-300" />
           Multi-country operations
         </div>
       </div>

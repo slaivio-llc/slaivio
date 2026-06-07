@@ -24,7 +24,7 @@ export function CargoPageShell({
         <div className="slaivo-gradient-card overflow-hidden rounded-[2rem] p-6 text-white md:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-sky-100">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-100">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 {eyebrow}
               </div>
@@ -104,7 +104,7 @@ export function StatusPill({
     success: "border-emerald-200 bg-emerald-50 text-emerald-700",
     warning: "border-amber-200 bg-amber-50 text-amber-700",
     danger: "border-red-200 bg-red-50 text-red-700",
-    info: "border-sky-200 bg-sky-50 text-sky-700",
+    info: "border-emerald-200 bg-emerald-50 text-emerald-700",
   };
 
   return (

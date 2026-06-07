@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 
+import { AuthShell } from "@/components/auth/auth-shell";
 import { loginManager } from "@/services/auth";
 
 export default function LoginPage() {
@@ -14,7 +17,6 @@ export default function LoginPage() {
 
   async function handleLogin(event: React.FormEvent) {
     event.preventDefault();
-
     setError("");
 
     try {
@@ -26,55 +28,60 @@ export default function LoginPage() {
       router.push("/");
     } catch (error) {
       console.error("LOGIN_ERROR", error);
-      setError("Erreur login. Regarde la console navigateur.");
+      setError("Erreur login. Vérifiez l'email, le mot de passe ou l'API backend.");
     }
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted">
-      <form
-        onSubmit={handleLogin}
-        className="w-full max-w-md rounded-2xl border bg-background p-8 shadow-sm"
-      >
-        <h1 className="text-3xl font-bold">
-          SLAIVIO
-        </h1>
-
-        <p className="mt-2 text-sm text-muted-foreground">
-          Connectez-vous à votre espace agence.
-        </p>
-
-        <div className="mt-6 space-y-4">
+    <AuthShell
+      title="Connexion manager"
+      description="Accès interne SLAIVIO pour les managers et opérateurs cargo."
+    >
+      <form onSubmit={handleLogin} className="space-y-4">
+        <label className="block">
+          <div className="text-sm font-bold text-slate-700">Email</div>
           <input
-            className="w-full rounded-xl border px-4 py-3"
+            className="slaivo-focus mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="Email"
+            placeholder="admin@slaivio.com"
             type="email"
           />
+        </label>
 
+        <label className="block">
+          <div className="text-sm font-bold text-slate-700">Mot de passe</div>
           <input
-            className="w-full rounded-xl border px-4 py-3"
+            className="slaivo-focus mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Mot de passe"
             type="password"
           />
+        </label>
 
-          {error && (
-            <p className="text-sm text-red-600">
-              {error}
-            </p>
-          )}
+        {error && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        )}
 
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-black px-4 py-3 font-semibold text-white"
-          >
-            Se connecter
-          </button>
+        <button
+          type="submit"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-slate-800"
+        >
+          Se connecter
+          <ArrowRight size={16} />
+        </button>
+
+        <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+          Vous utilisez Clerk ? Passez par{" "}
+          <Link href="/sign-in" className="font-bold text-emerald-700">
+            l’authentification sécurisée
+          </Link>
+          .
         </div>
       </form>
-    </main>
+    </AuthShell>
   );
 }

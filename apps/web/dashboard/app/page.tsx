@@ -54,7 +54,7 @@ export default function HomePage() {
         <section className="slaivo-gradient-card overflow-hidden rounded-[2rem] p-7 text-white md:p-10">
           <div className="grid gap-10 lg:grid-cols-[1.4fr_0.8fr] lg:items-end">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-sky-100">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-emerald-100">
                 <Globe2 size={14} />
                 International Cargo Command Center
               </div>
@@ -138,7 +138,7 @@ export default function HomePage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="group rounded-3xl border border-slate-200 bg-white p-5 transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-xl"
+                  className="group rounded-3xl border border-slate-200 bg-white p-5 transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
@@ -146,7 +146,7 @@ export default function HomePage() {
                     </div>
                     <ArrowRight
                       size={18}
-                      className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-sky-600"
+                      className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-emerald-600"
                     />
                   </div>
                   <div className="mt-5 font-bold text-slate-950">
@@ -212,4 +212,3 @@ function Kpi({
     </div>
   );
 }
-

@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7fb;
-  --foreground: #0f172a;
+  --background: #f7f8f8;
+  --foreground: #111827;
   --panel: #ffffff;
-  --panel-muted: #f8fafc;
-  --border-soft: #e2e8f0;
-  --muted: #64748b;
-  --brand: #0f172a;
-  --brand-soft: #e0f2fe;
-  --accent: #0ea5e9;
-  --success: #16a34a;
+  --panel-muted: #f3f4f6;
+  --border-soft: #e5e7eb;
+  --muted: #6b7280;
+  --brand: #111827;
+  --brand-soft: #dcfce7;
+  --accent: #10b981;
+  --success: #059669;
   --warning: #f59e0b;
   --danger: #dc2626;
-  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08);
-  --shadow-panel: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --shadow-soft: 0 22px 60px rgba(17, 24, 39, 0.1);
+  --shadow-panel: 0 12px 36px rgba(17, 24, 39, 0.06);
 }
 
 * {
@@ -39,8 +39,8 @@ body {
 }
 
 ::selection {
-  background: rgba(14, 165, 233, 0.18);
-  color: #0f172a;
+  background: rgba(16, 185, 129, 0.18);
+  color: #111827;
 }
 
 ::-webkit-scrollbar {
@@ -53,7 +53,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d1d5db;
   border: 3px solid transparent;
   border-radius: 999px;
   background-clip: content-box;
@@ -61,23 +61,37 @@ body {
 
 .slaivo-shell-bg {
   background:
-    radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 34rem),
-    radial-gradient(circle at top right, rgba(15, 23, 42, 0.08), transparent 30rem),
-    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.1), transparent 34rem),
+    radial-gradient(circle at top right, rgba(17, 24, 39, 0.08), transparent 30rem),
+    linear-gradient(180deg, #fbfbfb 0%, #f3f4f6 100%);
 }
 
 .slaivo-card {
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(229, 231, 235, 0.95);
+  background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow-panel);
   backdrop-filter: blur(10px);
 }
 
 .slaivo-gradient-card {
   background:
-    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.94)),
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.35), transparent 22rem);
+    radial-gradient(circle at 85% 18%, rgba(16, 185, 129, 0.28), transparent 18rem),
+    linear-gradient(135deg, #111827, #0b1120 58%, #020617);
   box-shadow: var(--shadow-soft);
+}
+
+.slaivo-grid-bg {
+  background-image:
+    linear-gradient(rgba(17, 24, 39, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.slaivo-auth-bg {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(16, 185, 129, 0.18), transparent 24rem),
+    radial-gradient(circle at 76% 72%, rgba(17, 24, 39, 0.12), transparent 28rem),
+    linear-gradient(180deg, #0b1120 0%, #111827 45%, #020617 100%);
 }
 
 .slaivo-focus {
@@ -89,6 +103,6 @@ body {
 }
 
 .slaivo-focus:focus {
-  border-color: rgba(14, 165, 233, 0.65);
-  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+  border-color: rgba(16, 185, 129, 0.65);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
 }

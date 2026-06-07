@@ -163,8 +163,12 @@ function SidebarHeader({
   return (
     <div className="p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-lg font-black text-slate-950 shadow-lg">
-          S
+        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 shadow-lg ring-1 ring-white/10">
+          <img
+            src="/slaivo-icon.png"
+            alt="SLAIVO"
+            className="h-full w-full object-cover"
+          />
         </div>
         <div>
           <div className="text-2xl font-black tracking-tight">SLAIVO</div>

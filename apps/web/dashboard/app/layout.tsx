@@ -3,8 +3,23 @@ import { AppProviders } from "@/app-providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SLAIVO Dashboard",
-  description: "Cargo Operations Intelligence Platform",
+  title: {
+    default: "SLAIVO Cargo OS",
+    template: "%s | SLAIVO",
+  },
+  description: "Enterprise cargo operations platform for agencies.",
+  icons: {
+    icon: [
+      {
+        url: "/favicon.ico",
+      },
+      {
+        url: "/icon.png",
+        type: "image/png",
+      },
+    ],
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({

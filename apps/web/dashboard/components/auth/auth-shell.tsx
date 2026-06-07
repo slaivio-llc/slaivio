@@ -79,7 +79,7 @@ export function AuthShell({
             </div>
 
             <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-3 shadow-2xl shadow-black/30 backdrop-blur-xl">
-              <div className="rounded-[1.6rem] border border-white/10 bg-white p-5 text-slate-950 shadow-2xl">
+              <div className="slaivo-auth-panel rounded-[1.6rem] border border-white/10 bg-white p-6 text-slate-950 shadow-2xl">
                 <div className="mb-5">
                   <h2 className="text-2xl font-black tracking-tight">{title}</h2>
                   <p className="mt-2 text-sm leading-6 text-slate-500">

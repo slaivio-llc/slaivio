@@ -106,3 +106,43 @@ body {
   border-color: rgba(16, 185, 129, 0.65);
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
 }
+
+.slaivo-auth-panel .cl-rootBox,
+.slaivo-auth-panel .cl-cardBox,
+.slaivo-auth-panel .cl-card {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.slaivo-auth-panel .cl-cardBox,
+.slaivo-auth-panel .cl-card {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+}
+
+.slaivo-auth-panel .cl-card {
+  padding: 0 !important;
+}
+
+.slaivo-auth-panel .cl-main,
+.slaivo-auth-panel .cl-footer,
+.slaivo-auth-panel .cl-form,
+.slaivo-auth-panel .cl-socialButtonsBlockButton,
+.slaivo-auth-panel .cl-formButtonPrimary {
+  width: 100% !important;
+}
+
+.slaivo-auth-panel .cl-footer {
+  background: transparent !important;
+  border-top: 1px solid #e5e7eb !important;
+  margin-top: 1.25rem !important;
+  padding-top: 1rem !important;
+}
+
+.slaivo-auth-panel .cl-formFieldInput,
+.slaivo-auth-panel .cl-socialButtonsBlockButton,
+.slaivo-auth-panel .cl-formButtonPrimary {
+  min-height: 46px !important;
+}

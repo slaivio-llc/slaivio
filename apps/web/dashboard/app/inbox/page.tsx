@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import {
+  EmptyState,
+  StatusPill,
+} from "@/components/cargo/cargo-page-shell";
+import {
   getConversationAssignment,
   updateConversationAssignment,
 } from "@/services/conversation-assignments";
@@ -608,26 +612,33 @@ export default function InboxPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-screen">
-        <section className="w-[420px] border-r">
-          <div className="border-b p-6">
+      <div className="flex h-[calc(100vh-5rem)] gap-6 p-4 md:p-8">
+        <section className="slaivo-card flex w-[430px] flex-col overflow-hidden rounded-[2rem]">
+          <div className="border-b border-slate-100 p-6">
             <div className="flex items-center justify-between gap-3">
-              <h1 className="text-2xl font-bold">Enterprise Inbox</h1>
+              <div>
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-sky-600">
+                  Command Center
+                </div>
+                <h1 className="mt-2 text-2xl font-black text-slate-950">
+                  Enterprise Inbox
+                </h1>
+              </div>
 
-              <div className="inline-flex items-center gap-2 text-sm text-green-600">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
                 <div className="h-2 w-2 rounded-full bg-green-500" />
                 LIVE
               </div>
             </div>
 
-            <p className="text-sm text-gray-500">
+            <p className="mt-2 text-sm text-slate-500">
               Conversations WhatsApp par numero et role
             </p>
 
             <select
               value={roleFilter}
               onChange={(event) => handleRoleChange(event.target.value)}
-              className="mt-4 w-full rounded-md border px-4 py-3 text-sm"
+              className="slaivo-focus mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold"
             >
               {ROLE_OPTIONS.map((role) => (
                 <option key={role} value={role}>
@@ -637,14 +648,14 @@ export default function InboxPage() {
             </select>
           </div>
 
-          <div className="border-b p-4">
+          <div className="border-b border-slate-100 bg-slate-50/70 p-4">
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleQueueFilterChange("ALL")}
-                className={`rounded-md border px-3 py-2 text-xs ${
+                className={`rounded-full border px-3 py-2 text-xs font-bold transition ${
                   queueFilter === "ALL"
-                    ? "bg-black text-white"
-                    : "bg-white"
+                    ? "border-slate-950 bg-slate-950 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:text-sky-700"
                 }`}
               >
                 ALL
@@ -656,10 +667,10 @@ export default function InboxPage() {
                   onClick={() =>
                     handleQueueFilterChange(queue.queue_name)
                   }
-                  className={`rounded-md border px-3 py-2 text-xs ${
+                  className={`rounded-full border px-3 py-2 text-xs font-bold transition ${
                     queueFilter === queue.queue_name
-                      ? "bg-black text-white"
-                      : "bg-white"
+                      ? "border-slate-950 bg-slate-950 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:text-sky-700"
                   }`}
                 >
                   {queue.queue_name} ({queue.total})
@@ -668,14 +679,14 @@ export default function InboxPage() {
             </div>
           </div>
 
-          <div className="border-b p-4">
-            <h3 className="text-sm font-semibold">Agents</h3>
+          <div className="border-b border-slate-100 p-4">
+            <h3 className="text-sm font-black text-slate-950">Agents</h3>
 
             <div className="mt-3 space-y-2">
               {presence.map((agent) => (
                 <div
                   key={agent.manager_id}
-                  className="flex items-center justify-between gap-3 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-2 text-sm"
                 >
                   <div className="flex items-center gap-2">
                     <span
@@ -685,12 +696,12 @@ export default function InboxPage() {
                           : "bg-gray-400"
                       }`}
                     />
-                    <span>
+                    <span className="font-semibold text-slate-700">
                       {agent.manager_name || agent.manager_id}
                     </span>
                   </div>
 
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs font-bold text-slate-500">
                     {agent.status}
                   </span>
                 </div>
@@ -699,56 +710,54 @@ export default function InboxPage() {
           </div>
 
           {error && (
-            <div className="m-4 rounded-md bg-red-50 p-4 text-sm text-red-600">
+            <div className="m-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
               {error}
             </div>
           )}
 
-          <div className="divide-y overflow-auto">
+          <div className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
             {loading && (
-              <div className="p-6 text-sm text-gray-500">
-                Chargement...
-              </div>
+              <EmptyState label="Chargement des conversations..." />
             )}
 
             {!loading && conversations.length === 0 && (
-              <div className="p-6 text-sm text-gray-500">
-                Aucune conversation.
-              </div>
+              <EmptyState label="Aucune conversation." />
             )}
 
             {conversations.map((conversation) => (
               <button
                 key={conversation.from_phone}
                 onClick={() => openConversation(conversation.from_phone)}
-                className="w-full p-4 text-left transition hover:bg-gray-50"
+                className={`w-full rounded-3xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${
+                  selectedPhone === conversation.from_phone
+                    ? "border-sky-200 bg-sky-50 shadow-md"
+                    : "border-slate-200 bg-white"
+                }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="font-semibold">
+                  <div className="font-black text-slate-950">
                     {conversation.from_phone}
                   </div>
 
-                  <span className="rounded-full border px-2 py-1 text-xs">
-                    {conversation.number_role || "UNKNOWN"}
-                  </span>
+                  <StatusPill label={conversation.number_role || "UNKNOWN"} tone="info" />
                 </div>
 
-                <div className="mt-2 line-clamp-1 text-sm text-gray-500">
+                <div className="mt-2 line-clamp-1 text-sm text-slate-500">
                   {conversation.last_message || "Aucun message"}
                 </div>
 
-                <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
                   <span>{conversation.message_count} message(s)</span>
-                  <span>|</span>
+                  <span>•</span>
                   <span>{conversation.conversation_status || "OPEN"}</span>
-                  <span>|</span>
+                  <span>•</span>
                   <span>{conversation.priority || "NORMAL"}</span>
-                  <span>|</span>
+                  <span>•</span>
                   <span>{conversation.queue_name || "UNASSIGNED"}</span>
                   {conversation.requires_attention && (
                     <>
-                      <span>|</span>
-                      <span>ATTENTION</span>
+                      <span>•</span>
+                      <span className="text-red-600">ATTENTION</span>
                     </>
                   )}
                 </div>
@@ -757,35 +766,35 @@ export default function InboxPage() {
           </div>
         </section>
 
-        <section className="flex flex-1 flex-col">
-          <div className="border-b p-6">
-            <h2 className="text-xl font-semibold">
+        <section className="slaivo-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-[2rem]">
+          <div className="border-b border-slate-100 p-6">
+            <h2 className="text-2xl font-black text-slate-950">
               {selectedPhone || "Selectionnez une conversation"}
             </h2>
 
             {messages[0]?.number_role && (
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-slate-500">
                 Role numero : {messages[0].number_role}
               </p>
             )}
 
             {assignment?.assigned_manager_name && (
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-slate-500">
                 Responsable : {assignment.assigned_manager_name}
               </p>
             )}
           </div>
 
           {selectedPhone && (
-            <div className="border-b bg-gray-50 p-6">
-              <h3 className="font-semibold">Workflow equipe</h3>
+            <div className="border-b border-slate-100 bg-slate-50/80 p-6">
+              <h3 className="font-black text-slate-950">Workflow equipe</h3>
 
-              <div className="mt-4 grid grid-cols-5 gap-3">
+              <div className="mt-4 grid gap-3 xl:grid-cols-5">
                 <input
                   value={managerName}
                   onChange={(event) => setManagerName(event.target.value)}
                   placeholder="Manager responsable"
-                  className="rounded-md border px-4 py-3 text-sm"
+                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
                 />
 
                 <select
@@ -793,7 +802,7 @@ export default function InboxPage() {
                   onChange={(event) =>
                     setConversationStatus(event.target.value)
                   }
-                  className="rounded-md border px-4 py-3 text-sm"
+                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
@@ -805,7 +814,7 @@ export default function InboxPage() {
                 <select
                   value={priority}
                   onChange={(event) => setPriority(event.target.value)}
-                  className="rounded-md border px-4 py-3 text-sm"
+                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
                 >
                   {PRIORITY_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -819,7 +828,7 @@ export default function InboxPage() {
                   onChange={(event) =>
                     changeConversationQueue(event.target.value)
                   }
-                  className="rounded-md border px-4 py-3 text-sm"
+                  className="slaivo-focus rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
                 >
                   {QUEUE_OPTIONS.map((queue) => (
                     <option key={queue} value={queue}>
@@ -830,7 +839,7 @@ export default function InboxPage() {
 
                 <button
                   onClick={saveAssignment}
-                  className="rounded-md bg-black px-4 py-3 text-sm font-semibold text-white"
+                  className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5"
                 >
                   Sauvegarder
                 </button>
@@ -840,15 +849,15 @@ export default function InboxPage() {
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 placeholder="Note interne..."
-                className="mt-3 min-h-[90px] w-full rounded-md border px-4 py-3 text-sm"
+                className="slaivo-focus mt-3 min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
               />
             </div>
           )}
 
-          <div className="flex-1 space-y-4 overflow-auto p-6">
+          <div className="flex-1 space-y-4 overflow-auto bg-slate-50/40 p-6">
             {!selectedPhone && (
-              <div className="flex h-full items-center justify-center text-gray-500">
-                Choisissez une conversation a gauche.
+              <div className="flex h-full items-center justify-center">
+                <EmptyState label="Choisissez une conversation à gauche." />
               </div>
             )}
 
@@ -856,10 +865,10 @@ export default function InboxPage() {
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`max-w-xl rounded-md border p-4 ${
+                  className={`max-w-xl rounded-3xl border p-4 shadow-sm ${
                     message.direction === "outbound"
-                      ? "ml-auto bg-black text-white"
-                      : "bg-white"
+                      ? "ml-auto border-slate-950 bg-slate-950 text-white"
+                      : "border-slate-200 bg-white text-slate-800"
                   }`}
                 >
                   <div className="text-sm">
@@ -879,14 +888,14 @@ export default function InboxPage() {
               ))}
 
             {typingUsers.length > 0 && (
-              <div className="text-sm text-gray-500">
+              <div className="text-sm font-medium text-slate-500">
                 {typingUsers.join(", ")} typing...
               </div>
             )}
           </div>
 
           {selectedPhone && (
-            <div className="border-t p-4">
+            <div className="border-t border-slate-100 bg-white p-4">
               <div className="flex gap-3">
                 <textarea
                   value={replyText}
@@ -909,13 +918,13 @@ export default function InboxPage() {
                     }
                   }}
                   placeholder="Repondre au client..."
-                  className="min-h-[70px] flex-1 rounded-md border px-4 py-3 text-sm"
+                  className="slaivo-focus min-h-[70px] flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm"
                 />
 
                 <button
                   onClick={handleGenerateAIDraft}
                   disabled={generatingDraft || !selectedPhone}
-                  className="rounded-md border px-5 py-3 text-sm font-semibold disabled:opacity-50"
+                  className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                 >
                   {generatingDraft ? "IA..." : "Generer IA"}
                 </button>
@@ -923,7 +932,7 @@ export default function InboxPage() {
                 <button
                   onClick={sendReply}
                   disabled={sendingReply || !replyText.trim()}
-                  className="rounded-md bg-black px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5 disabled:opacity-50"
                 >
                   {sendingReply ? "Envoi..." : "Envoyer"}
                 </button>

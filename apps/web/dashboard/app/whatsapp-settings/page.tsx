@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MessageCircle, Save, ShieldCheck, Webhook } from "lucide-react";
 
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
-
+import {
+  CargoCard,
+  CargoPageShell,
+  EmptyState,
+  MetricCard,
+  StatusPill,
+} from "@/components/cargo/cargo-page-shell";
 import {
   getWhatsAppSettings,
   saveWhatsAppSettings,
@@ -11,29 +17,23 @@ import {
 
 export default function WhatsAppSettingsPage() {
   const [orgId, setOrgId] = useState("demo_agency");
-
   const [provider, setProvider] = useState("meta");
   const [environment, setEnvironment] = useState("production");
-
   const [metaPhoneNumberId, setMetaPhoneNumberId] = useState("");
   const [metaWabaId, setMetaWabaId] = useState("");
   const [metaDisplayPhone, setMetaDisplayPhone] = useState("");
   const [metaAppId, setMetaAppId] = useState("");
-
   const [senderStatus, setSenderStatus] = useState("ACTIVE");
   const [senderCountry, setSenderCountry] = useState("CD");
   const [defaultLanguage, setDefaultLanguage] = useState("fr");
   const [defaultTimezone, setDefaultTimezone] = useState("Africa/Kinshasa");
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const rawManager = localStorage.getItem("slaivo_manager");
-
     const currentOrgId = rawManager
       ? JSON.parse(rawManager).org_id || "demo_agency"
       : "demo_agency";
@@ -46,12 +46,10 @@ export default function WhatsAppSettingsPage() {
 
         setProvider(settings.provider || "meta");
         setEnvironment(settings.environment || "production");
-
         setMetaPhoneNumberId(settings.meta_phone_number_id || "");
         setMetaWabaId(settings.meta_waba_id || "");
         setMetaDisplayPhone(settings.meta_whatsapp_display_phone || "");
         setMetaAppId(settings.meta_app_id || "");
-
         setSenderStatus(settings.sender_status || "ACTIVE");
         setSenderCountry(settings.sender_country || "CD");
         setDefaultLanguage(settings.default_language || "fr");
@@ -75,12 +73,10 @@ export default function WhatsAppSettingsPage() {
         org_id: orgId,
         provider,
         environment,
-
         meta_phone_number_id: metaPhoneNumberId.trim(),
         meta_waba_id: metaWabaId.trim(),
         meta_whatsapp_display_phone: metaDisplayPhone.trim(),
         meta_app_id: metaAppId.trim(),
-
         sender_status: senderStatus,
         sender_country: senderCountry,
         default_language: defaultLanguage,
@@ -97,142 +93,117 @@ export default function WhatsAppSettingsPage() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-8">
-        <h1 className="text-3xl font-bold">
-          WhatsApp Settings
-        </h1>
+    <CargoPageShell
+      eyebrow="WhatsApp Enterprise"
+      title="WhatsApp Settings"
+      description="Contrôlez le numéro d'envoi, le WABA, l'environnement Meta et les informations webhook nécessaires au canal WhatsApp."
+      action={
+        <button
+          onClick={handleSave}
+          disabled={saving || loading}
+          className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5 disabled:opacity-50"
+        >
+          <Save size={16} />
+          {saving ? "Sauvegarde..." : "Sauvegarder"}
+        </button>
+      }
+    >
+      {loading && <EmptyState label="Chargement de la configuration WhatsApp..." />}
 
-        <p className="mt-2 text-gray-500">
-          Configuration Meta WhatsApp Cloud API pour cette agence.
-        </p>
+      {error && (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
 
-        {loading && (
-          <div className="mt-8 text-sm text-gray-500">
-            Chargement...
-          </div>
-        )}
+      {success && (
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">
+          {success}
+        </div>
+      )}
 
-        {error && (
-          <div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
-            {error}
-          </div>
-        )}
+      {!loading && (
+        <>
+          <section className="grid gap-4 md:grid-cols-4">
+            <MetricCard label="Provider" value={provider.toUpperCase()} hint="Canal WhatsApp principal" />
+            <MetricCard label="Environment" value={environment} hint="Mode de connexion Meta" />
+            <MetricCard label="Sender" value={senderStatus} hint="Statut du numéro d'envoi" />
+            <MetricCard label="Language" value={defaultLanguage.toUpperCase()} hint="Langue par défaut" />
+          </section>
 
-        {success && (
-          <div className="mt-6 rounded-xl bg-green-50 p-4 text-sm text-green-700">
-            {success}
-          </div>
-        )}
-
-        {!loading && (
-          <>
-            <div className="mt-8 grid max-w-5xl grid-cols-2 gap-6">
-              <Field label="Org ID" value={orgId} onChange={setOrgId} />
-
-              <SelectField
-                label="Provider"
-                value={provider}
-                onChange={setProvider}
-                options={["meta", "mock"]}
-              />
-
-              <SelectField
-                label="Environment"
-                value={environment}
-                onChange={setEnvironment}
-                options={["production", "sandbox"]}
-              />
-
-              <SelectField
-                label="Sender Status"
-                value={senderStatus}
-                onChange={setSenderStatus}
-                options={["ACTIVE", "PENDING", "FAILED", "DISABLED"]}
-              />
-
-              <Field
-                label="Meta Phone Number ID"
-                value={metaPhoneNumberId}
-                onChange={setMetaPhoneNumberId}
-              />
-
-              <Field
-                label="Meta WABA ID"
-                value={metaWabaId}
-                onChange={setMetaWabaId}
-              />
-
-              <Field
-                label="Meta Display Phone"
-                value={metaDisplayPhone}
-                onChange={setMetaDisplayPhone}
-              />
-
-              <Field
-                label="Meta App ID"
-                value={metaAppId}
-                onChange={setMetaAppId}
-              />
-
-              <Field
-                label="Sender Country"
-                value={senderCountry}
-                onChange={setSenderCountry}
-              />
-
-              <Field
-                label="Default Language"
-                value={defaultLanguage}
-                onChange={setDefaultLanguage}
-              />
-
-              <Field
-                label="Default Timezone"
-                value={defaultTimezone}
-                onChange={setDefaultTimezone}
-              />
-            </div>
-
-            <div className="mt-8 rounded-2xl border p-6">
-              <h2 className="text-xl font-semibold">
-                Webhook Meta
-              </h2>
-
-              <div className="mt-4 space-y-4 text-sm">
+          <section className="mt-8 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <CargoCard>
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
+                  <MessageCircle size={22} />
+                </span>
                 <div>
-                  <div className="font-medium">
-                    Callback URL
-                  </div>
-
-                  <code className="mt-2 block rounded-xl bg-gray-50 p-3">
-                    https://slaivio-production.up.railway.app/webhook/meta/whatsapp
-                  </code>
-                </div>
-
-                <div>
-                  <div className="font-medium">
-                    Verify Token
-                  </div>
-
-                  <code className="mt-2 block rounded-xl bg-gray-50 p-3">
-                    Même valeur que META_WA_VERIFY_TOKEN dans Railway
-                  </code>
+                  <h2 className="text-xl font-black text-slate-950">
+                    Configuration Meta
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Ces valeurs viennent du onboarding OAuth Meta ou de votre configuration manuelle.
+                  </p>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="mt-8 rounded-xl bg-black px-6 py-3 font-semibold text-white disabled:opacity-50"
-            >
-              {saving ? "Sauvegarde..." : "Sauvegarder"}
-            </button>
-          </>
-        )}
-      </div>
-    </DashboardLayout>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <Field label="Org ID" value={orgId} onChange={setOrgId} />
+                <SelectField label="Provider" value={provider} onChange={setProvider} options={["meta", "mock"]} />
+                <SelectField label="Environment" value={environment} onChange={setEnvironment} options={["production", "sandbox"]} />
+                <SelectField label="Sender Status" value={senderStatus} onChange={setSenderStatus} options={["ACTIVE", "PENDING", "FAILED", "DISABLED"]} />
+                <Field label="Meta Phone Number ID" value={metaPhoneNumberId} onChange={setMetaPhoneNumberId} />
+                <Field label="Meta WABA ID" value={metaWabaId} onChange={setMetaWabaId} />
+                <Field label="Meta Display Phone" value={metaDisplayPhone} onChange={setMetaDisplayPhone} />
+                <Field label="Meta App ID" value={metaAppId} onChange={setMetaAppId} />
+                <Field label="Sender Country" value={senderCountry} onChange={setSenderCountry} />
+                <Field label="Default Language" value={defaultLanguage} onChange={setDefaultLanguage} />
+                <Field label="Default Timezone" value={defaultTimezone} onChange={setDefaultTimezone} />
+              </div>
+            </CargoCard>
+
+            <CargoCard>
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                  <Webhook size={22} />
+                </span>
+                <div>
+                  <h2 className="text-xl font-black text-slate-950">
+                    Webhook Meta
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Points de contrôle pour la réception des messages entrants et statuts.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-5">
+                <WebhookInfo
+                  label="Callback URL"
+                  value="https://slaivio-production.up.railway.app/webhook/meta/whatsapp"
+                />
+                <WebhookInfo
+                  label="Verify Token"
+                  value="Même valeur que META_WA_VERIFY_TOKEN dans Railway"
+                />
+
+                <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="flex items-center gap-2 font-bold text-emerald-800">
+                    <ShieldCheck size={18} />
+                    Enterprise-ready checklist
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <StatusPill label="OAuth Meta" tone="success" />
+                    <StatusPill label="Webhook Routing" tone="success" />
+                    <StatusPill label="Multi-WABA Ready" tone="info" />
+                  </div>
+                </div>
+              </div>
+            </CargoCard>
+          </section>
+        </>
+      )}
+    </CargoPageShell>
   );
 }
 
@@ -247,12 +218,9 @@ function Field({
 }) {
   return (
     <label className="space-y-2">
-      <div className="text-sm font-medium">
-        {label}
-      </div>
-
+      <div className="text-sm font-bold text-slate-700">{label}</div>
       <input
-        className="w-full rounded-xl border px-4 py-3"
+        className="slaivo-focus w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -273,12 +241,9 @@ function SelectField({
 }) {
   return (
     <label className="space-y-2">
-      <div className="text-sm font-medium">
-        {label}
-      </div>
-
+      <div className="text-sm font-bold text-slate-700">{label}</div>
       <select
-        className="w-full rounded-xl border px-4 py-3"
+        className="slaivo-focus w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -289,5 +254,22 @@ function SelectField({
         ))}
       </select>
     </label>
+  );
+}
+
+function WebhookInfo({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <div className="text-sm font-bold text-slate-700">{label}</div>
+      <code className="mt-2 block rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-700">
+        {value}
+      </code>
+    </div>
   );
 }

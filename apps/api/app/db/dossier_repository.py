@@ -157,6 +157,7 @@ def list_active_dossiers(
             d.status_global,
             d.intake_status,
             d.validation_status,
+            d.primary_channel,
 
             d.origin_country,
             d.origin_city,
@@ -166,6 +167,12 @@ def list_active_dossiers(
             d.estimated_weight_kg,
             d.estimated_volume_cbm,
             d.shipping_mode,
+            (
+                select count(*)
+                from messages_raw mr
+                where mr.org_id = d.org_id
+                  and mr.dossier_id = d.id
+            ) as message_count,
 
             d.created_at,
             d.updated_at

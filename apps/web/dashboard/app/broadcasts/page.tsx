@@ -1,17 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Megaphone, Send, UsersRound } from "lucide-react";
 
-import { DashboardLayout } from "@/components/layout/dashboard-layout";
-
-import {
-  createBroadcast,
-  getBroadcasts,
-} from "@/services/broadcasts";
-
-import type {
-  BroadcastCampaign,
-} from "@/types/broadcasts";
+import { CargoCard, CargoPageShell, EmptyState, StatusPill } from "@/components/cargo/cargo-page-shell";
+import { createBroadcast, getBroadcasts } from "@/services/broadcasts";
+import type { BroadcastCampaign } from "@/types/broadcasts";
 
 export default function BroadcastsPage() {
   const [campaigns, setCampaigns] = useState<BroadcastCampaign[]>([]);
@@ -19,14 +13,24 @@ export default function BroadcastsPage() {
   const [messageBody, setMessageBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const stats = useMemo(() => {
+    return {
+      total: campaigns.length,
+      recipients: campaigns.reduce((sum, item) => sum + (item.total_recipients || 0), 0),
+      sent: campaigns.reduce((sum, item) => sum + (item.total_sent || 0), 0),
+      failed: campaigns.reduce((sum, item) => sum + (item.total_failed || 0), 0),
+    };
+  }, [campaigns]);
+
   async function load() {
+    setLoading(true);
+    setError("");
+
     try {
-      const data = await getBroadcasts();
-      setCampaigns(data);
+      setCampaigns(await getBroadcasts());
     } catch {
       setError("Impossible de charger les campagnes.");
     } finally {
@@ -58,7 +62,6 @@ export default function BroadcastsPage() {
       setTitle("");
       setMessageBody("");
       setSuccess("Campagne créée avec succès.");
-
       await load();
     } catch {
       setError("Impossible de créer la campagne.");
@@ -68,117 +71,134 @@ export default function BroadcastsPage() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-8">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Broadcasts
-          </h1>
-
-          <p className="mt-2 text-gray-500">
-            Campagnes WhatsApp clients
-          </p>
+    <CargoPageShell
+      title="Broadcast Command Center"
+      description="Créez et suivez les campagnes WhatsApp clients avec un contrôle opérationnel clair."
+      eyebrow="Customer Communication"
+    >
+      {(error || success) && (
+        <div
+          className={`rounded-2xl p-4 text-sm font-medium ${
+            error ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"
+          }`}
+        >
+          {error || success}
         </div>
+      )}
 
-        {error && (
-          <div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
-            {error}
+      <section className="grid gap-4 md:grid-cols-4">
+        <Metric label="Campagnes" value={String(stats.total)} hint="Historique total" />
+        <Metric label="Audience" value={String(stats.recipients)} hint="Destinataires ciblés" />
+        <Metric label="Envoyés" value={String(stats.sent)} hint="Messages transmis" />
+        <Metric label="Échecs" value={String(stats.failed)} hint="À inspecter" />
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+        <CargoCard>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+              <Send size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-slate-950">
+                Nouvelle campagne
+              </h2>
+              <p className="text-sm text-slate-500">Audience : tous les clients</p>
+            </div>
           </div>
-        )}
-
-        {success && (
-          <div className="mt-6 rounded-xl bg-green-50 p-4 text-sm text-green-700">
-            {success}
-          </div>
-        )}
-
-        <section className="mt-8 rounded-2xl border p-6">
-          <h2 className="text-xl font-semibold">
-            Nouvelle campagne
-          </h2>
 
           <div className="mt-5 space-y-4">
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Titre campagne"
-              className="w-full rounded-xl border px-4 py-3"
+              className="slaivo-focus w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
-
             <textarea
               value={messageBody}
               onChange={(event) => setMessageBody(event.target.value)}
               placeholder="Message WhatsApp..."
-              className="min-h-[180px] w-full rounded-xl border px-4 py-3"
+              className="slaivo-focus min-h-[220px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
-
             <button
               onClick={handleCreate}
               disabled={saving}
-              className="rounded-xl bg-black px-5 py-3 text-white disabled:opacity-50"
+              className="w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 disabled:opacity-50"
             >
               {saving ? "Création..." : "Créer campagne"}
             </button>
           </div>
-        </section>
+        </CargoCard>
 
-        <section className="mt-8">
-          <h2 className="text-2xl font-bold">
-            Historique campagnes
-          </h2>
+        <CargoCard>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-950">
+                Historique campagnes
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Suivi des diffusions et résultats.
+              </p>
+            </div>
+            <Megaphone className="text-slate-300" size={28} />
+          </div>
 
-          <div className="mt-5 grid gap-4">
-            {loading && (
-              <div className="text-gray-500">
-                Chargement...
-              </div>
-            )}
-
+          <div className="mt-5 space-y-3">
+            {loading && <EmptyState label="Chargement..." />}
             {!loading && campaigns.length === 0 && (
-              <div className="rounded-2xl border p-6 text-sm text-gray-500">
-                Aucune campagne pour le moment.
-              </div>
+              <EmptyState label="Aucune campagne pour le moment." />
             )}
 
             {campaigns.map((campaign) => (
               <div
                 key={campaign.id}
-                className="rounded-2xl border p-6"
+                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-xl font-semibold">
-                      {campaign.title}
-                    </h3>
-
-                    <div className="mt-2 text-sm text-gray-500">
+                    <h3 className="font-black text-slate-950">{campaign.title}</h3>
+                    <div className="mt-1 text-sm text-slate-500">
                       {campaign.audience_type}
                     </div>
                   </div>
-
-                  <span className="rounded-full border px-3 py-1 text-xs">
-                    {campaign.status}
-                  </span>
+                  <StatusPill label={campaign.status} tone="info" />
                 </div>
 
-                <p className="mt-5 whitespace-pre-wrap text-sm">
+                <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                   {campaign.message_body}
                 </p>
 
-                <div className="mt-6 flex gap-6 text-sm text-gray-500">
-                  <div>👥 {campaign.total_recipients}</div>
-                  <div>✅ {campaign.total_sent}</div>
-                  <div>❌ {campaign.total_failed}</div>
-                </div>
-
-                <div className="mt-3 text-xs text-gray-400">
-                  {new Date(campaign.created_at).toLocaleString()}
+                <div className="mt-5 flex flex-wrap gap-3 text-xs font-bold text-slate-500">
+                  <span className="inline-flex items-center gap-1">
+                    <UsersRound size={14} /> {campaign.total_recipients}
+                  </span>
+                  <span>Envoyés {campaign.total_sent}</span>
+                  <span>Échecs {campaign.total_failed}</span>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </CargoCard>
       </div>
-    </DashboardLayout>
+    </CargoPageShell>
   );
 }
+
+function Metric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="slaivo-card rounded-3xl p-5">
+      <div className="text-sm font-semibold text-slate-500">{label}</div>
+      <div className="mt-3 text-3xl font-black text-slate-950">{value}</div>
+      <div className="mt-2 text-xs text-slate-500">{hint}</div>
+    </div>
+  );
+}
+

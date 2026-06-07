@@ -27,7 +27,41 @@ export type DossierTimelineEvent = {
   created_at: string;
 };
 
+export type DossierClient = {
+  id: string;
+  phone: string | null;
+  name: string | null;
+  email?: string | null;
+  preferred_language?: string | null;
+};
+
+export type DossierMessage = {
+  id: string;
+  sender_phone: string | null;
+  message_text: string | null;
+  raw_payload: unknown;
+  created_at: string;
+};
+
+export type DossierNotification = {
+  id: string;
+  channel: string | null;
+  recipient_phone: string | null;
+  notification_type: string | null;
+  message: string | null;
+  status: string | null;
+  provider: string | null;
+  provider_message_id: string | null;
+  created_at: string;
+  sent_at: string | null;
+  failed_at: string | null;
+  error_message: string | null;
+};
+
 export type DossierDetails = {
   dossier: Dossier;
+  client?: DossierClient | null;
+  messages?: DossierMessage[];
   timeline: DossierTimelineEvent[];
+  notifications?: DossierNotification[];
 };

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 import {
   AlertTriangle,
   BarChart3,
@@ -119,11 +120,12 @@ const groups = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { signOut } = useClerk();
 
   function logout() {
-    localStorage.removeItem("slaivo_token");
-    localStorage.removeItem("slaivo_manager");
-    window.location.href = "/login";
+    signOut({
+      redirectUrl: "/sign-in",
+    });
   }
 
   return (

@@ -11,9 +11,8 @@ export const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   if (typeof window !== "undefined") {
-    let token = localStorage.getItem("slaivo_token");
-
     const clerk = (window as any).Clerk;
+    let token: string | null = null;
 
     if (clerk?.session?.getToken) {
       token = await clerk.session.getToken();

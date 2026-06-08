@@ -35,7 +35,7 @@ export function DashboardLayout({
         setManager(managerData);
       })
       .catch(() => {
-        router.push("/login");
+        router.push("/sign-in");
       })
       .finally(() => {
         setLoading(false);

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     meta_oauth_frontend_redirect_uri: str | None = None
 
 
-    whatsapp_provider: str = "mock"
+    whatsapp_provider: str = "meta"
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
     twilio_whatsapp_from: str | None = None

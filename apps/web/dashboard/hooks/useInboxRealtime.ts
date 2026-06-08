@@ -45,13 +45,16 @@ export function useInboxRealtime(
       const clerkToken = clerk?.session?.getToken
         ? await clerk.session.getToken()
         : null;
-      const token = clerkToken || localStorage.getItem("slaivo_token") || "demo_token";
+
+      if (!clerkToken) {
+        return;
+      }
 
       const url = new URL(resolvedApiBaseUrl);
       url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
       url.pathname = `/ws/inbox/${encodeURIComponent(resolvedManagerId)}`;
       url.searchParams.set("org_id", resolvedOrgId);
-      url.searchParams.set("token", token);
+      url.searchParams.set("token", clerkToken);
       url.searchParams.set(
         "manager_name",
         managerName || resolvedManagerId

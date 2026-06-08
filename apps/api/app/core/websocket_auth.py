@@ -16,13 +16,6 @@ async def authenticate_websocket(
         await websocket.close(code=1008)
         return None
 
-    if token == "demo_token":
-        return {
-            "user_id": "demo_manager",
-            "org_id": org_id,
-            "email": "demo@slaivo.com",
-        }
-
     if not token:
         await websocket.close(code=1008)
         return None
@@ -53,4 +46,3 @@ async def authenticate_websocket(
         "org_id": org_id,
         "email": payload.get("email"),
     }
-

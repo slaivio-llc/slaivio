@@ -18,14 +18,10 @@ from app.api.client_shipments import router as client_shipments_router
 from app.api.broadcasts import router as broadcasts_router
 from app.api.escalations import router as escalations_router
 from app.api.health import router as health_router
-from app.api.twilio_webhook import router as twilio_webhook_router
-from app.api.twilio_status_webhook import router as twilio_status_webhook_router
 from app.api.notification_retries import router as notification_retries_router
 from app.api.voice_notes import router as voice_notes_router
 from app.api.whatsapp_templates import router as whatsapp_templates_router
 from app.api.manager_events import router as manager_events_router
-from app.api.infobip_templates import router as infobip_templates_router
-from app.api.infobip_webhook import router as infobip_webhook_router
 from app.api.meta_webhook import router as meta_webhook_router
 from app.api.meta_embedded_signup import router as meta_embedded_signup_router
 from app.api.organization_whatsapp import router as organization_whatsapp_router
@@ -126,14 +122,10 @@ app.include_router(client_shipments_router)
 app.include_router(broadcasts_router)
 app.include_router(escalations_router)
 app.include_router(health_router)
-app.include_router(twilio_webhook_router)
-app.include_router(twilio_status_webhook_router)
 app.include_router(notification_retries_router)
 app.include_router(voice_notes_router)
 app.include_router(whatsapp_templates_router)
 app.include_router(manager_events_router)
-app.include_router(infobip_templates_router)
-app.include_router(infobip_webhook_router)
 app.include_router(meta_webhook_router)
 app.include_router(meta_embedded_signup_router)
 app.include_router(organization_whatsapp_router)

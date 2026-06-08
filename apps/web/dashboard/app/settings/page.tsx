@@ -58,7 +58,7 @@ const sections = [
   },
   {
     id: "whatsapp",
-    label: "Meta WhatsApp",
+    label: "WhatsApp Business",
     group: "Integrations",
     icon: MessageCircle,
   },
@@ -219,10 +219,6 @@ export default function SettingsPage() {
 
   function jumpTo(sectionId: string) {
     setActiveSection(sectionId);
-    document.getElementById(sectionId)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
   }
 
   return (
@@ -277,6 +273,7 @@ export default function SettingsPage() {
 
             <SettingsSection
               id="general"
+              hidden={activeSection !== "general"}
               icon={<Building2 size={18} />}
               title="General settings"
               description="Informations de base de l'agence active et contexte operationnel."
@@ -308,6 +305,7 @@ export default function SettingsPage() {
 
             <SettingsSection
               id="access"
+              hidden={activeSection !== "access"}
               icon={<ShieldCheck size={18} />}
               title="Project access"
               description="Controle des organisations, managers et permissions."
@@ -346,33 +344,40 @@ export default function SettingsPage() {
 
             <SettingsSection
               id="whatsapp"
+              hidden={activeSection !== "whatsapp"}
               icon={<MessageCircle size={18} />}
-              title="Meta WhatsApp"
-              description="Canal officiel pour onboarding, messages, templates et webhooks."
+              title="WhatsApp Business"
+              description="Connexion officielle du numéro WhatsApp Business de l'agence."
             >
               <div className="grid gap-4 lg:grid-cols-3">
                 <ConfigCard
-                  label="Provider"
-                  value="Official Meta Cloud API"
-                  hint="Twilio/Infobip ne sont pas exposes dans le produit actif."
-                  tone="success"
-                />
-                <ConfigCard
-                  label="Sender"
+                  label="Numéro connecté"
                   value={
                     whatsappSender?.can_send
-                      ? `Disponible (${whatsappSender.strategy})`
+                      ? "Prêt pour l'envoi"
                       : "Aucun numero d'envoi disponible"
                   }
                   hint={whatsappSender?.display_phone_number || "Connectez un numero WhatsApp Business"}
                   tone={whatsappSender?.can_send ? "success" : "warning"}
                 />
                 <ConfigCard
-                  label="Webhook readiness"
-                  value="Meta webhook route active"
-                  hint="/webhook/meta/whatsapp"
+                  label="Onboarding"
+                  value="Connexion via portefeuille Business"
+                  hint="L'agence suit le flow officiel sans manipuler les réglages techniques."
                   tone="info"
                 />
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                  <div className="font-bold text-slate-950">Action rapide</div>
+                  <p className="mt-2 text-slate-600">
+                    Connecter ou remplacer le numéro WhatsApp Business actif.
+                  </p>
+                  <a
+                    href="/whatsapp/connect"
+                    className="mt-4 inline-flex rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white"
+                  >
+                    Connecter WhatsApp
+                  </a>
+                </div>
               </div>
 
               {!whatsappSender?.can_send && (
@@ -384,6 +389,7 @@ export default function SettingsPage() {
 
             <SettingsSection
               id="ai"
+              hidden={activeSection !== "ai"}
               icon={<Bot size={18} />}
               title="AI automation"
               description="Controlez le niveau d'autonomie de l'assistant SLAIVIO."
@@ -449,6 +455,7 @@ export default function SettingsPage() {
 
             <SettingsSection
               id="cargo"
+              hidden={activeSection !== "cargo"}
               icon={<Truck size={18} />}
               title="Cargo rules"
               description="Base de connaissances, marchandises et tarification utilisees par l'IA et les operations."
@@ -515,6 +522,7 @@ export default function SettingsPage() {
 
             <SettingsSection
               id="billing"
+              hidden={activeSection !== "billing"}
               icon={<CreditCard size={18} />}
               title="Billing and limits"
               description="Vue produit pour l'abonnement, les limites et les modules actifs."
@@ -546,6 +554,7 @@ export default function SettingsPage() {
 
             <SettingsSection
               id="danger"
+              hidden={activeSection !== "danger"}
               icon={<AlertTriangle size={18} />}
               title="Danger zone"
               description="Actions sensibles. Elles doivent rester rares, journalisees et confirmees."
@@ -640,17 +649,21 @@ function SettingsSidebar({
 
 function SettingsSection({
   id,
+  hidden = false,
   icon,
   title,
   description,
   children,
 }: {
   id: string;
+  hidden?: boolean;
   icon: ReactNode;
   title: string;
   description: string;
   children: ReactNode;
 }) {
+  if (hidden) return null;
+
   return (
     <section id={id} className="scroll-mt-24">
       <CargoCard>

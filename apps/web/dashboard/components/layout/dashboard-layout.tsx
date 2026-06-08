@@ -106,11 +106,11 @@ export function DashboardLayout({
 
   return (
     <div className="slaivo-shell-bg min-h-screen">
-      <aside className="group/sidebar fixed inset-y-0 left-0 z-40 hidden w-20 overflow-hidden border-r border-white/10 bg-[#0b1120] text-white shadow-2xl transition-all duration-300 hover:w-80 xl:block">
+      <aside className="group/sidebar fixed inset-y-0 left-0 z-40 hidden w-20 overflow-hidden border-r border-slate-200 bg-white text-slate-950 shadow-sm transition-all duration-300 hover:w-80 xl:block">
         <div className="flex h-full flex-col">
           <SidebarHeader managerName={managerName} orgLabel={orgLabel} />
           <div className="hidden px-5 pb-4 group-hover/sidebar:block">
-            <OrganizationSwitcher variant="dark" />
+            <OrganizationSwitcher />
           </div>
           <Sidebar />
         </div>
@@ -142,7 +142,7 @@ export function DashboardLayout({
       )}
 
       <div className="min-h-screen xl:pl-20">
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur-xl md:px-8">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-xl md:px-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -284,7 +284,7 @@ export function DashboardLayout({
           </div>
         </header>
 
-        <main className="slaivo-grid-bg min-h-[calc(100vh-73px)] overflow-auto">
+        <main className="min-h-[calc(100vh-73px)] overflow-auto bg-[#f5f6f8]">
           {children}
         </main>
       </div>
@@ -302,7 +302,7 @@ function SidebarHeader({
   return (
     <div className="p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white/5 shadow-lg ring-1 ring-white/10">
+        <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-slate-50 shadow-sm ring-1 ring-slate-200">
           <img
             src="/slaivio-icon.png"
             alt="SLAIVIO"
@@ -311,29 +311,29 @@ function SidebarHeader({
         </div>
         <div className="hidden group-hover/sidebar:block">
           <div className="text-2xl font-black tracking-tight">SLAIVIO</div>
-          <div className="text-xs font-medium uppercase tracking-[0.22em] text-emerald-300">
+          <div className="text-xs font-medium uppercase tracking-[0.22em] text-blue-600">
             Cargo OS
           </div>
         </div>
       </div>
 
-      <div className="mt-6 hidden rounded-3xl border border-white/10 bg-white/[0.045] p-4 group-hover/sidebar:block">
+      <div className="mt-6 hidden rounded-3xl border border-slate-200 bg-slate-50 p-4 group-hover/sidebar:block">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-200">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
             <Building2 size={18} />
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">
               {managerName}
             </div>
-            <div className="truncate text-xs text-slate-400">
+            <div className="truncate text-xs text-slate-500">
               {orgLabel}
             </div>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-black/20 px-3 py-2 text-xs text-slate-300">
-          <Globe2 size={14} className="text-emerald-300" />
+        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200">
+          <Globe2 size={14} className="text-blue-600" />
           Multi-country operations
         </div>
       </div>

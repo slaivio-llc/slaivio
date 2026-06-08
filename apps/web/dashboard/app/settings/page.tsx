@@ -1,24 +1,32 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   AlertTriangle,
+  Bell,
   Bot,
   Brain,
   Building2,
+  Camera,
   CheckCircle2,
   CreditCard,
   Database,
   Globe2,
   KeyRound,
+  Languages,
+  Link2,
   LockKeyhole,
+  Mail,
   MessageCircle,
   PackageCheck,
+  Palette,
   Plus,
   Scale,
   ShieldCheck,
+  Trash2,
   Truck,
   Users,
+  Wallet,
   Wifi,
 } from "lucide-react";
 
@@ -45,16 +53,28 @@ import { getTenantContext } from "@/services/tenant";
 
 const sections = [
   {
-    id: "general",
-    label: "General",
+    id: "profile",
+    label: "Profile",
     group: "Configuration",
     icon: Building2,
   },
   {
-    id: "access",
-    label: "Access",
+    id: "security",
+    label: "Security",
     group: "Configuration",
-    icon: Users,
+    icon: LockKeyhole,
+  },
+  {
+    id: "appearance",
+    label: "Appearance",
+    group: "Configuration",
+    icon: Palette,
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    group: "Configuration",
+    icon: Bell,
   },
   {
     id: "whatsapp",
@@ -81,10 +101,22 @@ const sections = [
     icon: CreditCard,
   },
   {
-    id: "danger",
-    label: "Danger Zone",
+    id: "payment",
+    label: "Payment methods",
     group: "Business",
-    icon: AlertTriangle,
+    icon: Wallet,
+  },
+  {
+    id: "privacy",
+    label: "Privacy",
+    group: "Business",
+    icon: ShieldCheck,
+  },
+  {
+    id: "danger",
+    label: "Close account",
+    group: "Business",
+    icon: Trash2,
   },
 ];
 
@@ -96,10 +128,17 @@ export default function SettingsPage() {
   const [whatsappSender, setWhatsappSender] =
     useState<WhatsAppSenderStatus | null>(null);
   const [tenantContext, setTenantContext] = useState<any>(null);
-  const [activeSection, setActiveSection] = useState("general");
+  const [activeSection, setActiveSection] = useState("profile");
   const [savingAI, setSavingAI] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [agencyDescription, setAgencyDescription] = useState("");
+  const [defaultLanguage, setDefaultLanguage] = useState("fr");
+  const [themeMode, setThemeMode] = useState("light");
+  const [notifyClientMessages, setNotifyClientMessages] = useState(true);
+  const [notifyCustoms, setNotifyCustoms] = useState(true);
+  const [notifyFinance, setNotifyFinance] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -133,29 +172,6 @@ export default function SettingsPage() {
 
   const activeTenant = tenantContext?.active_tenant;
   const tenantCount = tenantContext?.tenants?.length || 0;
-
-  const metrics = useMemo(
-    () => ({
-      knowledge: knowledge.length,
-      goods: goods.length,
-      pricing: pricing.length,
-      autoReply: aiSettings?.auto_reply_enabled ? "ON" : "OFF",
-      readiness:
-        knowledge.length > 0 &&
-        goods.length > 0 &&
-        pricing.length > 0 &&
-        whatsappSender?.can_send
-          ? "Ready"
-          : "Setup",
-    }),
-    [
-      aiSettings?.auto_reply_enabled,
-      goods.length,
-      knowledge.length,
-      pricing.length,
-      whatsappSender?.can_send,
-    ]
-  );
 
   async function addKnowledge() {
     await createKnowledgeItem({
@@ -219,6 +235,11 @@ export default function SettingsPage() {
 
   function jumpTo(sectionId: string) {
     setActiveSection(sectionId);
+    setSuccess("");
+  }
+
+  function saveLocalSettings(label: string) {
+    setSuccess(`${label} sauvegardé pour cette session.`);
   }
 
   return (
@@ -234,6 +255,12 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {success && (
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">
+          {success}
+        </div>
+      )}
+
       {loading && <EmptyState label="Chargement des reglages..." />}
 
       {!loading && (
@@ -243,105 +270,196 @@ export default function SettingsPage() {
             onSelect={jumpTo}
           />
 
-          <div className="min-w-0 space-y-6">
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <SettingsMetric
-                label="Readiness"
-                value={metrics.readiness}
-                hint="Etat global de configuration"
-                tone={metrics.readiness === "Ready" ? "success" : "warning"}
-              />
-              <SettingsMetric
-                label="Meta WhatsApp"
-                value={whatsappSender?.can_send ? "Connected" : "Pending"}
-                hint={whatsappSender?.display_phone_number || "Numero non connecte"}
-                tone={whatsappSender?.can_send ? "success" : "warning"}
-              />
-              <SettingsMetric
-                label="Auto Reply"
-                value={metrics.autoReply}
-                hint="Reponses IA automatiques"
-                tone={aiSettings?.auto_reply_enabled ? "success" : "neutral"}
-              />
-              <SettingsMetric
-                label="Rules"
-                value={String(metrics.knowledge + metrics.goods + metrics.pricing)}
-                hint="Knowledge, goods, pricing"
-                tone="info"
-              />
-            </section>
-
+          <div className="min-w-0">
             <SettingsSection
-              id="general"
-              hidden={activeSection !== "general"}
+              id="profile"
+              hidden={activeSection !== "profile"}
               icon={<Building2 size={18} />}
-              title="General settings"
-              description="Informations de base de l'agence active et contexte operationnel."
+              title="Agency profile"
+              description="Identité visible par vos équipes et utilisée dans l'expérience client."
             >
-              <div className="divide-y divide-slate-100 rounded-3xl border border-slate-200 bg-white">
-                <SettingsRow
-                  label="Agency name"
-                  description="Nom affiche dans l'inbox, les messages et les operations."
-                  value={activeTenant?.organization_name || "Organisation active"}
-                />
-                <SettingsRow
-                  label="Organization ID"
-                  description="Reference interne utilisee par les APIs SLAIVIO."
-                  value={activeTenant?.org_id || "Non disponible"}
-                  copyable
-                />
-                <SettingsRow
-                  label="Market mode"
-                  description="Langues de depart pour les agences internationales."
-                  value="Francais / English ready"
-                />
-                <SettingsRow
-                  label="Cargo operating profile"
-                  description="Configuration recommandee pour import/export multi-pays."
-                  value="International Cargo Agency"
-                />
+              <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] bg-white shadow-sm ring-1 ring-slate-200">
+                    <Camera className="text-slate-400" size={30} />
+                  </div>
+                  <button
+                    onClick={() => saveLocalSettings("Logo agence")}
+                    className="mt-5 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700"
+                  >
+                    Upload agency logo
+                  </button>
+                  <p className="mt-3 text-xs leading-5 text-slate-500">
+                    Le logo sera affiché dans l'espace agence et les documents.
+                  </p>
+                </div>
+
+                <div className="divide-y divide-slate-100 rounded-3xl border border-slate-200 bg-white">
+                  <EditableField
+                    label="Agency name"
+                    value={activeTenant?.organization_name || "SLAIVIO Demo Agency"}
+                  />
+                  <EditableArea
+                    label="Description"
+                    value={agencyDescription}
+                    placeholder="Décrivez votre agence cargo, vos pays, vos services..."
+                    onChange={setAgencyDescription}
+                  />
+                  <SettingsRow
+                    label="Organization ID"
+                    description="Référence interne utilisée par les APIs SLAIVIO."
+                    value={activeTenant?.org_id || "Non disponible"}
+                    copyable
+                  />
+                  <div className="grid gap-4 p-5 md:grid-cols-2">
+                    <SelectField
+                      icon={<Languages size={16} />}
+                      label="Default language"
+                      value={defaultLanguage}
+                      options={[
+                        ["fr", "Français"],
+                        ["en", "English"],
+                      ]}
+                      onChange={setDefaultLanguage}
+                    />
+                    <EditableField label="Timezone" value="Africa/Kinshasa" />
+                  </div>
+                  <div className="p-5">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-950">
+                      <Link2 size={16} />
+                      Social and support links
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <EditableField label="Website" value="https://slaivio.com" compact />
+                      <EditableField label="WhatsApp channel" value="Non renseigné" compact />
+                      <EditableField label="Facebook" value="Non renseigné" compact />
+                      <EditableField label="Instagram" value="Non renseigné" compact />
+                    </div>
+                  </div>
+                  <div className="p-5 text-right">
+                    <button
+                      onClick={() => saveLocalSettings("Profil agence")}
+                      className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
+                    >
+                      Save profile
+                    </button>
+                  </div>
+                </div>
               </div>
             </SettingsSection>
 
             <SettingsSection
-              id="access"
-              hidden={activeSection !== "access"}
+              id="security"
+              hidden={activeSection !== "security"}
               icon={<ShieldCheck size={18} />}
-              title="Project access"
-              description="Controle des organisations, managers et permissions."
+              title="Account security"
+              description="Sécurisez les accès manager, email, mot de passe et sessions."
             >
               <div className="grid gap-4 lg:grid-cols-2">
                 <ConsoleCard
-                  icon={<Users size={20} />}
-                  title="Organization-wide access"
-                  description={`${tenantCount} organisation(s) disponible(s) pour cet utilisateur.`}
-                  actionLabel="Gerer avec Clerk"
-                  muted
+                  icon={<Mail size={20} />}
+                  title="Email address"
+                  description="Adresse utilisée pour se connecter et recevoir les alertes."
+                  status={activeTenant?.org_id ? "Verified" : "Pending"}
+                  statusTone="success"
                 />
                 <ConsoleCard
                   icon={<LockKeyhole size={20} />}
-                  title="Authentication"
-                  description="Clerk protege les sessions dashboard et l'acces API."
-                  status="Clerk only"
-                  statusTone="success"
+                  title="Password"
+                  description="Modifier le mot de passe depuis l'espace sécurisé Clerk."
+                  actionLabel="Open security"
                 />
                 <ConsoleCard
                   icon={<KeyRound size={20} />}
-                  title="Permissions"
-                  description="Roles, permissions et entitlements sont verifies cote API."
-                  status="Protected"
-                  statusTone="success"
+                  title="Two-factor authentication"
+                  description="Ajoutez un second facteur pour protéger les opérations sensibles."
+                  status="Recommended"
+                  statusTone="warning"
                 />
                 <ConsoleCard
-                  icon={<Database size={20} />}
-                  title="Tenant isolation"
-                  description="Les operations utilisent l'organisation active, pas un compte demo."
+                  icon={<Users size={20} />}
+                  title="Team access"
+                  description={`${tenantCount} organisation(s) disponible(s) pour cet utilisateur.`}
                   status="Active"
                   statusTone="success"
                 />
               </div>
             </SettingsSection>
 
+            <SettingsSection
+              id="appearance"
+              hidden={activeSection !== "appearance"}
+              icon={<Palette size={18} />}
+              title="Appearance"
+              description="Adaptez l'interface SLAIVIO à l'environnement de travail de l'agence."
+            >
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  ["light", "Light Mode", "Interface claire pour équipes opérationnelles."],
+                  ["classic-dark", "Classic Dark", "Mode sombre pour supervision longue."],
+                  ["system", "System", "Suit le thème de l'appareil."],
+                ].map(([value, label, description]) => (
+                  <button
+                    key={value}
+                    onClick={() => setThemeMode(value)}
+                    className={`rounded-3xl border p-5 text-left transition ${
+                      themeMode === value
+                        ? "border-blue-300 bg-blue-50 ring-4 ring-blue-100"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="h-24 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-100" />
+                    <div className="mt-4 font-black text-slate-950">{label}</div>
+                    <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-5 text-right">
+                <button
+                  onClick={() => saveLocalSettings("Apparence")}
+                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
+                >
+                  Save appearance
+                </button>
+              </div>
+            </SettingsSection>
+
+            <SettingsSection
+              id="notifications"
+              hidden={activeSection !== "notifications"}
+              icon={<Bell size={18} />}
+              title="Notification preferences"
+              description="Choisissez les alertes qui doivent remonter aux managers."
+            >
+              <div className="rounded-3xl border border-slate-200 bg-white">
+                <ToggleRow
+                  label="New client messages"
+                  description="Alerter quand une conversation WhatsApp attend une réponse."
+                  enabled={notifyClientMessages}
+                  onChange={setNotifyClientMessages}
+                />
+                <ToggleRow
+                  label="Customs and blocked cargo"
+                  description="Alerter sur les cas douane, risques et blocages."
+                  enabled={notifyCustoms}
+                  onChange={setNotifyCustoms}
+                />
+                <ToggleRow
+                  label="Payments and billing"
+                  description="Alerter sur paiements, preuves et facturation."
+                  enabled={notifyFinance}
+                  onChange={setNotifyFinance}
+                />
+              </div>
+              <div className="mt-5 text-right">
+                <button
+                  onClick={() => saveLocalSettings("Notifications")}
+                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
+                >
+                  Save notifications
+                </button>
+              </div>
+            </SettingsSection>
             <SettingsSection
               id="whatsapp"
               hidden={activeSection !== "whatsapp"}
@@ -524,8 +642,8 @@ export default function SettingsPage() {
               id="billing"
               hidden={activeSection !== "billing"}
               icon={<CreditCard size={18} />}
-              title="Billing and limits"
-              description="Vue produit pour l'abonnement, les limites et les modules actifs."
+              title="Billing and usage"
+              description="Plan actif, limites, usage et modules inclus dans l'abonnement."
             >
               <div className="grid gap-4 lg:grid-cols-3">
                 <ConsoleCard
@@ -550,24 +668,122 @@ export default function SettingsPage() {
                   statusTone="success"
                 />
               </div>
+              <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                {[
+                  ["WhatsApp conversations", "1,240", "Included"],
+                  ["AI assisted replies", "860", "Included"],
+                  ["Cargo shipments", "128", "Included"],
+                ].map(([label, value, status]) => (
+                  <div
+                    key={label}
+                    className="grid gap-3 border-b border-slate-100 p-5 text-sm last:border-b-0 md:grid-cols-[1fr_160px_160px]"
+                  >
+                    <div className="font-bold text-slate-950">{label}</div>
+                    <div className="text-slate-600">{value}</div>
+                    <StatusPill label={status} tone="success" />
+                  </div>
+                ))}
+              </div>
+            </SettingsSection>
+
+            <SettingsSection
+              id="payment"
+              hidden={activeSection !== "payment"}
+              icon={<Wallet size={18} />}
+              title="Payment methods"
+              description="Moyens de paiement utilisés pour l'abonnement SLAIVIO."
+            >
+              <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="font-black text-slate-950">Saved cards</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Ajoutez une carte pour payer les abonnements et extensions.
+                      </p>
+                    </div>
+                    <StatusPill label="No card" tone="warning" />
+                  </div>
+                  <div className="mt-5 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                    <CreditCard className="mx-auto text-slate-300" size={36} />
+                    <div className="mt-3 font-black text-slate-950">
+                      Aucun moyen de paiement
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Le branchement Stripe/checkout viendra quand le plan billing sera activé.
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="font-black text-slate-950">Billing contact</h3>
+                  <div className="mt-4 space-y-3">
+                    <EditableField label="Billing email" value="billing@slaivio.com" compact />
+                    <EditableField label="Tax ID" value="Non renseigné" compact />
+                    <EditableField label="Billing country" value="RDC" compact />
+                  </div>
+                  <button
+                    onClick={() => saveLocalSettings("Billing contact")}
+                    className="mt-5 w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
+                  >
+                    Save billing contact
+                  </button>
+                </div>
+              </div>
+            </SettingsSection>
+
+            <SettingsSection
+              id="privacy"
+              hidden={activeSection !== "privacy"}
+              icon={<ShieldCheck size={18} />}
+              title="Privacy and data"
+              description="Contrôle des données, exports et conservation pour les agences internationales."
+            >
+              <div className="grid gap-4 lg:grid-cols-2">
+                <ConsoleCard
+                  icon={<Database size={20} />}
+                  title="Data export"
+                  description="Exporter conversations, dossiers, shipments et preuves opérationnelles."
+                  actionLabel="Prepare export"
+                />
+                <ConsoleCard
+                  icon={<ShieldCheck size={20} />}
+                  title="Data retention"
+                  description="Politique de conservation pour messages, preuves, paiements et documents."
+                  status="Default"
+                  statusTone="info"
+                />
+                <ConsoleCard
+                  icon={<KeyRound size={20} />}
+                  title="Access audit"
+                  description="Historique des accès et actions sensibles de l'équipe."
+                  status="Planned"
+                  statusTone="warning"
+                />
+                <ConsoleCard
+                  icon={<Globe2 size={20} />}
+                  title="International readiness"
+                  description="Fondation FR/EN et préparation multi-pays."
+                  status="FR/EN"
+                  statusTone="success"
+                />
+              </div>
             </SettingsSection>
 
             <SettingsSection
               id="danger"
               hidden={activeSection !== "danger"}
               icon={<AlertTriangle size={18} />}
-              title="Danger zone"
-              description="Actions sensibles. Elles doivent rester rares, journalisees et confirmees."
+              title="Close account"
+              description="Actions sensibles liées à la fermeture ou suspension de l'espace agence."
             >
               <div className="rounded-3xl border border-red-200 bg-red-50 p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <h3 className="font-black text-red-950">
-                      Suspend agency operations
+                      Close agency workspace
                     </h3>
                     <p className="mt-1 max-w-2xl text-sm leading-6 text-red-700">
-                      Cette zone servira a bloquer temporairement une agence,
-                      couper l'auto-reponse ou verrouiller les operations finance.
+                      Cette action doit être protégée par confirmation, audit et export préalable des données.
                     </p>
                   </div>
                   <button
@@ -684,6 +900,119 @@ function SettingsSection({
   );
 }
 
+function EditableField({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
+  return (
+    <label className={compact ? "block" : "grid gap-3 p-5 md:grid-cols-[220px_1fr] md:items-center"}>
+      <div>
+        <div className="text-sm font-black text-slate-950">{label}</div>
+      </div>
+      <input
+        defaultValue={value}
+        className="slaivo-focus mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 md:mt-0"
+      />
+    </label>
+  );
+}
+
+function EditableArea({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-3 p-5 md:grid-cols-[220px_1fr]">
+      <div className="text-sm font-black text-slate-950">{label}</div>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="slaivo-focus min-h-28 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+      />
+    </label>
+  );
+}
+
+function SelectField({
+  icon,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  options: Array<[string, string]>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-center gap-2 text-sm font-black text-slate-950">
+        <span className="text-blue-600">{icon}</span>
+        {label}
+      </div>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none"
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  enabled,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-6 border-b border-slate-100 p-5 last:border-b-0">
+      <div>
+        <div className="font-black text-slate-950">{label}</div>
+        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+      </div>
+      <button
+        onClick={() => onChange(!enabled)}
+        className={`relative h-8 w-14 rounded-full transition ${
+          enabled ? "bg-blue-600" : "bg-slate-300"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition ${
+            enabled ? "left-7" : "left-1"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 function SettingsRow({
   label,
   description,
@@ -715,31 +1044,6 @@ function SettingsRow({
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-function SettingsMetric({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  tone: "neutral" | "success" | "warning" | "danger" | "info";
-}) {
-  return (
-    <div className="slaivo-card rounded-3xl p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-slate-500">{label}</div>
-        <StatusPill label={tone.toUpperCase()} tone={tone} />
-      </div>
-      <div className="mt-4 text-3xl font-black tracking-tight text-slate-950">
-        {value}
-      </div>
-      <div className="mt-2 text-xs leading-5 text-slate-500">{hint}</div>
     </div>
   );
 }

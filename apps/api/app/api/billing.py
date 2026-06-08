@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.billing.repositories.plan_repository import list_pricing_plans
 from app.billing.services.billing_service import (
     confirm_invoice_payment,
@@ -11,7 +12,6 @@ from app.billing.services.billing_service import (
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class StartTrialRequest(BaseModel):
@@ -34,18 +34,22 @@ def get_billing_plans():
 
 
 @router.get("/billing")
-def get_billing():
+def get_billing(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        "billing": get_billing_overview(ORG_ID),
+        "billing": get_billing_overview(org_id),
     }
 
 
 @router.post("/billing/trial")
-def start_trial(body: StartTrialRequest):
+def start_trial(body: StartTrialRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     try:
         subscription = start_trial_subscription(
-            org_id=ORG_ID,
+            org_id=org_id,
             plan_code=body.plan_code,
         )
     except ValueError as exc:
@@ -58,9 +62,11 @@ def start_trial(body: StartTrialRequest):
 
 
 @router.post("/billing/invoices/monthly")
-def create_monthly_billing_invoice():
+def create_monthly_billing_invoice(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     try:
-        invoice = create_monthly_invoice(ORG_ID)
+        invoice = create_monthly_invoice(org_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -71,10 +77,12 @@ def create_monthly_billing_invoice():
 
 
 @router.post("/billing/payments/confirm")
-def confirm_payment(body: ConfirmPaymentRequest):
+def confirm_payment(body: ConfirmPaymentRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     try:
         result = confirm_invoice_payment(
-            org_id=ORG_ID,
+            org_id=org_id,
             invoice_id=body.invoice_id,
             provider=body.provider,
             provider_payment_id=body.provider_payment_id,
@@ -87,4 +95,3 @@ def confirm_payment(body: ConfirmPaymentRequest):
         "status": "ok",
         **result,
     }
-

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.goods_repository import (
     create_goods_rule,
     list_goods_rules,
@@ -11,8 +12,6 @@ from app.db.goods_repository import (
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class CreateGoodsRuleRequest(BaseModel):
@@ -45,9 +44,11 @@ class UpdateGoodsRuleRequest(BaseModel):
 
 
 @router.post("/goods/rules")
-def create_rule(body: CreateGoodsRuleRequest):
+def create_rule(body: CreateGoodsRuleRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     rule = create_goods_rule(
-        org_id=ORG_ID,
+        org_id=org_id,
         goods_name=body.goods_name,
         category=body.category,
         accepted=body.accepted,
@@ -71,9 +72,12 @@ def create_rule(body: CreateGoodsRuleRequest):
 def list_rules(
     category: str | None = None,
     limit: int = 100,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     rules = list_goods_rules(
-        org_id=ORG_ID,
+        org_id=org_id,
         category=category,
         limit=limit,
     )
@@ -89,9 +93,12 @@ def list_rules(
 def search_rules(
     q: str,
     limit: int = 5,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     rules = search_goods_rules(
-        org_id=ORG_ID,
+        org_id=org_id,
         query=q,
         limit=limit,
     )
@@ -104,9 +111,11 @@ def search_rules(
 
 
 @router.get("/goods/rules/{rule_id}")
-def get_rule(rule_id: str):
+def get_rule(rule_id: str, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     rule = get_goods_rule(
-        org_id=ORG_ID,
+        org_id=org_id,
         rule_id=rule_id,
     )
 
@@ -126,9 +135,12 @@ def get_rule(rule_id: str):
 def update_rule(
     rule_id: str,
     body: UpdateGoodsRuleRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     rule = update_goods_rule(
-        org_id=ORG_ID,
+        org_id=org_id,
         rule_id=rule_id,
         goods_name=body.goods_name,
         category=body.category,

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.whatsapp_template_repository import (
     create_whatsapp_template,
     list_whatsapp_templates,
@@ -17,8 +18,6 @@ from app.services.whatsapp_template_service import send_whatsapp_template
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 
@@ -53,9 +52,9 @@ class SyncMetaTemplatesRequest(BaseModel):
     waba_id: str
 
 
-def _get_meta_account(waba_id: str):
+def _get_meta_account(org_id: str, waba_id: str):
     account = get_whatsapp_account_by_waba(
-        org_id=ORG_ID,
+        org_id=org_id,
         waba_id=waba_id,
     )
 
@@ -69,9 +68,11 @@ def _get_meta_account(waba_id: str):
 
 
 @router.post("/whatsapp/templates")
-def create_template(body: CreateTemplateRequest):
+def create_template(body: CreateTemplateRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     template = create_whatsapp_template(
-        org_id=ORG_ID,
+        org_id=org_id,
         template_key=body.template_key,
         template_name=body.template_name,
         content_sid=body.content_sid,
@@ -90,8 +91,12 @@ def create_template(body: CreateTemplateRequest):
 
 
 @router.post("/whatsapp/templates/meta")
-def create_managed_meta_template(body: CreateMetaTemplateRequest):
-    account = _get_meta_account(body.waba_id)
+def create_managed_meta_template(
+    body: CreateMetaTemplateRequest,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+    account = _get_meta_account(org_id, body.waba_id)
     meta_result = create_meta_template(
         waba_id=body.waba_id,
         access_token=account["access_token"],
@@ -107,7 +112,7 @@ def create_managed_meta_template(body: CreateMetaTemplateRequest):
         else "REJECTED"
     )
     template = create_whatsapp_template(
-        org_id=ORG_ID,
+        org_id=org_id,
         template_key=body.template_key,
         template_name=body.template_name,
         content_sid=meta_result["data"].get("id") or body.template_name,
@@ -134,8 +139,12 @@ def create_managed_meta_template(body: CreateMetaTemplateRequest):
 
 
 @router.post("/whatsapp/templates/meta/sync")
-def sync_managed_meta_templates(body: SyncMetaTemplatesRequest):
-    account = _get_meta_account(body.waba_id)
+def sync_managed_meta_templates(
+    body: SyncMetaTemplatesRequest,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+    account = _get_meta_account(org_id, body.waba_id)
     meta_result = list_meta_templates(
         waba_id=body.waba_id,
         access_token=account["access_token"],
@@ -151,7 +160,7 @@ def sync_managed_meta_templates(body: SyncMetaTemplatesRequest):
 
     for item in meta_result["data"].get("data") or []:
         template = update_meta_template_by_name(
-            org_id=ORG_ID,
+            org_id=org_id,
             template_name=item["name"],
             language=item.get("language") or "fr",
             status=item.get("status") or "PENDING",
@@ -171,9 +180,11 @@ def sync_managed_meta_templates(body: SyncMetaTemplatesRequest):
 
 
 @router.get("/whatsapp/templates")
-def list_templates(limit: int = 100):
+def list_templates(limit: int = 100, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     templates = list_whatsapp_templates(
-        org_id=ORG_ID,
+        org_id=org_id,
         limit=limit,
     )
 
@@ -185,9 +196,11 @@ def list_templates(limit: int = 100):
 
 
 @router.get("/whatsapp/templates/{template_key}")
-def get_template(template_key: str):
+def get_template(template_key: str, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     template = get_template_by_key(
-        org_id=ORG_ID,
+        org_id=org_id,
         template_key=template_key,
     )
 
@@ -207,9 +220,12 @@ def get_template(template_key: str):
 def send_template(
     template_key: str,
     body: SendTemplateRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     result = send_whatsapp_template(
-        org_id=ORG_ID,
+        org_id=org_id,
         template_key=template_key,
         recipient_phone=body.recipient_phone,
         variables=body.variables,

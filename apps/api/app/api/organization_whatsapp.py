@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from app.core.tenant_context import get_current_tenant
 from app.db.organization_whatsapp_repository import (
     upsert_whatsapp_settings,
     get_active_whatsapp_settings,
@@ -8,8 +9,6 @@ from app.db.organization_whatsapp_repository import (
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class UpsertWhatsappSettingsRequest(BaseModel):
@@ -33,9 +32,14 @@ class UpsertWhatsappSettingsRequest(BaseModel):
 
 
 @router.post("/organization/whatsapp-settings")
-def save_whatsapp_settings(body: UpsertWhatsappSettingsRequest):
+def save_whatsapp_settings(
+    body: UpsertWhatsappSettingsRequest,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     settings = upsert_whatsapp_settings(
-        org_id=ORG_ID,
+        org_id=org_id,
         provider=body.provider,
         environment=body.environment,
         twilio_whatsapp_from=body.twilio_whatsapp_from,
@@ -62,9 +66,11 @@ def save_whatsapp_settings(body: UpsertWhatsappSettingsRequest):
 
 
 @router.get("/organization/whatsapp-settings")
-def get_whatsapp_settings():
+def get_whatsapp_settings(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     settings = list_whatsapp_settings(
-        org_id=ORG_ID,
+        org_id=org_id,
     )
 
     return {
@@ -75,9 +81,11 @@ def get_whatsapp_settings():
 
 
 @router.get("/organization/whatsapp-settings/active")
-def get_active_settings():
+def get_active_settings(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     settings = get_active_whatsapp_settings(
-        org_id=ORG_ID,
+        org_id=org_id,
     )
 
     return {

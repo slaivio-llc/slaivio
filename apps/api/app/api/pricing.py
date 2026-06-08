@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.pricing_repository import (
     create_pricing_rule,
     list_pricing_rules,
@@ -12,8 +13,6 @@ from app.services.pricing_engine import calculate_price
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class PricingRequest(BaseModel):
@@ -68,9 +67,11 @@ class UpdatePricingRuleRequest(BaseModel):
 
 
 @router.post("/pricing/calculate")
-def pricing(body: PricingRequest):
+def pricing(body: PricingRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     result = calculate_price(
-        org_id=ORG_ID,
+        org_id=org_id,
         origin_country=body.origin_country,
         destination_country=body.destination_country,
         origin_city=body.origin_city,
@@ -89,9 +90,11 @@ def pricing(body: PricingRequest):
 
 
 @router.post("/pricing/rules")
-def create_rule(body: CreatePricingRuleRequest):
+def create_rule(body: CreatePricingRuleRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     rule = create_pricing_rule(
-        org_id=ORG_ID,
+        org_id=org_id,
         origin_country=body.origin_country,
         origin_city=body.origin_city,
         destination_country=body.destination_country,
@@ -117,9 +120,11 @@ def create_rule(body: CreatePricingRuleRequest):
 
 
 @router.get("/pricing/rules")
-def list_rules(limit: int = 100):
+def list_rules(limit: int = 100, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     rules = list_pricing_rules(
-        org_id=ORG_ID,
+        org_id=org_id,
         limit=limit,
     )
 
@@ -131,9 +136,11 @@ def list_rules(limit: int = 100):
 
 
 @router.get("/pricing/rules/{rule_id}")
-def get_rule(rule_id: str):
+def get_rule(rule_id: str, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     rule = get_pricing_rule(
-        org_id=ORG_ID,
+        org_id=org_id,
         rule_id=rule_id,
     )
 
@@ -153,9 +160,12 @@ def get_rule(rule_id: str):
 def update_rule(
     rule_id: str,
     body: UpdatePricingRuleRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     rule = update_pricing_rule(
-        org_id=ORG_ID,
+        org_id=org_id,
         rule_id=rule_id,
         **body.model_dump(exclude_none=True),
     )

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.payments.services.payment_service import (
     create_payment_request,
     get_payments_overview,
@@ -9,7 +10,6 @@ from app.payments.services.payment_service import (
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class CreatePaymentRequest(BaseModel):
@@ -29,18 +29,22 @@ class RefreshPaymentStatusRequest(BaseModel):
 
 
 @router.get("/payments")
-def get_payments():
+def get_payments(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        **get_payments_overview(ORG_ID),
+        **get_payments_overview(org_id),
     }
 
 
 @router.post("/payments/requests")
-def create_request(body: CreatePaymentRequest):
+def create_request(body: CreatePaymentRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     try:
         result = create_payment_request(
-            org_id=ORG_ID,
+            org_id=org_id,
             provider_code=body.provider_code,
             amount_minor=body.amount_minor,
             currency_code=body.currency_code,
@@ -60,10 +64,15 @@ def create_request(body: CreatePaymentRequest):
 
 
 @router.post("/payments/status")
-def refresh_status(body: RefreshPaymentStatusRequest):
+def refresh_status(
+    body: RefreshPaymentStatusRequest,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     try:
         result = refresh_payment_status(
-            org_id=ORG_ID,
+            org_id=org_id,
             provider_code=body.provider_code,
             provider_reference=body.provider_reference,
         )
@@ -74,4 +83,3 @@ def refresh_status(body: RefreshPaymentStatusRequest):
         "status": "ok",
         **result,
     }
-

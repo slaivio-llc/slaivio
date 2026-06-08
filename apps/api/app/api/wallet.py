@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.wallet.repositories.usage_rule_repository import list_usage_charge_rules
 from app.wallet.services.wallet_service import (
     charge_wallet_usage,
@@ -10,7 +11,6 @@ from app.wallet.services.wallet_service import (
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class WalletTopUpRequest(BaseModel):
@@ -30,10 +30,12 @@ class WalletUsageRequest(BaseModel):
 
 
 @router.get("/wallet")
-def get_wallet():
+def get_wallet(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        **get_wallet_overview(ORG_ID),
+        **get_wallet_overview(org_id),
     }
 
 
@@ -46,10 +48,12 @@ def get_usage_rules():
 
 
 @router.post("/wallet/top-up")
-def wallet_top_up(body: WalletTopUpRequest):
+def wallet_top_up(body: WalletTopUpRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     try:
         result = top_up_wallet(
-            org_id=ORG_ID,
+            org_id=org_id,
             amount_minor=body.amount_minor,
             currency_code=body.currency_code,
             source_type=body.source_type,
@@ -66,10 +70,12 @@ def wallet_top_up(body: WalletTopUpRequest):
 
 
 @router.post("/wallet/charge")
-def wallet_charge(body: WalletUsageRequest):
+def wallet_charge(body: WalletUsageRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     try:
         result = charge_wallet_usage(
-            org_id=ORG_ID,
+            org_id=org_id,
             usage_type=body.usage_type,
             units=body.units,
             currency_code=body.currency_code,
@@ -83,4 +89,3 @@ def wallet_charge(body: WalletUsageRequest):
         "status": "ok",
         **result,
     }
-

@@ -2,8 +2,10 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   CalendarClock,
+  CheckCircle2,
   MapPin,
   Package,
   Route,
@@ -12,7 +14,11 @@ import {
 } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import type { Shipment, ShipmentDetails } from "@/types/shipments";
+import type {
+  Shipment,
+  ShipmentDetails,
+  ShipmentTimelineEvent,
+} from "@/types/shipments";
 import {
   getShipment,
   getShipments,
@@ -54,12 +60,16 @@ export default function ShipmentsPage() {
     const customs = shipments.filter(
       (shipment) => shipment.customs_status && shipment.customs_status !== "NOT_REQUIRED"
     ).length;
+    const delayed = shipments.filter(
+      (shipment) => shipment.delay_status && shipment.delay_status !== "ON_TIME"
+    ).length;
 
     return {
       total: shipments.length,
       active,
       inTransit,
       customs,
+      delayed,
     };
   }, [shipments]);
 
@@ -152,7 +162,7 @@ export default function ShipmentsPage() {
           <Metric label="Total" value={String(stats.total)} hint="Shipments créés" />
           <Metric label="Actifs" value={String(stats.active)} hint="Encore en opération" />
           <Metric label="Transit" value={String(stats.inTransit)} hint="Sur route ou avion" />
-          <Metric label="Douane" value={String(stats.customs)} hint="Cas compliance" />
+          <Metric label="Alertes" value={String(stats.customs + stats.delayed)} hint="Douane ou retard" />
         </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[430px_1fr]">
@@ -327,6 +337,29 @@ function ShipmentDetail({
             value={shipment.customs_status || "-"}
           />
         </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-4">
+          <InfoCard
+            icon={<Package size={18} />}
+            label="Warehouse"
+            value={shipment.inventory_status || shipment.batch_status || "-"}
+          />
+          <InfoCard
+            icon={<Truck size={18} />}
+            label="Delivery"
+            value={shipment.delivery_status || "-"}
+          />
+          <InfoCard
+            icon={<CheckCircle2 size={18} />}
+            label="Release"
+            value={shipment.final_release_status || "-"}
+          />
+          <InfoCard
+            icon={<AlertTriangle size={18} />}
+            label="Délai"
+            value={shipment.delay_status || "ON_TIME"}
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -339,20 +372,7 @@ function ShipmentDetail({
             )}
 
             {selected.timeline.map((event) => (
-              <div key={event.id} className="relative pl-6">
-                <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-sky-500 ring-4 ring-sky-100" />
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="font-bold text-slate-950">
-                    {event.event_type}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {new Date(event.created_at).toLocaleString()}
-                  </div>
-                  <pre className="mt-3 max-h-44 overflow-auto rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-                    {JSON.stringify(event.event_payload, null, 2)}
-                  </pre>
-                </div>
-              </div>
+              <OperationalEventCard key={event.id} event={event} />
             ))}
           </div>
         </Panel>
@@ -458,6 +478,57 @@ function Panel({
   );
 }
 
+function OperationalEventCard({
+  event,
+}: {
+  event: ShipmentTimelineEvent;
+}) {
+  const summary = getEventSummary(event.event_payload);
+
+  return (
+    <div className="relative pl-6">
+      <div className="absolute left-0 top-1.5 h-3 w-3 rounded-full bg-sky-500 ring-4 ring-sky-100" />
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="font-black text-slate-950">
+              {formatEventType(event.event_type)}
+            </div>
+            <div className="mt-1 text-xs font-medium text-slate-500">
+              {new Date(event.created_at).toLocaleString()}
+            </div>
+          </div>
+          <StatusBadge status={event.event_type} />
+        </div>
+
+        {summary.description && (
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            {summary.description}
+          </p>
+        )}
+
+        {summary.fields.length > 0 && (
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {summary.fields.map((field) => (
+              <div
+                key={field.label}
+                className="rounded-2xl bg-slate-50 px-3 py-2"
+              >
+                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  {field.label}
+                </div>
+                <div className="mt-1 truncate text-sm font-bold text-slate-700">
+                  {field.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({
   status,
 }: {
@@ -488,4 +559,65 @@ function getStatusTone(status: string) {
   }
 
   return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function formatEventType(eventType: string) {
+  return eventType.replaceAll("_", " ").toLowerCase().replace(/^\w/, (char) =>
+    char.toUpperCase()
+  );
+}
+
+function getEventSummary(payload: unknown): {
+  description: string;
+  fields: Array<{ label: string; value: string }>;
+} {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return {
+      description: payload ? String(payload) : "",
+      fields: [],
+    };
+  }
+
+  const data = payload as Record<string, unknown>;
+  const description =
+    stringValue(data.message) ||
+    stringValue(data.event_message) ||
+    stringValue(data.notes) ||
+    stringValue(data.reason) ||
+    stringValue(data.status) ||
+    "";
+
+  const ignoredKeys = new Set([
+    "message",
+    "event_message",
+    "notes",
+    "raw_payload",
+    "metadata",
+  ]);
+
+  const fields = Object.entries(data)
+    .filter(([key, value]) => !ignoredKeys.has(key) && value !== null && value !== undefined)
+    .slice(0, 6)
+    .map(([key, value]) => ({
+      label: key.replaceAll("_", " "),
+      value: compactValue(value),
+    }));
+
+  return {
+    description,
+    fields,
+  };
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function compactValue(value: unknown) {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value instanceof Date) return value.toLocaleString();
+  if (Array.isArray(value)) return `${value.length} item(s)`;
+  if (typeof value === "object" && value) return "Données enregistrées";
+  return "-";
 }

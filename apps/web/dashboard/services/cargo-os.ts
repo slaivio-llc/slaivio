@@ -94,6 +94,11 @@ export async function getManifests() {
   return response.data.manifests;
 }
 
+export async function getManifestItems(manifestId: string) {
+  const response = await api.get(`/manifests/${manifestId}/items`);
+  return response.data.items;
+}
+
 export async function createCustomsCase(data: Record<string, unknown>) {
   const response = await api.post("/customs/cases", data);
   return response.data.case;
@@ -102,6 +107,11 @@ export async function createCustomsCase(data: Record<string, unknown>) {
 export async function getCustomsCases() {
   const response = await api.get("/customs/cases");
   return response.data.cases;
+}
+
+export async function resolveCustomsCase(caseId: string) {
+  const response = await api.patch(`/customs/cases/${caseId}/resolve`);
+  return response.data.case;
 }
 
 export async function updateShipmentEta(

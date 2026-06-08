@@ -154,3 +154,16 @@ export async function getDeliveryJobs() {
   return response.data.jobs;
 }
 
+export async function completeDeliveryJob(
+  jobId: string,
+  data: {
+    recipient_name?: string | null;
+    recipient_phone?: string | null;
+  } = {}
+) {
+  const response = await api.patch(
+    `/delivery/jobs/${jobId}/complete`,
+    data
+  );
+  return response.data.job;
+}

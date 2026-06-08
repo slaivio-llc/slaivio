@@ -2,9 +2,10 @@ import asyncio
 import json
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
+from app.core.tenant_context import get_current_tenant
 from app.db.manager_event_repository import (
     list_manager_events,
     list_manager_events_after_id,
@@ -13,8 +14,6 @@ from app.db.manager_event_repository import (
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 def json_safe(value):
@@ -47,9 +46,10 @@ def sse_event(event: dict) -> str:
 def get_manager_events(
     unread_only: bool = False,
     limit: int = 100,
+    tenant: dict = Depends(get_current_tenant),
 ):
     events = list_manager_events(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         unread_only=unread_only,
         limit=limit,
     )
@@ -62,9 +62,12 @@ def get_manager_events(
 
 
 @router.patch("/manager/events/{event_id}/read")
-def mark_event_read(event_id: str):
+def mark_event_read(
+    event_id: str,
+    tenant: dict = Depends(get_current_tenant),
+):
     event = mark_manager_event_read(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         event_id=event_id,
     )
 
@@ -83,13 +86,14 @@ def mark_event_read(event_id: str):
 @router.get("/manager/events/stream")
 async def stream_manager_events(
     last_event_id: str | None = Query(default=None),
+    tenant: dict = Depends(get_current_tenant),
 ):
     async def event_generator():
         current_last_id = last_event_id
 
         while True:
             events = list_manager_events_after_id(
-                org_id=ORG_ID,
+                org_id=tenant["org_id"],
                 last_event_id=current_last_id,
                 limit=20,
             )

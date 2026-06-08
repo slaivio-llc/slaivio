@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.core.tenant_context import get_current_tenant
 from app.db.voice_transcription_repository import (
     list_pending_voice_transcriptions,
     get_voice_transcription,
@@ -13,13 +14,16 @@ from app.services.voice_note_service import (
 
 router = APIRouter()
 
-ORG_ID = "demo_agency"
-
 
 @router.get("/voice-notes/pending")
-def get_pending_voice_notes(limit: int = 20):
+def get_pending_voice_notes(
+    limit: int = 20,
+    tenant=Depends(get_current_tenant),
+):
+    org_id = tenant["org_id"]
+
     jobs = list_pending_voice_transcriptions(
-        org_id=ORG_ID,
+        org_id=org_id,
         limit=limit,
     )
 
@@ -31,9 +35,11 @@ def get_pending_voice_notes(limit: int = 20):
 
 
 @router.get("/voice-notes/{transcription_id}")
-def get_voice_note(transcription_id: str):
+def get_voice_note(transcription_id: str, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     job = get_voice_transcription(
-        org_id=ORG_ID,
+        org_id=org_id,
         transcription_id=transcription_id,
     )
 
@@ -50,9 +56,11 @@ def get_voice_note(transcription_id: str):
 
 
 @router.post("/voice-notes/{transcription_id}/process")
-def process_voice_note(transcription_id: str):
+def process_voice_note(transcription_id: str, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     result = process_voice_transcription(
-        org_id=ORG_ID,
+        org_id=org_id,
         transcription_id=transcription_id,
     )
 
@@ -66,8 +74,10 @@ def process_voice_note(transcription_id: str):
 
 
 @router.post("/voice-notes/process-due")
-def process_due_voice_notes():
+def process_due_voice_notes(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     return process_due_voice_transcriptions(
-        org_id=ORG_ID,
+        org_id=org_id,
         limit=10,
     )

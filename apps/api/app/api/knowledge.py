@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.ai.repositories.knowledge_repository import (
     create_document,
     delete_document,
@@ -10,7 +11,6 @@ from app.ai.repositories.knowledge_repository import (
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class CreateKnowledgeRequest(BaseModel):
@@ -22,8 +22,9 @@ class CreateKnowledgeRequest(BaseModel):
 
 
 @router.get("/knowledge")
-def knowledge_list():
-    documents = get_documents(ORG_ID)
+def knowledge_list(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+    documents = get_documents(org_id)
 
     return {
         "status": "ok",
@@ -34,9 +35,11 @@ def knowledge_list():
 
 
 @router.post("/knowledge")
-def create_knowledge(body: CreateKnowledgeRequest):
+def create_knowledge(body: CreateKnowledgeRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     document = create_document(
-        org_id=ORG_ID,
+        org_id=org_id,
         title=body.title,
         content=body.content,
         source=body.source,
@@ -55,9 +58,12 @@ def create_knowledge(body: CreateKnowledgeRequest):
 def search_knowledge(
     q: str,
     limit: int = 5,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     documents = search_documents(
-        org_id=ORG_ID,
+        org_id=org_id,
         query=q,
         limit=limit,
     )

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.batch_repository import (
     create_batch,
     list_batches,
@@ -16,8 +17,6 @@ from app.services.batch_notification_service import create_batch_notifications
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class CreateBatchRequest(BaseModel):
@@ -63,9 +62,12 @@ def map_batch_status_to_shipment_status(batch_status: str) -> str | None:
 
 
 @router.post("/batches")
-def create_new_batch(body: CreateBatchRequest):
+def create_new_batch(
+    body: CreateBatchRequest,
+    tenant: dict = Depends(get_current_tenant),
+):
     batch = create_batch(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_name=body.batch_name,
         origin_country=body.origin_country,
         origin_city=body.origin_city,
@@ -79,7 +81,7 @@ def create_new_batch(body: CreateBatchRequest):
     )
 
     create_batch_event(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=str(batch["id"]),
         event_type="BATCH_CREATED",
         payload={
@@ -98,9 +100,10 @@ def create_new_batch(body: CreateBatchRequest):
 def get_batches(
     status: str | None = None,
     limit: int = 100,
+    tenant: dict = Depends(get_current_tenant),
 ):
     batches = list_batches(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         status=status,
         limit=limit,
     )
@@ -113,9 +116,12 @@ def get_batches(
 
 
 @router.get("/batches/{batch_id}")
-def get_one_batch(batch_id: str):
+def get_one_batch(
+    batch_id: str,
+    tenant: dict = Depends(get_current_tenant),
+):
     batch = get_batch(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=batch_id,
     )
 
@@ -126,7 +132,7 @@ def get_one_batch(batch_id: str):
         )
 
     shipments = list_batch_shipments(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=batch_id,
     )
 
@@ -142,9 +148,10 @@ def get_one_batch(batch_id: str):
 def assign_shipment(
     batch_id: str,
     body: AssignShipmentRequest,
+    tenant: dict = Depends(get_current_tenant),
 ):
     batch = get_batch(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=batch_id,
     )
 
@@ -155,7 +162,7 @@ def assign_shipment(
         )
 
     shipment = assign_shipment_to_batch(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         shipment_id=body.shipment_id,
         batch_id=batch_id,
     )
@@ -167,7 +174,7 @@ def assign_shipment(
         )
 
     create_batch_event(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=batch_id,
         event_type="SHIPMENT_ASSIGNED_TO_BATCH",
         payload={
@@ -186,9 +193,10 @@ def assign_shipment(
 def change_batch_status(
     batch_id: str,
     body: UpdateBatchStatusRequest,
+    tenant: dict = Depends(get_current_tenant),
 ):
     batch = update_batch_status(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=batch_id,
         status=body.status,
         delay_reason=body.delay_reason,
@@ -203,7 +211,7 @@ def change_batch_status(
         )
 
     create_batch_event(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=batch_id,
         event_type="BATCH_STATUS_UPDATED",
         payload={
@@ -220,13 +228,13 @@ def change_batch_status(
 
         if shipment_status:
             updated_shipments = update_shipments_status_for_batch(
-                org_id=ORG_ID,
+                org_id=tenant["org_id"],
                 batch_id=batch_id,
                 shipment_status=shipment_status,
             )
 
             create_batch_event(
-                org_id=ORG_ID,
+                org_id=tenant["org_id"],
                 batch_id=batch_id,
                 event_type="BATCH_SHIPMENTS_STATUS_UPDATED",
                 payload={
@@ -236,7 +244,7 @@ def change_batch_status(
             )
 
     shipments = list_batch_shipments(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         batch_id=batch_id,
     )
 
@@ -244,13 +252,13 @@ def change_batch_status(
 
     if body.notify_clients:
         notifications = create_batch_notifications(
-            org_id=ORG_ID,
+            org_id=tenant["org_id"],
             batch=batch,
             shipments=shipments,
         )
 
         create_batch_event(
-            org_id=ORG_ID,
+            org_id=tenant["org_id"],
             batch_id=batch_id,
             event_type="BATCH_NOTIFICATIONS_CREATED",
             payload={

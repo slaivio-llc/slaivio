@@ -1,5 +1,7 @@
 from fastapi import WebSocket
 
+from app.core.config import settings
+
 
 class ConnectionManager:
     def __init__(self):
@@ -72,7 +74,7 @@ class ConnectionManager:
         self,
         payload: dict,
     ):
-        org_id = payload.get("org_id") or "demo_agency"
+        org_id = payload.get("org_id") or settings.app_org_id
         await self.broadcast_to_org(
             org_id,
             payload,

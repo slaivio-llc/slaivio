@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException
+from app.core.config import settings
 from app.services.twilio_webhook_security import validate_twilio_request
 from app.services.twilio_status_parser import parse_twilio_status_callback
 from app.db.notification_repository import (
@@ -15,8 +16,6 @@ from app.db.notification_repository import (
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 @router.post("/webhook/twilio/status")
@@ -99,7 +98,7 @@ async def receive_twilio_status_callback(request: Request):
 
 
     event = create_notification_delivery_event(
-        org_id=notification.get("org_id") if notification else ORG_ID,
+        org_id=notification.get("org_id") if notification else settings.app_org_id,
         notification_id=notification_id,
         provider_message_id=provider_message_id,
         status=provider_status,

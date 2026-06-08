@@ -1,6 +1,7 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.core.tenant_context import get_current_tenant
 from app.db.followup_repository import (
     list_due_followups,
     mark_followup_executed,
@@ -11,13 +12,13 @@ from app.db.notification_repository import create_notification_outbox
 
 router = APIRouter()
 
-ORG_ID = "demo_agency"
-
 
 @router.get("/followups/due")
-def get_due_followups():
+def get_due_followups(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     followups = list_due_followups(
-        org_id=ORG_ID,
+        org_id=org_id,
     )
 
     return {
@@ -28,9 +29,11 @@ def get_due_followups():
 
 
 @router.post("/followups/{followup_id}/execute")
-def execute_followup(followup_id: str):
+def execute_followup(followup_id: str, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     followup = get_followup_with_client_phone(
-        org_id=ORG_ID,
+        org_id=org_id,
         followup_id=followup_id,
     )
 
@@ -44,7 +47,7 @@ def execute_followup(followup_id: str):
         raise HTTPException(status_code=400, detail="Client phone not found")
 
     notification = create_notification_outbox(
-        org_id=ORG_ID,
+        org_id=org_id,
         client_id=followup["client_id"],
         dossier_id=followup["dossier_id"],
         recipient_phone=followup["client_phone"],
@@ -53,7 +56,7 @@ def execute_followup(followup_id: str):
     )
 
     executed_followup = mark_followup_executed(
-        org_id=ORG_ID,
+        org_id=org_id,
         followup_id=followup_id,
     )
 

@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException
 
+from app.core.config import settings
 from app.core.auth import get_current_manager
 
 
@@ -16,5 +17,5 @@ def get_current_organization(
 
     return {
         "org_id": tenant_org_id,
-        "legacy_org_id": manager.get("org_code") or "demo_agency",
+        "legacy_org_id": manager.get("org_code") or settings.app_org_id,
     }

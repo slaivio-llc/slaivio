@@ -10,10 +10,7 @@ from app.services.intake_service import (
     build_human_intake_message,
 )
 from app.services.goods_rules_engine import find_goods_rule_answer
-
-
-
-ORG_ID = "demo_agency"
+from app.core.config import settings
 
 
 def _merge_fields(
@@ -178,11 +175,12 @@ def _tracking_reply(
 
 
 def _pricing_reply(
+    org_id: str,
     text: str,
     dossier: dict | None,
 ):
     pricing = handle_pricing_request(
-        org_id=ORG_ID,
+        org_id=org_id,
         text=text,
         dossier=dossier,
     )
@@ -292,10 +290,12 @@ def _confirmed_client_reply(
 def generate_reply(
     intent: str,
     org_name: str,
+    org_id: str | None = None,
     understanding: dict | None = None,
     dossier: dict | None = None,
     text: str = "",
 ) -> dict:
+    resolved_org_id = org_id or settings.app_org_id
     fields = _merge_fields(
         dossier=dossier,
         understanding=understanding,
@@ -314,14 +314,14 @@ def generate_reply(
 
         if client_phone:
             return get_client_shipments_reply(
-                org_id=ORG_ID,
+                org_id=resolved_org_id,
                 org_name=org_name,
                 phone=client_phone,
             )
 
 
     knowledge_result = route_knowledge_answer(
-        org_id=ORG_ID,
+        org_id=resolved_org_id,
         org_name=org_name,
         intent=intent,
         text=text,
@@ -329,7 +329,7 @@ def generate_reply(
     )
 
     goods_result = find_goods_rule_answer(
-        org_id=ORG_ID,
+        org_id=resolved_org_id,
         text=text,
     )
 
@@ -406,6 +406,7 @@ def generate_reply(
 
     if intent in ["PRICE_REQUEST", "PRICING_REQUEST"]:
         return _pricing_reply(
+            org_id=resolved_org_id,
             text=text,
             dossier=dossier,
         )
@@ -424,7 +425,7 @@ def generate_reply(
 
     if intent == "WAREHOUSE_ADDRESS_REQUEST":
         result = handle_address_request(
-            org_id=ORG_ID,
+            org_id=resolved_org_id,
             text=text,
         )
 

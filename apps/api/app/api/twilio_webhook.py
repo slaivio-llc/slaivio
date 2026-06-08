@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Response
+from app.core.config import settings
 from app.services.twilio_inbound_parser import (
     normalize_twilio_whatsapp_form,
     twilio_form_to_payload,
@@ -41,7 +42,7 @@ async def receive_twilio_whatsapp(request: Request):
 
     if media_items:
         store_inbound_twilio_media(
-            org_id="demo_agency",
+            org_id=result.get("org_id") or settings.app_org_id,
             client_id=result["client_id"],
             dossier_id=result["dossier_id"],
             shipment_id=result.get("shipment_id"),

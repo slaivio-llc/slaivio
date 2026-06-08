@@ -1,3 +1,4 @@
+from app.core.config import settings
 from app.db.notification_repository import create_notification_outbox
 from app.db.office_repository import find_office
 
@@ -33,8 +34,9 @@ def format_office_block(office: dict | None) -> str:
 def get_shipment_status_message(
     status: str,
     shipment: dict,
-    org_id: str = "demo_agency",
+    org_id: str | None = None,
 ) -> str | None:
+    org_id = org_id or settings.app_org_id
     tracking_id = shipment.get("tracking_id") or "N/A"
 
     destination_city = shipment.get("destination_city")

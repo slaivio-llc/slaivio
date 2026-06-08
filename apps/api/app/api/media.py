@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from app.core.tenant_context import get_current_tenant
 from app.db.media_repository import (
     list_shipment_media,
     list_dossier_media,
     get_media_item,
     deactivate_media_item,
 )
-from pydantic import BaseModel
 from app.services.whatsapp_provider_factory import get_whatsapp_provider
 from app.db.notification_repository import create_notification_outbox, mark_notification_sent
 
@@ -19,9 +21,12 @@ class SendMediaMessageRequest(BaseModel):
 
 
 @router.post("/media/send-whatsapp")
-def send_media_whatsapp(body: SendMediaMessageRequest):
+def send_media_whatsapp(
+    body: SendMediaMessageRequest,
+    tenant: dict = Depends(get_current_tenant),
+):
     notification = create_notification_outbox(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         client_id=None,
         dossier_id=None,
         recipient_phone=body.recipient_phone,
@@ -51,15 +56,13 @@ def send_media_whatsapp(body: SendMediaMessageRequest):
         "provider_result": result,
     }
 
-router = APIRouter()
-
-ORG_ID = "demo_agency"
-
-
 @router.get("/shipments/{shipment_id}/media")
-def get_shipment_media(shipment_id: str):
+def get_shipment_media(
+    shipment_id: str,
+    tenant: dict = Depends(get_current_tenant),
+):
     media = list_shipment_media(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         shipment_id=shipment_id,
     )
 
@@ -71,9 +74,12 @@ def get_shipment_media(shipment_id: str):
 
 
 @router.get("/dossiers/{dossier_id}/media")
-def get_dossier_media(dossier_id: str):
+def get_dossier_media(
+    dossier_id: str,
+    tenant: dict = Depends(get_current_tenant),
+):
     media = list_dossier_media(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         dossier_id=dossier_id,
     )
 
@@ -85,9 +91,12 @@ def get_dossier_media(dossier_id: str):
 
 
 @router.get("/media/{media_id}")
-def get_media(media_id: str):
+def get_media(
+    media_id: str,
+    tenant: dict = Depends(get_current_tenant),
+):
     media = get_media_item(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         media_id=media_id,
     )
 
@@ -104,9 +113,12 @@ def get_media(media_id: str):
 
 
 @router.delete("/media/{media_id}")
-def delete_media(media_id: str):
+def delete_media(
+    media_id: str,
+    tenant: dict = Depends(get_current_tenant),
+):
     media = deactivate_media_item(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         media_id=media_id,
     )
 

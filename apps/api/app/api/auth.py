@@ -1,6 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.core.config import settings
+
 router = APIRouter()
 
 
@@ -10,7 +12,7 @@ class LoginRequest(BaseModel):
 
 
 class BootstrapManagerRequest(BaseModel):
-    org_id: str = "demo_agency"
+    org_id: str = settings.app_org_id
     full_name: str = "Demo Manager"
     email: str
     password: str
@@ -44,7 +46,7 @@ def login(body: LoginRequest):
         "token_type": "bearer",
         "manager": {
             "id": "demo_manager",
-            "org_id": "demo_agency",
+            "org_id": settings.app_org_id,
             "full_name": "Jeremy Akiemane",
             "email": body.email,
             "role": "OWNER",
@@ -58,7 +60,7 @@ def me():
         "status": "ok",
         "manager": {
             "id": "demo_manager",
-            "org_id": "demo_agency",
+            "org_id": settings.app_org_id,
             "full_name": "Jeremy Akiemane",
             "email": "admin@slaivo.com",
             "role": "OWNER",

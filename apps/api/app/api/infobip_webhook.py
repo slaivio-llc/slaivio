@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import Request
+from app.core.config import settings
 from app.services.infobip_media_parser import extract_infobip_media_items
 from app.services.inbound_media_service import store_inbound_infobip_media
 from app.services.infobip_payload import (
@@ -34,7 +35,7 @@ async def infobip_whatsapp_webhook(
     org_id = (
         org_settings["org_id"]
         if org_settings
-        else "demo_agency"
+        else settings.app_org_id
     )
 
     result = await process_normalized_whatsapp_message(
@@ -56,4 +57,3 @@ async def infobip_whatsapp_webhook(
         )
 
     return result
-

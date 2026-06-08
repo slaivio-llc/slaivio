@@ -1,5 +1,6 @@
 import os
 
+from app.core.config import settings
 from app.db.voice_transcription_repository import (
     create_voice_transcription,
     mark_voice_transcription_processing,
@@ -147,9 +148,10 @@ def process_voice_transcription(
 
 
 def process_due_voice_transcriptions(
-    org_id: str = "demo_agency",
+    org_id: str | None = None,
     limit: int = 10,
 ):
+    org_id = org_id or settings.app_org_id
     jobs = list_pending_voice_transcriptions(
         org_id=org_id,
         limit=limit,

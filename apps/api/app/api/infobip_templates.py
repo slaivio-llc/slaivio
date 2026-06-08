@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.db.infobip_template_repository import (
     upsert_infobip_template_mapping,
     get_infobip_template_mapping,
@@ -11,8 +12,6 @@ from app.services.whatsapp_provider_factory import get_whatsapp_provider
 
 
 router = APIRouter()
-
-ORG_ID = "demo_agency"
 
 
 class UpsertInfobipTemplateRequest(BaseModel):
@@ -29,9 +28,12 @@ class SendInfobipTemplateRequest(BaseModel):
 
 
 @router.post("/infobip/templates")
-def save_infobip_template(body: UpsertInfobipTemplateRequest):
+def save_infobip_template(
+    body: UpsertInfobipTemplateRequest,
+    tenant: dict = Depends(get_current_tenant),
+):
     mapping = upsert_infobip_template_mapping(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         template_key=body.template_key,
         infobip_template_name=body.infobip_template_name,
         language=body.language,
@@ -46,9 +48,9 @@ def save_infobip_template(body: UpsertInfobipTemplateRequest):
 
 
 @router.get("/infobip/templates")
-def list_infobip_templates():
+def list_infobip_templates(tenant: dict = Depends(get_current_tenant)):
     mappings = list_infobip_template_mappings(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
     )
 
     return {
@@ -62,9 +64,10 @@ def list_infobip_templates():
 def send_infobip_template(
     template_key: str,
     body: SendInfobipTemplateRequest,
+    tenant: dict = Depends(get_current_tenant),
 ):
     mapping = get_infobip_template_mapping(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         template_key=template_key,
     )
 
@@ -75,7 +78,7 @@ def send_infobip_template(
         )
 
     provider = get_whatsapp_provider(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
     )
 
     variables = body.variables or {}

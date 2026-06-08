@@ -35,11 +35,11 @@ class ExchangeCodeRequest(BaseModel):
 
 class OnboardWhatsappRequest(BaseModel):
     code: str
-    org_id: str = "demo_agency"
+    org_id: str = settings.app_org_id
 
 
 class SaveWhatsappConnectionRequest(BaseModel):
-    org_id: str = "demo_agency"
+    org_id: str = settings.app_org_id
     business_id: str
     waba_id: str
     phone_number_id: str
@@ -50,13 +50,13 @@ class SaveWhatsappConnectionRequest(BaseModel):
 
 
 class SubscribeWabaWebhookRequest(BaseModel):
-    org_id: str = "demo_agency"
+    org_id: str = settings.app_org_id
     waba_id: str
     access_token: str
 
 
 class CheckWabaWebhookRequest(BaseModel):
-    org_id: str = "demo_agency"
+    org_id: str = settings.app_org_id
     waba_id: str
     access_token: str
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 from app.services.private_arrival_service import create_private_arrival_media_and_notification
@@ -17,13 +17,18 @@ from app.db.notification_repository import create_notification_outbox
 from app.db.office_repository import find_office
 from app.services.final_pricing_service import calculate_final_price
 from fastapi import Depends
+from app.core.config import settings
 from app.core.security import require_manager_api_key
 
 
 
 router = APIRouter()
 
-ORG_ID = "demo_agency"
+
+def get_manager_org_id(
+    x_org_id: str | None = Header(default=None, alias="X-Org-Id"),
+):
+    return x_org_id or settings.app_org_id
 
 
 class ConfirmPackageRequest(BaseModel):
@@ -71,7 +76,11 @@ class ConfirmPrivateArrivalRequest(BaseModel):
     uploaded_by: str | None = None
 
 
-def update_dossier_status(dossier_id: str, status_global: str):
+def update_dossier_status(
+    org_id: str,
+    dossier_id: str,
+    status_global: str,
+):
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -84,7 +93,7 @@ def update_dossier_status(dossier_id: str, status_global: str):
                 returning *
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
                 "dossier_id": dossier_id,
                 "status_global": status_global,
             },
@@ -104,9 +113,12 @@ def get_client_phone_from_dossier(dossier_full: dict) -> str | None:
 
 
 @router.post("/manager/confirm-package", dependencies=[Depends(require_manager_api_key)])
-def confirm_package(body: ConfirmPackageRequest):
+def confirm_package(
+    body: ConfirmPackageRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     dossier = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -114,7 +126,7 @@ def confirm_package(body: ConfirmPackageRequest):
         raise HTTPException(status_code=404, detail="Dossier not found")
 
     shipment = create_shipment(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         weight_kg=body.weight_kg,
         volume_cbm=body.volume_cbm,
@@ -124,12 +136,13 @@ def confirm_package(body: ConfirmPackageRequest):
         raise HTTPException(status_code=500, detail="Shipment creation failed")
 
     updated_package_dossier = update_dossier_status(
+        org_id=org_id,
         dossier_id=body.dossier_id,
         status_global="PACKAGE_RECEIVED",
     )
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="PACKAGE_RECEIVED",
         payload={
@@ -142,12 +155,12 @@ def confirm_package(body: ConfirmPackageRequest):
     )
 
     dossier = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
     final_price = calculate_final_price(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier=dossier,
         weight_kg=body.weight_kg,
         volume_cbm=body.volume_cbm,
@@ -157,14 +170,14 @@ def confirm_package(body: ConfirmPackageRequest):
 
     if final_price:
         updated_pricing_dossier = update_dossier_final_pricing(
-            org_id=ORG_ID,
+            org_id=org_id,
             dossier_id=body.dossier_id,
             total=final_price["total"],
             currency=final_price["currency"],
         )
 
         create_dossier_event(
-            org_id=ORG_ID,
+            org_id=org_id,
             dossier_id=body.dossier_id,
             event_type="FINAL_PRICE_CALCULATED",
             payload={
@@ -184,7 +197,10 @@ def confirm_package(body: ConfirmPackageRequest):
 
 
 @router.post("/manager/confirm-payment", dependencies=[Depends(require_manager_api_key)])
-def confirm_payment(body: ConfirmPaymentRequest):
+def confirm_payment(
+    body: ConfirmPaymentRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -198,7 +214,7 @@ def confirm_payment(body: ConfirmPaymentRequest):
                 returning *
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
                 "dossier_id": body.dossier_id,
             },
         )
@@ -211,19 +227,19 @@ def confirm_payment(body: ConfirmPaymentRequest):
         raise HTTPException(status_code=404, detail="Dossier not found")
 
     shipment = get_shipment_by_dossier(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
     if shipment:
         update_shipment_status(
-            org_id=ORG_ID,
+            org_id=org_id,
             shipment_id=str(shipment["id"]),
             new_status="READY_FOR_DEPARTURE",
         )
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="PAYMENT_CONFIRMED",
         payload={
@@ -239,9 +255,12 @@ def confirm_payment(body: ConfirmPaymentRequest):
 
 
 @router.post("/manager/confirm-departure", dependencies=[Depends(require_manager_api_key)])
-def confirm_departure(body: ConfirmDepartureRequest):
+def confirm_departure(
+    body: ConfirmDepartureRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     shipment = get_shipment_by_dossier(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -249,18 +268,19 @@ def confirm_departure(body: ConfirmDepartureRequest):
         raise HTTPException(status_code=404, detail="Shipment not found")
 
     updated_shipment = update_shipment_status(
-        org_id=ORG_ID,
+        org_id=org_id,
         shipment_id=str(shipment["id"]),
         new_status="DEPARTED",
     )
 
     updated_dossier = update_dossier_status(
+        org_id=org_id,
         dossier_id=body.dossier_id,
         status_global="IN_TRANSIT",
     )
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="SHIPMENT_DEPARTED",
         payload={
@@ -271,7 +291,7 @@ def confirm_departure(body: ConfirmDepartureRequest):
     )
 
     dossier_full = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -280,7 +300,7 @@ def confirm_departure(body: ConfirmDepartureRequest):
 
     if client_phone:
         notification = create_notification_outbox(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_id=updated_shipment["client_id"],
             dossier_id=body.dossier_id,
             recipient_phone=client_phone,
@@ -293,7 +313,7 @@ def confirm_departure(body: ConfirmDepartureRequest):
         )
 
         create_dossier_event(
-            org_id=ORG_ID,
+            org_id=org_id,
             dossier_id=body.dossier_id,
             event_type="SHIPMENT_DEPARTURE_NOTIFICATION_CREATED",
             payload={
@@ -311,9 +331,12 @@ def confirm_departure(body: ConfirmDepartureRequest):
 
 
 @router.post("/manager/confirm-arrival-hub", dependencies=[Depends(require_manager_api_key)])
-def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
+def confirm_arrival_hub(
+    body: ConfirmArrivalHubRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     shipment = get_shipment_by_dossier(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -321,13 +344,13 @@ def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
         raise HTTPException(status_code=404, detail="Shipment not found")
 
     updated_shipment = update_shipment_status(
-        org_id=ORG_ID,
+        org_id=org_id,
         shipment_id=str(shipment["id"]),
         new_status="ARRIVED_HUB",
     )
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="SHIPMENT_ARRIVED_HUB",
         payload={
@@ -337,7 +360,7 @@ def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
     )
 
     dossier_full = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -346,7 +369,7 @@ def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
 
     if client_phone:
         notification = create_notification_outbox(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_id=updated_shipment["client_id"],
             dossier_id=body.dossier_id,
             recipient_phone=client_phone,
@@ -366,9 +389,12 @@ def confirm_arrival_hub(body: ConfirmArrivalHubRequest):
 
 
 @router.post("/manager/confirm-arrival-destination", dependencies=[Depends(require_manager_api_key)])
-def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
+def confirm_arrival_destination(
+    body: ConfirmArrivalDestinationRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     shipment = get_shipment_by_dossier(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -376,18 +402,19 @@ def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
         raise HTTPException(status_code=404, detail="Shipment not found")
 
     updated_shipment = update_shipment_status(
-        org_id=ORG_ID,
+        org_id=org_id,
         shipment_id=str(shipment["id"]),
         new_status="ARRIVED_DESTINATION",
     )
 
     updated_dossier = update_dossier_status(
+        org_id=org_id,
         dossier_id=body.dossier_id,
         status_global="ARRIVED_DESTINATION",
     )
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="SHIPMENT_ARRIVED_DESTINATION",
         payload={
@@ -396,12 +423,12 @@ def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
     )
 
     dossier_full = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
     office = find_office(
-        org_id=ORG_ID,
+        org_id=org_id,
         country=dossier_full.get("destination_country"),
         city=dossier_full.get("destination_city"),
     )
@@ -416,7 +443,7 @@ def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
 
     if client_phone:
         notification = create_notification_outbox(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_id=updated_shipment["client_id"],
             dossier_id=body.dossier_id,
             recipient_phone=client_phone,
@@ -437,9 +464,12 @@ def confirm_arrival_destination(body: ConfirmArrivalDestinationRequest):
 
 
 @router.post("/manager/ready-for-pickup", dependencies=[Depends(require_manager_api_key)])
-def ready_for_pickup(body: ReadyForPickupRequest):
+def ready_for_pickup(
+    body: ReadyForPickupRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     shipment = get_shipment_by_dossier(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -447,18 +477,19 @@ def ready_for_pickup(body: ReadyForPickupRequest):
         raise HTTPException(status_code=404, detail="Shipment not found")
 
     updated_shipment = update_shipment_status(
-        org_id=ORG_ID,
+        org_id=org_id,
         shipment_id=str(shipment["id"]),
         new_status="READY_FOR_PICKUP",
     )
 
     updated_dossier = update_dossier_status(
+        org_id=org_id,
         dossier_id=body.dossier_id,
         status_global="READY_FOR_PICKUP",
     )
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="READY_FOR_PICKUP",
         payload={
@@ -467,12 +498,12 @@ def ready_for_pickup(body: ReadyForPickupRequest):
     )
 
     dossier_full = get_dossier_full(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
     office = find_office(
-        org_id=ORG_ID,
+        org_id=org_id,
         country=dossier_full.get("destination_country"),
         city=dossier_full.get("destination_city"),
     )
@@ -487,7 +518,7 @@ def ready_for_pickup(body: ReadyForPickupRequest):
 
     if client_phone:
         notification = create_notification_outbox(
-            org_id=ORG_ID,
+            org_id=org_id,
             client_id=updated_shipment["client_id"],
             dossier_id=body.dossier_id,
             recipient_phone=client_phone,
@@ -508,9 +539,12 @@ def ready_for_pickup(body: ReadyForPickupRequest):
 
 
 @router.post("/manager/confirm-delivered", dependencies=[Depends(require_manager_api_key)])
-def confirm_delivered(body: ConfirmDeliveredRequest):
+def confirm_delivered(
+    body: ConfirmDeliveredRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     shipment = get_shipment_by_dossier(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -518,18 +552,19 @@ def confirm_delivered(body: ConfirmDeliveredRequest):
         raise HTTPException(status_code=404, detail="Shipment not found")
 
     updated_shipment = update_shipment_status(
-        org_id=ORG_ID,
+        org_id=org_id,
         shipment_id=str(shipment["id"]),
         new_status="DELIVERED",
     )
 
     updated_dossier = update_dossier_status(
+        org_id=org_id,
         dossier_id=body.dossier_id,
         status_global="COMPLETED",
     )
 
     create_dossier_event(
-        org_id=ORG_ID,
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="SHIPMENT_DELIVERED",
         payload={
@@ -544,14 +579,17 @@ def confirm_delivered(body: ConfirmDeliveredRequest):
     }
 
 @router.post("/manager/confirm-private-arrival", dependencies=[Depends(require_manager_api_key)])
-def confirm_private_arrival(body: ConfirmPrivateArrivalRequest):
+def confirm_private_arrival(
+    body: ConfirmPrivateArrivalRequest,
+    org_id: str = Depends(get_manager_org_id),
+):
     from app.db.shipment_repository import get_shipment_by_dossier, update_shipment_status
     from app.db.message_repository import get_dossier_full, create_dossier_event
     from app.db.database import engine
     from sqlalchemy import text
 
     shipment = get_shipment_by_dossier(
-        org_id="demo_agency",
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -562,7 +600,7 @@ def confirm_private_arrival(body: ConfirmPrivateArrivalRequest):
         }
 
     updated_shipment = update_shipment_status(
-        org_id="demo_agency",
+        org_id=org_id,
         shipment_id=str(shipment["id"]),
         new_status="ARRIVED_DESTINATION",
     )
@@ -579,7 +617,7 @@ def confirm_private_arrival(body: ConfirmPrivateArrivalRequest):
                 returning *
             """),
             {
-                "org_id": "demo_agency",
+                "org_id": org_id,
                 "dossier_id": body.dossier_id,
             },
         )
@@ -589,7 +627,7 @@ def confirm_private_arrival(body: ConfirmPrivateArrivalRequest):
         updated_dossier = dict(row._mapping) if row else None
 
     dossier_full = get_dossier_full(
-        org_id="demo_agency",
+        org_id=org_id,
         dossier_id=body.dossier_id,
     )
 
@@ -607,8 +645,8 @@ def confirm_private_arrival(body: ConfirmPrivateArrivalRequest):
         }
 
     result = create_private_arrival_media_and_notification(
-        org_id="demo_agency",
-        org_name="SLAIVO Demo Agency",
+        org_id=org_id,
+        org_name=org_id,
         shipment=updated_shipment,
         client_phone=client_phone,
         media_url=body.media_url,
@@ -620,7 +658,7 @@ def confirm_private_arrival(body: ConfirmPrivateArrivalRequest):
     )
 
     create_dossier_event(
-        org_id="demo_agency",
+        org_id=org_id,
         dossier_id=body.dossier_id,
         event_type="PACKAGE_PRIVATE_ARRIVAL_CONFIRMED",
         payload={

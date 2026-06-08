@@ -1,15 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
+from app.core.tenant_context import get_current_tenant
 from app.db.database import engine
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 @router.get("/whatsapp/delivery-events")
-def list_delivery_events():
+def list_delivery_events(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     with engine.connect() as conn:
         rows = conn.execute(
             text("""
@@ -20,7 +22,7 @@ def list_delivery_events():
                 limit 100
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
             },
         ).fetchall()
 
@@ -31,7 +33,9 @@ def list_delivery_events():
 
 
 @router.get("/whatsapp/health/summary")
-def whatsapp_health_summary():
+def whatsapp_health_summary(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     with engine.connect() as conn:
         summary_rows = conn.execute(
             text("""
@@ -45,7 +49,7 @@ def whatsapp_health_summary():
                 order by status
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
             },
         ).fetchall()
 
@@ -64,7 +68,7 @@ def whatsapp_health_summary():
                 limit 10
             """),
             {
-                "org_id": ORG_ID,
+                "org_id": org_id,
             },
         ).fetchall()
 

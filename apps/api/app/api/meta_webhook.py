@@ -96,7 +96,7 @@ async def meta_whatsapp_webhook(request: Request):
                 org_id = route["org_id"]
                 whatsapp_number_id = str(route["number"]["id"])
             else:
-                org_id = "demo_agency"
+                org_id = settings.app_org_id
                 whatsapp_number_id = None
 
             create_delivery_event(
@@ -141,7 +141,7 @@ async def meta_whatsapp_webhook(request: Request):
         if phone_number_id:
             org_settings = find_org_by_meta_phone_number_id(phone_number_id)
 
-        org_id = org_settings["org_id"] if org_settings else "demo_agency"
+        org_id = org_settings["org_id"] if org_settings else settings.app_org_id
         handled = []
 
         for status_item in statuses:

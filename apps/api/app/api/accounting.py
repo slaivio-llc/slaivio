@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.accounting.repositories.category_repository import (
     create_accounting_category,
     list_accounting_categories,
@@ -12,7 +13,6 @@ from app.accounting.services.accounting_service import (
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class AccountingCategoryRequest(BaseModel):
@@ -32,17 +32,21 @@ class AccountingEntryRequest(BaseModel):
 
 
 @router.get("/accounting/categories")
-def get_categories():
+def get_categories(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        "categories": list_accounting_categories(ORG_ID),
+        "categories": list_accounting_categories(org_id),
     }
 
 
 @router.post("/accounting/categories")
-def create_category(body: AccountingCategoryRequest):
+def create_category(body: AccountingCategoryRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     category = create_accounting_category(
-        org_id=ORG_ID,
+        org_id=org_id,
         category_code=body.category_code,
         category_name=body.category_name,
         category_type=body.category_type,
@@ -55,18 +59,22 @@ def create_category(body: AccountingCategoryRequest):
 
 
 @router.get("/accounting/entries")
-def get_entries():
+def get_entries(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     return {
         "status": "ok",
-        **get_accounting_overview(ORG_ID),
+        **get_accounting_overview(org_id),
     }
 
 
 @router.post("/accounting/entries")
-def create_entry(body: AccountingEntryRequest):
+def create_entry(body: AccountingEntryRequest, tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
+
     try:
         entry = record_accounting_entry(
-            org_id=ORG_ID,
+            org_id=org_id,
             category_id=body.category_id,
             entry_type=body.entry_type,
             amount_minor=body.amount_minor,
@@ -82,4 +90,3 @@ def create_entry(body: AccountingEntryRequest):
         "status": "ok",
         "entry": entry,
     }
-

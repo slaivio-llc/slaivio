@@ -1,6 +1,7 @@
 import json
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.db.database import engine
 
 
@@ -62,9 +63,10 @@ def create_voice_transcription(
 
 
 def list_pending_voice_transcriptions(
-    org_id: str = "demo_agency",
+    org_id: str | None = None,
     limit: int = 20,
 ):
+    org_id = org_id or settings.app_org_id
     with engine.connect() as conn:
         result = conn.execute(
             text("""

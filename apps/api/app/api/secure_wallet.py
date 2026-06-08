@@ -4,11 +4,11 @@ from pydantic import BaseModel
 from app.core.permissions import require_permission
 from app.core.entitlements import require_entitlement
 from app.core.features import require_feature
+from app.core.tenant_context import get_current_tenant
 from app.wallet.services.secure_wallet_service import apply_secure_wallet_transaction
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class SecureWalletTransactionRequest(BaseModel):
@@ -29,10 +29,13 @@ class SecureWalletTransactionRequest(BaseModel):
         Depends(require_entitlement("wallet")),
     ],
 )
-def secure_wallet_transaction(body: SecureWalletTransactionRequest):
+def secure_wallet_transaction(
+    body: SecureWalletTransactionRequest,
+    tenant: dict = Depends(get_current_tenant),
+):
     try:
         result = apply_secure_wallet_transaction(
-            org_id=ORG_ID,
+            org_id=tenant["org_id"],
             transaction_type=body.transaction_type,
             amount_minor=body.amount_minor,
             currency_code=body.currency_code,

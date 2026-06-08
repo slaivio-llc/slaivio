@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.core.tenant_context import get_current_tenant
 from app.db.notification_repository import list_retryable_notifications
 from app.services.notification_retry_service import (
     retry_notification,
@@ -9,13 +10,14 @@ from app.services.notification_retry_service import (
 
 router = APIRouter()
 
-ORG_ID = "demo_agency"
-
 
 @router.get("/notifications/retryable")
-def get_retryable_notifications(limit: int = 50):
+def get_retryable_notifications(
+    limit: int = 50,
+    tenant: dict = Depends(get_current_tenant),
+):
     notifications = list_retryable_notifications(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         limit=limit,
     )
 
@@ -40,8 +42,8 @@ def retry_one_notification(notification_id: str):
 
 
 @router.post("/notifications/retry-due")
-def retry_due():
+def retry_due(tenant: dict = Depends(get_current_tenant)):
     return retry_due_notifications(
-        org_id=ORG_ID,
+        org_id=tenant["org_id"],
         limit=50,
     )

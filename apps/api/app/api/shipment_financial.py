@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.core.tenant_context import get_current_tenant
 from app.shipment_financial.services.shipment_financial_service import (
     add_shipment_financial_component,
     get_shipment_financials,
@@ -8,7 +9,6 @@ from app.shipment_financial.services.shipment_financial_service import (
 
 
 router = APIRouter()
-ORG_ID = "demo_agency"
 
 
 class ShipmentFinancialComponentRequest(BaseModel):
@@ -32,10 +32,13 @@ def get_financials(shipment_id: str):
 def add_component(
     shipment_id: str,
     body: ShipmentFinancialComponentRequest,
+    tenant=Depends(get_current_tenant),
 ):
+    org_id = tenant["org_id"]
+
     try:
         result = add_shipment_financial_component(
-            org_id=ORG_ID,
+            org_id=org_id,
             shipment_id=shipment_id,
             component_type=body.component_type,
             component_code=body.component_code,
@@ -51,4 +54,3 @@ def add_component(
         "status": "ok",
         **result,
     }
-

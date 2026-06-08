@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request
+from app.core.config import settings
 
 from app.services.infobip_delivery_parser import (
     parse_infobip_delivery_payload,
@@ -26,8 +27,6 @@ except ImportError:
 
 router = APIRouter()
 
-ORG_ID = "demo_agency"
-
 
 @router.post("/webhook/infobip/delivery")
 async def infobip_delivery_webhook(request: Request):
@@ -47,7 +46,7 @@ async def infobip_delivery_webhook(request: Request):
 
         notification = None
         notification_id = None
-        org_id = ORG_ID
+        org_id = settings.app_org_id
 
         if provider_message_id:
             notification = get_notification_by_provider_message_id(
@@ -115,4 +114,3 @@ async def infobip_delivery_webhook(request: Request):
         "count": len(results),
         "results": results,
     }
-

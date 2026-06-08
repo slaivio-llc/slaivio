@@ -1,3 +1,4 @@
+from app.core.config import settings
 from app.db.notification_repository import (
     get_notification_by_id,
     list_retryable_notifications,
@@ -80,9 +81,10 @@ def retry_notification(notification_id: str) -> dict:
 
 
 def retry_due_notifications(
-    org_id: str = "demo_agency",
+    org_id: str | None = None,
     limit: int = 50,
 ) -> dict:
+    org_id = org_id or settings.app_org_id
     notifications = list_retryable_notifications(
         org_id=org_id,
         limit=limit,

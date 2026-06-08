@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request
+from app.core.config import settings
 from app.models.message import NormalizedMessage
 from app.services.deduplication import is_duplicate, mark_as_seen
 from app.services.understanding_orchestrator import understand_message
@@ -77,13 +78,14 @@ def normalize_whatsapp_payload(payload: dict) -> NormalizedMessage:
 async def process_normalized_whatsapp_message(
     normalized_message: NormalizedMessage,
     payload: dict,
-    org_id: str = "demo_agency",
+    org_id: str | None = None,
     provider: str | None = None,
     provider_phone_number_id: str | None = None,
     whatsapp_number_id: str | None = None,
     waba_id: str | None = None,
     number_role: str | None = None,
 ):
+    org_id = org_id or settings.app_org_id
 
     if is_duplicate(normalized_message.dedupe_key):
         return {
@@ -174,7 +176,7 @@ async def process_normalized_whatsapp_message(
     )
 
     emit_client_message_event(
-        org_id="demo_agency",
+        org_id=org_id,
         client_id=str(client_id),
         dossier_id=str(dossier_id),
         phone=normalized_message.from_phone,
@@ -456,6 +458,7 @@ async def process_normalized_whatsapp_message(
     reply = generate_reply(
         intent=intent,
         org_name=org_name,
+        org_id=org_id,
         understanding=understanding,
         dossier=dossier_full,
         text=normalized_message.text_body,
@@ -475,7 +478,7 @@ async def process_normalized_whatsapp_message(
             shipment_id = str(dossier_full["shipment"]["id"])
 
         created_escalation = create_escalation_from_context(
-            org_id="demo_agency",
+            org_id=org_id,
             client_id=str(client_id) if client_id else None,
             dossier_id=str(dossier_id) if dossier_id else None,
             shipment_id=shipment_id,
@@ -487,7 +490,7 @@ async def process_normalized_whatsapp_message(
 
         if created_escalation:
             create_dossier_event(
-                org_id="demo_agency",
+                org_id=org_id,
                 dossier_id=dossier_id,
                 event_type="ESCALATION_CASE_CREATED",
                 payload={
@@ -554,6 +557,7 @@ async def process_normalized_whatsapp_message(
 
     return {
         "status": "stored",
+        "org_id": org_id,
         "client_id": str(client_id),
         "dossier_id": str(dossier_id),
         "intent": intent,
@@ -584,5 +588,5 @@ async def receive_whatsapp_message(request: Request):
     return await process_normalized_whatsapp_message(
         normalized_message=normalized_message,
         payload=payload,
-        org_id="demo_agency",
+        org_id=settings.app_org_id,
     )

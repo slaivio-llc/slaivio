@@ -7,6 +7,7 @@ import {
   getMetaOauthUrl,
   onboardWhatsapp,
 } from "@/services/meta-oauth";
+import { getCurrentManager } from "@/services/auth";
 
 type ConnectionStatus =
   | "idle"
@@ -44,14 +45,14 @@ export default function WhatsappConnectPage() {
       return;
     }
 
-    const rawManager = localStorage.getItem("slaivo_manager");
-    const manager = rawManager ? JSON.parse(rawManager) : null;
-    const orgId = manager?.org_id || "demo_agency";
-
     setStatus("connecting");
     setMessage("Configuration WhatsApp en cours...");
 
-    onboardWhatsapp(code, orgId)
+    getCurrentManager()
+      .then((manager) => onboardWhatsapp(
+        code,
+        manager.org_id || manager.tenant_org_id || "demo_agency"
+      ))
       .then((result) => {
         sessionStorage.removeItem("slaivo_meta_oauth_state");
         window.history.replaceState({}, "", "/whatsapp/connect");

@@ -20,33 +20,33 @@ export function CargoPageShell({
 }) {
   return (
     <DashboardLayout>
-      <main className="mx-auto w-full max-w-[1440px] p-4 md:p-8">
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <main className="p-4 md:p-8">
+        <div className="slaivo-gradient-card overflow-hidden rounded-[2rem] p-6 text-white md:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-100">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 {eyebrow}
               </div>
 
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+              <h1 className="mt-5 text-3xl font-black tracking-tight md:text-5xl">
                 {title}
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 md:text-base">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300 md:text-base">
                 {description}
               </p>
             </div>
 
             <div className="flex items-center gap-3">
               {action}
-              <div className="hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 md:block">
-                Live workspace
+              <div className="hidden rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-slate-200 md:block">
+                Live cargo workspace
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-6">{children}</div>
+        <div className="mt-8">{children}</div>
       </main>
     </DashboardLayout>
   );
@@ -58,7 +58,7 @@ export function CargoCard({
   children: ReactNode;
 }) {
   return (
-    <section className="slaivo-card rounded-[1.75rem] p-5 md:p-6">
+    <section className="slaivo-card mt-6 rounded-[1.75rem] p-5 md:p-6">
       {children}
     </section>
   );

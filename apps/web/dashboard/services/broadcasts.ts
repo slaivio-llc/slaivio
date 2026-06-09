@@ -7,9 +7,7 @@ import type {
 export async function getBroadcasts(): Promise<BroadcastCampaign[]> {
   const response = await api.get("/broadcasts");
 
-  return Array.isArray(response.data?.campaigns)
-    ? response.data.campaigns
-    : [];
+  return response.data.campaigns;
 }
 
 export async function createBroadcast(data: {

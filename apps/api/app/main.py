@@ -70,6 +70,9 @@ from app.api.invitations import router as invitations_router
 from app.api.me import router as me_router
 from app.api.tenant import router as tenant_router
 from app.api.cargo_os import router as cargo_os_router
+from app.api.operations_intelligence import (
+    router as operations_intelligence_router,
+)
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -167,6 +170,7 @@ app.include_router(invitations_router)
 app.include_router(me_router)
 app.include_router(tenant_router)
 app.include_router(cargo_os_router)
+app.include_router(operations_intelligence_router)
 
 
 @app.get("/")

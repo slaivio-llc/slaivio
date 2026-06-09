@@ -17,6 +17,7 @@ import {
   Package,
   Settings,
   ShieldCheck,
+  Siren,
   Truck,
 } from "lucide-react";
 
@@ -87,6 +88,11 @@ const groups = [
         label: "Escalations",
         href: "/escalations",
         icon: AlertTriangle,
+      },
+      {
+        label: "Operations",
+        href: "/operations",
+        icon: Siren,
       },
       {
         label: "Knowledge",

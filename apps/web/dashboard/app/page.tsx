@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Boxes,
   Globe2,
+  Lightbulb,
   MessageSquare,
   PackageCheck,
   ShieldCheck,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { OperationsDashboardCards } from "@/components/operations/operations-dashboard-cards";
 
 const quickLinks = [
   {
@@ -36,6 +38,12 @@ const quickLinks = [
     href: "/customs/cases",
     icon: ShieldCheck,
     description: "Compliance and blocked cargo.",
+  },
+  {
+    label: "Operations Intelligence",
+    href: "/operations",
+    icon: Lightbulb,
+    description: "Delays, blocked cargo, risks.",
   },
 ];
 
@@ -119,6 +127,8 @@ export default function HomePage() {
           <Kpi label="Channels" value="WhatsApp" hint="Enterprise workflow" />
           <Kpi label="Ops Mode" value="Live" hint="Warehouse to delivery" />
         </section>
+
+        <OperationsDashboardCards />
 
         <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.85fr]">
           <div className="slaivo-card rounded-[2rem] p-6">

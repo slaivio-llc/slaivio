@@ -5,23 +5,11 @@ import { usePathname } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
 import type { ComponentType } from "react";
 import {
-  BarChart3,
-  Boxes,
-  ClipboardList,
-  BadgeDollarSign,
-  FileText,
+  Home,
+  KeyRound,
   LogOut,
   MessageCircle,
-  MessageSquare,
-  Package,
-  Settings,
-  ShieldCheck,
-  Truck,
 } from "lucide-react";
-
-import { EntitlementGuard } from "@/components/entitlements/entitlement-guard";
-import { FeatureGuard } from "@/components/features/feature-guard";
-import { PermissionGuard } from "@/components/permissions/permission-guard";
 
 type SidebarItem = {
   label: string;
@@ -30,7 +18,6 @@ type SidebarItem = {
   icon: ComponentType<{
     size?: number;
   }>;
-  guarded?: boolean;
 };
 
 type SidebarGroup = {
@@ -40,101 +27,30 @@ type SidebarGroup = {
 
 const groups: SidebarGroup[] = [
   {
-    label: "Daily Command",
+    label: "Launch Build",
     items: [
       {
-        label: "Inbox",
-        description: "Clients, WhatsApp, assignments",
-        href: "/inbox",
-        icon: MessageSquare,
+        label: "Home",
+        description: "Current build sequence",
+        href: "/",
+        icon: Home,
       },
       {
-        label: "Commercial",
-        description: "Quotes, sourcing, restrictions",
-        href: "/commercial",
-        icon: BadgeDollarSign,
-      },
-      {
-        label: "Dossiers",
-        description: "Source of truth for each case",
-        href: "/dossiers",
-        icon: Package,
-      },
-      {
-        label: "Shipments",
-        description: "Cargo lifecycle and tracking",
-        href: "/shipments",
-        icon: Truck,
+        label: "Auth & Access",
+        description: "Clerk, users, tenant, roles",
+        href: "/settings",
+        icon: KeyRound,
       },
     ],
   },
   {
-    label: "Execution",
+    label: "Next Block",
     items: [
       {
-        label: "Receipts",
-        description: "Warehouse intake",
-        href: "/warehouse/receipts",
-        icon: ClipboardList,
-      },
-      {
-        label: "Batches",
-        description: "Group shipments for routing",
-        href: "/shipment-batches",
-        icon: Boxes,
-      },
-      {
-        label: "Manifests",
-        description: "Documents and departure files",
-        href: "/manifests",
-        icon: FileText,
-      },
-      {
-        label: "Customs",
-        description: "Import/export control",
-        href: "/customs/cases",
-        icon: ShieldCheck,
-      },
-      {
-        label: "Delivery",
-        description: "Last mile jobs and proof",
-        href: "/delivery/jobs",
-        icon: Truck,
-      },
-    ],
-  },
-  {
-    label: "Business Control",
-    items: [
-      {
-        label: "Finance",
-        description: "Payments, wallet, accounting",
-        href: "/financial",
-        icon: BarChart3,
-        guarded: true,
-      },
-    ],
-  },
-  {
-    label: "Platform",
-    items: [
-      {
-        label: "Connect WhatsApp",
-        description: "Official Meta onboarding",
+        label: "Onboarding",
+        description: "Agency setup and WhatsApp",
         href: "/whatsapp/connect",
         icon: MessageCircle,
-      },
-      {
-        label: "WhatsApp Settings",
-        description: "Numbers and automation",
-        href: "/whatsapp-settings",
-        icon: MessageCircle,
-      },
-      {
-        label: "Settings",
-        description: "Agency, users, configuration",
-        href: "/settings",
-        icon: Settings,
       },
     ],
   },
@@ -203,18 +119,6 @@ export function Sidebar() {
                   </Link>
                 );
 
-                if (item.guarded) {
-                  return (
-                    <FeatureGuard key={item.href} feature="finance_dashboard">
-                      <EntitlementGuard entitlement="finance_dashboard">
-                        <PermissionGuard permission="finance.read">
-                          {link}
-                        </PermissionGuard>
-                      </EntitlementGuard>
-                    </FeatureGuard>
-                  );
-                }
-
                 return link;
               })}
             </div>
@@ -224,9 +128,9 @@ export function Sidebar() {
 
       <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
         <div className="rounded-2xl border border-emerald-400/10 bg-emerald-400/10 p-3 text-xs text-emerald-100">
-          <div className="font-bold">Enterprise Cargo Layer</div>
+          <div className="font-bold">Build Discipline</div>
           <div className="mt-1 leading-5 text-slate-400">
-            Multi-agency, WhatsApp, finance, warehouse and delivery workflows.
+            Auth first. Then onboarding. Then one module at a time.
           </div>
         </div>
 

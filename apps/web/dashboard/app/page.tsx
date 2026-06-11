@@ -1,58 +1,74 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  Boxes,
-  Globe2,
-  Lightbulb,
-  MessageSquare,
+  CheckCircle2,
+  ClipboardCheck,
+  KeyRound,
+  LockKeyhole,
+  MessageCircle,
   PackageCheck,
   ShieldCheck,
-  Truck,
-  Zap,
+  Sparkles,
 } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { OperationsDashboardCards } from "@/components/operations/operations-dashboard-cards";
 
-const quickLinks = [
+const buildBlocks = [
   {
-    label: "Enterprise Inbox",
-    href: "/inbox",
-    icon: MessageSquare,
-    description: "WhatsApp, AI drafts, assignments.",
+    label: "Bloc actuel",
+    title: "Authentification & accès",
+    status: "En validation production",
+    icon: KeyRound,
+    description:
+      "Clerk, sessions, rôles, permissions, tenant actif, pages sign-in/sign-up et comportement après refresh.",
+    checklist: [
+      "Clerk en mode production",
+      "Sign-in / sign-up alignés au design SLAIVIO",
+      "Redirection dashboard stable après connexion",
+      "Permissions et tenant vérifiés côté backend",
+    ],
+    href: "/settings",
+    cta: "Ouvrir Auth & Access",
   },
   {
-    label: "Shipments",
-    href: "/shipments",
-    icon: Truck,
-    description: "Lifecycle, ETA, delivery status.",
+    label: "Bloc suivant",
+    title: "Onboarding agence",
+    status: "Après auth validée",
+    icon: MessageCircle,
+    description:
+      "Création de l’espace agence, profil, connexion WhatsApp officielle, numéros, règles initiales et premier setup cargo.",
+    checklist: [
+      "Profil agence clair",
+      "Connexion WhatsApp Meta guidée",
+      "Premier service cargo configuré",
+      "Test réel de bout en bout",
+    ],
+    href: "/whatsapp/connect",
+    cta: "Préparer Onboarding",
   },
   {
-    label: "Batches",
-    href: "/shipment-batches",
-    icon: Boxes,
-    description: "Air, sea, groupage, containers.",
-  },
-  {
-    label: "Customs",
-    href: "/customs/cases",
-    icon: ShieldCheck,
-    description: "Compliance and blocked cargo.",
-  },
-  {
-    label: "Operations Intelligence",
-    href: "/operations",
-    icon: Lightbulb,
-    description: "Delays, blocked cargo, risks.",
+    label: "Ensuite",
+    title: "Modules dashboard",
+    status: "Fonction par fonction",
+    icon: PackageCheck,
+    description:
+      "Inbox, Commercial, Dossiers, Shipments, Warehouse, Finance et Delivery seront exposés seulement quand chaque module sera fini et testé.",
+    checklist: [
+      "Un module à la fois",
+      "Frontend + backend + SQL terminés",
+      "Test réel production",
+      "Puis seulement on passe au suivant",
+    ],
+    href: "/settings",
+    cta: "Voir le cap produit",
   },
 ];
 
-const operations = [
-  "Multi-agency tenant ready",
-  "WhatsApp enterprise onboarding",
-  "Warehouse receiving workflow",
-  "Shipment lifecycle state machine",
-  "Delivery proof and payment gate",
+const productRules = [
+  "Aucun module visible dans le menu tant qu’il n’est pas validé en production.",
+  "Le backend existant reste conservé, mais l’interface expose seulement les blocs prêts.",
+  "Chaque bloc doit avoir un but clair, un écran propre, un test réel et une validation finale.",
+  "Le dossier reste la source de vérité quand on arrive aux opérations cargo.",
 ];
 
 export default function HomePage() {
@@ -60,35 +76,37 @@ export default function HomePage() {
     <DashboardLayout>
       <main className="p-4 md:p-8">
         <section className="slaivo-gradient-card overflow-hidden rounded-[2rem] p-7 text-white md:p-10">
-          <div className="grid gap-10 lg:grid-cols-[1.4fr_0.8fr] lg:items-end">
+          <div className="grid gap-10 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-emerald-100">
-                <Globe2 size={14} />
-                International Cargo Command Center
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-emerald-100">
+                <Sparkles size={14} />
+                SLAIVIO Launch Build
               </div>
 
               <h1 className="mt-6 max-w-4xl text-4xl font-black tracking-tight md:text-6xl">
-                Pilotez vos opérations cargo de WhatsApp jusqu’à la livraison.
+                On construit SLAIVIO bloc par bloc, jusqu’au niveau production.
               </h1>
+
               <p className="mt-5 max-w-3xl text-base leading-8 text-slate-300">
-                SLAIVIO centralise conversations, dossiers, expéditions, warehouse,
-                douane, paiements, batches et delivery dans une interface pensée
-                pour les agences cargo internationales.
+                Le dashboard est volontairement nettoyé. Maintenant, chaque
+                partie du SaaS est développée, designée, testée en production,
+                puis validée avant de passer à la suivante.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/shipments"
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 shadow-xl transition hover:-translate-y-0.5"
+                  href="/settings"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-xl transition hover:-translate-y-0.5"
                 >
-                  Ouvrir les shipments
+                  Continuer Auth & Access
                   <ArrowRight size={16} />
                 </Link>
+
                 <Link
-                  href="/inbox"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/15"
+                  href="/sign-in"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white transition hover:bg-white/15"
                 >
-                  Voir l’inbox
+                  Tester sign-in
                 </Link>
               </div>
             </div>
@@ -96,24 +114,27 @@ export default function HomePage() {
             <div className="rounded-[1.75rem] border border-white/10 bg-white/10 p-5 backdrop-blur">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/20 text-emerald-200">
-                  <Zap size={22} />
+                  <ShieldCheck size={22} />
                 </div>
                 <div>
-                  <div className="font-bold">Operations Health</div>
+                  <div className="font-black">Méthode verrouillée</div>
                   <div className="text-sm text-slate-300">
-                    Infrastructure ready for rollout
+                    Auth → Onboarding → Modules
                   </div>
                 </div>
               </div>
 
               <div className="mt-5 space-y-3">
-                {operations.map((item) => (
+                {productRules.map((rule) => (
                   <div
-                    key={item}
-                    className="flex items-center gap-3 rounded-2xl bg-slate-950/30 px-3 py-2 text-sm text-slate-200"
+                    key={rule}
+                    className="flex items-start gap-3 rounded-2xl bg-slate-950/30 px-3 py-2 text-sm leading-6 text-slate-200"
                   >
-                    <PackageCheck size={16} className="text-emerald-300" />
-                    {item}
+                    <CheckCircle2
+                      size={16}
+                      className="mt-1 shrink-0 text-emerald-300"
+                    />
+                    {rule}
                   </div>
                 ))}
               </div>
@@ -121,78 +142,86 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-4">
-          <Kpi label="Active Modules" value="12" hint="Cargo OS layers" />
-          <Kpi label="Markets" value="Global" hint="FR/EN ready foundation" />
-          <Kpi label="Channels" value="WhatsApp" hint="Enterprise workflow" />
-          <Kpi label="Ops Mode" value="Live" hint="Warehouse to delivery" />
+        <section className="mt-8 grid gap-5 xl:grid-cols-3">
+          {buildBlocks.map((block) => (
+            <Link
+              key={block.title}
+              href={block.href}
+              className="slaivo-card group rounded-[2rem] p-6 transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                  <block.icon size={20} />
+                </div>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-700">
+                  {block.label}
+                </span>
+              </div>
+
+              <h2 className="mt-5 text-2xl font-black text-slate-950">
+                {block.title}
+              </h2>
+              <p className="mt-2 text-sm font-bold text-emerald-700">
+                {block.status}
+              </p>
+              <p className="mt-4 min-h-[72px] text-sm leading-6 text-slate-500">
+                {block.description}
+              </p>
+
+              <div className="mt-5 space-y-3">
+                {block.checklist.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-3 text-sm font-semibold text-slate-700"
+                  >
+                    <ClipboardCheck size={16} className="text-emerald-600" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 inline-flex items-center gap-2 text-sm font-black text-slate-950">
+                {block.cta}
+                <ArrowRight
+                  size={16}
+                  className="transition group-hover:translate-x-1"
+                />
+              </div>
+            </Link>
+          ))}
         </section>
 
-        <OperationsDashboardCards />
-
-        <section className="mt-8 grid gap-6 xl:grid-cols-[1fr_0.85fr]">
+        <section className="mt-8 grid gap-5 lg:grid-cols-[0.75fr_1.25fr]">
           <div className="slaivo-card rounded-[2rem] p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-black text-slate-950">
-                  Modules Opérationnels
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Accès rapide aux flux essentiels de l’agence.
-                </p>
-              </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+              <LockKeyhole size={20} />
             </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {quickLinks.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="group rounded-3xl border border-slate-200 bg-white p-5 transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
-                      <item.icon size={20} />
-                    </div>
-                    <ArrowRight
-                      size={18}
-                      className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-emerald-600"
-                    />
-                  </div>
-                  <div className="mt-5 font-bold text-slate-950">
-                    {item.label}
-                  </div>
-                  <div className="mt-2 text-sm leading-6 text-slate-500">
-                    {item.description}
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <h2 className="mt-5 text-xl font-black text-slate-950">
+              Focus immédiat
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-slate-500">
+              On finalise d’abord l’authentification comme une vraie plateforme
+              internationale: pages propres, Clerk production, redirections,
+              sécurité, permissions et expérience utilisateur stable.
+            </p>
           </div>
 
           <div className="slaivo-card rounded-[2rem] p-6">
             <h2 className="text-xl font-black text-slate-950">
-              Standards Plateforme
+              Définition de “terminé”
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Les repères qui rendent SLAIVIO prêt pour des agences exigeantes.
-            </p>
-
-            <div className="mt-6 space-y-4">
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
               {[
-                ["Tenant isolation", "Chaque agence travaille dans son périmètre."],
-                ["Operational audit", "Les transitions shipment deviennent traçables."],
-                ["AI assisted workflow", "L’IA soutient les agents sans masquer le contrôle."],
-                ["International UX", "Interface dense, claire, responsive et professionnelle."],
-              ].map(([title, description]) => (
+                "Fonction visible uniquement si elle sert le bloc courant.",
+                "Design stable sur desktop et mobile.",
+                "Backend protégé et testé avec le tenant réel.",
+                "Test production réel avant de passer au bloc suivant.",
+              ].map((item) => (
                 <div
-                  key={title}
-                  className="rounded-3xl border border-slate-200 bg-slate-50 p-4"
+                  key={item}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold leading-6 text-slate-700"
                 >
-                  <div className="font-bold text-slate-950">{title}</div>
-                  <div className="mt-1 text-sm leading-6 text-slate-500">
-                    {description}
-                  </div>
+                  {item}
                 </div>
               ))}
             </div>
@@ -200,25 +229,5 @@ export default function HomePage() {
         </section>
       </main>
     </DashboardLayout>
-  );
-}
-
-function Kpi({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-}) {
-  return (
-    <div className="slaivo-card rounded-3xl p-5">
-      <div className="text-sm font-semibold text-slate-500">{label}</div>
-      <div className="mt-3 text-3xl font-black tracking-tight text-slate-950">
-        {value}
-      </div>
-      <div className="mt-2 text-xs text-slate-500">{hint}</div>
-    </div>
   );
 }

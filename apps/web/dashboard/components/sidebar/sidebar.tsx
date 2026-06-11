@@ -3,21 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
+import type { ComponentType } from "react";
 import {
-  AlertTriangle,
   BarChart3,
-  BookOpen,
   Boxes,
   ClipboardList,
+  BadgeDollarSign,
   FileText,
   LogOut,
-  Megaphone,
   MessageCircle,
   MessageSquare,
   Package,
   Settings,
   ShieldCheck,
-  Siren,
   Truck,
 } from "lucide-react";
 
@@ -25,82 +23,92 @@ import { EntitlementGuard } from "@/components/entitlements/entitlement-guard";
 import { FeatureGuard } from "@/components/features/feature-guard";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 
-const groups = [
+type SidebarItem = {
+  label: string;
+  description: string;
+  href: string;
+  icon: ComponentType<{
+    size?: number;
+  }>;
+  guarded?: boolean;
+};
+
+type SidebarGroup = {
+  label: string;
+  items: SidebarItem[];
+};
+
+const groups: SidebarGroup[] = [
   {
-    label: "Command Center",
+    label: "Daily Command",
     items: [
       {
         label: "Inbox",
+        description: "Clients, WhatsApp, assignments",
         href: "/inbox",
         icon: MessageSquare,
       },
       {
+        label: "Commercial",
+        description: "Quotes, sourcing, restrictions",
+        href: "/commercial",
+        icon: BadgeDollarSign,
+      },
+      {
         label: "Dossiers",
+        description: "Source of truth for each case",
         href: "/dossiers",
         icon: Package,
       },
       {
         label: "Shipments",
+        description: "Cargo lifecycle and tracking",
         href: "/shipments",
         icon: Truck,
       },
     ],
   },
   {
-    label: "Cargo Operations",
+    label: "Execution",
     items: [
       {
-        label: "Batches",
-        href: "/shipment-batches",
-        icon: Boxes,
-      },
-      {
         label: "Receipts",
+        description: "Warehouse intake",
         href: "/warehouse/receipts",
         icon: ClipboardList,
       },
       {
+        label: "Batches",
+        description: "Group shipments for routing",
+        href: "/shipment-batches",
+        icon: Boxes,
+      },
+      {
         label: "Manifests",
+        description: "Documents and departure files",
         href: "/manifests",
         icon: FileText,
       },
       {
         label: "Customs",
+        description: "Import/export control",
         href: "/customs/cases",
         icon: ShieldCheck,
       },
       {
         label: "Delivery",
+        description: "Last mile jobs and proof",
         href: "/delivery/jobs",
         icon: Truck,
       },
     ],
   },
   {
-    label: "Growth & Intelligence",
+    label: "Business Control",
     items: [
       {
-        label: "Broadcasts",
-        href: "/broadcasts",
-        icon: Megaphone,
-      },
-      {
-        label: "Escalations",
-        href: "/escalations",
-        icon: AlertTriangle,
-      },
-      {
-        label: "Operations",
-        href: "/operations",
-        icon: Siren,
-      },
-      {
-        label: "Knowledge",
-        href: "/knowledge",
-        icon: BookOpen,
-      },
-      {
         label: "Finance",
+        description: "Payments, wallet, accounting",
         href: "/financial",
         icon: BarChart3,
         guarded: true,
@@ -112,16 +120,19 @@ const groups = [
     items: [
       {
         label: "Connect WhatsApp",
+        description: "Official Meta onboarding",
         href: "/whatsapp/connect",
         icon: MessageCircle,
       },
       {
         label: "WhatsApp Settings",
+        description: "Numbers and automation",
         href: "/whatsapp-settings",
         icon: MessageCircle,
       },
       {
         label: "Settings",
+        description: "Agency, users, configuration",
         href: "/settings",
         icon: Settings,
       },
@@ -173,7 +184,18 @@ export function Sidebar() {
                       >
                         <item.icon size={18} />
                       </span>
-                      {item.label}
+                      <span>
+                        <span className="block">{item.label}</span>
+                        <span
+                          className={`mt-0.5 block text-[11px] font-medium ${
+                            isActive
+                              ? "text-slate-500"
+                              : "text-slate-500 group-hover:text-slate-400"
+                          }`}
+                        >
+                          {item.description}
+                        </span>
+                      </span>
                     </span>
                     {isActive && (
                       <span className="h-2 w-2 rounded-full bg-emerald-500" />

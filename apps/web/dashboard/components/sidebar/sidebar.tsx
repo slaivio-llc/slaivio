@@ -32,7 +32,7 @@ const groups: SidebarGroup[] = [
       {
         label: "Home",
         description: "Current build sequence",
-        href: "/",
+        href: "/app",
         icon: Home,
       },
       {

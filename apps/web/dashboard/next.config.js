@@ -3,6 +3,13 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  generateBuildId() {
+    return (
+      process.env.RAILWAY_GIT_COMMIT_SHA ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      `local-${Date.now()}`
+    );
+  },
   async headers() {
     return [
       {

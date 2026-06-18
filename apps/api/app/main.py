@@ -75,6 +75,8 @@ from app.api.operations_intelligence import (
 )
 from app.api.commercial import router as commercial_router
 from app.api.public_landing import router as public_landing_router
+from app.api.onboarding import router as onboarding_router
+from app.api.onboarding_experience import router as onboarding_experience_router
 
 
 app = FastAPI(title="SLAIVO CARGO OS API")
@@ -175,6 +177,8 @@ app.include_router(cargo_os_router)
 app.include_router(operations_intelligence_router)
 app.include_router(commercial_router)
 app.include_router(public_landing_router)
+app.include_router(onboarding_router)
+app.include_router(onboarding_experience_router)
 
 
 @app.get("/")

@@ -43,7 +43,7 @@ const buildBlocks = [
       "Premier service cargo configuré",
       "Test réel de bout en bout",
     ],
-    href: "/whatsapp/connect",
+    href: "/onboarding",
     cta: "Préparer Onboarding",
   },
   {

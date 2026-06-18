@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   Building2,
@@ -16,6 +16,7 @@ import {
 import { Sidebar } from "@/components/sidebar/sidebar";
 import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
 import { getCurrentManager } from "@/services/auth";
+import { getOnboardingStatus } from "@/services/onboarding";
 import type { Manager } from "@/types/auth";
 
 export function DashboardLayout({
@@ -24,6 +25,7 @@ export function DashboardLayout({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   const [manager, setManager] = useState<Manager | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,19 @@ export function DashboardLayout({
     getCurrentManager()
       .then((managerData) => {
         setManager(managerData);
+
+        return getOnboardingStatus()
+          .then((onboarding) => {
+            if (
+              onboarding?.status === "IN_PROGRESS" &&
+              pathname === "/app"
+            ) {
+              router.push("/onboarding");
+            }
+          })
+          .catch(() => {
+            // Onboarding tables may not be deployed yet during rollout.
+          });
       })
       .catch(() => {
         router.push("/sign-in");
@@ -40,7 +55,7 @@ export function DashboardLayout({
       .finally(() => {
         setLoading(false);
       });
-  }, [router]);
+  }, [router, pathname]);
 
   if (loading) {
     return (

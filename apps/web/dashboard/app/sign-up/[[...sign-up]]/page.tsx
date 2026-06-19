@@ -14,7 +14,8 @@ export default function Page() {
         routing="path"
         path="/sign-up"
         signInUrl="/sign-in"
-        fallbackRedirectUrl="/app"
+        fallbackRedirectUrl="/onboarding"
+        forceRedirectUrl="/onboarding"
       />
     </AuthShell>
   );

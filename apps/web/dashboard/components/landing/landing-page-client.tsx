@@ -2,172 +2,158 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import {
   ArrowRight,
-  Boxes,
-  CheckCircle2,
-  ClipboardCheck,
+  BadgeCheck,
+  BarChart3,
+  Bot,
+  Building2,
+  Check,
+  ChevronDown,
   CreditCard,
   FileText,
   Globe2,
-  HelpCircle,
+  Headphones,
   MessageCircle,
   PackageCheck,
-  SearchCheck,
   ShieldCheck,
   Sparkles,
   Truck,
   Warehouse,
+  type LucideIcon,
 } from "lucide-react";
 
 import {
   createDemoRequest,
   createTrialLead,
-  getLandingData,
-  LandingMetric,
-  LandingPricingPlan,
-  LandingTestimonial,
 } from "@/services/landing";
 
+const stats = [
+  ["250+", "agences"],
+  ["1.2M+", "colis gérés"],
+  ["8M+", "conversations"],
+  ["95%", "satisfaction"],
+];
+
+const trustLogos = [
+  "DHL",
+  "FedEx",
+  "Maersk",
+  "Aramex",
+  "Chronopost",
+  "DP World",
+  "Kuehne+Nagel",
+];
+
 const problems = [
-  "Excel files everywhere",
-  "Lost shipments",
-  "Manual follow-ups",
-  "WhatsApp chaos",
-  "Missed payments",
-  "No visibility",
-];
-
-const solutions = [
-  "Customer Management",
-  "Shipment Management",
-  "Warehouse Operations",
-  "Tracking",
-  "Payments",
-  "Notifications",
-  "Reporting",
-];
-
-const features = [
-  ["WhatsApp Automation", "Receive, organize and respond to cargo requests through WhatsApp."],
-  ["Customer Management", "Keep every customer, contact and request connected to the right agency."],
-  ["Quotation Engine", "Turn requests into structured quote workflows."],
-  ["Shipment Creation", "Create operational records from qualified cargo requests."],
-  ["Warehouse Receiving", "Track received packages, damage, photos and unidentified cargo."],
-  ["Tracking", "Give the team visibility from intake to delivery."],
-  ["Notifications", "Keep customers updated without manual chasing."],
-  ["Payment Tracking", "Connect payment status to cargo release decisions."],
-  ["Pickup Management", "Prepare pickup and delivery workflows cleanly."],
-  ["Documents", "Centralize manifests, customs and proof documents."],
-  ["Reports", "Read operations across messages, shipments and finance."],
-  ["Audit Logs", "Keep decisions, handoffs and actions traceable."],
-];
-
-const showcase = [
-  {
-    title: "Dashboard",
-    image: "/landing/dashboard.png",
-    description: "Command center overview from the real SLAIVIO product.",
-  },
-  {
-    title: "Inbox",
-    image: "/landing/inbox.png",
-    description: "WhatsApp conversations, workflow and team actions.",
-  },
-  {
-    title: "Customers & Dossiers",
-    image: "/landing/dossiers.png",
-    description: "Customer requests organized around operational dossiers.",
-  },
-  {
-    title: "Settings",
-    image: "/landing/settings.png",
-    description: "Agency configuration, access and operating controls.",
-  },
-];
-
-const steps = [
-  "Connect WhatsApp",
-  "Configure Agency",
-  "Receive Requests",
-  "Manage Shipments",
-  "Track Operations",
-  "Grow Agency",
+  "WhatsApp dispersé",
+  "Excel partout",
+  "Relances oubliées",
+  "Colis difficiles à suivre",
+  "Données perdues",
+  "Manque de visibilité",
+  "Trop de tâches manuelles",
 ];
 
 const benefits = [
-  "Reduce manual work",
-  "Increase customer satisfaction",
-  "Improve visibility",
-  "Scale operations",
-  "Centralize workflows",
-  "Professionalize agency",
+  [
+    "Plus de contrôle",
+    "Suivez toutes vos opérations depuis un seul tableau de bord.",
+  ],
+  ["Plus de temps", "Automatisez les tâches répétitives de votre équipe."],
+  ["Plus de revenus", "Répondez plus vite et gérez davantage de clients."],
+  [
+    "Plus de professionnalisme",
+    "Offrez une expérience moderne à vos clients et partenaires.",
+  ],
+  [
+    "Plus de croissance",
+    "Développez votre activité sans multiplier les outils.",
+  ],
+];
+
+const features: Array<[string, LucideIcon]> = [
+  ["WhatsApp Business", MessageCircle],
+  ["IA Cargo", Bot],
+  ["Gestion des expéditions", Truck],
+  ["Gestion des clients", Building2],
+  ["Reporting", BarChart3],
+  ["Multi-bureaux", Globe2],
+  ["Tracking", PackageCheck],
+  ["Gestion des paiements", CreditCard],
+  ["Base de connaissances IA", FileText],
+];
+
+const steps = [
+  "Connexion WhatsApp",
+  "Configuration de l'agence",
+  "Formation de l'équipe",
+  "Automatisation des opérations",
+  "Croissance",
+];
+
+const pricing = [
+  {
+    name: "STARTER",
+    price: "119$",
+    founder: "99$/mois à vie",
+    value: "Déploiement inclus, valeur 500$ offerte",
+    highlight: false,
+  },
+  {
+    name: "GROWTH",
+    price: "299$",
+    founder: "249$/mois à vie",
+    value: "Déploiement inclus, valeur 1 500$ offerte",
+    highlight: true,
+  },
+  {
+    name: "ENTERPRISE",
+    price: "799$",
+    founder: "649$/mois à vie",
+    value: "Déploiement inclus, valeur 5 000$ offerte",
+    highlight: false,
+  },
+  {
+    name: "ELITE",
+    price: "Sur devis",
+    founder: "Architecture dédiée",
+    value: "Accompagnement stratégique et déploiement sur mesure",
+    highlight: false,
+  },
 ];
 
 const faqs = [
   [
-    "How does WhatsApp work?",
-    "SLAIVIO connects your official WhatsApp Business setup and turns incoming messages into structured workflows.",
+    "Puis-je utiliser mon WhatsApp actuel ?",
+    "Oui. SLAIVIO vous guide vers une connexion WhatsApp Business officielle et exploitable en production.",
   ],
   [
-    "Can I manage multiple offices?",
-    "Yes. The platform is built around agencies, teams and tenant isolation for multi-office operations.",
+    "Combien de temps dure l'installation ?",
+    "L'onboarding est guidé étape par étape pour configurer l'agence, les bureaux, les routes, les prix, WhatsApp et l'équipe.",
   ],
   [
-    "Can I manage warehouses?",
-    "Warehouse workflows are part of the Cargo OS foundation and are exposed when the onboarding block is validated.",
+    "Mon équipe sera-t-elle formée ?",
+    "Oui. L'offre inclut un accompagnement jusqu'à l'adoption réelle dans les opérations quotidiennes.",
   ],
   [
-    "Can I track shipments?",
-    "Yes. Shipments are tracked from intake through warehouse, route, delivery and final status.",
+    "Puis-je gérer plusieurs bureaux ?",
+    "Oui. SLAIVIO est pensé pour les agences multi-bureaux, multi-numéros et multi-opérations.",
   ],
   [
-    "Do customers need an app?",
-    "No. Customers can keep using WhatsApp while your team works inside SLAIVIO.",
+    "Les données sont-elles sécurisées ?",
+    "Oui. L'accès est protégé par authentification, rôles, organisations et séparation des tenants.",
   ],
   [
-    "Can I customize prices?",
-    "Yes. Pricing is driven by catalog and configuration, not hardcoded values.",
-  ],
-  [
-    "How long does setup take?",
-    "The onboarding flow is designed to guide an agency from account setup to WhatsApp connection step by step.",
+    "Puis-je importer mes fichiers Excel ?",
+    "Oui. Les imports et workflows de migration seront branchés progressivement dans les blocs d'onboarding et opérations.",
   ],
 ];
 
 export function LandingPageClient() {
-  const [metrics, setMetrics] = useState<LandingMetric[]>([]);
-  const [pricing, setPricing] = useState<LandingPricingPlan[]>([]);
-  const [testimonials, setTestimonials] = useState<LandingTestimonial[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [demoStatus, setDemoStatus] = useState("");
   const [trialEmail, setTrialEmail] = useState("");
-
-  useEffect(() => {
-    getLandingData()
-      .then((data) => {
-        setMetrics(data.metrics);
-        setPricing(data.pricing);
-        setTestimonials(data.testimonials);
-      })
-      .catch(() => {
-        setMetrics([]);
-        setPricing([]);
-        setTestimonials([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
-
-  const orderedPricing = useMemo(
-    () =>
-      [...pricing].sort(
-        (a, b) => a.monthly_price_minor - b.monthly_price_minor
-      ),
-    [pricing]
-  );
+  const [demoStatus, setDemoStatus] = useState("");
 
   async function submitTrialLead(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -195,229 +181,253 @@ export function LandingPageClient() {
       message: String(form.get("message") || ""),
     });
 
-    setDemoStatus("Demo request received. Our team will contact you.");
+    setDemoStatus("Demande reçue. Notre équipe vous contacte rapidement.");
     event.currentTarget.reset();
   }
 
   return (
-    <main className="min-h-screen bg-white text-slate-950">
-      <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-5 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/slaivio-mark.png"
-              alt="SLAIVIO"
-              width={42}
-              height={42}
-              className="rounded-2xl"
-            />
-            <div>
-              <div className="text-xl font-black tracking-tight">SLAIVIO</div>
-              <div className="text-[11px] font-black uppercase tracking-[0.28em] text-emerald-600">
-                Cargo OS
-              </div>
-            </div>
-          </Link>
+    <main className="min-h-screen bg-white text-[#111827]">
+      <Header />
 
-          <nav className="hidden items-center gap-7 text-sm font-bold text-slate-600 lg:flex">
-            <a href="#features">Features</a>
-            <a href="#showcase">Product</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#faq">FAQ</a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/sign-in"
-              className="hidden text-sm font-black text-slate-700 md:inline"
-            >
-              Login
-            </Link>
-            <a
-              href="#demo"
-              className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-xl transition hover:-translate-y-0.5"
-            >
-              Book Demo
-            </a>
-          </div>
-        </div>
-      </header>
-
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34rem),linear-gradient(180deg,#f8fafc_0%,#ffffff_78%)]" />
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-28">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
-              <Globe2 size={14} />
-              Enterprise SaaS for Cargo Agencies
-            </div>
-
-            <h1 className="mt-7 max-w-4xl text-5xl font-black tracking-tight md:text-7xl">
-              Run Your Cargo Agency On WhatsApp.
-              <span className="block text-slate-500">
-                Without Excel. Without Chaos.
-              </span>
+      <section className="relative overflow-hidden border-b border-slate-100 bg-white">
+        <div className="absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(circle_at_20%_10%,rgba(18,199,111,0.14),transparent_32rem)]" />
+        <div className="relative mx-auto grid max-w-[1280px] grid-cols-1 gap-16 px-6 py-24 lg:grid-cols-[0.42fr_0.58fr] lg:items-center lg:py-32">
+          <div className="max-w-xl">
+            <Badge>La plateforme #1 pour les agences cargo</Badge>
+            <h1 className="mt-8 text-5xl font-bold leading-[1.05] tracking-[-0.05em] text-slate-950 md:text-7xl">
+              L&apos;Operating System des Agences Cargo
             </h1>
-
-            <p className="mt-6 max-w-2xl text-lg leading-9 text-slate-600">
-              SLAIVIO helps cargo and freight agencies automate operations,
-              customer communication, shipment tracking and warehouse workflows
-              through WhatsApp and a powerful operating system.
+            <p className="mt-7 text-lg leading-9 text-slate-600">
+              Automatisez vos opérations, centralisez vos données et développez
+              votre agence sans augmenter votre charge opérationnelle.
+            </p>
+            <p className="mt-4 text-base leading-8 text-slate-500">
+              Transformez votre agence cargo fonctionnant sur WhatsApp et Excel
+              en une entreprise moderne, automatisée et pilotée par la donnée.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <form
-                onSubmit={submitTrialLead}
-                className="flex w-full max-w-xl flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-2 shadow-xl sm:flex-row"
-              >
-                <input
-                  value={trialEmail}
-                  onChange={(event) => setTrialEmail(event.target.value)}
-                  type="email"
-                  required
-                  placeholder="Work email"
-                  className="min-h-12 flex-1 rounded-2xl px-4 text-sm font-semibold outline-none"
-                />
-                <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-600">
-                  Start Free Trial
-                  <ArrowRight size={16} />
-                </button>
-              </form>
+            <form
+              onSubmit={submitTrialLead}
+              className="mt-9 flex max-w-xl flex-col gap-3 rounded-[22px] border border-slate-200 bg-white p-2 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:flex-row"
+            >
+              <input
+                value={trialEmail}
+                onChange={(event) => setTrialEmail(event.target.value)}
+                type="email"
+                required
+                placeholder="Email professionnel"
+                className="min-h-14 flex-1 rounded-2xl px-4 text-sm font-semibold outline-none"
+              />
+              <button className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] bg-[#12C76F] px-6 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#0B7A45]">
+                Demander une démo
+                <ArrowRight size={17} />
+              </button>
+            </form>
 
+            <div className="mt-4 flex flex-wrap gap-3">
               <a
-                href="#demo"
-                className="inline-flex min-h-16 items-center justify-center rounded-3xl border border-slate-200 bg-white px-6 text-sm font-black text-slate-950 shadow-sm transition hover:-translate-y-0.5"
+                href="https://wa.me/"
+                className="inline-flex h-14 items-center justify-center gap-2 rounded-[14px] border border-emerald-200 bg-white px-6 text-sm font-bold text-[#0B7A45] transition hover:-translate-y-0.5 hover:bg-[#E8FFF3]"
               >
-                Book Demo
+                <MessageCircle size={17} />
+                Parler à un conseiller
               </a>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-3 text-sm font-bold text-slate-500">
-              <span className="inline-flex items-center gap-2">
-                <CheckCircle2 size={17} className="text-emerald-600" />
-                WhatsApp-first
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <CheckCircle2 size={17} className="text-emerald-600" />
-                Multi-agency ready
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <CheckCircle2 size={17} className="text-emerald-600" />
-                Built for international cargo
-              </span>
+            <div className="mt-10 grid grid-cols-2 gap-5 sm:grid-cols-4">
+              {stats.map(([value, label]) => (
+                <div key={label}>
+                  <div className="text-3xl font-bold tracking-tight text-slate-950">
+                    {value}
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-slate-500">
+                    {label}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-3 shadow-2xl">
-            <div className="overflow-hidden rounded-[1.5rem] border border-slate-100">
-              <Image
-                src="/landing/dashboard.png"
-                alt="SLAIVIO dashboard screenshot"
-                width={1600}
-                height={900}
-                priority
-                className="h-auto w-full"
-              />
+          <div className="relative">
+            <div className="animate-[slaivioReveal_900ms_ease-out] rounded-[32px] border border-slate-200 bg-white p-4 shadow-[0_40px_120px_rgba(15,23,42,0.16)]">
+              <div className="overflow-hidden rounded-[24px] border border-slate-100 bg-slate-50">
+                <Image
+                  src="/landing/dashboard.png"
+                  alt="Dashboard SLAIVIO"
+                  width={1600}
+                  height={900}
+                  priority
+                  className="h-auto w-full transition duration-700 hover:scale-[1.03]"
+                />
+              </div>
             </div>
+            <FloatingCard className="-left-5 top-14" title="Nouveau colis arrivé" icon={<PackageCheck size={18} />} />
+            <FloatingCard className="-right-3 top-48" title="Message WhatsApp traité" icon={<MessageCircle size={18} />} delay />
+            <FloatingCard className="bottom-10 left-16" title="Paiement reçu" icon={<CreditCard size={18} />} />
           </div>
         </div>
       </section>
 
-      <section className="border-y border-slate-200 bg-slate-950 py-8 text-white">
-        <div className="mx-auto grid max-w-7xl gap-4 px-5 md:grid-cols-4">
-          {(loading ? [] : metrics).map((metric) => (
-            <div key={metric.metric_key} className="rounded-3xl bg-white/5 p-5">
-              <div className="text-3xl font-black">
-                {metric.metric_value.toLocaleString()}
+      <section className="border-b border-slate-100 bg-white py-12">
+        <div className="mx-auto max-w-[1180px] px-6 text-center">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-slate-400">
+            Références opérationnelles du cargo international
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-6 text-xl font-bold text-slate-300">
+            {trustLogos.map((logo) => (
+              <span key={logo}>{logo}</span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <Section
+        id="problem"
+        title="Votre agence grandit, mais vos opérations deviennent plus difficiles à gérer."
+      >
+        <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+          <div className="space-y-4">
+            {problems.map((problem, index) => (
+              <div
+                key={problem}
+                className="rounded-2xl border border-red-100 bg-red-50/70 p-4 text-base font-semibold text-red-800"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
+                {problem}
               </div>
-              <div className="mt-2 text-sm font-bold text-slate-400">
-                {metric.metric_label}
+            ))}
+          </div>
+          <div className="rounded-[32px] border border-slate-200 bg-[#F8FAFC] p-8">
+            <div className="grid gap-4">
+              {["WhatsApp", "Excel", "Paiements", "Tracking", "Warehouse"].map(
+                (item) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                  >
+                    <span className="font-bold text-slate-700">{item}</span>
+                    <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+                      dispersé
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section
+        id="solutions"
+        centered
+        title="Imaginez une agence qui fonctionne différemment."
+        description="SLAIVIO transforme vos conversations, feuilles Excel et opérations terrain en un flux clair et automatisé."
+      >
+        <div className="mx-auto mt-4 grid max-w-5xl gap-4 md:grid-cols-6">
+          {["WhatsApp + Excel", "Chaos", "SLAIVIO", "Contrôle", "Automatisation", "Croissance"].map(
+            (step, index) => (
+              <div
+                key={step}
+                className={`rounded-3xl border p-5 text-center text-sm font-bold ${
+                  index >= 2
+                    ? "border-emerald-200 bg-[#E8FFF3] text-[#0B7A45]"
+                    : "border-slate-200 bg-white text-slate-500"
+                }`}
+              >
+                {step}
               </div>
-            </div>
-          ))}
-          {!loading && metrics.length === 0 && (
-            <div className="col-span-full rounded-3xl bg-white/5 p-5 text-sm font-semibold text-slate-300">
-              Trust metrics are connected to the backend and waiting for
-              production data.
-            </div>
+            )
           )}
         </div>
-      </section>
-
-      <Section id="problem" eyebrow="Problem" title="Cargo Operations Are Broken.">
-        <div className="grid gap-4 md:grid-cols-3">
-          {problems.map((item) => (
-            <ProblemCard key={item} title={item} />
-          ))}
-        </div>
       </Section>
 
       <Section
-        id="solution"
-        eyebrow="Solution"
-        title="One Platform For Your Entire Cargo Business"
-        description="SLAIVIO brings the messy pieces of a freight agency into one operating system."
+        id="benefits"
+        title="Ce que SLAIVIO apporte à votre agence"
       >
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {solutions.map((item) => (
-            <SolutionCard key={item} title={item} />
-          ))}
-        </div>
-      </Section>
-
-      <Section
-        id="features"
-        eyebrow="Features"
-        title="Everything your agency needs to operate professionally"
-      >
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {features.map(([title, description]) => (
-            <FeatureCard key={title} title={title} description={description} />
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {benefits.map(([title, description]) => (
+            <div
+              key={title}
+              className="rounded-[28px] border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(15,23,42,0.10)]"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8FFF3] text-[#0B7A45]">
+                <Check size={20} />
+              </div>
+              <h3 className="mt-6 text-2xl font-semibold tracking-tight text-slate-950">
+                {title}
+              </h3>
+              <p className="mt-3 text-base leading-8 text-slate-500">
+                {description}
+              </p>
+            </div>
           ))}
         </div>
       </Section>
 
       <Section
         id="showcase"
-        eyebrow="Product Showcase"
-        title="Real product screens. No fake mockups."
-        description="Screenshots are captured from SLAIVIO itself and will be refreshed as each block reaches production validation."
+        title="Un tableau de bord pensé pour votre quotidien."
+        description="Visualisez tout, décidez plus vite et pilotez votre croissance."
       >
-        <div className="grid gap-5 lg:grid-cols-2">
-          {showcase.map((item) => (
+        <div className="grid gap-10 lg:grid-cols-[0.4fr_0.6fr] lg:items-center">
+          <div>
+            <ul className="space-y-4 text-base font-semibold text-slate-600">
+              {[
+                "Conversations WhatsApp centralisées",
+                "Dossiers et expéditions structurés",
+                "Warehouse, douane, paiements et delivery dans un seul flux",
+              ].map((item) => (
+                <li key={item} className="flex items-center gap-3">
+                  <BadgeCheck size={18} className="text-[#12C76F]" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-[32px] border border-slate-200 bg-white p-4 shadow-[0_32px_90px_rgba(15,23,42,0.12)]">
+            <Image
+              src="/landing/dashboard.png"
+              alt="Dashboard SLAIVIO"
+              width={1600}
+              height={900}
+              className="h-auto w-full rounded-[24px] border border-slate-100"
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section id="features" title="Tout ce dont votre agence a besoin.">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {features.map(([title, Icon]) => (
             <div
-              key={item.title}
-              className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl"
+              key={String(title)}
+              className="rounded-[26px] border border-slate-200 bg-white p-6 transition hover:-translate-y-1 hover:shadow-xl"
             >
-              <Image
-                src={item.image}
-                alt={`${item.title} screenshot`}
-                width={1600}
-                height={900}
-                className="h-auto w-full border-b border-slate-200"
-              />
-              <div className="p-5">
-                <div className="font-black text-slate-950">{item.title}</div>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {item.description}
-                </p>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                <Icon size={19} />
               </div>
+              <h3 className="mt-5 text-xl font-semibold tracking-tight">
+                {title}
+              </h3>
             </div>
           ))}
         </div>
       </Section>
 
-      <Section id="how-it-works" eyebrow="How it works" title="From WhatsApp request to managed cargo workflow">
-        <div className="grid gap-4 md:grid-cols-3">
+      <Section
+        id="how-it-works"
+        centered
+        title="Mise en place simple et rapide."
+      >
+        <div className="relative mx-auto mt-6 grid max-w-6xl gap-4 md:grid-cols-5">
+          <div className="absolute left-0 right-0 top-8 hidden h-1 bg-[#E8FFF3] md:block" />
           {steps.map((step, index) => (
-            <div
-              key={step}
-              className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-black text-white">
+            <div key={step} className="relative rounded-[24px] border border-slate-200 bg-white p-5 text-center shadow-sm">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#12C76F] text-sm font-bold text-white">
                 {index + 1}
               </div>
-              <div className="mt-5 text-lg font-black text-slate-950">
+              <div className="mt-4 text-sm font-bold text-slate-700">
                 {step}
               </div>
             </div>
@@ -425,208 +435,259 @@ export function LandingPageClient() {
         </div>
       </Section>
 
-      <Section id="benefits" eyebrow="Benefits" title="Give your agency an operating backbone">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {benefits.map((benefit) => (
-            <div
-              key={benefit}
-              className="flex items-center gap-3 rounded-3xl border border-emerald-100 bg-emerald-50 p-5 text-sm font-black text-emerald-800"
-            >
-              <CheckCircle2 size={18} />
-              {benefit}
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section
-        id="testimonials"
-        eyebrow="Testimonials"
-        title="Real agencies only"
-        description="No invented quotes. This section is connected to real testimonial data."
-      >
-        {testimonials.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-3">
-            {testimonials.map((item) => (
-              <div
-                key={`${item.agency_name}-${item.owner_name}`}
-                className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
-              >
-                <p className="text-sm leading-7 text-slate-600">“{item.quote}”</p>
-                <div className="mt-5 font-black text-slate-950">
-                  {item.agency_name}
-                </div>
-                <div className="text-sm text-slate-500">
-                  {item.country}
-                  {item.owner_name ? ` · ${item.owner_name}` : ""}
-                </div>
+      <section className="bg-[#F8FAFC] py-24 md:py-32">
+        <div className="mx-auto max-w-[1180px] px-6">
+          <div className="grid gap-5 md:grid-cols-4">
+            {stats.map(([value, label]) => (
+              <div key={label} className="rounded-[28px] border border-slate-200 bg-white p-7">
+                <div className="text-5xl font-bold tracking-tight">{value}</div>
+                <div className="mt-2 font-semibold text-slate-500">{label}</div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="rounded-[2rem] border border-dashed border-slate-300 bg-slate-50 p-8 text-sm font-semibold leading-7 text-slate-600">
-            Testimonials will be published after verified production pilots.
-            No fake agency quote is displayed.
+          <div className="mt-8 rounded-[32px] border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+            Les témoignages et études de cas vérifiés seront publiés après les
+            premiers déploiements Founding Partners.
           </div>
-        )}
-      </Section>
-
-      <Section id="pricing" eyebrow="Pricing" title="Choose the package that fits your agency">
-        <div className="grid gap-5 lg:grid-cols-3">
-          {orderedPricing.map((plan) => (
-            <PricingCard key={plan.code} plan={plan} />
-          ))}
-          {!loading && orderedPricing.length === 0 && (
-            <div className="col-span-full rounded-[2rem] border border-dashed border-slate-300 bg-slate-50 p-8 text-sm font-semibold text-slate-600">
-              Pricing is connected to the backend catalog and waiting for
-              published plans.
-            </div>
-          )}
-        </div>
-      </Section>
-
-      <Section id="faq" eyebrow="FAQ" title="Questions agencies ask before starting">
-        <div className="grid gap-4 lg:grid-cols-2">
-          {faqs.map(([question, answer]) => (
-            <div
-              key={question}
-              className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-center gap-3 font-black text-slate-950">
-                <HelpCircle size={18} className="text-emerald-600" />
-                {question}
-              </div>
-              <p className="mt-3 text-sm leading-7 text-slate-500">{answer}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <section id="demo" className="bg-slate-950 py-20 text-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
-              <Sparkles size={14} />
-              Final CTA
-            </div>
-            <h2 className="mt-6 text-4xl font-black tracking-tight md:text-6xl">
-              Ready To Modernize Your Cargo Operations?
-            </h2>
-            <p className="mt-5 max-w-xl text-base leading-8 text-slate-300">
-              Start with a free trial or book a guided demo with the SLAIVIO
-              team.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/sign-up"
-                className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-600"
-              >
-                Start Free Trial
-              </Link>
-              <a
-                href="#demo-form"
-                className="rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-sm font-black text-white"
-              >
-                Book Demo
-              </a>
-            </div>
-          </div>
-
-          <form
-            id="demo-form"
-            onSubmit={submitDemoRequest}
-            className="rounded-[2rem] border border-white/10 bg-white p-6 text-slate-950 shadow-2xl"
-          >
-            <h3 className="text-2xl font-black">Book a product demo</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Tell us about your agency. We’ll help you see if SLAIVIO fits
-              your operation.
-            </p>
-            <div className="mt-6 grid gap-3 md:grid-cols-2">
-              <Input name="full_name" label="Full name" required />
-              <Input name="email" label="Work email" type="email" required />
-              <Input name="agency_name" label="Agency name" />
-              <Input name="phone" label="WhatsApp / phone" />
-              <Input name="country" label="Country" />
-              <Input name="monthly_shipments" label="Monthly shipments" />
-            </div>
-            <label className="mt-3 block">
-              <span className="text-sm font-black text-slate-700">Message</span>
-              <textarea
-                name="message"
-                className="mt-2 min-h-[110px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-              />
-            </label>
-            <button className="mt-4 w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white">
-              Send Demo Request
-            </button>
-            {demoStatus && (
-              <div className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm font-black text-emerald-700">
-                {demoStatus}
-              </div>
-            )}
-          </form>
         </div>
       </section>
 
-      <footer className="border-t border-slate-200 bg-white py-10">
-        <div className="mx-auto grid max-w-7xl gap-8 px-5 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
-          <div>
-            <div className="flex items-center gap-3">
-              <Image
-                src="/slaivio-mark.png"
-                alt="SLAIVIO"
-                width={42}
-                height={42}
-                className="rounded-2xl"
-              />
-              <div>
-                <div className="font-black">SLAIVIO</div>
-                <div className="text-xs font-black uppercase tracking-[0.22em] text-emerald-600">
-                  Cargo OS
+      <section className="bg-[#0B7A45] py-24 text-white md:py-32">
+        <div className="mx-auto max-w-[1180px] px-6 text-center">
+          <h2 className="text-4xl font-bold tracking-tight md:text-6xl">
+            Accompagnement jusqu&apos;à l&apos;adoption réelle.
+          </h2>
+          <p className="mx-auto mt-6 max-w-3xl text-lg leading-9 text-emerald-50">
+            Nous ne vendons pas simplement un logiciel. Nous vous accompagnons
+            jusqu&apos;à ce que votre équipe l&apos;utilise réellement dans ses
+            opérations quotidiennes.
+          </p>
+          <div className="mt-12 grid gap-4 md:grid-cols-5">
+            {["Déploiement", "Formation", "Configuration", "Support", "Adoption"].map(
+              (item) => (
+                <div key={item} className="rounded-2xl border border-white/15 bg-white/10 p-5 font-bold">
+                  {item}
                 </div>
+              )
+            )}
+          </div>
+        </div>
+      </section>
+
+      <Section
+        id="founding"
+        title="Programme Founding Partners"
+        description="Réservé aux 10 premières agences cargo qui veulent participer à la construction du premier Operating System dédié aux agences cargo africaines."
+      >
+        <div className="rounded-[36px] bg-slate-950 p-8 text-white md:p-12">
+          <div className="grid gap-8 lg:grid-cols-[0.7fr_0.3fr] lg:items-center">
+            <div>
+              <Badge dark>Places restantes : 10</Badge>
+              <h3 className="mt-6 text-4xl font-bold tracking-tight">
+                Devenez agence fondatrice SLAIVIO.
+              </h3>
+              <div className="mt-8 grid gap-4 md:grid-cols-2">
+                {[
+                  "Tarif fondateur à vie",
+                  "Accompagnement prioritaire",
+                  "Accès anticipé",
+                  "Participation à la roadmap",
+                  "Badge Founding Partner",
+                ].map((item) => (
+                  <div key={item} className="flex items-center gap-3 text-sm font-bold text-slate-200">
+                    <Check size={17} className="text-[#12C76F]" />
+                    {item}
+                  </div>
+                ))}
               </div>
             </div>
-            <p className="mt-4 max-w-sm text-sm leading-7 text-slate-500">
-              Enterprise cargo operating system for freight and import/export
-              agencies.
-            </p>
+            <a
+              href="#demo"
+              className="inline-flex h-14 items-center justify-center rounded-[14px] bg-[#12C76F] px-6 text-sm font-bold text-white transition hover:scale-[1.02]"
+            >
+              Rejoindre le programme
+            </a>
           </div>
-
-          <FooterColumn title="Company" links={["About", "Contact", "LinkedIn", "Facebook"]} />
-          <FooterColumn title="Product" links={["Features", "Documentation", "Pricing"]} />
-          <FooterColumn title="Legal" links={["Privacy", "Terms"]} />
         </div>
-      </footer>
+      </Section>
+
+      <Section id="pricing" title="Tarification">
+        <div className="grid gap-5 lg:grid-cols-4">
+          {pricing.map((plan) => (
+            <div
+              key={plan.name}
+              className={`rounded-[30px] border p-7 ${
+                plan.highlight
+                  ? "border-[#12C76F] bg-[#E8FFF3] shadow-[0_24px_70px_rgba(18,199,111,0.18)]"
+                  : "border-slate-200 bg-white"
+              }`}
+            >
+              <div className="text-sm font-bold uppercase tracking-[0.18em] text-[#0B7A45]">
+                {plan.name}
+              </div>
+              <div className="mt-5 text-4xl font-bold tracking-tight">
+                {plan.price}
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-500">
+                /mois
+              </div>
+              <p className="mt-6 min-h-16 text-sm leading-7 text-slate-600">
+                {plan.value}
+              </p>
+              <div className="mt-6 rounded-2xl bg-white/70 p-4 text-sm font-bold text-[#0B7A45]">
+                Offre fondateur : {plan.founder}
+              </div>
+              <Link
+                href="/sign-up"
+                className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-[14px] bg-slate-950 text-sm font-bold text-white"
+              >
+                Commencer
+              </Link>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="faq" title="Questions fréquentes">
+        <div className="mx-auto max-w-4xl divide-y divide-slate-200 rounded-[30px] border border-slate-200 bg-white">
+          {faqs.map(([question, answer]) => (
+            <details key={question} className="group p-6">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-lg font-bold">
+                {question}
+                <ChevronDown className="transition group-open:rotate-180" size={20} />
+              </summary>
+              <p className="mt-4 text-base leading-8 text-slate-500">{answer}</p>
+            </details>
+          ))}
+        </div>
+      </Section>
+
+      <section id="demo" className="px-6 pb-24">
+        <div className="mx-auto max-w-[1180px] rounded-[42px] bg-[linear-gradient(135deg,#0B7A45,#12C76F)] p-8 text-white md:p-14">
+          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <h2 className="text-4xl font-bold tracking-tight md:text-6xl">
+                Prêt à moderniser votre agence cargo ?
+              </h2>
+              <p className="mt-6 text-lg leading-9 text-emerald-50">
+                Demandez une démonstration personnalisée et voyons comment
+                SLAIVIO peut structurer vos opérations.
+              </p>
+              <a
+                href="https://wa.me/"
+                className="mt-8 inline-flex h-14 items-center justify-center rounded-[14px] border border-white/20 bg-white/10 px-6 text-sm font-bold text-white"
+              >
+                WhatsApp
+              </a>
+            </div>
+
+            <form
+              onSubmit={submitDemoRequest}
+              className="rounded-[30px] bg-white p-6 text-slate-950 shadow-2xl"
+            >
+              <h3 className="text-2xl font-bold">Réserver une démo</h3>
+              <div className="mt-6 grid gap-3 md:grid-cols-2">
+                <Input name="full_name" label="Nom complet" required />
+                <Input name="email" label="Email" type="email" required />
+                <Input name="agency_name" label="Agence" />
+                <Input name="phone" label="WhatsApp" />
+                <Input name="country" label="Pays" />
+                <Input name="monthly_shipments" label="Colis par mois" />
+              </div>
+              <label className="mt-3 block">
+                <span className="text-sm font-bold text-slate-700">Message</span>
+                <textarea
+                  name="message"
+                  className="mt-2 min-h-[110px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-[#12C76F] focus:ring-4 focus:ring-emerald-100"
+                />
+              </label>
+              <button className="mt-4 h-14 w-full rounded-[14px] bg-slate-950 text-sm font-bold text-white">
+                Envoyer la demande
+              </button>
+              {demoStatus && (
+                <div className="mt-4 rounded-2xl bg-[#E8FFF3] p-3 text-sm font-bold text-[#0B7A45]">
+                  {demoStatus}
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
     </main>
+  );
+}
+
+function Header() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-6 px-6 py-4">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/slaivio-mark.png"
+            alt="SLAIVIO"
+            width={42}
+            height={42}
+            className="rounded-2xl"
+          />
+          <div>
+            <div className="text-xl font-bold tracking-tight">SLAIVIO</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#12C76F]">
+              Cargo OS
+            </div>
+          </div>
+        </Link>
+
+        <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-600 lg:flex">
+          <a href="#features">Fonctionnalités</a>
+          <a href="#solutions">Solutions</a>
+          <a href="#pricing">Tarifs</a>
+          <a href="#faq">Ressources</a>
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/sign-in"
+            className="hidden text-sm font-bold text-slate-700 md:inline-flex"
+          >
+            Connexion
+          </Link>
+          <a
+            href="#demo"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] bg-slate-950 px-5 text-sm font-bold text-white transition hover:-translate-y-0.5"
+          >
+            Demander une démo
+            <ArrowRight size={16} />
+          </a>
+        </div>
+      </div>
+    </header>
   );
 }
 
 function Section({
   id,
-  eyebrow,
   title,
   description,
+  centered = false,
   children,
 }: {
   id: string;
-  eyebrow: string;
   title: string;
   description?: string;
+  centered?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="py-20">
-      <div className="mx-auto max-w-7xl px-5">
-        <div className="mb-10 max-w-3xl">
-          <div className="text-xs font-black uppercase tracking-[0.22em] text-emerald-600">
-            {eyebrow}
-          </div>
-          <h2 className="mt-3 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">
+    <section id={id} className="bg-white py-24 md:py-32">
+      <div className="mx-auto max-w-[1180px] px-6">
+        <div className={`mb-14 max-w-3xl ${centered ? "mx-auto text-center" : ""}`}>
+          <h2 className="text-4xl font-bold leading-tight tracking-[-0.04em] text-slate-950 md:text-5xl">
             {title}
           </h2>
           {description && (
-            <p className="mt-4 text-base leading-8 text-slate-500">
+            <p className="mt-5 text-lg leading-9 text-slate-500">
               {description}
             </p>
           )}
@@ -637,79 +698,48 @@ function Section({
   );
 }
 
-function ProblemCard({ title }: { title: string }) {
+function Badge({
+  children,
+  dark = false,
+}: {
+  children: React.ReactNode;
+  dark?: boolean;
+}) {
   return (
-    <div className="rounded-[1.5rem] border border-red-100 bg-red-50 p-5 text-sm font-black text-red-800">
-      {title}
+    <div
+      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] ${
+        dark
+          ? "border-white/10 bg-white/10 text-emerald-200"
+          : "border-emerald-200 bg-[#E8FFF3] text-[#0B7A45]"
+      }`}
+    >
+      <Sparkles size={14} />
+      {children}
     </div>
   );
 }
 
-function SolutionCard({ title }: { title: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-[1.5rem] border border-slate-200 bg-white p-5 text-sm font-black text-slate-800 shadow-sm">
-      <PackageCheck size={18} className="text-emerald-600" />
-      {title}
-    </div>
-  );
-}
-
-function FeatureCard({
+function FloatingCard({
   title,
-  description,
+  icon,
+  className,
+  delay = false,
 }: {
   title: string;
-  description: string;
+  icon: React.ReactNode;
+  className: string;
+  delay?: boolean;
 }) {
-  const icons = [MessageCircle, Truck, Warehouse, CreditCard, FileText, SearchCheck, Boxes, ClipboardCheck, ShieldCheck];
-  const Icon = icons[title.length % icons.length];
-
   return (
-    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
-        <Icon size={18} />
+    <div
+      className={`absolute hidden items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800 shadow-[0_20px_60px_rgba(15,23,42,0.16)] lg:flex ${className} ${
+        delay ? "animate-[slaivioFloat_8s_ease-in-out_1.5s_infinite]" : "animate-[slaivioFloat_8s_ease-in-out_infinite]"
+      }`}
+    >
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E8FFF3] text-[#0B7A45]">
+        {icon}
       </div>
-      <h3 className="mt-5 text-lg font-black text-slate-950">{title}</h3>
-      <p className="mt-2 text-sm leading-7 text-slate-500">{description}</p>
-    </div>
-  );
-}
-
-function PricingCard({ plan }: { plan: LandingPricingPlan }) {
-  const price = `${plan.currency_code} ${(plan.monthly_price_minor / 100).toFixed(0)}`;
-
-  return (
-    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="text-2xl font-black text-slate-950">{plan.name}</div>
-      <p className="mt-2 min-h-[56px] text-sm leading-7 text-slate-500">
-        {plan.description}
-      </p>
-      <div className="mt-6 flex items-end gap-2">
-        <span className="text-4xl font-black">{price}</span>
-        <span className="pb-1 text-sm font-semibold text-slate-500">/ month</span>
-      </div>
-      <div className="mt-6 space-y-3 text-sm font-semibold text-slate-700">
-        <PlanLine label={`${plan.max_users || "Unlimited"} users`} />
-        <PlanLine label={`${plan.max_whatsapp_numbers || "Unlimited"} WhatsApp number(s)`} />
-        <PlanLine label={`${plan.max_monthly_messages || "Unlimited"} monthly messages`} />
-        <PlanLine label={plan.ai_enabled ? "AI enabled" : "AI not included"} />
-        <PlanLine label={plan.multi_number_enabled ? "Multi-number enabled" : "Single-number workflow"} />
-      </div>
-      <Link
-        href="/sign-up"
-        className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
-      >
-        Start Free Trial
-      </Link>
-    </div>
-  );
-}
-
-function PlanLine({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <CheckCircle2 size={17} className="text-emerald-600" />
-      {label}
+      {title}
     </div>
   );
 }
@@ -727,14 +757,49 @@ function Input({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-black text-slate-700">{label}</span>
+      <span className="text-sm font-bold text-slate-700">{label}</span>
       <input
         name={name}
         type={type}
         required={required}
-        className="mt-2 min-h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+        className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none focus:border-[#12C76F] focus:ring-4 focus:ring-emerald-100"
       />
     </label>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-slate-200 bg-white py-12">
+      <div className="mx-auto grid max-w-[1180px] gap-10 px-6 md:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr]">
+        <div>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/slaivio-mark.png"
+              alt="SLAIVIO"
+              width={42}
+              height={42}
+              className="rounded-2xl"
+            />
+            <div>
+              <div className="font-bold">SLAIVIO</div>
+              <div className="text-xs font-bold uppercase tracking-[0.22em] text-[#12C76F]">
+                Cargo OS
+              </div>
+            </div>
+          </div>
+          <p className="mt-5 max-w-sm text-sm leading-7 text-slate-500">
+            L&apos;Operating System des agences cargo modernes.
+          </p>
+          <p className="mt-4 text-sm font-semibold text-slate-500">
+            Copyright SLAIVIO
+          </p>
+        </div>
+        <FooterColumn title="Contact" links={["Email", "WhatsApp", "Site Web"]} />
+        <FooterColumn title="Réseaux" links={["LinkedIn", "Facebook", "YouTube"]} />
+        <FooterColumn title="Légal" links={["Politique de confidentialité", "Conditions d'utilisation"]} />
+      </div>
+    </footer>
   );
 }
 
@@ -747,7 +812,7 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <div className="text-sm font-black text-slate-950">{title}</div>
+      <div className="text-sm font-bold text-slate-950">{title}</div>
       <div className="mt-4 space-y-3">
         {links.map((link) => (
           <a

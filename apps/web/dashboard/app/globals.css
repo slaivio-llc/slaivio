@@ -146,3 +146,26 @@ body {
 .slaivo-auth-panel .cl-formButtonPrimary {
   min-height: 46px !important;
 }
+
+@keyframes slaivioReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slaivioFloat {
+  0%,
+  100% {
+    transform: translateY(-8px);
+  }
+
+  50% {
+    transform: translateY(8px);
+  }
+}

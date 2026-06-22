@@ -169,3 +169,148 @@ body {
     transform: translateY(8px);
   }
 }
+
+@keyframes slaivioLogoMarquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes slaivioProgress {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes slaivioCtaGlow {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.landing-reveal,
+.landing-dashboard-reveal {
+  opacity: 0;
+  transform: translateY(34px);
+  transition:
+    opacity 700ms ease,
+    transform 700ms ease;
+}
+
+.landing-dashboard-reveal {
+  transform: translateY(28px) scale(0.95);
+  transition-duration: 900ms;
+}
+
+.landing-reveal.is-visible,
+.landing-dashboard-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.landing-card,
+.landing-button,
+.landing-social,
+.landing-icon {
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease;
+}
+
+.landing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 55px rgba(15, 23, 42, 0.1);
+}
+
+.landing-card:hover .landing-icon {
+  transform: scale(1.05);
+}
+
+.landing-button:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 14px 34px rgba(18, 199, 111, 0.18);
+}
+
+.landing-pricing-card:hover {
+  transform: translateY(-4px);
+}
+
+.landing-logo-track {
+  animation: slaivioLogoMarquee 28s linear infinite;
+}
+
+.landing-progress-line {
+  transform-origin: left;
+  animation: slaivioProgress 1.4s ease-out both;
+}
+
+.landing-parallax img {
+  transform: scale(1.04);
+  transition: transform 1.2s ease;
+}
+
+.landing-parallax.is-visible img {
+  transform: scale(1);
+}
+
+.landing-cta {
+  background: linear-gradient(120deg, #075f38, #12c76f, #0b7a45);
+  background-size: 180% 180%;
+  animation: slaivioCtaGlow 12s ease-in-out infinite;
+}
+
+.landing-footer-link {
+  position: relative;
+  width: fit-content;
+}
+
+.landing-footer-link::after {
+  position: absolute;
+  right: 0;
+  bottom: -3px;
+  left: 0;
+  height: 1px;
+  content: "";
+  background: #75c557;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 220ms ease;
+}
+
+.landing-footer-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+.landing-social:hover {
+  transform: scale(1.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal,
+  .landing-dashboard-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .landing-logo-track,
+  .landing-progress-line,
+  .landing-cta {
+    animation: none;
+  }
+}

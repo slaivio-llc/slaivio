@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { motion, useReducedMotion } from "framer-motion";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -9,11 +10,14 @@ import {
   Check,
   ChevronDown,
   FileText,
+  Facebook,
   Globe2,
   Headphones,
+  Linkedin,
   Mail,
   MessageCircle,
   ShieldCheck,
+  Youtube,
 } from "lucide-react";
 
 import { createDemoRequest } from "@/services/landing";
@@ -136,9 +140,20 @@ const testimonials = [
 ];
 
 const countries = ["RDC", "Cameroun", "Côte d'Ivoire", "Ghana", "Kenya", "Zimbabwe", "Sénégal"];
+const countryFlags = ["🇨🇩", "🇨🇲", "🇨🇮", "🇬🇭", "🇰🇪", "🇿🇼", "🇸🇳"];
+
+const operationalProblems = [
+  ["WhatsApp dispersé", "Les conversations sont éparpillées et difficiles à retrouver."],
+  ["Excel partout", "Les données sont réparties dans plusieurs fichiers, sources d'erreurs."],
+  ["Relances oubliées", "Les suivis manuels entraînent des retards et des opportunités perdues."],
+  ["Colis difficiles à suivre", "Les équipes manquent de visibilité sur les statuts en temps réel."],
+  ["Trop de tâches manuelles", "Les opérations répétitives ralentissent la croissance de l'agence."],
+];
 
 export function LandingPageClient() {
   const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [locale, setLocale] = useState<"fr" | "en">("fr");
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const elements = document.querySelectorAll<HTMLElement>("[data-reveal]");
@@ -158,35 +173,43 @@ export function LandingPageClient() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-white text-[#07111f]">
-      <Header />
+      <Header locale={locale} onLocaleChange={setLocale} />
 
       <section className="relative overflow-hidden bg-[#02080d] pb-28 pt-20 text-white md:pt-28">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_48%,rgba(0,206,103,0.20),transparent_38rem),linear-gradient(rgba(255,255,255,0.018)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:auto,44px_44px,44px_44px]" />
         <div className="relative mx-auto max-w-[1240px] px-5 text-center md:px-8">
-          <h1
-            data-reveal
-            className="landing-reveal mx-auto max-w-4xl text-5xl font-bold leading-[1.04] tracking-[-0.055em] md:text-7xl"
+          <motion.h1
+            initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.65, ease: "easeOut" }}
+            className="mx-auto max-w-4xl text-5xl font-bold leading-[1.04] tracking-[-0.055em] md:text-7xl"
           >
-            L&apos;Operating System
+            {locale === "fr" ? "L'Operating System" : "The Operating System"}
             <span className="block">
-              des <span className="text-[#00C96B]">Agences Cargo</span>
+              {locale === "fr" ? "des" : "for"} <span className="text-[#12C76F]">{locale === "fr" ? "Agences Cargo" : "Cargo Agencies"}</span>
             </span>
-          </h1>
+          </motion.h1>
           <p
             data-reveal
             className="landing-reveal mx-auto mt-7 max-w-2xl text-lg leading-8 text-slate-300"
           >
-            Automatisez vos opérations, centralisez vos données et développez
-            votre agence sans augmenter votre charge opérationnelle.
+            {locale === "fr"
+              ? "Automatisez vos opérations, centralisez vos données et développez votre agence sans augmenter votre charge opérationnelle."
+              : "Automate operations, centralize data and grow your agency without increasing its operational workload."}
           </p>
           <p
             data-reveal
             className="landing-reveal mx-auto mt-3 max-w-3xl leading-7 text-slate-400"
           >
-            Transformez votre agence cargo fonctionnant sur WhatsApp et Excel
-            en une entreprise moderne, automatisée et pilotée par la donnée.
+            {locale === "fr"
+              ? "Transformez votre agence cargo fonctionnant sur WhatsApp et Excel en une entreprise moderne, automatisée et pilotée par la donnée."
+              : "Turn a cargo agency running on WhatsApp and Excel into a modern, automated and data-driven company."}
           </p>
           <div
             data-reveal
@@ -196,20 +219,23 @@ export function LandingPageClient() {
               href="#demo"
               className="landing-button inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-[#00C96B] px-7 text-sm font-bold text-white shadow-[0_16px_50px_rgba(0,201,107,0.30)]"
             >
-              Demander une démo <ArrowRight size={17} />
+              {locale === "fr" ? "Demander une démo" : "Request a demo"} <ArrowRight size={17} />
             </a>
             <a
               href="#contact"
               className="landing-button inline-flex h-14 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/[0.04] px-7 text-sm font-bold text-white"
             >
-              <MessageCircle size={17} /> Parler à un conseiller
+              <MessageCircle size={17} /> {locale === "fr" ? "Parler à un conseiller" : "Talk to an advisor"}
             </a>
           </div>
 
           <div className="relative mx-auto mt-12 max-w-[1060px] pb-16 lg:pb-32">
-            <div
-              data-reveal
-              className="landing-dashboard-reveal overflow-hidden rounded-[28px] border border-emerald-400/25 bg-[#061018] p-2 shadow-[0_0_100px_rgba(0,201,107,0.24)]"
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, amount: 0.25 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="overflow-hidden rounded-[28px] border border-emerald-400/25 bg-[#061018] p-2 shadow-[0_0_100px_rgba(0,201,107,0.24)]"
             >
               <Image
                 src={`${official}/hero-dashboard.png`}
@@ -219,7 +245,7 @@ export function LandingPageClient() {
                 priority
                 className="h-auto w-full rounded-[22px]"
               />
-            </div>
+            </motion.div>
             <OfficialFloatingCard
               src={`${official}/card-package.png`}
               alt="Nouveau colis reçu"
@@ -253,13 +279,9 @@ export function LandingPageClient() {
         muted
       />
 
-      <ExactVisualSection
-        id="problem"
-        src={`${official}/problem.png`}
-        alt="Les problèmes opérationnels actuels des agences cargo selon la maquette officielle"
-      />
+      <ProblemSection />
 
-      <section id="transformation" className="bg-[#f8fbf9] py-24 md:py-32">
+      <section id="transformation" className="bg-[#f8fbf9] py-24">
         <div className="mx-auto max-w-[1240px] px-5 md:px-8">
           <SectionHeading
             eyebrow="La transformation"
@@ -308,7 +330,7 @@ export function LandingPageClient() {
         </div>
       </section>
 
-      <section id="dashboard" className="bg-white py-24 md:py-32">
+      <section id="dashboard" className="bg-white py-24">
         <div className="mx-auto max-w-[1240px] px-5 md:px-8">
           <SectionHeading
             eyebrow="Dashboard & opérations"
@@ -319,13 +341,26 @@ export function LandingPageClient() {
             data-reveal
             className="landing-dashboard-reveal mt-12 rounded-[30px] border border-slate-200 bg-white p-3 shadow-[0_32px_90px_rgba(15,23,42,0.12)]"
           >
-            <Image
-              src={`${official}/hero-dashboard.png`}
-              alt="Dashboard et opérations SLAIVIO"
-              width={1536}
-              height={1024}
-              className="h-auto w-full rounded-[24px]"
-            />
+            <div className="grid overflow-hidden rounded-[24px] border border-slate-100 bg-[#f8faf9] lg:grid-cols-[230px_1fr]">
+              <aside className="border-b border-slate-200 bg-[#020807] p-5 text-white lg:border-b-0 lg:border-r">
+                <div className="mb-6 flex items-center gap-3">
+                  <Image src="/slaivio-mark.png" alt="" width={34} height={34} className="rounded-lg" />
+                  <span className="font-bold">SLAIVIO</span>
+                </div>
+                <nav aria-label="Menu du dashboard SLAIVIO" className="grid grid-cols-2 gap-1 text-xs text-white/65 sm:grid-cols-3 lg:grid-cols-1">
+                  {["Dashboard", "Clients", "Dossiers", "Colis", "Expéditions", "Tracking", "WhatsApp Inbox", "Entrepôts", "Tarification", "Paramètres"].map((item, index) => (
+                    <div key={item} className={`rounded-lg px-3 py-2.5 ${index === 0 ? "bg-[#12C76F] font-bold text-white" : ""}`}>{item}</div>
+                  ))}
+                </nav>
+              </aside>
+              <Image
+                src={`${official}/hero-dashboard.png`}
+                alt="Dashboard et opérations SLAIVIO"
+                width={1536}
+                height={1024}
+                className="h-full w-full object-cover"
+              />
+            </div>
           </div>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {["Dashboard", "Tracking", "Inbox WhatsApp", "Shipments", "Analytics"].map(
@@ -345,7 +380,7 @@ export function LandingPageClient() {
         </div>
       </section>
 
-      <section id="social-proof" className="bg-[#f8fbf9] py-24 md:py-32">
+      <section id="social-proof" className="bg-[#f8fbf9] py-24">
         <div className="mx-auto max-w-[1240px] px-5 md:px-8">
           <SectionHeading
             eyebrow="Preuves sociales"
@@ -429,7 +464,7 @@ export function LandingPageClient() {
                 className="landing-reveal rounded-xl border border-slate-100 p-4 text-center text-sm font-bold"
                 style={{ transitionDelay: `${index * 55}ms` }}
               >
-                <Globe2 className="mx-auto mb-2 text-[#00A957]" size={20} />
+                <span className="mb-2 block text-2xl" aria-hidden="true">{countryFlags[index]}</span>
                 {country}
               </div>
             ))}
@@ -437,7 +472,7 @@ export function LandingPageClient() {
         </div>
       </section>
 
-      <section id="pricing" className="relative overflow-hidden bg-[#02080d] py-24 text-white md:py-32">
+      <section id="pricing" className="relative overflow-hidden bg-[#02080d] py-24 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(0,201,107,0.18),transparent_28rem),radial-gradient(circle_at_90%_55%,rgba(0,201,107,0.12),transparent_30rem)]" />
         <div className="relative mx-auto max-w-[1240px] px-5 md:px-8">
           <SectionHeading
@@ -505,7 +540,7 @@ export function LandingPageClient() {
         </div>
       </section>
 
-      <section id="faq" className="bg-white py-24 md:py-32">
+      <section id="faq" className="bg-white py-24">
         <div className="mx-auto max-w-[1040px] px-5 md:px-8">
           <SectionHeading
             eyebrow="FAQ"
@@ -537,7 +572,13 @@ export function LandingPageClient() {
   );
 }
 
-function Header() {
+function Header({
+  locale,
+  onLocaleChange,
+}: {
+  locale: "fr" | "en";
+  onLocaleChange: (locale: "fr" | "en") => void;
+}) {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[#02080d]/90 text-white backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-5 px-5 py-4 md:px-8">
@@ -552,6 +593,11 @@ function Header() {
           <a href="#faq">Ressources</a>
         </nav>
         <div className="flex items-center gap-4">
+          <div role="group" className="hidden items-center rounded-lg border border-white/10 bg-white/[0.04] p-1 text-xs font-bold sm:flex" aria-label="Choisir la langue">
+            <button type="button" aria-pressed={locale === "fr"} onClick={() => onLocaleChange("fr")} className={`rounded-md px-2 py-1.5 ${locale === "fr" ? "bg-white text-[#020807]" : "text-white/65"}`}>FR</button>
+            <span className="text-white/20">|</span>
+            <button type="button" aria-pressed={locale === "en"} onClick={() => onLocaleChange("en")} className={`rounded-md px-2 py-1.5 ${locale === "en" ? "bg-white text-[#020807]" : "text-white/65"}`}>EN</button>
+          </div>
           <Link href="/sign-in" className="hidden text-sm font-bold sm:inline-flex">Connexion</Link>
           <a href="#demo" className="landing-button inline-flex h-11 items-center gap-2 rounded-lg bg-[#00C96B] px-4 text-sm font-bold">
             Demander une démo <ArrowRight size={15} />
@@ -559,6 +605,60 @@ function Header() {
         </div>
       </div>
     </header>
+  );
+}
+
+function ProblemSection() {
+  return (
+    <section id="problem" className="border-t border-slate-100 bg-white py-24">
+      <div className="mx-auto grid max-w-[1240px] gap-12 px-5 md:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <div>
+          <div className="inline-flex rounded-full border border-red-200 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-red-600">Le problème</div>
+          <h2 className="mt-6 text-4xl font-bold leading-tight tracking-[-0.045em] md:text-6xl">
+            Votre agence grandit, mais vos opérations deviennent plus difficiles à gérer.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-slate-500">
+            Entre WhatsApp, Excel et les tâches manuelles, vos équipes perdent du temps et de la visibilité.
+          </p>
+          <div className="mt-8 space-y-3">
+            {operationalProblems.map(([title, description], index) => (
+              <motion.div
+                key={title}
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, amount: 0.4 }}
+                transition={{ duration: 0.45, delay: index * 0.07 }}
+                className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50 font-bold text-red-500" aria-hidden="true">×</span>
+                <span>
+                  <strong className="block text-slate-950">{title}</strong>
+                  <span className="mt-1 block text-sm leading-6 text-slate-500">{description}</span>
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+        <motion.figure
+          initial={{ opacity: 0, scale: 0.97 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="relative min-h-[430px] overflow-hidden rounded-[30px] bg-slate-100 shadow-[0_28px_80px_rgba(15,23,42,0.12)] md:min-h-[620px]"
+        >
+          <Image
+            src="/landing/real-cargo-team.jpg"
+            alt="Une équipe professionnelle travaillant ensemble dans un bureau"
+            fill
+            sizes="(max-width: 1024px) 100vw, 55vw"
+            className="object-cover"
+          />
+          <figcaption className="absolute inset-x-5 bottom-5 rounded-2xl border border-white/25 bg-[#020807]/80 p-5 text-sm leading-6 text-white backdrop-blur-md">
+            Des informations dispersées ralentissent les équipes et rendent chaque décision plus difficile.
+          </figcaption>
+        </motion.figure>
+      </div>
+    </section>
   );
 }
 
@@ -576,9 +676,15 @@ function ExactVisualSection({
   return (
     <section id={id} className={`py-10 md:py-16 ${muted ? "bg-[#f8fbf9]" : "bg-white"}`}>
       <div className="mx-auto max-w-[1536px] px-2 md:px-6">
-        <div data-reveal className="landing-reveal overflow-hidden rounded-[18px] bg-white">
-          <Image src={src} alt={alt} width={1536} height={1024} className="h-auto w-full" />
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.65, ease: "easeOut" }}
+          className="overflow-hidden rounded-[18px] bg-white"
+        >
+          <Image src={src} alt={alt} width={1536} height={1024} sizes="100vw" className="h-auto w-full" />
+        </motion.div>
       </div>
     </section>
   );
@@ -596,15 +702,13 @@ function OfficialFloatingCard({
   delay?: boolean;
 }) {
   return (
-    <div
-      className={`absolute hidden w-[270px] overflow-hidden rounded-[28px] shadow-[0_24px_65px_rgba(0,0,0,0.38)] lg:block ${className} ${
-        delay
-          ? "animate-[slaivioFloat_8s_ease-in-out_1.5s_infinite]"
-          : "animate-[slaivioFloat_8s_ease-in-out_infinite]"
-      }`}
+    <motion.div
+      animate={{ y: delay ? [0, 8, 0] : [0, -8, 0] }}
+      transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: delay ? 1.5 : 0 }}
+      className={`absolute hidden w-[270px] overflow-hidden rounded-[28px] shadow-[0_24px_65px_rgba(0,0,0,0.38)] lg:block ${className}`}
     >
       <Image src={src} alt={alt} width={1536} height={1024} className="h-auto w-full" />
-    </div>
+    </motion.div>
   );
 }
 
@@ -661,7 +765,7 @@ function DemoSection() {
   }
 
   return (
-    <section id="demo" className="bg-white px-5 py-24 md:px-8">
+    <section id="demo" className="border-t border-slate-100 bg-white px-5 py-24 md:px-8">
       <div className="landing-cta mx-auto grid max-w-[1240px] overflow-hidden rounded-[36px] p-8 text-white md:p-14 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
         <div data-reveal className="landing-reveal self-center">
           <Image src="/slaivio-mark.png" alt="SLAIVIO" width={60} height={60} className="rounded-2xl" />
@@ -679,7 +783,7 @@ function DemoSection() {
           <DemoInput name="agency_name" label="Nom de l'agence" />
           <DemoInput name="phone" label="Téléphone / WhatsApp" />
           <DemoInput name="country" label="Pays" />
-          <DemoInput name="monthly_shipments" label="Expéditions par mois" />
+          <DemoInput name="monthly_shipments" label="Taille de l'agence" />
           <label className="sm:col-span-2">
             <span className="mb-2 block text-xs font-bold text-slate-600">Votre besoin</span>
             <textarea name="message" rows={4} className="slaivo-focus w-full rounded-xl border border-slate-200 px-4 py-3 text-sm" />
@@ -747,7 +851,7 @@ function Footer() {
   return (
     <footer id="contact" className="relative overflow-hidden border-t border-white/10 bg-[#02080d] py-16 text-white">
       <div className="absolute inset-x-0 bottom-0 h-44 bg-[radial-gradient(ellipse_at_bottom,rgba(0,201,107,0.24),transparent_65%)]" />
-      <div className="relative mx-auto grid max-w-[1240px] gap-10 px-5 md:px-8 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_1.2fr]">
+      <div className="relative mx-auto grid max-w-[1240px] gap-9 px-5 md:grid-cols-2 md:px-8 lg:grid-cols-[1.25fr_0.7fr_0.7fr_0.7fr_0.7fr]">
         <div>
           <div className="flex items-center gap-3">
             <Image src="/slaivio-mark.png" alt="SLAIVIO" width={44} height={44} className="rounded-xl" />
@@ -760,27 +864,17 @@ function Footer() {
             <div className="flex gap-3"><Headphones className="text-[#75c557]" size={18} />Support dédié</div>
           </div>
         </div>
-        <FooterColumn title="Plateforme" links={["Fonctionnalités", "Tarification", "Intégrations", "Sécurité", "Mises à jour"]} />
-        <FooterColumn title="Ressources" links={["Documentation", "Guides", "FAQ", "Blog", "Statut système"]} />
-        <FooterColumn title="Entreprise" links={["À propos", "Carrières", "Partenaires", "Contact", "Conditions d'utilisation"]} />
-        <div>
-          <div className="text-sm font-bold uppercase">Restons en contact</div>
-          <p className="mt-5 text-sm leading-7 text-slate-400">Recevez nos conseils et actualités pour développer votre agence cargo.</p>
-          <div className="mt-5 flex h-13 items-center rounded-lg border border-white/20 px-4">
-            <Mail size={17} className="text-slate-500" />
-            <input aria-label="Votre email" placeholder="Votre email" className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm outline-none" />
-          </div>
-          <button type="button" className="landing-button mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#75c557] px-4 py-4 text-sm font-bold">
-            S&apos;abonner <ArrowRight size={17} />
-          </button>
-        </div>
+        <FooterColumn title="Produit" links={["Fonctionnalités", "Tarification", "Intégrations", "Sécurité"]} />
+        <FooterColumn title="Ressources" links={["Documentation", "Guides", "FAQ", "Statut"]} />
+        <FooterColumn title="Entreprise" links={["À propos", "Partenaires", "Contact", "Carrières"]} />
+        <FooterColumn title="Légal" links={["Confidentialité", "Conditions", "Cookies", "Données"]} />
       </div>
       <div className="relative mx-auto mt-14 flex max-w-[1240px] flex-col items-center justify-between gap-5 border-t border-white/10 px-5 pt-8 text-sm text-slate-400 md:flex-row md:px-8">
-        <div>Disponible en <strong className="text-white">Français</strong></div>
+        <div><strong className="text-white">FR</strong> | EN</div>
         <div>© 2026 SLAIVIO. Tous droits réservés.</div>
         <div className="flex gap-3">
-          {[MessageCircle, Globe2, FileText].map((Icon, index) => (
-            <a key={index} href="#" aria-label={`Réseau social ${index + 1}`} className="landing-social flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
+          {[Linkedin, Facebook, MessageCircle, Youtube, Mail].map((Icon, index) => (
+            <a key={index} href="#" aria-label={["LinkedIn", "Facebook", "WhatsApp", "YouTube", "Email"][index]} className="landing-social flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
               <Icon size={17} />
             </a>
           ))}

@@ -17,19 +17,11 @@ const isPublicRoute = createRouteMatcher([
 
 export default hasClerkKey
   ? clerkMiddleware(async (auth, request) => {
-      if (request.nextUrl.pathname === "/") {
-        return NextResponse.rewrite(new URL("/landing", request.url));
-      }
-
       if (!isPublicRoute(request)) {
         await auth.protect();
       }
     })
-  : function middleware(request: NextRequest) {
-      if (request.nextUrl.pathname === "/") {
-        return NextResponse.rewrite(new URL("/landing", request.url));
-      }
-
+  : function middleware(_request: NextRequest) {
       return NextResponse.next();
     };
 

@@ -300,6 +300,99 @@ body {
   transform: scale(1.05);
 }
 
+.chrono-surface {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at 50% 75%, rgba(18, 199, 111, 0.12), transparent 32%),
+    #ffffff;
+  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.1);
+}
+
+.chrono-dots {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.12) 0.7px, transparent 0.7px);
+  background-size: 8px 8px;
+  mask-image: linear-gradient(to bottom, black, transparent 92%);
+}
+
+.chrono-grid {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.chrono-button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  padding: 0.75rem 1.15rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.chrono-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.1);
+}
+
+.chrono-input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 0.75rem 0.9rem;
+  color: #111827;
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.chrono-input:focus {
+  border-color: #12c76f;
+  box-shadow: 0 0 0 4px rgba(18, 199, 111, 0.12);
+}
+
+.chrono-input[aria-invalid="true"] {
+  border-color: #dc2626;
+}
+
+@keyframes slaivioOrbit {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes slaivioCounterOrbit {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.landing-orbit {
+  animation: slaivioOrbit 38s linear infinite;
+}
+
+.landing-counter-orbit {
+  animation: slaivioCounterOrbit 38s linear infinite;
+}
+
+@media (max-width: 767px) {
+  .chrono-surface {
+    border-radius: 22px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-reveal,
   .landing-dashboard-reveal {
@@ -310,7 +403,9 @@ body {
 
   .landing-logo-track,
   .landing-progress-line,
-  .landing-cta {
+  .landing-cta,
+  .landing-orbit,
+  .landing-counter-orbit {
     animation: none;
   }
 }

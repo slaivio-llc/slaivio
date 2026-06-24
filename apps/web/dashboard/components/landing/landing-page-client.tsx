@@ -154,13 +154,12 @@ export function LandingPageClient() {
 }
 
 function Header({ locale, setLocale, mobileMenu, setMobileMenu }: { locale: "fr" | "en"; setLocale: (value: "fr" | "en") => void; mobileMenu: boolean; setMobileMenu: (value: boolean) => void }) {
-  const links = [["Fonctionnalités", "#features"], ["Solutions", "#solutions"], ["Tarifs", "#pricing"], ["Ressources", "#faq"]];
+  const links = [["Fonctionnalités", "#features"], ["Solutions", "#solutions"], ["Ressources", "#faq"], ["Tarifs", "#pricing"]];
   return (
     <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-white/88 backdrop-blur-xl">
       <div className="mx-auto flex h-[72px] max-w-[1280px] items-center justify-between px-5 md:px-6">
-        <Link href="/" aria-label="Accueil SLAIVIO" className="flex items-center gap-3">
-          <Image src="/slaivio-mark.png" alt="" width={34} height={34} className="rounded-[10px]" priority />
-          <span className="text-lg font-semibold tracking-[-0.02em]">SLAIVIO</span>
+        <Link href="/" aria-label="Accueil SLAIVIO" className="flex h-[48px] w-[150px] items-center overflow-hidden">
+          <Image src="/landing/hero-slaivio-logo.png" alt="SLAIVIO" width={300} height={200} className="h-full w-full scale-[1.85] object-contain" priority />
         </Link>
         <nav aria-label="Navigation principale" className="hidden items-center gap-8 text-sm font-medium text-slate-600 lg:flex">
           {links.map(([label, href]) => <a key={href} href={href} className="transition hover:text-black">{label}</a>)}
@@ -237,9 +236,8 @@ function Hero() {
           <p className="mx-auto mt-6 max-w-[650px] text-base leading-7 text-slate-500 md:text-lg md:leading-8">
             Centralisez WhatsApp, les expéditions, les paiements, les bureaux et vos équipes dans une seule plateforme conçue pour les agences cargo modernes.
           </p>
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <div className="mt-8 flex justify-center">
             <a href="#demo" className="chrono-button bg-[#12C76F] text-white shadow-[0_16px_35px_rgba(18,199,111,.22)]">Demander une démo <ArrowRight size={16} /></a>
-            <a href="#contact" className="chrono-button border border-slate-200 bg-white">Parler à un conseiller</a>
           </div>
         </motion.div>
 

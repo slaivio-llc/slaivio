@@ -196,17 +196,45 @@ function Header({ locale, setLocale, mobileMenu, setMobileMenu }: { locale: "fr"
 function Hero() {
   return (
     <section className="px-3 pb-10 pt-3 md:px-6 md:pb-16">
-      <div className="chrono-surface relative mx-auto min-h-[680px] max-w-[1280px] overflow-hidden px-5 py-14 text-center sm:px-8 md:min-h-[790px] md:py-20">
-        <div className="chrono-dots absolute inset-0 opacity-60" />
-        <motion.div variants={reveal} initial="hidden" animate="visible" transition={{ duration: 0.7 }} className="relative z-10 mx-auto max-w-4xl">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white bg-white shadow-[0_14px_35px_rgba(15,23,42,.12)]">
-            <Image src="/slaivio-mark.png" alt="" width={38} height={38} className="rounded-xl" priority />
+      <div className="chrono-surface relative mx-auto max-w-[1280px] overflow-hidden px-5 py-14 text-center sm:px-8 lg:min-h-[760px] lg:px-10 lg:py-16">
+        <div className="chrono-dots absolute inset-0 opacity-70" />
+
+        <HeroVisualCard
+          src="/landing/hero-new-package.png"
+          alt="Nouveau colis reçu dans SLAIVIO"
+          className="-left-8 top-5 w-[300px] rotate-[-2.5deg]"
+          delay={0.15}
+        />
+        <HeroVisualCard
+          src="/landing/hero-shipment-arrived.png"
+          alt="Expédition arrivée à destination dans SLAIVIO"
+          className="-right-8 top-7 w-[300px] rotate-[2.5deg]"
+          delay={0.3}
+        />
+        <HeroVisualCard
+          src="/landing/hero-whatsapp.png"
+          alt="Réponse WhatsApp automatique dans SLAIVIO"
+          className="-bottom-24 -left-10 w-[340px] rotate-[2deg]"
+          delay={0.45}
+        />
+        <HeroVisualCard
+          src="/landing/hero-multi-country.png"
+          alt="Vue multi-pays des opérations SLAIVIO"
+          className="-bottom-24 -right-12 w-[350px] rotate-[-2deg]"
+          delay={0.6}
+        />
+
+        <motion.div variants={reveal} initial="hidden" animate="visible" transition={{ duration: 0.7 }} className="relative z-10 mx-auto max-w-[720px] lg:pt-16">
+          <div className="mx-auto flex h-[82px] w-[190px] items-center justify-center overflow-hidden rounded-[22px] border border-slate-100 bg-white shadow-[0_16px_38px_rgba(15,23,42,.11)]">
+            <Image src="/landing/hero-slaivio-logo.png" alt="SLAIVIO" width={300} height={200} className="h-full w-full scale-[1.8] object-contain" priority />
           </div>
-          <h1 className="mt-10 text-[clamp(2.5rem,6vw,5.25rem)] font-bold leading-[1.02] tracking-[-0.055em]">
-            Développez votre agence cargo
-            <span className="block text-[#12C76F]">sans développer votre chaos.</span>
+          <h1 className="mt-10 text-[clamp(2.65rem,5vw,4.65rem)] font-bold leading-[1.01] tracking-[-0.055em]">
+            <span className="block">Développez votre</span>
+            <span className="block">agence cargo</span>
+            <span className="mt-3 block text-[#12C76F]">sans développer</span>
+            <span className="block text-[#12C76F]">votre chaos.</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-500 md:text-lg">
+          <p className="mx-auto mt-6 max-w-[650px] text-base leading-7 text-slate-500 md:text-lg md:leading-8">
             Centralisez WhatsApp, les expéditions, les paiements, les bureaux et vos équipes dans une seule plateforme conçue pour les agences cargo modernes.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
@@ -214,24 +242,36 @@ function Hero() {
             <a href="#contact" className="chrono-button border border-slate-200 bg-white">Parler à un conseiller</a>
           </div>
         </motion.div>
-        <LogisticsGlobe />
-        <HeroWidget className="left-[3%] top-[10%] rotate-[-3deg]" icon={Package} title="Nouveau colis reçu" lines={["SLA-CH-84729", "Jean Mukendi · 12.4 kg"]} />
-        <HeroWidget className="right-[3%] top-[13%] rotate-[3deg]" icon={Truck} title="Expédition en cours" lines={["CN-KIN-204", "Guangzhou → Kinshasa"]} delay={1.2} />
-        <HeroWidget className="bottom-[5%] left-[5%] rotate-[2deg]" icon={MessageCircle} title="WhatsApp" lines={["Mon colis est-il arrivé ?", "Réponse envoyée"]} delay={0.7} />
-        <HeroWidget className="bottom-[5%] right-[5%] rotate-[-2deg]" icon={Globe2} title="Réseau opérationnel" lines={["Chine · Dubaï · Turquie · RDC", "4 pays actifs"]} delay={1.6} />
+
+        <div className="relative z-10 mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
+          <MobileHeroVisual src="/landing/hero-new-package.png" alt="Nouveau colis reçu" />
+          <MobileHeroVisual src="/landing/hero-shipment-arrived.png" alt="Expédition arrivée" />
+          <MobileHeroVisual src="/landing/hero-whatsapp.png" alt="Réponse WhatsApp automatique" />
+          <MobileHeroVisual src="/landing/hero-multi-country.png" alt="Opérations multi-pays" />
+        </div>
       </div>
     </section>
   );
 }
 
-function LogisticsGlobe() {
+function HeroVisualCard({ src, alt, className, delay }: { src: string; alt: string; className: string; delay: number }) {
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35, duration: 0.8 }} className="absolute bottom-[7%] left-1/2 h-[180px] w-[180px] -translate-x-1/2 sm:h-[210px] sm:w-[210px] md:bottom-[16%] md:h-[270px] md:w-[270px]">
-      <div className="absolute inset-0 rounded-full border border-emerald-200/80 bg-[radial-gradient(circle_at_35%_30%,white,#e8fff3_45%,#d8f7e6)] shadow-[0_30px_80px_rgba(18,199,111,.18)]" />
-      <div className="absolute inset-7 rounded-full border border-dashed border-emerald-300" />
-      <div className="absolute inset-0 flex items-center justify-center"><Globe2 size={92} strokeWidth={1.2} className="text-[#12C76F]" /></div>
-      {[["🇨🇳", "-left-5 top-5 md:-left-12 md:top-8"], ["🇦🇪", "-right-5 top-10 md:-right-10 md:top-14"], ["🇹🇷", "-left-4 bottom-6 md:-left-8 md:bottom-10"], ["🇨🇩", "-right-4 bottom-5 md:-right-8 md:bottom-8"]].map(([flag, position]) => <span key={flag} className={`absolute flex h-10 w-10 items-center justify-center rounded-xl border border-white bg-white text-lg shadow-lg md:h-12 md:w-12 md:rounded-2xl md:text-xl ${position}`}>{flag}</span>)}
-    </motion.div>
+    <motion.figure
+      initial={{ opacity: 0, scale: 0.94, y: 18 }}
+      animate={{ opacity: 1, scale: 1, y: [0, -6, 0] }}
+      transition={{ opacity: { delay, duration: 0.55 }, scale: { delay, duration: 0.55 }, y: { delay: delay + 0.6, duration: 7, repeat: Infinity, ease: "easeInOut" } }}
+      className={`absolute z-[2] hidden overflow-hidden rounded-[28px] bg-white shadow-[0_25px_65px_rgba(15,23,42,.15)] lg:block ${className}`}
+    >
+      <Image src={src} alt={alt} width={1402} height={1122} sizes="350px" className="h-auto w-full" priority />
+    </motion.figure>
+  );
+}
+
+function MobileHeroVisual({ src, alt }: { src: string; alt: string }) {
+  return (
+    <motion.figure variants={reveal} initial="hidden" animate="visible" className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_12px_30px_rgba(15,23,42,.08)]">
+      <Image src={src} alt={alt} width={1402} height={1122} sizes="(max-width: 1024px) 45vw, 250px" className="h-auto w-full" />
+    </motion.figure>
   );
 }
 

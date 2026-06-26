@@ -3,491 +3,812 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
 import {
   ArrowRight,
-  BarChart3,
   Bot,
-  Boxes,
-  BriefcaseBusiness,
   Building2,
   Check,
   ChevronDown,
   CircleDollarSign,
-  BookOpen,
-  Facebook,
   Globe2,
-  Linkedin,
-  Mail,
-  MapPin,
+  LockKeyhole,
   Menu,
   MessageCircle,
-  Music2,
   Package,
-  Radio,
-  Send,
-  Settings,
-  Truck,
-  Users,
+  Route,
+  ShieldCheck,
+  Sparkles,
   X,
-  Youtube,
   type LucideIcon,
 } from "lucide-react";
 
 import { createDemoRequest } from "@/services/landing";
 
-const countries = [
-  ["🇨🇩", "RDC"],
-  ["🇨🇲", "Cameroun"],
-  ["🇨🇮", "Côte d'Ivoire"],
-  ["🇬🇭", "Ghana"],
-  ["🇰🇪", "Kenya"],
-  ["🇿🇼", "Zimbabwe"],
-  ["🇸🇳", "Sénégal"],
+const navItems = [
+  { label: "Plateforme", href: "#plateforme" },
+  { label: "Solutions", href: "#solutions" },
+  { label: "Workflow", href: "#workflow" },
+  { label: "Sécurité", href: "#securite" },
 ];
 
-const productSidebar = [
-  "Dashboard",
-  "Clients",
-  "Dossiers",
-  "Colis",
-  "Expéditions",
-  "Tracking",
-  "WhatsApp Inbox",
-  "Broadcasts",
-  "Relances",
-  "Base de connaissances",
-  "Tarification",
-  "Services",
-  "Paiements",
-  "Factures",
-  "Organisation",
-  "Paramètres",
-];
-
-type Feature = {
+const operatingCards: Array<{
   title: string;
   description: string;
-  benefits: string[];
-  image: string;
   icon: LucideIcon;
-};
-
-const features: Feature[] = [
-  { title: "Gestion clients", description: "Centralisez vos clients, leurs coordonnées, leurs dossiers et leurs interactions dans un seul système.", benefits: ["Coordonnées complètes", "Historique expéditions", "Historique paiements", "WhatsApp relié", "Recherche instantanée"], image: "/landing/dashboard.png", icon: Users },
-  { title: "Dossiers centralisés", description: "Chaque opération est organisée autour d'un dossier unique.", benefits: ["Source de vérité", "Clients reliés", "Colis reliés", "Paiements reliés", "Historique complet"], image: "/landing/dossiers.png", icon: BriefcaseBusiness },
-  { title: "Gestion des colis", description: "Enregistrez et suivez chaque colis reçu dans vos entrepôts.", benefits: ["Poids et dimensions", "Photos", "Fournisseurs", "Tracking", "Validation"], image: "/landing/dashboard.png", icon: Package },
-  { title: "Gestion des expéditions", description: "Planifiez et pilotez toutes vos expéditions cargo.", benefits: ["Lots et manifests", "Routes internationales", "Étapes opérationnelles", "ETA", "Historique"], image: "/landing/dashboard.png", icon: Truck },
-  { title: "Tracking temps réel", description: "Suivez chaque colis du départ jusqu'à la livraison.", benefits: ["Timeline complète", "Statuts automatiques", "ETA", "Preuve de livraison", "Notifications"], image: "/landing/dashboard.png", icon: MapPin },
-  { title: "WhatsApp IA", description: "Automatisez vos réponses clients directement sur WhatsApp Business.", benefits: ["Inbox centralisée", "Qualification", "Réponses assistées", "Transfert humain", "Historique"], image: "/landing/inbox.png", icon: MessageCircle },
-  { title: "Gestion des paiements", description: "Suivez les encaissements, soldes et paiements liés aux dossiers.", benefits: ["Paiements reliés", "Soldes clients", "Historique", "Alertes", "Rapprochement"], image: "/landing/dashboard.png", icon: CircleDollarSign },
-  { title: "Relances automatiques", description: "Relancez les clients, paiements et opérations sans tâches manuelles répétitives.", benefits: ["Scénarios ciblés", "Délais configurables", "WhatsApp", "Escalade humaine", "Suivi"], image: "/landing/inbox.png", icon: Radio },
-  { title: "Broadcast WhatsApp", description: "Diffusez vos communications opérationnelles à des audiences contrôlées.", benefits: ["Segmentation", "Templates", "Programmation", "Statuts", "Conformité"], image: "/landing/inbox.png", icon: Send },
-  { title: "Base de connaissances IA", description: "Donnez à votre équipe une source fiable pour répondre aux questions récurrentes.", benefits: ["Contenu agence", "Recherche", "Réponses cohérentes", "Mises à jour", "Accès équipe"], image: "/landing/settings.png", icon: BookOpen },
-  { title: "Organisation multi-pays", description: "Gérez vos bureaux, entrepôts, routes et équipes depuis une seule organisation.", benefits: ["Bureaux", "Entrepôts", "Équipes", "Rôles", "Rapports"], image: "/landing/settings.png", icon: Building2 },
-  { title: "Rapports et analytics", description: "Pilotez les volumes, revenus, routes et performances avec des données fiables.", benefits: ["KPIs", "Volumes", "Revenus", "Performance routes", "Exports"], image: "/landing/dashboard.png", icon: BarChart3 },
+}> = [
+  {
+    title: "WhatsApp centralisé",
+    description:
+      "Une inbox opérationnelle pour suivre demandes, relances et décisions sans perdre l'historique client.",
+    icon: MessageCircle,
+  },
+  {
+    title: "Dossiers cargo",
+    description:
+      "Chaque client, colis, paiement et étape logistique est relié à un dossier clair.",
+    icon: Package,
+  },
+  {
+    title: "Tracking vivant",
+    description:
+      "Vos équipes savent où se trouve chaque marchandise et quoi communiquer au client.",
+    icon: Route,
+  },
+  {
+    title: "Paiements reliés",
+    description:
+      "Les encaissements et soldes clients restent attachés aux opérations qui les concernent.",
+    icon: CircleDollarSign,
+  },
+  {
+    title: "Multi-bureaux",
+    description:
+      "Pilotez Kinshasa, Guangzhou, Dubaï ou Paris avec une organisation unique.",
+    icon: Building2,
+  },
+  {
+    title: "IA supervisée",
+    description:
+      "SLAIVIO assiste l'équipe, prépare les réponses et automatise les relances répétitives.",
+    icon: Bot,
+  },
 ];
 
-const howSteps: Array<{ title: string; description: string; icon: LucideIcon; kind: string }> = [
-  { title: "Connectez vos canaux", description: "Connectez WhatsApp Business via Meta Embedded Signup puis ajoutez Gmail et TikTok.", icon: MessageCircle, kind: "integrations" },
-  { title: "Configurez votre agence", description: "Ajoutez vos bureaux, entrepôts, services et tarifs afin de refléter votre activité réelle.", icon: Settings, kind: "setup" },
-  { title: "Centralisez vos opérations", description: "Toutes les informations sont organisées autour d'un dossier unique.", icon: Boxes, kind: "flow" },
-  { title: "Automatisez WhatsApp", description: "Répondez plus vite, automatisez les relances et assistez vos équipes.", icon: Bot, kind: "chat" },
-  { title: "Suivez vos expéditions", description: "Offrez à vos clients une visibilité complète grâce au suivi en temps réel.", icon: MapPin, kind: "tracking" },
-  { title: "Développez votre agence", description: "Prenez des décisions fiables et grandissez sans augmenter la charge opérationnelle.", icon: BarChart3, kind: "growth" },
+const workflowSteps = [
+  {
+    title: "Connecter WhatsApp",
+    text: "L'agence relie son WhatsApp Business officiel et récupère ses conversations au même endroit.",
+  },
+  {
+    title: "Configurer l'agence",
+    text: "Bureaux, routes, entrepôts, équipes, tarifs et rôles sont modélisés selon votre réalité.",
+  },
+  {
+    title: "Créer les opérations",
+    text: "Chaque demande devient un dossier avec colis, paiements, statuts et historique complet.",
+  },
+  {
+    title: "Piloter la croissance",
+    text: "Les managers suivent les blocages, les relances et les priorités sans dépendre d'Excel.",
+  },
 ];
 
-const pricingPlans = [
-  { name: "Starter", monthly: 119, description: "Idéal pour une petite agence cargo.", features: ["WhatsApp Business", "Clients, dossiers et colis", "Expéditions et tracking", "Agence unique", "Jusqu'à 500 colis/mois", "2 bureaux ou entrepôts", "Support standard"] },
-  { name: "Growth", monthly: 299, popular: true, description: "Pour les agences en croissance.", features: ["Tout Starter", "WhatsApp, Gmail et TikTok", "Inbox centralisée", "Relances et broadcasts", "Base de connaissances IA", "Jusqu'à 5 000 colis/mois", "15 bureaux ou entrepôts", "Rapports avancés", "Support prioritaire"] },
-  { name: "Enterprise", monthly: 799, description: "Pour les agences à fort volume.", features: ["Tout Growth", "Intégrations et colis illimités", "Bureaux et entrepôts illimités", "IA avancée SLAIVIO", "Import des données", "Formation de l'équipe", "Onboarding personnalisé", "Support dédié"] },
+const securityItems = [
+  "Authentification moderne avec Clerk",
+  "Connexion WhatsApp officielle via Meta",
+  "Données séparées par organisation",
+  "Backend prêt pour production et logs",
+  "Architecture pensée multi-bureaux",
 ];
 
 const faqItems = [
-  ["SLAIVIO est-il compatible avec WhatsApp Business ?", "Oui. SLAIVIO se connecte à WhatsApp Business via Meta Embedded Signup, la méthode officielle de Meta."],
-  ["Puis-je continuer à utiliser mon numéro WhatsApp actuel ?", "Oui. Vous pouvez connecter votre numéro professionnel existant et continuer à échanger avec vos clients."],
-  ["Mes clients doivent-ils installer une application ?", "Non. Vos clients continuent simplement à utiliser WhatsApp. SLAIVIO travaille en arrière-plan."],
-  ["Puis-je gérer plusieurs bureaux ou entrepôts ?", "Oui. SLAIVIO centralise vos bureaux, entrepôts, routes, équipes et rapports."],
-  ["SLAIVIO fonctionne-t-il sur plusieurs routes internationales ?", "Oui. La plateforme est conçue pour les routes Chine, Dubaï, Turquie ou Inde vers l'Afrique."],
-  ["Puis-je configurer mes propres tarifs et services ?", "Oui. Vous pouvez gérer vos services, routes, prix au kilo, prix CBM et tarifs spéciaux."],
-  ["Puis-je importer mes données existantes ?", "Oui. Notre équipe peut vous accompagner pour importer vos clients, tarifs, colis et historiques."],
-  ["Comment fonctionne le tracking des colis ?", "Chaque colis ou expédition reçoit un identifiant unique et une timeline de suivi jusqu'à la livraison."],
-  ["L'IA répond-elle automatiquement aux clients ?", "Oui. SLAIVIO peut répondre, notifier, relancer et transférer les cas complexes à un agent humain."],
-  ["Est-ce que SLAIVIO remplace mon équipe ?", "Non. SLAIVIO assiste l'équipe et réduit les tâches répétitives afin qu'elle travaille plus vite."],
-  ["Mes données sont-elles sécurisées ?", "Oui. SLAIVIO utilise l'authentification sécurisée, le contrôle d'accès et la séparation des données par agence."],
-  ["Combien de temps faut-il pour démarrer ?", "La configuration est rapide lorsque les tarifs, routes et informations principales sont disponibles."],
+  [
+    "SLAIVIO remplace-t-il WhatsApp ?",
+    "Non. Vos clients continuent à parler sur WhatsApp. SLAIVIO devient la couche de pilotage pour votre équipe.",
+  ],
+  [
+    "Une agence doit-elle connaître Meta Developer ?",
+    "Non. L'agence clique sur Connecter WhatsApp. La complexité Meta reste côté plateforme.",
+  ],
+  [
+    "Puis-je commencer sans automatisation complète ?",
+    "Oui. Vous pouvez d'abord centraliser l'inbox et les dossiers, puis activer progressivement les workflows.",
+  ],
+  [
+    "Est-ce adapté aux agences multi-pays ?",
+    "Oui. SLAIVIO est pensé pour gérer plusieurs bureaux, routes, WABA, numéros et équipes.",
+  ],
 ];
 
-const reveal = {
-  hidden: { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0 },
+const formFields = [
+  { name: "full_name", label: "Nom complet", placeholder: "Jeremy Akiemane" },
+  { name: "agency_name", label: "Agence", placeholder: "SLAIVIO Demo Agency" },
+  { name: "country", label: "Pays", placeholder: "RDC" },
+  { name: "email", label: "Email", placeholder: "vous@agence.com" },
+  { name: "phone", label: "WhatsApp", placeholder: "+243 ..." },
+  { name: "monthly_shipments", label: "Volume mensuel", placeholder: "Ex: 200 colis/mois" },
+];
+
+const fadeUp = {
+  initial: { opacity: 0, y: 28 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-80px" },
+  transition: { duration: 0.65, ease: "easeOut" as const },
 };
 
 export function LandingPageClient() {
-  const [locale, setLocale] = useState<"fr" | "en">("fr");
-  const [mobileMenu, setMobileMenu] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openFaq, setOpenFaq] = useState(0);
+  const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
 
-  useEffect(() => {
-    document.documentElement.lang = locale;
-    document.documentElement.style.scrollBehavior = "smooth";
-    return () => {
-      document.documentElement.style.scrollBehavior = "";
-    };
-  }, [locale]);
+  async function submitDemoRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormStatus("loading");
+
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      await createDemoRequest({
+        full_name: String(formData.get("full_name") || ""),
+        agency_name: String(formData.get("agency_name") || ""),
+        country: String(formData.get("country") || ""),
+        email: String(formData.get("email") || ""),
+        phone: String(formData.get("phone") || ""),
+        monthly_shipments: String(formData.get("monthly_shipments") || ""),
+        message: String(formData.get("message") || ""),
+      });
+
+      event.currentTarget.reset();
+      setFormStatus("success");
+    } catch {
+      setFormStatus("error");
+    }
+  }
 
   return (
-    <main className="min-h-screen overflow-x-clip bg-[#f5f6f7] text-[#111318]">
-      <Header locale={locale} setLocale={setLocale} mobileMenu={mobileMenu} setMobileMenu={setMobileMenu} />
-      <Hero />
-      <PresenceStrip />
+    <main className="min-h-screen overflow-x-hidden bg-[#020807] text-white">
+      <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+      <HeroSection />
       <ProblemSection />
-      <SolutionsSection />
-      <IntegrationsSection />
-      <FeaturesExperience />
-      <HowItWorks />
-      <PricingSection />
-      <FaqSection />
-      <DemoSection />
-      <Footer />
+      <PlatformSection />
+      <WorkflowSection />
+      <SecuritySection />
+      <DemoSection formStatus={formStatus} onSubmit={submitDemoRequest} />
+      <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
+      <LandingFooter />
     </main>
   );
 }
 
-function Header({ locale, setLocale, mobileMenu, setMobileMenu }: { locale: "fr" | "en"; setLocale: (value: "fr" | "en") => void; mobileMenu: boolean; setMobileMenu: (value: boolean) => void }) {
-  const links = [["Fonctionnalités", "#features"], ["Solutions", "#solutions"], ["Ressources", "#faq"], ["Tarifs", "#pricing"]];
+function LandingHeader({
+  menuOpen,
+  setMenuOpen,
+}: {
+  menuOpen: boolean;
+  setMenuOpen: (value: boolean) => void;
+}) {
   return (
-    <header className="sticky top-0 z-50 border-b border-black/[0.05] bg-white/88 backdrop-blur-xl">
-      <div className="mx-auto flex h-[72px] max-w-[1280px] items-center justify-between px-5 md:px-6">
-        <Link href="/" aria-label="Accueil SLAIVIO" className="flex h-[48px] w-[150px] items-center overflow-hidden">
-          <Image src="/landing/hero-slaivio-logo.png" alt="SLAIVIO" width={300} height={200} className="h-full w-full scale-[1.85] object-contain" priority />
+    <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.08] bg-[#020807]/75 backdrop-blur-2xl">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
+        <Link href="/landing" className="flex items-center gap-3" aria-label="SLAIVIO landing">
+          <Image
+            src="/slaivio-mark.png"
+            alt=""
+            width={42}
+            height={42}
+            className="h-10 w-10 object-contain"
+            priority
+          />
+          <span className="text-xl font-bold tracking-tight">SLAIVIO</span>
         </Link>
-        <nav aria-label="Navigation principale" className="hidden items-center gap-8 text-sm font-medium text-slate-600 lg:flex">
-          {links.map(([label, href]) => <a key={href} href={href} className="transition hover:text-black">{label}</a>)}
+
+        <nav className="hidden items-center gap-8 text-sm font-medium text-white/72 lg:flex">
+          {navItems.map((item) => (
+            <a key={item.href} href={item.href} className="transition hover:text-white">
+              {item.label}
+            </a>
+          ))}
+          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/55">
+            FR | EN
+          </span>
         </nav>
-        <div className="hidden items-center gap-4 sm:flex">
-          <div role="group" aria-label="Langue" className="flex items-center text-xs font-semibold text-slate-400">
-            <button type="button" aria-pressed={locale === "fr"} onClick={() => setLocale("fr")} className={locale === "fr" ? "text-black" : ""}>FR</button>
-            <span className="px-1.5">|</span>
-            <button type="button" aria-pressed={locale === "en"} onClick={() => setLocale("en")} className={locale === "en" ? "text-black" : ""}>EN</button>
-          </div>
-          <Link href="/sign-in" className="text-sm font-medium">Connexion</Link>
-          <a href="#demo" className="chrono-button border border-slate-200 bg-white">Demander une démo</a>
+
+        <div className="hidden items-center gap-3 lg:flex">
+          <Link href="/sign-in" className="rounded-full px-4 py-2 text-sm font-semibold text-white/80 hover:text-white">
+            Connexion
+          </Link>
+          <a
+            href="#demo"
+            className="inline-flex items-center gap-2 rounded-full bg-[#12C76F] px-5 py-3 text-sm font-bold text-[#02130b] shadow-[0_0_32px_rgba(18,199,111,0.25)] transition hover:-translate-y-0.5 hover:bg-[#36e68e]"
+          >
+            Demander une démo <ArrowRight className="h-4 w-4" />
+          </a>
         </div>
-        <button type="button" aria-label={mobileMenu ? "Fermer le menu" : "Ouvrir le menu"} aria-expanded={mobileMenu} onClick={() => setMobileMenu(!mobileMenu)} className="rounded-xl border border-slate-200 p-2 sm:hidden">
-          {mobileMenu ? <X size={20} /> : <Menu size={20} />}
+
+        <button
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] lg:hidden"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Ouvrir le menu"
+        >
+          {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
+
       <AnimatePresence>
-        {mobileMenu && (
-          <motion.nav initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden border-t border-slate-100 bg-white px-5 sm:hidden">
-            <div className="space-y-1 py-4">
-              {links.map(([label, href]) => <a key={href} href={href} onClick={() => setMobileMenu(false)} className="block rounded-xl px-3 py-3 text-sm font-medium hover:bg-slate-50">{label}</a>)}
-              <Link href="/sign-in" className="block rounded-xl px-3 py-3 text-sm font-medium">Connexion</Link>
-              <a href="#demo" onClick={() => setMobileMenu(false)} className="mt-2 flex h-12 items-center justify-center rounded-xl bg-[#12C76F] text-sm font-bold text-white">Demander une démo</a>
+        {menuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="border-t border-white/10 bg-[#020807]/95 px-5 py-5 lg:hidden"
+          >
+            <div className="flex flex-col gap-4">
+              {navItems.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="text-sm font-semibold text-white/75"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {item.label}
+                </a>
+              ))}
+              <Link href="/sign-in" className="text-sm font-semibold text-white/75">
+                Connexion
+              </Link>
+              <a
+                href="#demo"
+                onClick={() => setMenuOpen(false)}
+                className="rounded-full bg-[#12C76F] px-5 py-3 text-center text-sm font-bold text-[#02130b]"
+              >
+                Demander une démo
+              </a>
             </div>
-          </motion.nav>
+          </motion.div>
         )}
       </AnimatePresence>
     </header>
   );
 }
 
-function Hero() {
+function HeroSection() {
   return (
-    <section className="px-3 pb-10 pt-3 md:px-6 md:pb-16">
-      <div className="chrono-surface relative mx-auto max-w-[1280px] overflow-hidden px-5 py-14 text-center sm:px-8 lg:min-h-[760px] lg:px-10 lg:py-16">
-        <div className="chrono-dots absolute inset-0 opacity-70" />
+    <section className="relative overflow-hidden px-5 pb-20 pt-32 sm:pb-28 lg:px-8">
+      <div className="absolute inset-0 opacity-60">
+        <div className="absolute left-1/2 top-0 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#12C76F]/10 blur-[120px]" />
+        <div className="absolute bottom-10 left-0 h-[420px] w-[420px] rounded-full bg-[#0b7cff]/10 blur-[110px]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
+            backgroundSize: "72px 72px",
+            maskImage: "radial-gradient(circle at center, black 0%, transparent 72%)",
+          }}
+        />
+      </div>
 
-        <HeroVisualCard
-          src="/landing/hero-new-package.png"
-          alt="Nouveau colis reçu dans SLAIVIO"
-          className="-left-8 top-5 w-[300px] rotate-[-2.5deg]"
-          delay={0.15}
-        />
-        <HeroVisualCard
-          src="/landing/hero-shipment-arrived.png"
-          alt="Expédition arrivée à destination dans SLAIVIO"
-          className="-right-8 top-7 w-[300px] rotate-[2.5deg]"
-          delay={0.3}
-        />
-        <HeroVisualCard
-          src="/landing/hero-whatsapp.png"
-          alt="Réponse WhatsApp automatique dans SLAIVIO"
-          className="-bottom-24 -left-10 w-[340px] rotate-[2deg]"
-          delay={0.45}
-        />
-        <HeroVisualCard
-          src="/landing/hero-multi-country.png"
-          alt="Vue multi-pays des opérations SLAIVIO"
-          className="-bottom-24 -right-12 w-[350px] rotate-[-2deg]"
-          delay={0.6}
-        />
-
-        <motion.div variants={reveal} initial="hidden" animate="visible" transition={{ duration: 0.7 }} className="relative z-10 mx-auto max-w-[720px] lg:pt-16">
-          <div className="mx-auto flex h-[82px] w-[190px] items-center justify-center overflow-hidden rounded-[22px] border border-slate-100 bg-white shadow-[0_16px_38px_rgba(15,23,42,.11)]">
-            <Image src="/landing/hero-slaivio-logo.png" alt="SLAIVIO" width={300} height={200} className="h-full w-full scale-[1.8] object-contain" priority />
+      <div className="relative mx-auto max-w-7xl">
+        <motion.div {...fadeUp} className="mx-auto max-w-4xl text-center">
+          <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-[#12C76F]/25 bg-[#12C76F]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.28em] text-[#74f0af]">
+            <Sparkles className="h-4 w-4" />
+            Cargo operations platform
           </div>
-          <h1 className="mt-10 text-[clamp(2.65rem,5vw,4.65rem)] font-bold leading-[1.01] tracking-[-0.055em]">
-            <span className="block">Développez votre</span>
-            <span className="block">agence cargo</span>
-            <span className="mt-3 block text-[#12C76F]">sans développer</span>
-            <span className="block text-[#12C76F]">votre chaos.</span>
+
+          <h1 className="text-balance text-5xl font-bold leading-[0.95] tracking-[-0.055em] sm:text-6xl lg:text-7xl xl:text-[88px]">
+            L&apos;Operating System
+            <span className="block text-[#12C76F]">des Agences Cargo</span>
           </h1>
-          <p className="mx-auto mt-6 max-w-[650px] text-base leading-7 text-slate-500 md:text-lg md:leading-8">
-            Centralisez WhatsApp, les expéditions, les paiements, les bureaux et vos équipes dans une seule plateforme conçue pour les agences cargo modernes.
+
+          <p className="mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-white/70 sm:text-xl">
+            Centralisez WhatsApp, les expéditions, les paiements, les bureaux et vos équipes
+            dans une seule plateforme conçue pour les agences cargo modernes.
           </p>
-          <div className="mt-8 flex justify-center">
-            <a href="#demo" className="chrono-button bg-[#12C76F] text-white shadow-[0_16px_35px_rgba(18,199,111,.22)]">Demander une démo <ArrowRight size={16} /></a>
+
+          <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <a
+              href="#demo"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#12C76F] px-7 py-4 text-sm font-bold text-[#02130b] shadow-[0_0_38px_rgba(18,199,111,0.28)] transition hover:-translate-y-1 hover:bg-[#36e68e] sm:w-auto"
+            >
+              Demander une démo <ArrowRight className="h-4 w-4" />
+            </a>
+            <a
+              href="https://wa.me/"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/14 bg-white/[0.04] px-7 py-4 text-sm font-bold text-white backdrop-blur transition hover:-translate-y-1 hover:bg-white/[0.08] sm:w-auto"
+            >
+              <MessageCircle className="h-4 w-4 text-[#12C76F]" />
+              Parler à un conseiller
+            </a>
           </div>
         </motion.div>
 
-        <div className="relative z-10 mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
-          <MobileHeroVisual src="/landing/hero-new-package.png" alt="Nouveau colis reçu" />
-          <MobileHeroVisual src="/landing/hero-shipment-arrived.png" alt="Expédition arrivée" />
-          <MobileHeroVisual src="/landing/hero-whatsapp.png" alt="Réponse WhatsApp automatique" />
-          <MobileHeroVisual src="/landing/hero-multi-country.png" alt="Opérations multi-pays" />
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 36, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.85, delay: 0.2, ease: "easeOut" as const }}
+          className="relative mx-auto mt-16 max-w-6xl"
+        >
+          <div className="absolute inset-x-16 -top-8 h-24 rounded-full bg-[#12C76F]/35 blur-[70px]" />
+          <div className="relative rounded-[2rem] border border-white/12 bg-white/[0.045] p-3 shadow-[0_30px_120px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
+            <DashboardPreview />
+          </div>
+
+          <FloatingCard
+            className="-left-3 bottom-10 hidden rotate-[-3deg] lg:block"
+            icon={Package}
+            title="Nouveau colis arrivé"
+            text="Dossier créé automatiquement"
+            badge="À valider"
+          />
+          <FloatingCard
+            className="bottom-[-42px] left-1/2 hidden -translate-x-1/2 rotate-[1deg] md:block"
+            icon={MessageCircle}
+            title="Message WhatsApp traité"
+            text="Réponse préparée par SLAIVIO"
+            badge="IA"
+          />
+          <FloatingCard
+            className="-right-3 bottom-14 hidden rotate-[3deg] lg:block"
+            icon={CircleDollarSign}
+            title="Paiement reçu"
+            text="À rapprocher au dossier"
+            badge="Finance"
+          />
+        </motion.div>
       </div>
     </section>
   );
 }
 
-function HeroVisualCard({ src, alt, className, delay }: { src: string; alt: string; className: string; delay: number }) {
+function DashboardPreview() {
+  const menu = ["Dashboard", "Clients", "Dossiers", "Expéditions", "Tracking", "WhatsApp Inbox", "Paiements"];
+  const kpis = [
+    ["Inbox à traiter", "Priorités"],
+    ["Dossiers actifs", "Suivi"],
+    ["Paiements", "Validation"],
+    ["Expéditions", "Tracking"],
+  ];
+
   return (
-    <motion.figure
-      initial={{ opacity: 0, scale: 0.94, y: 18 }}
-      animate={{ opacity: 1, scale: 1, y: [0, -6, 0] }}
-      transition={{ opacity: { delay, duration: 0.55 }, scale: { delay, duration: 0.55 }, y: { delay: delay + 0.6, duration: 7, repeat: Infinity, ease: "easeInOut" } }}
-      className={`absolute z-[2] hidden overflow-hidden rounded-[28px] bg-white shadow-[0_25px_65px_rgba(15,23,42,.15)] lg:block ${className}`}
+    <div className="overflow-hidden rounded-[1.55rem] border border-white/10 bg-[#06100d]">
+      <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[230px_1fr]">
+        <aside className="hidden border-r border-white/10 bg-black/20 p-6 lg:block">
+          <div className="mb-8 flex items-center gap-3">
+            <Image src="/slaivio-mark.png" alt="" width={38} height={38} className="h-9 w-9 object-contain" />
+            <span className="text-lg font-bold">SLAIVIO</span>
+          </div>
+          <div className="space-y-2">
+            {menu.map((item, index) => (
+              <div
+                key={item}
+                className={`rounded-xl px-3 py-3 text-sm font-semibold ${
+                  index === 0 ? "bg-[#12C76F] text-[#02130b]" : "text-white/62"
+                }`}
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <div className="p-5 sm:p-7 lg:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-[#12C76F]">Exemple de cockpit opérationnel</p>
+              <h2 className="mt-1 text-2xl font-bold">Bonjour, Admin</h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/65">
+                Aujourd&apos;hui
+              </span>
+              <span className="rounded-full border border-[#12C76F]/30 bg-[#12C76F]/10 px-4 py-2 text-xs font-bold text-[#74f0af]">
+                Production ready
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {kpis.map(([title, status]) => (
+              <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.045] p-5">
+                <p className="text-sm text-white/58">{title}</p>
+                <div className="mt-5 h-9 rounded-full bg-gradient-to-r from-[#12C76F]/75 via-[#0b7cff]/50 to-transparent" />
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#74f0af]">
+                  {status}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.85fr]">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold">Flux des opérations</h3>
+                <span className="text-xs text-white/45">WhatsApp → Dossier → Expédition</span>
+              </div>
+              <svg viewBox="0 0 520 220" className="mt-6 h-[220px] w-full">
+                <defs>
+                  <linearGradient id="slaivio-green-line" x1="0" x2="1">
+                    <stop offset="0%" stopColor="#12C76F" />
+                    <stop offset="100%" stopColor="#0B7CFF" />
+                  </linearGradient>
+                </defs>
+                {[40, 80, 120, 160, 200].map((y) => (
+                  <line key={y} x1="0" x2="520" y1={y} y2={y} stroke="rgba(255,255,255,.08)" />
+                ))}
+                <path
+                  d="M8 174 C65 140 98 154 142 118 C191 78 239 96 281 72 C338 38 392 56 512 24"
+                  fill="none"
+                  stroke="url(#slaivio-green-line)"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M8 192 C58 166 118 180 160 142 C210 96 260 124 315 88 C371 52 414 80 512 46"
+                  fill="none"
+                  stroke="#2E6BFF"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  opacity="0.75"
+                />
+              </svg>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+              <h3 className="font-bold">Activité récente</h3>
+              <div className="mt-5 space-y-3">
+                {[
+                  ["WhatsApp", "Réponse prête pour un client"],
+                  ["Dossier", "Pièce manquante détectée"],
+                  ["Tracking", "Statut expédition mis à jour"],
+                  ["Finance", "Paiement à rapprocher"],
+                ].map(([label, text]) => (
+                  <div key={label} className="rounded-2xl border border-white/8 bg-black/15 p-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#12C76F]">{label}</p>
+                    <p className="mt-1 text-sm text-white/72">{text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FloatingCard({
+  className,
+  icon: Icon,
+  title,
+  text,
+  badge,
+}: {
+  className: string;
+  icon: LucideIcon;
+  title: string;
+  text: string;
+  badge: string;
+}) {
+  return (
+    <motion.div
+      animate={{ y: [0, -12, 0] }}
+      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" as const }}
+      className={`absolute w-[270px] rounded-3xl border border-white/12 bg-[#06100d]/88 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl ${className}`}
     >
-      <Image src={src} alt={alt} width={1402} height={1122} sizes="350px" className="h-auto w-full" priority />
-    </motion.figure>
-  );
-}
-
-function MobileHeroVisual({ src, alt }: { src: string; alt: string }) {
-  return (
-    <motion.figure variants={reveal} initial="hidden" animate="visible" className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_12px_30px_rgba(15,23,42,.08)]">
-      <Image src={src} alt={alt} width={1402} height={1122} sizes="(max-width: 1024px) 45vw, 250px" className="h-auto w-full" />
-    </motion.figure>
-  );
-}
-
-function HeroWidget({ className, icon: Icon, title, lines, delay = 0 }: { className: string; icon: LucideIcon; title: string; lines: string[]; delay?: number }) {
-  return (
-    <motion.div animate={{ y: [-5, 5, -5] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay }} whileHover={{ y: -8, scale: 1.02 }} className={`absolute hidden w-[230px] rounded-[22px] border border-white bg-white/95 p-5 text-left shadow-[0_18px_50px_rgba(15,23,42,.1)] backdrop-blur-md lg:block ${className}`}>
-      <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[#12C76F]"><Icon size={19} /></span><strong className="text-sm">{title}</strong></div>
-      <p className="mt-4 text-xs leading-6 text-slate-500">{lines[0]}<br /><span className="font-semibold text-slate-800">{lines[1]}</span></p>
-    </motion.div>
-  );
-}
-
-function PresenceStrip() {
-  return (
-    <section aria-label="Présence internationale" className="border-y border-slate-200 bg-white py-7">
-      <div className="mx-auto flex max-w-[1180px] flex-col items-center gap-5 px-5 md:flex-row md:justify-between">
-        <p className="text-sm font-semibold text-slate-500">Présent dans plusieurs pays africains</p>
-        <div className="flex flex-wrap justify-center gap-x-6 gap-y-3">
-          {countries.map(([flag, country]) => <span key={country} className="text-sm font-medium text-slate-600"><span aria-hidden="true">{flag}</span> {country}</span>)}
+      <div className="flex items-start justify-between">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#12C76F]/15 text-[#12C76F]">
+          <Icon className="h-6 w-6" />
         </div>
+        <span className="rounded-full bg-[#12C76F]/12 px-3 py-1 text-xs font-bold text-[#74f0af]">
+          {badge}
+        </span>
       </div>
-    </section>
+      <h3 className="mt-4 font-bold">{title}</h3>
+      <p className="mt-1 text-sm text-white/60">{text}</p>
+    </motion.div>
   );
 }
 
 function ProblemSection() {
-  const problems = [["WhatsApp dispersé", "Les conversations sont partout."], ["Excel partout", "Plusieurs fichiers, plusieurs versions."], ["Relances oubliées", "Paiements et clients non suivis."], ["Colis difficiles à suivre", "Manque de visibilité sur les expéditions."], ["Multi-pays complexe", "Chine, Dubaï, Turquie, RDC."], ["Données perdues", "Aucune source unique de vérité."], ["Trop de tâches manuelles", "L'équipe passe son temps à copier-coller."]];
   return (
-    <section id="problem" className="bg-[#fafbfc] py-24 md:py-[120px]">
-      <div className="mx-auto max-w-[1280px] px-5 md:px-6">
-        <SectionTitle badge="Le problème" title={<>Votre agence grandit, mais vos opérations deviennent <span className="text-[#12C76F]">plus difficiles à gérer.</span></>} subtitle="Entre WhatsApp, Excel et les suivis manuels, vous perdez du temps, des clients et des opportunités chaque jour." />
-        <motion.div variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }} transition={{ duration: 0.65 }} className="mt-14 grid gap-10 rounded-[32px] border border-slate-100 bg-white p-6 shadow-[0_20px_80px_rgba(15,23,42,.06)] md:p-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:p-[60px]">
-          <div className="space-y-3">
-            {problems.map(([title, description], index) => <motion.div key={title} initial={{ opacity: 0, x: -14 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.06 }} className="flex gap-4 rounded-2xl border border-slate-100 p-4 transition hover:-translate-y-1 hover:shadow-md"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-50 font-bold text-red-500">×</span><span><strong className="block text-sm">{title}</strong><span className="mt-1 block text-sm text-slate-500">{description}</span></span></motion.div>)}
-          </div>
-          <motion.figure whileHover={{ scale: 1.03 }} className="relative min-h-[480px] overflow-hidden rounded-[26px] bg-slate-100 md:min-h-[620px]">
-            <Image src="/landing/real-cargo-team.jpg" alt="Équipe professionnelle travaillant dans un bureau" fill sizes="(max-width:1024px) 100vw, 50vw" className="object-cover" />
-            <ProblemFloat className="left-4 top-5" title="WhatsApp" value="87 messages non lus" danger />
-            <ProblemFloat className="right-4 top-28" title="Paiement client" value="En retard" danger />
-            <ProblemFloat className="bottom-24 left-4" title="Excel" value="Excel_v17_FINAL.xlsx" />
-            <ProblemFloat className="bottom-5 right-4" title="Tracking" value="Statut inconnu" />
-          </motion.figure>
+    <section id="solutions" className="border-t border-white/[0.08] bg-[#03100d] px-5 py-20 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <motion.div {...fadeUp}>
+          <Pill icon={ShieldCheck}>Le vrai problème</Pill>
+          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+            Quand l&apos;agence grandit, le chaos grandit aussi.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-white/65">
+            WhatsApp contient les demandes. Excel contient les suivis. Les paiements sont ailleurs.
+            Les managers passent leur journée à recoller les morceaux au lieu de piloter.
+          </p>
         </motion.div>
-      </div>
-    </section>
-  );
-}
 
-function ProblemFloat({ className, title, value, danger = false }: { className: string; title: string; value: string; danger?: boolean }) {
-  return <motion.div animate={{ y: [-5, 5, -5] }} transition={{ duration: 7, repeat: Infinity }} className={`absolute rounded-2xl border border-white/70 bg-white/95 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,.1)] backdrop-blur ${className}`}><strong className="block text-xs">{title}</strong><span className={`mt-1 block text-xs ${danger ? "text-red-500" : "text-slate-500"}`}>{value}</span></motion.div>;
-}
-
-function SolutionsSection() {
-  const benefits = [[MessageCircle, "WhatsApp centralisé", "Toutes les conversations réunies dans une seule inbox."], [Bot, "Opérations automatisées", "Relances, notifications et tâches exécutées automatiquement."], [Globe2, "Contrôle multi-pays", "Pilotez bureaux et entrepôts depuis un seul tableau de bord."]];
-  return (
-    <section id="solutions" className="bg-white py-24 md:py-[120px]">
-      <div className="mx-auto max-w-[1280px] px-5 md:px-6">
-        <SectionTitle badge="Solutions" title={<>Centralisez toute votre activité cargo dans <span className="text-[#12C76F]">une seule plateforme.</span></>} subtitle="Clients, colis, expéditions, WhatsApp, paiements, bureaux et reporting réunis dans un système conçu pour les agences cargo modernes." />
-        <div className="mt-12 grid gap-4 md:grid-cols-3">{benefits.map(([Icon, title, text]) => { const FeatureIcon = Icon as LucideIcon; return <motion.div key={String(title)} whileHover={{ y: -5 }} className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-[0_12px_35px_rgba(15,23,42,.04)]"><FeatureIcon className="text-[#12C76F]" /><h3 className="mt-4 font-semibold">{String(title)}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{String(text)}</p></motion.div>; })}</div>
-        <ProductDashboard />
-        <div className="mt-8 flex flex-wrap justify-center gap-2">{["Dashboard", "Tracking", "Inbox WhatsApp", "Expéditions", "Analytics", "Paiements", "Multi-pays"].map(item => <span key={item} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600"><Check className="mr-1.5 inline text-[#12C76F]" size={14} />{item}</span>)}</div>
-      </div>
-    </section>
-  );
-}
-
-function ProductDashboard() {
-  return (
-    <motion.div variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.7 }} className="relative mt-8 rounded-[34px] border border-slate-200 bg-[#f8faf9] p-3 shadow-[0_28px_90px_rgba(15,23,42,.1)] md:p-5">
-      <div className="grid overflow-hidden rounded-[26px] border border-slate-200 bg-white lg:grid-cols-[220px_1fr]">
-        <aside className="hidden border-r border-slate-200 p-5 lg:block"><div className="mb-5 flex items-center gap-2"><Image src="/slaivio-mark.png" alt="" width={30} height={30} className="rounded-lg" /><strong>SLAIVIO</strong></div><div className="space-y-1">{productSidebar.map((item, index) => <div key={item} className={`rounded-lg px-3 py-2 text-[11px] ${index === 0 ? "bg-emerald-50 font-semibold text-[#0b9d53]" : "text-slate-500"}`}>{item}</div>)}</div></aside>
-        <Image src="/landing/dashboard.png" alt="Dashboard SLAIVIO pour les opérations cargo" width={1600} height={900} sizes="(max-width:1024px) 100vw, 75vw" className="h-full min-h-[430px] w-full object-cover object-left-top" />
-      </div>
-      <HeroWidget className="-left-8 top-14" icon={Package} title="Nouveau colis" lines={["SLA-CH-84729", "Jean Mukendi · Reçu"]} />
-      <HeroWidget className="-right-8 top-20" icon={CircleDollarSign} title="Paiement confirmé" lines={["1 250 USD", "Sarah Cargo"]} delay={1} />
-    </motion.div>
-  );
-}
-
-function IntegrationsSection() {
-  return (
-    <section id="integrations" className="chrono-grid relative overflow-hidden bg-white py-24 md:py-[120px]">
-      <div className="mx-auto max-w-[1180px] px-5 text-center md:px-6">
-        <SectionTitle badge="Intégrations" title="Connectez les outils que votre agence utilise déjà." subtitle="SLAIVIO connecte WhatsApp Business, Gmail et TikTok pour centraliser vos conversations et opportunités." />
-        <motion.div initial={{ opacity: 0, scale: 0.96 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="relative mx-auto mt-16 h-[520px] max-w-[760px] md:h-[620px]">
-          <div className="absolute left-1/2 top-1/2 h-[340px] w-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-slate-100 md:h-[500px] md:w-[500px]" />
-          <div className="landing-orbit absolute left-1/2 top-1/2 hidden h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 md:block">
-            <OrbitCard orbit className="left-[calc(50%-60px)] top-0" label="WhatsApp Business Integration" icon={MessageCircle} color="text-emerald-500" />
-            <OrbitCard orbit className="bottom-8 left-0" label="Gmail Integration" icon={Mail} color="text-red-500" />
-            <OrbitCard orbit className="bottom-8 right-0" label="TikTok Integration" icon={Music2} color="text-black" />
-          </div>
-          <div className="absolute left-1/2 top-1/2 z-10 flex h-[130px] w-[130px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[32px] border border-slate-100 bg-white shadow-[0_20px_50px_rgba(0,0,0,.08)]"><Image src="/slaivio-mark.png" alt="SLAIVIO centralise les intégrations" width={82} height={82} className="rounded-[22px]" /></div>
-          <div className="absolute inset-x-0 bottom-5 grid grid-cols-3 gap-3 md:hidden"><OrbitCard label="WhatsApp Business Integration" icon={MessageCircle} color="text-emerald-500" /><OrbitCard label="Gmail Integration" icon={Mail} color="text-red-500" /><OrbitCard label="TikTok Integration" icon={Music2} color="text-black" /></div>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-function OrbitCard({ className = "", label, icon: Icon, color, orbit = false }: { className?: string; label: string; icon: LucideIcon; color: string; orbit?: boolean }) {
-  return <motion.div whileHover={{ y: -8, boxShadow: "0 30px 70px rgba(0,0,0,.12)" }} aria-label={label} className={`${orbit ? "landing-counter-orbit absolute" : "relative"} flex h-[112px] w-full items-center justify-center rounded-[28px] border border-slate-100 bg-white shadow-[0_15px_40px_rgba(0,0,0,.08)] md:h-[120px] md:w-[120px] ${className}`}><Icon size={42} className={color} /></motion.div>;
-}
-
-function FeaturesExperience() {
-  const [active, setActive] = useState(0);
-  const feature = features[active];
-  const Icon = feature.icon;
-  return (
-    <section id="features" className="bg-[#f8fafc] py-24 md:py-[120px]">
-      <div className="mx-auto max-w-[1280px] px-5 md:px-6">
-        <SectionTitle badge="Fonctionnalités" title={<>Tout votre business cargo dans <span className="text-[#12C76F]">une seule plateforme.</span></>} subtitle="Gérez clients, dossiers, colis, expéditions, paiements et conversations WhatsApp depuis un seul espace de travail." />
-        <div className="mt-14 overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_20px_80px_rgba(0,0,0,.06)] md:rounded-[40px]">
-          <AnimatePresence mode="wait">
-            <motion.div key={active} initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -22 }} transition={{ duration: 0.32 }} className="grid min-h-[620px] lg:grid-cols-[40%_60%]">
-              <div className="flex flex-col justify-center p-7 md:p-12 lg:p-14"><span className="w-fit rounded-full border border-emerald-200 px-4 py-2 text-xs font-bold text-[#0b9d53]">{String(active + 1).padStart(2, "0")}</span><Icon className="mt-8 text-[#12C76F]" size={34} /><h3 className="mt-5 text-3xl font-bold tracking-[-0.04em] md:text-4xl">{feature.title}</h3><p className="mt-5 text-base leading-8 text-slate-500">{feature.description}</p><ul className="mt-7 space-y-3">{feature.benefits.map(item => <li key={item} className="flex items-center gap-3 text-sm text-slate-700"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[#12C76F]"><Check size={14} /></span>{item}</li>)}</ul></div>
-              <div className="flex items-center bg-[#f5f7f6] p-4 md:p-8"><Image src={feature.image} alt={`Aperçu SLAIVIO : ${feature.title}`} width={1600} height={900} sizes="(max-width:1024px) 100vw, 60vw" className="h-auto w-full rounded-[24px] border border-slate-200 bg-white shadow-xl" /></div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[
+            ["Messages dispersés", "Les conversations importantes restent bloquées dans les téléphones."],
+            ["Dossiers incomplets", "Les pièces, statuts, paiements et notes ne vivent pas ensemble."],
+            ["Relances oubliées", "Les clients attendent parce que personne ne voit la prochaine action."],
+            ["Croissance difficile", "Plus de clients finit par créer plus de charge manuelle."],
+          ].map(([title, text], index) => (
+            <motion.div
+              key={title}
+              {...fadeUp}
+              transition={{ duration: 0.55, delay: index * 0.06 }}
+              className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"
+            >
+              <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-full bg-red-500/12 text-red-300">
+                <X className="h-5 w-5" />
+              </div>
+              <h3 className="font-bold">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-white/58">{text}</p>
             </motion.div>
-          </AnimatePresence>
+          ))}
         </div>
-        <div className="mt-7 flex gap-2 overflow-x-auto pb-3" role="tablist" aria-label="Fonctionnalités SLAIVIO">{features.map((item, index) => <button key={item.title} type="button" role="tab" aria-selected={active === index} onClick={() => setActive(index)} className={`shrink-0 rounded-full border px-4 py-2.5 text-xs font-semibold transition ${active === index ? "border-[#12C76F] bg-[#12C76F] text-white" : "border-slate-200 bg-white text-slate-500 hover:border-emerald-300"}`}>{item.title}</button>)}</div>
-        <p className="mt-5 text-center text-sm text-slate-500">Et bien plus encore : notifications, routes, équipes, services, IA Cargo et gestion documentaire.</p>
       </div>
     </section>
   );
 }
 
-function HowItWorks() {
+function PlatformSection() {
   return (
-    <section id="how" className="bg-white py-24 md:py-[120px]">
-      <div className="mx-auto max-w-[1280px] px-5 md:px-6"><SectionTitle badge="Comment ça marche" title="Gérez votre agence cargo en quelques étapes simples" subtitle="Connectez vos canaux, configurez votre agence et automatisez vos opérations cargo dans une plateforme unique." /><div className="mt-14 grid gap-5 md:grid-cols-2">{howSteps.map((step, index) => <motion.article key={step.title} variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} transition={{ delay: index * 0.08 }} whileHover={{ scale: 1.02 }} className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_16px_50px_rgba(15,23,42,.05)]"><StepVisual kind={step.kind} icon={step.icon} /><div className="p-7"><span className="text-xs font-bold text-[#12C76F]">ÉTAPE {index + 1}</span><h3 className="mt-3 text-2xl font-bold">{step.title}</h3><p className="mt-3 text-sm leading-7 text-slate-500">{step.description}</p></div></motion.article>)}</div></div>
+    <section id="plateforme" className="px-5 py-20 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
+          <Pill icon={Sparkles}>Plateforme unifiée</Pill>
+          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+            Tout ce que votre agence doit contrôler, au même endroit.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-white/65">
+            SLAIVIO ne vend pas une page de plus. C&apos;est une colonne vertébrale opérationnelle
+            pour les équipes cargo qui travaillent tous les jours avec WhatsApp.
+          </p>
+        </motion.div>
+
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {operatingCards.map((card, index) => (
+            <motion.div
+              key={card.title}
+              {...fadeUp}
+              transition={{ duration: 0.55, delay: index * 0.05 }}
+              className="group rounded-[1.7rem] border border-white/10 bg-white/[0.045] p-6 transition hover:-translate-y-1 hover:border-[#12C76F]/35 hover:bg-white/[0.065]"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#12C76F]/12 text-[#12C76F] transition group-hover:scale-105">
+                <card.icon className="h-7 w-7" />
+              </div>
+              <h3 className="mt-6 text-xl font-bold">{card.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-white/60">{card.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
 
-function StepVisual({ kind, icon: Icon }: { kind: string; icon: LucideIcon }) {
-  return <div className="chrono-dots relative flex h-[260px] items-center justify-center overflow-hidden border-b border-slate-100 bg-[#fafbfc]"><div className="flex h-20 w-20 items-center justify-center rounded-[24px] border border-white bg-white text-[#12C76F] shadow-xl"><Icon size={34} /></div>{kind === "flow" && <div className="absolute bottom-6 flex gap-2 text-[10px]">{["Client", "Dossier", "Colis", "Expédition"].map((item, index) => <span key={item} className="rounded-lg border bg-white px-3 py-2 shadow-sm">{item}{index < 3 && " →"}</span>)}</div>}{kind === "tracking" && <div className="absolute bottom-6 flex gap-2 text-[10px]">{["Reçu", "Transit", "Arrivé", "Livré"].map(item => <span key={item} className="rounded-full bg-emerald-50 px-3 py-2 text-emerald-700">✓ {item}</span>)}</div>}{kind === "chat" && <div className="absolute bottom-5 left-5 right-5 space-y-2 text-[10px]"><div className="mr-12 rounded-xl bg-white p-3 shadow-sm">Client : Mon colis est-il arrivé ?</div><div className="ml-12 rounded-xl bg-emerald-100 p-3">OTI Cargo : Oui, il est arrivé à Kinshasa.</div></div>}</div>;
-}
-
-function PricingSection() {
-  const [cycle, setCycle] = useState<"monthly" | "quarterly" | "semiannual" | "annual">("monthly");
-  const discount = { monthly: 0, quarterly: 0.1, semiannual: 0.15, annual: 0.2 }[cycle];
+function WorkflowSection() {
   return (
-    <section id="pricing" className="bg-[#fafbfc] py-24 md:py-[120px]"><div className="mx-auto max-w-[1180px] px-5 md:px-6"><SectionTitle badge="Tarification" title="Choisissez le plan adapté à votre agence" subtitle="Commencez avec SLAIVIO et développez votre agence cargo sans augmenter votre charge opérationnelle." /><div className="mx-auto mt-9 flex w-fit max-w-full gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5">{[["monthly", "Mensuel"], ["quarterly", "Trimestriel -10%"], ["semiannual", "Semestriel -15%"], ["annual", "Annuel -20%"]].map(([value, label]) => <button key={value} type="button" onClick={() => setCycle(value as typeof cycle)} className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-semibold transition ${cycle === value ? "bg-[#111318] text-white" : "text-slate-500"}`}>{label}</button>)}</div><div className="mt-12 grid items-center gap-5 lg:grid-cols-3">{pricingPlans.map((plan, index) => <motion.article key={plan.name} variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true }} transition={{ delay: index * 0.15 }} whileHover={{ y: -8 }} className={`relative rounded-[28px] border p-7 shadow-[0_20px_60px_rgba(0,0,0,.06)] md:p-9 ${plan.popular ? "z-10 border-[#12C76F] bg-[#12C76F] text-white lg:scale-[1.06]" : "border-slate-200 bg-white"}`}>{plan.popular && <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-[#111318] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white">Le plus populaire</span>}<h3 className="text-2xl font-bold">{plan.name}</h3><p className={`mt-2 min-h-12 text-sm ${plan.popular ? "text-white/75" : "text-slate-500"}`}>{plan.description}</p><div className="mt-7 flex items-end gap-1"><AnimatePresence mode="popLayout"><motion.strong key={`${cycle}-${plan.name}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-5xl tracking-[-0.05em]">{Math.round(plan.monthly * (1 - discount))}$</motion.strong></AnimatePresence><span className={plan.popular ? "text-white/70" : "text-slate-500"}>/mois</span></div><a href="#demo" className={`mt-7 flex h-13 items-center justify-center rounded-xl text-sm font-bold ${plan.popular ? "bg-white text-[#111318]" : "bg-[#12C76F] text-white"}`}>{plan.name === "Enterprise" ? "Demander une démo" : "Commencer"}</a><ul className={`mt-7 space-y-3 border-t pt-6 text-sm ${plan.popular ? "border-white/20" : "border-slate-200"}`}>{plan.features.map(item => <li key={item} className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0" />{item}</li>)}</ul></motion.article>)}</div></div></section>
+    <section id="workflow" className="border-y border-white/[0.08] bg-[#06110e] px-5 py-20 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        <motion.div {...fadeUp} className="max-w-3xl">
+          <Pill icon={Route}>Méthode de déploiement</Pill>
+          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+            Une mise en place progressive, sans casser votre activité.
+          </h2>
+        </motion.div>
+
+        <div className="mt-12 grid gap-5 lg:grid-cols-4">
+          {workflowSteps.map((step, index) => (
+            <motion.div
+              key={step.title}
+              {...fadeUp}
+              transition={{ duration: 0.55, delay: index * 0.08 }}
+              className="relative rounded-[1.7rem] border border-white/10 bg-[#020807] p-6"
+            >
+              <div className="mb-8 flex h-11 w-11 items-center justify-center rounded-full bg-[#12C76F] text-lg font-black text-[#02130b]">
+                {index + 1}
+              </div>
+              <h3 className="text-lg font-bold">{step.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-white/58">{step.text}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
-function FaqSection() {
-  const [open, setOpen] = useState<number | null>(0);
+function SecuritySection() {
   return (
-    <section id="faq" className="bg-white py-24 md:py-[120px]"><div className="mx-auto max-w-[920px] px-5"><SectionTitle badge="FAQ" title="Questions fréquentes" subtitle="Tout ce que vous devez savoir avant de moderniser votre agence cargo avec SLAIVIO." /><div className="mt-12 space-y-3">{faqItems.map(([question, answer], index) => <div key={question} className="overflow-hidden rounded-[18px] border border-slate-200 bg-white"><button type="button" onClick={() => setOpen(open === index ? null : index)} aria-expanded={open === index} className="flex min-h-[72px] w-full items-center justify-between gap-4 px-6 text-left text-sm font-semibold md:text-base"><span>{question}</span><ChevronDown size={19} className={`shrink-0 transition ${open === index ? "rotate-180" : ""}`} /></button><AnimatePresence initial={false}>{open === index && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }}><p className="px-6 pb-6 text-sm leading-7 text-slate-500">{answer}</p></motion.div>}</AnimatePresence></div>)}</div><div className="mt-10 flex flex-col items-center justify-between gap-5 rounded-[28px] border border-slate-200 p-7 shadow-[0_20px_60px_rgba(0,0,0,.04)] md:flex-row"><div><h3 className="text-xl font-bold">Vous avez encore une question ?</h3><p className="mt-2 text-sm text-slate-500">Parlez avec notre équipe et découvrez comment SLAIVIO s'adapte à votre agence.</p></div><div className="flex shrink-0 flex-col gap-2 sm:flex-row"><a href="#demo" className="chrono-button bg-[#12C76F] text-white">Demander une démo</a><a href="#contact" className="chrono-button border border-slate-200 bg-white">Parler à un conseiller</a></div></div></div></section>
+    <section id="securite" className="px-5 py-20 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 backdrop-blur lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
+        <motion.div {...fadeUp}>
+          <Pill icon={LockKeyhole}>Production mindset</Pill>
+          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+            Pensé pour devenir une infrastructure, pas juste un dashboard.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-white/65">
+            Le cap est simple: chaque bloc doit être testé en réel, relié à la production,
+            et compréhensible par une agence qui n&apos;a pas d&apos;équipe technique.
+          </p>
+        </motion.div>
+
+        <div className="grid gap-3">
+          {securityItems.map((item) => (
+            <div key={item} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/18 p-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#12C76F]/15 text-[#12C76F]">
+                <Check className="h-5 w-5" />
+              </span>
+              <span className="font-semibold text-white/82">{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
-type FormErrors = Record<string, string>;
-
-function DemoSection() {
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [errors, setErrors] = useState<FormErrors>({});
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    const required = ["full_name", "agency_name", "country", "email", "phone", "agency_size"];
-    const nextErrors: FormErrors = {};
-    required.forEach(key => { if (!String(data.get(key) || "").trim()) nextErrors[key] = "Ce champ est requis."; });
-    const email = String(data.get("email") || "");
-    if (email && !/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = "Saisissez un email valide.";
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
-    setStatus("loading");
-    try {
-      await createDemoRequest({
-        full_name: String(data.get("full_name")),
-        agency_name: String(data.get("agency_name")),
-        country: String(data.get("country")),
-        email,
-        phone: String(data.get("phone")),
-        monthly_shipments: `${String(data.get("agency_size"))} | ${String(data.get("monthly_volume") || "Volume non précisé")}`,
-        message: String(data.get("message") || ""),
-      });
-      form.reset();
-      setStatus("success");
-    } catch {
-      setStatus("error");
-    }
-  }
-
+function DemoSection({
+  formStatus,
+  onSubmit,
+}: {
+  formStatus: "idle" | "loading" | "success" | "error";
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
   return (
-    <section id="demo" className="bg-[#f8fafc] py-24"><motion.div variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} className="mx-auto grid max-w-[1180px] gap-10 rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_24px_80px_rgba(15,23,42,.06)] md:p-12 lg:grid-cols-[.9fr_1.1fr] lg:gap-14 lg:rounded-[40px]"><div className="self-center"><Pill>Demande de démo</Pill><h2 className="mt-6 text-4xl font-bold leading-tight tracking-[-0.045em] md:text-5xl">Prêt à moderniser votre agence cargo ?</h2><p className="mt-5 leading-8 text-slate-500">Notre équipe vous montrera comment centraliser vos clients, colis, expéditions, WhatsApp, paiements et rapports.</p><ul className="mt-7 space-y-3">{["Démonstration personnalisée", "Analyse de vos opérations", "Recommandations adaptées", "Aucun engagement"].map(item => <li key={item} className="flex items-center gap-3 text-sm"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[#12C76F]"><Check size={14} /></span>{item}</li>)}</ul><div className="mt-8 rounded-2xl bg-[#f8fafc] p-5 text-sm leading-7 text-slate-500"><strong className="text-slate-900">Temps de réponse :</strong> moins de 24h<br /><strong className="text-slate-900">Canaux :</strong> WhatsApp · Email · Appel</div></div><div>{status === "success" ? <SuccessState onReset={() => setStatus("idle")} /> : <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><h3 className="text-2xl font-bold">Demander une démo</h3><p className="mt-2 text-sm text-slate-500">Un conseiller SLAIVIO vous contactera pour la planifier.</p></div><FormField name="full_name" label="Nom complet" placeholder="Jean Mukendi" error={errors.full_name} /><FormField name="agency_name" label="Nom de l'agence" placeholder="OTI Cargo Express" error={errors.agency_name} /><SelectField name="country" label="Pays" options={countries.map(([, name]) => name).concat("Autre")} error={errors.country} /><FormField name="email" label="Email professionnel" placeholder="contact@agence.com" type="email" error={errors.email} /><FormField name="phone" label="Numéro WhatsApp" placeholder="+243 81 234 5678" type="tel" error={errors.phone} /><SelectField name="agency_size" label="Taille de l'agence" options={["Petite agence", "Agence en croissance", "Agence multi-bureaux", "Groupe cargo / réseau international"]} error={errors.agency_size} /><SelectField name="monthly_volume" label="Volume mensuel estimé" options={["Moins de 500 colis/mois", "500 à 5 000 colis/mois", "5 000 à 20 000 colis/mois", "Plus de 20 000 colis/mois"]} optional /><label className="sm:col-span-2"><span className="mb-2 block text-xs font-semibold">Besoin principal <span className="text-slate-400">(facultatif)</span></span><textarea name="message" rows={4} placeholder="Nous voulons centraliser WhatsApp, suivre les colis et automatiser les relances..." className="chrono-input resize-none" /></label><button type="submit" disabled={status === "loading"} className="sm:col-span-2 flex h-14 items-center justify-center rounded-2xl bg-[#12C76F] font-bold text-white transition hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(18,199,111,.25)] disabled:opacity-60">{status === "loading" ? "Envoi en cours..." : "Demander une démo"}</button><p className="text-center text-xs text-slate-400 sm:col-span-2">Ou parlez directement à un conseiller</p><a href="#contact" className="sm:col-span-2 flex h-13 items-center justify-center rounded-2xl border border-[#12C76F] font-semibold text-[#0b9d53]">Parler sur WhatsApp</a>{status === "error" && <p role="alert" className="text-center text-sm text-red-600 sm:col-span-2">Impossible d'envoyer la demande. Réessayez dans un instant.</p>}<p className="text-center text-[11px] leading-5 text-slate-400 sm:col-span-2">En envoyant ce formulaire, vous acceptez d'être contacté par l'équipe SLAIVIO au sujet de votre demande.</p></form>}</div></motion.div></section>
+    <section id="demo" className="border-y border-white/[0.08] bg-[#03100d] px-5 py-20 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1fr] lg:items-start">
+        <motion.div {...fadeUp}>
+          <Pill icon={MessageCircle}>Passer à la démo</Pill>
+          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+            Montrez-nous votre flux actuel. On vous montre où SLAIVIO enlève le chaos.
+          </h2>
+          <p className="mt-5 text-lg leading-8 text-white/65">
+            Pas besoin d&apos;avoir tout prêt. Une agence peut commencer par l&apos;inbox, les dossiers
+            et le tracking, puis activer les automatisations par étapes.
+          </p>
+        </motion.div>
+
+        <motion.form
+          {...fadeUp}
+          onSubmit={onSubmit}
+          className="rounded-[2rem] border border-white/10 bg-[#020807] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] sm:p-7"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            {formFields.map((field) => (
+              <label key={field.name} className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+                  {field.label}
+                </span>
+                <input
+                  name={field.name}
+                  required={field.name === "full_name" || field.name === "email"}
+                  type={field.name === "email" ? "email" : "text"}
+                  placeholder={field.placeholder}
+                  className="mt-2 h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
+                />
+              </label>
+            ))}
+          </div>
+
+          <label className="mt-4 block">
+            <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+              Message
+            </span>
+            <textarea
+              name="message"
+              rows={5}
+              placeholder="Dites-nous comment votre agence travaille aujourd'hui..."
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={formStatus === "loading"}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#12C76F] px-6 py-4 text-sm font-black text-[#02130b] transition hover:-translate-y-0.5 hover:bg-[#36e68e] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {formStatus === "loading" ? "Envoi..." : "Demander une démo"}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+
+          {formStatus === "success" && (
+            <p className="mt-4 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4 text-sm text-[#74f0af]">
+              Demande reçue. On vous contactera avec les prochaines étapes.
+            </p>
+          )}
+          {formStatus === "error" && (
+            <p className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">
+              Impossible d&apos;envoyer la demande pour le moment. Réessayez dans quelques instants.
+            </p>
+          )}
+        </motion.form>
+      </div>
+    </section>
   );
 }
 
-function FormField({ name, label, placeholder, type = "text", error }: { name: string; label: string; placeholder: string; type?: string; error?: string }) {
-  return <label><span className="mb-2 block text-xs font-semibold">{label}</span><input name={name} type={type} placeholder={placeholder} aria-invalid={Boolean(error)} aria-describedby={error ? `${name}-error` : undefined} className="chrono-input" />{error && <span id={`${name}-error`} className="mt-1.5 block text-xs text-red-600">{error}</span>}</label>;
+function FaqSection({
+  openFaq,
+  setOpenFaq,
+}: {
+  openFaq: number;
+  setOpenFaq: (index: number) => void;
+}) {
+  return (
+    <section className="px-5 py-20 lg:px-8">
+      <div className="mx-auto max-w-4xl">
+        <motion.div {...fadeUp} className="text-center">
+          <Pill icon={Globe2}>FAQ</Pill>
+          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+            Les questions avant une vraie mise en production.
+          </h2>
+        </motion.div>
+
+        <div className="mt-10 space-y-3">
+          {faqItems.map(([question, answer], index) => (
+            <motion.div
+              key={question}
+              {...fadeUp}
+              transition={{ duration: 0.45, delay: index * 0.04 }}
+              className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045]"
+            >
+              <button
+                className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left font-bold"
+                onClick={() => setOpenFaq(openFaq === index ? -1 : index)}
+                aria-expanded={openFaq === index}
+              >
+                {question}
+                <ChevronDown className={`h-5 w-5 transition ${openFaq === index ? "rotate-180" : ""}`} />
+              </button>
+              <AnimatePresence initial={false}>
+                {openFaq === index && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <p className="px-5 pb-5 text-sm leading-7 text-white/62">{answer}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function SelectField({ name, label, options, error, optional = false }: { name: string; label: string; options: string[]; error?: string; optional?: boolean }) {
-  return <label><span className="mb-2 block text-xs font-semibold">{label}{optional && <span className="text-slate-400"> (facultatif)</span>}</span><select name={name} defaultValue="" aria-invalid={Boolean(error)} aria-describedby={error ? `${name}-error` : undefined} className="chrono-input"><option value="" disabled>Sélectionnez</option>{options.map(option => <option key={option} value={option}>{option}</option>)}</select>{error && <span id={`${name}-error`} className="mt-1.5 block text-xs text-red-600">{error}</span>}</label>;
+function LandingFooter() {
+  return (
+    <footer className="border-t border-white/[0.08] px-5 py-10 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <Image src="/slaivio-mark.png" alt="" width={38} height={38} className="h-9 w-9 object-contain" />
+          <div>
+            <p className="font-bold">SLAIVIO</p>
+            <p className="text-sm text-white/45">Cargo operations platform</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-5 text-sm text-white/55">
+          <a href="#plateforme" className="hover:text-white">Plateforme</a>
+          <a href="#solutions" className="hover:text-white">Solutions</a>
+          <a href="#demo" className="hover:text-white">Démo</a>
+          <Link href="/sign-in" className="hover:text-white">Connexion</Link>
+        </div>
+      </div>
+    </footer>
+  );
 }
 
-function SuccessState({ onReset }: { onReset: () => void }) {
-  return <div className="flex min-h-[520px] flex-col items-center justify-center rounded-[28px] bg-emerald-50 p-8 text-center"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#12C76F] text-white"><Check size={30} /></span><h3 className="mt-6 text-2xl font-bold">Demande envoyée avec succès</h3><p className="mt-4 max-w-sm leading-7 text-slate-500">Merci. Notre équipe vous contactera rapidement pour organiser votre démonstration SLAIVIO.</p><button type="button" onClick={onReset} className="chrono-button mt-7 bg-white">Retour au site</button></div>;
-}
-
-function SectionTitle({ badge, title, subtitle }: { badge: string; title: React.ReactNode; subtitle: string }) {
-  return <motion.div variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.35 }} transition={{ duration: 0.6 }} className="mx-auto max-w-[900px] text-center"><Pill>{badge}</Pill><h2 className="mt-6 text-[clamp(2.25rem,5vw,4rem)] font-bold leading-[1.05] tracking-[-0.045em]">{title}</h2><p className="mx-auto mt-5 max-w-[720px] text-base leading-8 text-slate-500 md:text-lg">{subtitle}</p></motion.div>;
-}
-
-function Pill({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex min-h-10 items-center rounded-full border border-slate-200 bg-white px-5 text-xs font-semibold uppercase tracking-[.08em] text-slate-600 shadow-[0_8px_30px_rgba(0,0,0,.04)]">{children}</span>;
-}
-
-function Footer() {
-  const socials = [[MessageCircle, "WhatsApp"], [Linkedin, "LinkedIn"], [Facebook, "Facebook"], [Youtube, "YouTube"]] as const;
-  return <footer id="contact" className="border-t border-slate-200 bg-white py-10"><div className="mx-auto max-w-[1180px] px-5 md:px-6"><div className="grid gap-8 md:grid-cols-[1.3fr_repeat(4,.7fr)]"><div><div className="flex items-center gap-3"><Image src="/slaivio-mark.png" alt="" width={34} height={34} className="rounded-[10px]" /><strong>SLAIVIO</strong></div><p className="mt-4 max-w-xs text-sm leading-6 text-slate-500">L'Operating System des agences cargo modernes.</p></div><FooterLinks title="Produit" links={[["Fonctionnalités", "#features"], ["Intégrations", "#integrations"], ["Tarification", "#pricing"], ["Sécurité", "#faq"]]} /><FooterLinks title="Ressources" links={[["Documentation", "#features"], ["FAQ", "#faq"], ["Comment ça marche", "#how"]]} /><FooterLinks title="Entreprise" links={[["À propos", "#solutions"], ["Contact", "#demo"], ["Partenaires", "#integrations"]]} /><FooterLinks title="Légal" links={[["Politique de confidentialité", "/privacy"], ["Conditions d'utilisation", "/terms"]]} /></div><div className="mt-9 flex flex-col items-center justify-between gap-5 border-t border-slate-200 pt-7 text-xs text-slate-500 md:flex-row"><span>© 2026 SLAIVIO. Tous droits réservés.</span><div className="flex items-center gap-2">{socials.map(([Icon, label]) => <span key={label} aria-label={`${label} - bientôt disponible`} title={`${label} - bientôt disponible`} className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400"><Icon size={16} /></span>)}<a href="mailto:contact@slaivio.com" aria-label="Email" className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:text-[#12C76F]"><Mail size={16} /></a></div><span>FR | EN</span></div></div></footer>;
-}
-
-function FooterLinks({ title, links }: { title: string; links: Array<[string, string]> }) {
-  return <div><h3 className="text-xs font-bold uppercase tracking-wider">{title}</h3><div className="mt-4 space-y-3">{links.map(([label, href]) => <a key={label} href={href} className="landing-footer-link block text-sm text-slate-500 hover:text-black">{label}</a>)}</div></div>;
+function Pill({ children, icon: Icon }: { children: ReactNode; icon: LucideIcon }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#12C76F]/25 bg-[#12C76F]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#74f0af]">
+      <Icon className="h-4 w-4" />
+      {children}
+    </span>
+  );
 }

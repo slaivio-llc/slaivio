@@ -207,9 +207,15 @@ function LandingHeader({
   return (
     <header className="absolute left-0 right-0 top-0 z-50">
       <div className="mx-auto flex h-[88px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
-        <Link href="/landing" className="flex items-center gap-3" aria-label="SLAIVIO landing">
-          <Image src="/slaivio-mark.png" alt="" width={46} height={46} className="h-11 w-11 object-contain" priority />
-          <span className="text-[28px] font-extrabold tracking-[-0.04em] text-white">Slaivio</span>
+        <Link href="/" className="flex items-center gap-3" aria-label="SLAIVIO">
+          <Image
+            src="/slaivio-logo-official-dark.png"
+            alt="SLAIVIO"
+            width={156}
+            height={60}
+            className="h-auto w-[142px] object-contain sm:w-[154px]"
+            priority
+          />
         </Link>
 
         <nav className="hidden items-center gap-10 text-[15px] font-semibold text-white xl:flex">
@@ -307,7 +313,7 @@ function HeroSection() {
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" as const }}
-            className="text-[42px] font-extrabold leading-[1.05] tracking-[-0.04em] text-white sm:text-[56px] xl:text-[68px]"
+            className="text-[42px] font-bold leading-[1.04] tracking-[-0.025em] text-white sm:text-[56px] xl:text-[68px]"
           >
             Centralisez. Automatisez.
             <br />
@@ -320,7 +326,7 @@ function HeroSection() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" as const }}
-            className="mt-7 max-w-[560px] text-[17px] leading-[1.8] text-white/70 sm:text-lg"
+            className="mt-7 max-w-[560px] text-[17px] leading-[1.78] text-white/70 sm:text-lg"
           >
             SLAIVIO centralise vos clients, colis, expéditions, paiements et WhatsApp dans
             une seule plateforme. Gagnez du temps, réduisez les erreurs et offrez une
@@ -372,7 +378,7 @@ function HeroSection() {
           <DashboardPreview />
 
           <FloatingCard
-            className="-right-5 -top-12 hidden rotate-[7deg] xl:block"
+            className="right-3 top-5 hidden rotate-[3deg] xl:block"
             delay={0}
             icon={MessageCircle}
             title="Nouveau message WhatsApp"
@@ -381,7 +387,7 @@ function HeroSection() {
             variant="whatsapp"
           />
           <FloatingCard
-            className="-left-24 bottom-[-28px] hidden rotate-[-2deg] lg:block"
+            className="-left-16 bottom-[-22px] hidden rotate-[-2deg] lg:block"
             delay={0.7}
             icon={Package}
             title="Colis reçu en entrepôt Chine"
@@ -390,7 +396,7 @@ function HeroSection() {
             variant="package"
           />
           <FloatingCard
-            className="-right-5 bottom-[-58px] hidden rotate-[7deg] lg:block"
+            className="right-2 bottom-[-46px] hidden rotate-[4deg] lg:block"
             delay={1.2}
             icon={CheckCircle2}
             title="Expédition livrée"
@@ -442,8 +448,13 @@ function DashboardPreview() {
       <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[176px_1fr] xl:grid-cols-[190px_1fr]">
         <aside className="hidden border-r border-white/[0.08] bg-black/10 px-3 py-5 lg:block">
           <div className="mb-5 flex items-center gap-2 px-2">
-            <Image src="/slaivio-mark.png" alt="" width={32} height={32} className="h-8 w-8 object-contain" />
-            <span className="text-xl font-extrabold tracking-[-0.04em]">Slaivio</span>
+            <Image
+              src="/slaivio-logo-official-dark.png"
+              alt="SLAIVIO"
+              width={112}
+              height={43}
+              className="h-auto w-[104px] object-contain"
+            />
           </div>
           <div className="space-y-1.5">
             {menu.map(([item, Icon, badge], index) => (
@@ -627,9 +638,9 @@ function FloatingCard({
 }) {
   return (
     <motion.div
-      animate={{ y: [0, -12, 0] }}
+      animate={{ y: [0, -8, 0] }}
       transition={{
-        duration: variant === "success" ? 8 : variant === "package" ? 7 : 5.5,
+        duration: variant === "success" ? 8.5 : variant === "package" ? 7.5 : 6.5,
         delay,
         repeat: Infinity,
         repeatType: "mirror",
@@ -933,9 +944,14 @@ function LandingFooter() {
     <footer className="border-t border-white/[0.08] px-5 py-10 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <Image src="/slaivio-mark.png" alt="" width={38} height={38} className="h-9 w-9 object-contain" />
+          <Image
+            src="/slaivio-logo-official-dark.png"
+            alt="SLAIVIO"
+            width={132}
+            height={51}
+            className="h-auto w-[126px] object-contain"
+          />
           <div>
-            <p className="font-bold">SLAIVIO</p>
             <p className="text-sm text-white/45">Cargo operations platform</p>
           </div>
         </div>

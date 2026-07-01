@@ -4,17 +4,22 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "SLAIVIO Cargo OS",
+    default: "SLAIVIO - Cargo OS",
     template: "%s | SLAIVIO",
   },
   description: "Enterprise cargo operations platform for agencies.",
   icons: {
     icon: [
       {
-        url: "/favicon.ico",
+        url: "/icon.png",
+        type: "image/png",
       },
       {
-        url: "/icon.png",
+        url: "/favicon.ico",
+        sizes: "any",
+      },
+      {
+        url: "/slaivio-icon-official.png",
         type: "image/png",
       },
     ],

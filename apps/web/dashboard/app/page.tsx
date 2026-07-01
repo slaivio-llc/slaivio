@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/slaivio-logo.png",
+        url: "/slaivio-logo-official-dark.png",
         alt: "SLAIVIO",
       },
     ],
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     title: "SLAIVIO - Operating System des Agences Cargo",
     description:
       "Centralisez et automatisez les operations de votre agence cargo.",
-    images: ["/slaivio-logo.png"],
+    images: ["/slaivio-logo-official-dark.png"],
   },
 };
 

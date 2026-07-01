@@ -79,7 +79,7 @@ from app.api.onboarding import router as onboarding_router
 from app.api.onboarding_experience import router as onboarding_experience_router
 
 
-app = FastAPI(title="SLAIVO CARGO OS API")
+app = FastAPI(title="Slaivio")
 
 app.add_middleware(
     CORSMiddleware,
@@ -185,7 +185,7 @@ app.include_router(onboarding_experience_router)
 def root():
     return {
         "status": "ok",
-        "service": "SLAIVIO OS API",
+        "service": "Slaivio API",
     }
 
 

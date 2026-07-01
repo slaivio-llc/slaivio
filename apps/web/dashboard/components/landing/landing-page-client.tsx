@@ -6,19 +6,34 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type FormEvent, type ReactNode, useState } from "react";
 import {
   ArrowRight,
+  Bell,
   Bot,
   Building2,
   Check,
+  CheckCircle2,
   ChevronDown,
   CircleDollarSign,
+  CreditCard,
+  FileText,
   Globe2,
+  Inbox,
   LockKeyhole,
+  Megaphone,
   Menu,
   MessageCircle,
   Package,
+  PlayCircle,
+  Receipt,
   Route,
+  Search,
+  Send,
+  Settings,
   ShieldCheck,
   Sparkles,
+  Truck,
+  UserCircle,
+  Users,
+  Warehouse,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -26,10 +41,11 @@ import {
 import { createDemoRequest } from "@/services/landing";
 
 const navItems = [
-  { label: "Plateforme", href: "#plateforme" },
-  { label: "Solutions", href: "#solutions" },
-  { label: "Workflow", href: "#workflow" },
-  { label: "Sécurité", href: "#securite" },
+  { label: "Fonctionnalités", href: "#plateforme", hasChevron: true },
+  { label: "Comment ça marche", href: "#workflow" },
+  { label: "Tarifs", href: "#demo" },
+  { label: "Ressources", href: "#securite", hasChevron: true },
+  { label: "Contact", href: "#demo" },
 ];
 
 const operatingCards: Array<{
@@ -189,45 +205,41 @@ function LandingHeader({
   setMenuOpen: (value: boolean) => void;
 }) {
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.08] bg-[#020807]/75 backdrop-blur-2xl">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
+    <header className="absolute left-0 right-0 top-0 z-50">
+      <div className="mx-auto flex h-[88px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
         <Link href="/landing" className="flex items-center gap-3" aria-label="SLAIVIO landing">
-          <Image
-            src="/slaivio-mark.png"
-            alt=""
-            width={42}
-            height={42}
-            className="h-10 w-10 object-contain"
-            priority
-          />
-          <span className="text-xl font-bold tracking-tight">SLAIVIO</span>
+          <Image src="/slaivio-mark.png" alt="" width={46} height={46} className="h-11 w-11 object-contain" priority />
+          <span className="text-[28px] font-extrabold tracking-[-0.04em] text-white">Slaivio</span>
         </Link>
 
-        <nav className="hidden items-center gap-8 text-sm font-medium text-white/72 lg:flex">
+        <nav className="hidden items-center gap-10 text-[15px] font-semibold text-white xl:flex">
           {navItems.map((item) => (
-            <a key={item.href} href={item.href} className="transition hover:text-white">
+            <a key={item.label} href={item.href} className="inline-flex items-center gap-1.5 transition hover:text-[#12C76F]">
               {item.label}
+              {item.hasChevron && <ChevronDown className="h-3.5 w-3.5" />}
             </a>
           ))}
-          <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/55">
-            FR | EN
-          </span>
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
-          <Link href="/sign-in" className="rounded-full px-4 py-2 text-sm font-semibold text-white/80 hover:text-white">
-            Connexion
+        <div className="hidden items-center gap-6 lg:flex">
+          <button className="inline-flex items-center gap-2 text-sm font-semibold text-white" type="button">
+            <Globe2 className="h-5 w-5" />
+            FR
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          <Link href="/sign-in" className="text-sm font-semibold text-white transition hover:text-[#12C76F]">
+            Se connecter
           </Link>
           <a
             href="#demo"
-            className="inline-flex items-center gap-2 rounded-full bg-[#12C76F] px-5 py-3 text-sm font-bold text-[#02130b] shadow-[0_0_32px_rgba(18,199,111,0.25)] transition hover:-translate-y-0.5 hover:bg-[#36e68e]"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-[#12C76F] px-[22px] text-sm font-bold text-white shadow-[0_0_28px_rgba(18,199,111,0.26)] transition hover:-translate-y-0.5 hover:bg-[#18d87b]"
           >
-            Demander une démo <ArrowRight className="h-4 w-4" />
+            Demander une démo
           </a>
         </div>
 
         <button
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] lg:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white lg:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Ouvrir le menu"
         >
@@ -246,7 +258,7 @@ function LandingHeader({
             <div className="flex flex-col gap-4">
               {navItems.map((item) => (
                 <a
-                  key={item.href}
+                  key={item.label}
                   href={item.href}
                   className="text-sm font-semibold text-white/75"
                   onClick={() => setMenuOpen(false)}
@@ -255,12 +267,12 @@ function LandingHeader({
                 </a>
               ))}
               <Link href="/sign-in" className="text-sm font-semibold text-white/75">
-                Connexion
+                Se connecter
               </Link>
               <a
                 href="#demo"
                 onClick={() => setMenuOpen(false)}
-                className="rounded-full bg-[#12C76F] px-5 py-3 text-center text-sm font-bold text-[#02130b]"
+                className="rounded-xl bg-[#12C76F] px-5 py-3 text-center text-sm font-bold text-white"
               >
                 Demander une démo
               </a>
@@ -274,86 +286,117 @@ function LandingHeader({
 
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden px-5 pb-20 pt-32 sm:pb-28 lg:px-8">
-      <div className="absolute inset-0 opacity-60">
-        <div className="absolute left-1/2 top-0 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#12C76F]/10 blur-[120px]" />
-        <div className="absolute bottom-10 left-0 h-[420px] w-[420px] rounded-full bg-[#0b7cff]/10 blur-[110px]" />
+    <section className="relative min-h-screen overflow-hidden bg-[#030706] px-5 pb-16 pt-[120px] text-white sm:px-8 lg:px-12">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_55%,rgba(18,199,111,0.25),transparent_35%),radial-gradient(circle_at_30%_80%,rgba(18,199,111,0.10),transparent_30%),linear-gradient(180deg,#030706_0%,#050A09_48%,#07110D_100%)]" />
+        <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,.32)_100%)]" />
         <div
-          className="absolute inset-0"
+          className="absolute bottom-0 left-0 h-[360px] w-[760px] opacity-[0.18]"
           style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
-            backgroundSize: "72px 72px",
-            maskImage: "radial-gradient(circle at center, black 0%, transparent 72%)",
+            backgroundImage: "radial-gradient(circle, rgba(255,255,255,.72) 1.15px, transparent 1.25px)",
+            backgroundSize: "12px 12px",
+            clipPath:
+              "polygon(2% 36%, 15% 28%, 30% 35%, 40% 20%, 55% 33%, 70% 23%, 92% 42%, 87% 78%, 67% 68%, 56% 92%, 42% 69%, 29% 88%, 18% 66%, 5% 73%)",
           }}
         />
       </div>
 
-      <div className="relative mx-auto max-w-7xl">
-        <motion.div {...fadeUp} className="mx-auto max-w-4xl text-center">
-          <div className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-[#12C76F]/25 bg-[#12C76F]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.28em] text-[#74f0af]">
-            <Sparkles className="h-4 w-4" />
-            Cargo operations platform
-          </div>
+      <div className="relative mx-auto grid min-h-[calc(100vh-120px)] max-w-[1440px] items-center gap-12 lg:grid-cols-[0.4fr_0.6fr]">
+        <div className="relative z-10 max-w-[590px]">
+          <motion.h1
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" as const }}
+            className="text-[42px] font-extrabold leading-[1.05] tracking-[-0.04em] text-white sm:text-[56px] xl:text-[68px]"
+          >
+            Centralisez. Automatisez.
+            <br />
+            Développez votre agence
+            <br />
+            <span className="text-[#12C76F]">sans limites.</span>
+          </motion.h1>
 
-          <h1 className="text-balance text-5xl font-bold leading-[0.95] tracking-[-0.055em] sm:text-6xl lg:text-7xl xl:text-[88px]">
-            L&apos;Operating System
-            <span className="block text-[#12C76F]">des Agences Cargo</span>
-          </h1>
+          <motion.p
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" as const }}
+            className="mt-7 max-w-[560px] text-[17px] leading-[1.8] text-white/70 sm:text-lg"
+          >
+            SLAIVIO centralise vos clients, colis, expéditions, paiements et WhatsApp dans
+            une seule plateforme. Gagnez du temps, réduisez les erreurs et offrez une
+            meilleure expérience à vos clients.
+          </motion.p>
 
-          <p className="mx-auto mt-7 max-w-2xl text-balance text-lg leading-8 text-white/70 sm:text-xl">
-            Centralisez WhatsApp, les expéditions, les paiements, les bureaux et vos équipes
-            dans une seule plateforme conçue pour les agences cargo modernes.
-          </p>
-
-          <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" as const }}
+            className="mt-10 flex flex-col gap-4 sm:flex-row"
+          >
             <a
               href="#demo"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#12C76F] px-7 py-4 text-sm font-bold text-[#02130b] shadow-[0_0_38px_rgba(18,199,111,0.28)] transition hover:-translate-y-1 hover:bg-[#36e68e] sm:w-auto"
+              className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[14px] bg-[#12C76F] px-6 text-base font-bold text-white shadow-[0_0_35px_rgba(18,199,111,0.32)] transition hover:-translate-y-0.5 hover:bg-[#18d87b] sm:w-auto"
             >
-              Demander une démo <ArrowRight className="h-4 w-4" />
+              <Send className="h-5 w-5" />
+              Demander une démo
             </a>
             <a
-              href="https://wa.me/"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/14 bg-white/[0.04] px-7 py-4 text-sm font-bold text-white backdrop-blur transition hover:-translate-y-1 hover:bg-white/[0.08] sm:w-auto"
+              href="#plateforme"
+              className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[14px] border border-white/[0.18] bg-white/[0.03] px-6 text-base font-bold text-white backdrop-blur transition hover:border-[#12C76F]/70 hover:shadow-[0_0_28px_rgba(18,199,111,0.16)] sm:w-auto"
             >
-              <MessageCircle className="h-4 w-4 text-[#12C76F]" />
-              Parler à un conseiller
+              <PlayCircle className="h-6 w-6 text-[#3B82F6]" />
+              Watch a video
             </a>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 36, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.85, delay: 0.2, ease: "easeOut" as const }}
-          className="relative mx-auto mt-16 max-w-6xl"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.85, delay: 0.4, ease: "easeOut" as const }}
+          className="relative z-10 ml-auto w-full max-w-[850px]"
         >
-          <div className="absolute inset-x-16 -top-8 h-24 rounded-full bg-[#12C76F]/35 blur-[70px]" />
-          <div className="relative rounded-[2rem] border border-white/12 bg-white/[0.045] p-3 shadow-[0_30px_120px_rgba(0,0,0,0.45)] backdrop-blur-2xl">
-            <DashboardPreview />
-          </div>
+          <motion.div
+            aria-hidden="true"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+            className="absolute -left-20 top-[46%] hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/70 lg:block"
+          />
+          <motion.div
+            aria-hidden="true"
+            animate={{ rotate: -360 }}
+            transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
+            className="absolute -right-10 bottom-10 hidden h-[300px] w-[300px] rounded-full border border-dashed border-[#12C76F]/60 lg:block"
+          />
+          <div className="absolute -inset-12 rounded-full bg-[#12C76F]/20 blur-[90px]" />
+          <DashboardPreview />
 
           <FloatingCard
-            className="-left-3 bottom-10 hidden rotate-[-3deg] lg:block"
-            icon={Package}
-            title="Nouveau colis arrivé"
-            text="Dossier créé automatiquement"
-            badge="À valider"
-          />
-          <FloatingCard
-            className="bottom-[-42px] left-1/2 hidden -translate-x-1/2 rotate-[1deg] md:block"
+            className="-right-5 -top-12 hidden rotate-[7deg] xl:block"
+            delay={0}
             icon={MessageCircle}
-            title="Message WhatsApp traité"
-            text="Réponse préparée par SLAIVIO"
-            badge="IA"
+            title="Nouveau message WhatsApp"
+            lines={["De : +243 81 234 5678"]}
+            badge="maintenant"
+            variant="whatsapp"
           />
           <FloatingCard
-            className="-right-3 bottom-14 hidden rotate-[3deg] lg:block"
-            icon={CircleDollarSign}
-            title="Paiement reçu"
-            text="À rapprocher au dossier"
-            badge="Finance"
+            className="-left-24 bottom-[-28px] hidden rotate-[-2deg] lg:block"
+            delay={0.7}
+            icon={Package}
+            title="Colis reçu en entrepôt Chine"
+            lines={["CBJ-987654", "Poids : 12.5 kg"]}
+            badge="Il y a 2 min"
+            variant="package"
+          />
+          <FloatingCard
+            className="-right-5 bottom-[-58px] hidden rotate-[7deg] lg:block"
+            delay={1.2}
+            icon={CheckCircle2}
+            title="Expédition livrée"
+            lines={["EXP-2024-1240", "Kinshasa, RDC"]}
+            badge="Il y a 15 min"
+            variant="success"
           />
         </motion.div>
       </div>
@@ -362,113 +405,201 @@ function HeroSection() {
 }
 
 function DashboardPreview() {
-  const menu = ["Dashboard", "Clients", "Dossiers", "Expéditions", "Tracking", "WhatsApp Inbox", "Paiements"];
+  const menu: Array<[string, LucideIcon, string?]> = [
+    ["Dashboard", Route],
+    ["Clients", Users],
+    ["Dossiers", FileText],
+    ["Colis", Package],
+    ["Expéditions", Truck],
+    ["Tracking", Search],
+    ["WhatsApp Inbox", MessageCircle, "12"],
+    ["Broadcasts", Megaphone],
+    ["Relances", Bell],
+    ["Base de connaissances", Inbox],
+    ["Tarification", CircleDollarSign],
+    ["Services", Warehouse],
+    ["Paiements", CreditCard],
+    ["Factures", Receipt],
+    ["Organisation", Building2],
+    ["Paramètres", Settings],
+  ];
   const kpis = [
-    ["Inbox à traiter", "Priorités"],
-    ["Dossiers actifs", "Suivi"],
-    ["Paiements", "Validation"],
-    ["Expéditions", "Tracking"],
+    ["Clients", "1,248", "+14.5%"],
+    ["Dossiers", "842", "+12.3%"],
+    ["Colis", "2,453", "+18.7%"],
+    ["Expéditions", "320", "+9.1%"],
+  ];
+  const shipments = [
+    ["EXP-2024-1250", "Chine → Kinshasa", "En transit", "12 Juin 2024", "green"],
+    ["EXP-2024-1249", "Dubaï → Douala", "Arrivé", "08 Juin 2024", "green"],
+    ["EXP-2024-1248", "Turquie → Abidjan", "En préparation", "15 Juin 2024", "amber"],
+    ["EXP-2024-1247", "Chine → Yaoundé", "En transit", "10 Juin 2024", "purple"],
+    ["EXP-2024-1246", "Inde → Lubumbashi", "Validé", "—", "green"],
   ];
 
   return (
-    <div className="overflow-hidden rounded-[1.55rem] border border-white/10 bg-[#06100d]">
-      <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[230px_1fr]">
-        <aside className="hidden border-r border-white/10 bg-black/20 p-6 lg:block">
-          <div className="mb-8 flex items-center gap-3">
-            <Image src="/slaivio-mark.png" alt="" width={38} height={38} className="h-9 w-9 object-contain" />
-            <span className="text-lg font-bold">SLAIVIO</span>
+    <div className="relative overflow-hidden rounded-[24px] border border-white/[0.12] bg-[#070E0D]/85 shadow-[0_40px_120px_rgba(0,0,0,0.45)] backdrop-blur-[20px]">
+      <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[176px_1fr] xl:grid-cols-[190px_1fr]">
+        <aside className="hidden border-r border-white/[0.08] bg-black/10 px-3 py-5 lg:block">
+          <div className="mb-5 flex items-center gap-2 px-2">
+            <Image src="/slaivio-mark.png" alt="" width={32} height={32} className="h-8 w-8 object-contain" />
+            <span className="text-xl font-extrabold tracking-[-0.04em]">Slaivio</span>
           </div>
-          <div className="space-y-2">
-            {menu.map((item, index) => (
+          <div className="space-y-1.5">
+            {menu.map(([item, Icon, badge], index) => (
               <div
                 key={item}
-                className={`rounded-xl px-3 py-3 text-sm font-semibold ${
-                  index === 0 ? "bg-[#12C76F] text-[#02130b]" : "text-white/62"
+                className={`flex h-8 items-center gap-2 rounded-lg px-2 text-[11px] font-semibold ${
+                  index === 0 ? "bg-[#12C76F]/22 text-[#12C76F]" : "text-white/78"
                 }`}
               >
-                {item}
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{item}</span>
+                {badge && <span className="rounded-full bg-[#12C76F] px-1.5 py-0.5 text-[9px] font-black text-[#03100d]">{badge}</span>}
               </div>
             ))}
           </div>
         </aside>
 
-        <div className="p-5 sm:p-7 lg:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-[#12C76F]">Exemple de cockpit opérationnel</p>
-              <h2 className="mt-1 text-2xl font-bold">Bonjour, Admin</h2>
+        <div className="min-w-0 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-9 min-w-0 items-center gap-2 rounded-2xl border border-white/[0.08] bg-black/20 px-4 text-[11px] text-white/68 sm:w-[260px]">
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="truncate">Rechercher un client, dossier, colis...</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs text-white/65">
-                Aujourd&apos;hui
-              </span>
-              <span className="rounded-full border border-[#12C76F]/30 bg-[#12C76F]/10 px-4 py-2 text-xs font-bold text-[#74f0af]">
-                Production ready
-              </span>
+              <Bell className="h-4 w-4 text-white/80" />
+              <MessageCircle className="h-4 w-4 text-white/70" />
+              <UserCircle className="h-5 w-5 text-white/72" />
+              <div className="hidden sm:block">
+                <p className="text-[11px] font-bold">OTI Cargo Express</p>
+                <p className="text-[10px] text-white/55">Kinshasa, RDC</p>
+              </div>
+              <ChevronDown className="hidden h-3.5 w-3.5 text-white/60 sm:block" />
             </div>
           </div>
 
-          <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {kpis.map(([title, status]) => (
-              <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.045] p-5">
-                <p className="text-sm text-white/58">{title}</p>
-                <div className="mt-5 h-9 rounded-full bg-gradient-to-r from-[#12C76F]/75 via-[#0b7cff]/50 to-transparent" />
-                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#74f0af]">
-                  {status}
-                </p>
+          <h2 className="mt-5 text-lg font-bold">Tableau de bord</h2>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {kpis.map(([title, value, delta]) => (
+              <div key={title} className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+                <p className="text-[11px] font-semibold text-white">{title}</p>
+                <div className="mt-3 flex items-end justify-between gap-2">
+                  <p className="text-2xl font-extrabold tracking-[-0.04em]">{value}</p>
+                  <p className="text-[11px] font-black text-[#12C76F]">{delta}</p>
+                </div>
+                <p className="mt-2 text-[10px] text-white/55">vs mois dernier</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_0.85fr]">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+          <div className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold">Expéditions en cours</h3>
+              <ChevronDown className="-rotate-90 h-4 w-4 text-white" />
+            </div>
+            <div className="grid grid-cols-[1.1fr_1.1fr_0.9fr_1fr] border-y border-white/[0.06] py-2 text-[10px] text-white/62">
+              <span>Expédition</span>
+              <span>Route</span>
+              <span>Statut</span>
+              <span>ETA</span>
+            </div>
+            <div className="divide-y divide-white/[0.04]">
+              {shipments.map(([id, route, status, eta, tone]) => (
+                <div key={id} className="grid grid-cols-[1.1fr_1.1fr_0.9fr_1fr] items-center py-2 text-[10px]">
+                  <span className="truncate font-bold">{id}</span>
+                  <span className="truncate text-white/86">{route}</span>
+                  <span>
+                    <span
+                      className={`rounded-full px-2 py-1 font-bold ${
+                        tone === "amber"
+                          ? "bg-amber-500/18 text-amber-300"
+                          : tone === "purple"
+                            ? "bg-violet-500/18 text-violet-300"
+                            : "bg-[#12C76F]/18 text-[#12C76F]"
+                      }`}
+                    >
+                      {status}
+                    </span>
+                  </span>
+                  <span className="truncate text-white/86">{eta}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 xl:grid-cols-[0.78fr_1.2fr_0.86fr]">
+            <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold">Flux des opérations</h3>
-                <span className="text-xs text-white/45">WhatsApp → Dossier → Expédition</span>
+                <h3 className="text-[11px] font-bold">Revenus ce mois</h3>
+                <ChevronDown className="-rotate-90 h-4 w-4" />
               </div>
-              <svg viewBox="0 0 520 220" className="mt-6 h-[220px] w-full">
+              <p className="mt-5 text-2xl font-extrabold tracking-[-0.04em]">$24,850 <span className="text-[11px] text-[#12C76F]">+16.3%</span></p>
+              <svg viewBox="0 0 180 120" className="mt-3 h-[116px] w-full">
                 <defs>
-                  <linearGradient id="slaivio-green-line" x1="0" x2="1">
+                  <linearGradient id="hero-revenue-fill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="rgba(18,199,111,.46)" />
+                    <stop offset="100%" stopColor="rgba(18,199,111,0)" />
+                  </linearGradient>
+                  <linearGradient id="hero-revenue-line" x1="0" x2="1">
                     <stop offset="0%" stopColor="#12C76F" />
-                    <stop offset="100%" stopColor="#0B7CFF" />
+                    <stop offset="100%" stopColor="#1FE58A" />
                   </linearGradient>
                 </defs>
-                {[40, 80, 120, 160, 200].map((y) => (
-                  <line key={y} x1="0" x2="520" y1={y} y2={y} stroke="rgba(255,255,255,.08)" />
+                {[22, 48, 74, 100].map((y) => (
+                  <line key={y} x1="0" x2="180" y1={y} y2={y} stroke="rgba(255,255,255,.07)" />
                 ))}
-                <path
-                  d="M8 174 C65 140 98 154 142 118 C191 78 239 96 281 72 C338 38 392 56 512 24"
-                  fill="none"
-                  stroke="url(#slaivio-green-line)"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M8 192 C58 166 118 180 160 142 C210 96 260 124 315 88 C371 52 414 80 512 46"
-                  fill="none"
-                  stroke="#2E6BFF"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  opacity="0.75"
-                />
+                <path d="M0 106 C18 78 28 100 45 72 C62 42 74 54 92 34 C114 8 130 58 148 32 C160 14 168 32 180 0 L180 120 L0 120 Z" fill="url(#hero-revenue-fill)" />
+                <path d="M0 106 C18 78 28 100 45 72 C62 42 74 54 92 34 C114 8 130 58 148 32 C160 14 168 32 180 0" fill="none" stroke="url(#hero-revenue-line)" strokeWidth="3" strokeLinecap="round" />
               </svg>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5">
-              <h3 className="font-bold">Activité récente</h3>
-              <div className="mt-5 space-y-3">
-                {[
-                  ["WhatsApp", "Réponse prête pour un client"],
-                  ["Dossier", "Pièce manquante détectée"],
-                  ["Tracking", "Statut expédition mis à jour"],
-                  ["Finance", "Paiement à rapprocher"],
-                ].map(([label, text]) => (
-                  <div key={label} className="rounded-2xl border border-white/8 bg-black/15 p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#12C76F]">{label}</p>
-                    <p className="mt-1 text-sm text-white/72">{text}</p>
+            <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
+              <h3 className="text-[11px] font-bold">Répartition par service</h3>
+              <div className="mt-5 flex items-center gap-6">
+                <div className="relative h-[118px] w-[118px] shrink-0 rounded-full bg-[conic-gradient(#38BDF8_0_45%,#12C76F_45%_80%,#F59E0B_80%_95%,#8B5CF6_95%_100%)] p-[14px]">
+                  <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-[#07110D] text-center">
+                    <span className="text-xl font-extrabold">2,458</span>
+                    <span className="text-[10px] text-white/60">Colis</span>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 space-y-3 text-[11px]">
+                  {[
+                    ["Air Cargo", "45%", "#38BDF8"],
+                    ["Sea Cargo", "35%", "#12C76F"],
+                    ["Express", "15%", "#F59E0B"],
+                    ["Groupage", "5%", "#8B5CF6"],
+                  ].map(([label, value, color]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="flex-1 truncate">{label}</span>
+                      <span className="text-white/72">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
+              <h3 className="text-[11px] font-bold">Messages WhatsApp</h3>
+              <p className="mt-4 text-2xl font-extrabold">128</p>
+              <p className="text-[10px] text-white/55">Non lus</p>
+              <div className="mt-4 space-y-3">
+                {["+243 81 234 5678", "+237 6 00 76 54 32", "+225 07 89 45 67 78"].map((phone, index) => (
+                  <div key={phone} className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black text-[#07110D]">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[10px] font-bold">{phone}</p>
+                      <p className="truncate text-[9px] text-white/50">Bonjour, j&apos;aimerais connaître le pr...</p>
+                    </div>
+                    <span className="text-[9px] text-white/45">{index === 0 ? "10:24" : index === 1 ? "09:15" : "Hier"}</span>
                   </div>
                 ))}
               </div>
+              <p className="mt-4 text-center text-[10px] font-bold">Voir toutes les conversations</p>
             </div>
           </div>
         </div>
@@ -481,31 +612,46 @@ function FloatingCard({
   className,
   icon: Icon,
   title,
-  text,
+  lines,
   badge,
+  delay,
+  variant,
 }: {
   className: string;
   icon: LucideIcon;
   title: string;
-  text: string;
+  lines: string[];
   badge: string;
+  delay: number;
+  variant: "whatsapp" | "package" | "success";
 }) {
   return (
     <motion.div
       animate={{ y: [0, -12, 0] }}
-      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" as const }}
-      className={`absolute w-[270px] rounded-3xl border border-white/12 bg-[#06100d]/88 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl ${className}`}
+      transition={{
+        duration: variant === "success" ? 8 : variant === "package" ? 7 : 5.5,
+        delay,
+        repeat: Infinity,
+        repeatType: "mirror",
+        ease: "easeInOut" as const,
+      }}
+      className={`absolute w-[282px] rounded-[18px] border border-white/[0.14] bg-[rgba(5,10,9,0.82)] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-[20px] ${className}`}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#12C76F]/15 text-[#12C76F]">
-          <Icon className="h-6 w-6" />
+      <div className="flex items-center gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${variant === "success" ? "bg-[#12C76F] text-white" : "border border-[#12C76F] bg-[#12C76F]/10 text-[#12C76F]"}`}>
+          <Icon className="h-5 w-5" />
         </div>
-        <span className="rounded-full bg-[#12C76F]/12 px-3 py-1 text-xs font-bold text-[#74f0af]">
-          {badge}
-        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="truncate text-sm font-bold">{title}</h3>
+            <span className="shrink-0 text-[10px] text-white/45">{badge}</span>
+          </div>
+          {lines.map((line) => (
+            <p key={line} className="mt-1 truncate text-sm text-white/85">{line}</p>
+          ))}
+        </div>
+        <span className="h-2 w-2 shrink-0 rounded-full bg-[#12C76F]" />
       </div>
-      <h3 className="mt-4 font-bold">{title}</h3>
-      <p className="mt-1 text-sm text-white/60">{text}</p>
     </motion.div>
   );
 }

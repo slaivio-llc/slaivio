@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import {
   ArrowRight,
   Bell,
@@ -46,6 +46,13 @@ const navItems = [
   { label: "Tarifs", href: "#demo" },
   { label: "Ressources", href: "#securite", hasChevron: true },
   { label: "Contact", href: "#demo" },
+];
+
+const heroTitlePhrases = [
+  "sans limites.",
+  "plus vite.",
+  "sans chaos.",
+  "avec précision.",
 ];
 
 const operatingCards: Array<{
@@ -157,6 +164,15 @@ export function LandingPageClient() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
   const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [heroPhraseIndex, setHeroPhraseIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setHeroPhraseIndex((index) => (index + 1) % heroTitlePhrases.length);
+    }, 2600);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   async function submitDemoRequest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -185,7 +201,7 @@ export function LandingPageClient() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#020807] text-white">
       <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
-      <HeroSection />
+      <HeroSection phrase={heroTitlePhrases[heroPhraseIndex]} />
       <ProblemSection />
       <PlatformSection />
       <WorkflowSection />
@@ -206,7 +222,7 @@ function LandingHeader({
 }) {
   return (
     <header className="absolute left-0 right-0 top-0 z-50">
-      <div className="mx-auto flex h-[88px] max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
+      <div className="mx-auto grid h-[88px] max-w-[1600px] grid-cols-[1fr_auto] items-center px-4 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)_auto] lg:px-8 2xl:px-10">
         <Link href="/" className="flex items-center gap-3" aria-label="SLAIVIO">
           <Image
             src="/slaivio-logo-official-dark.png"
@@ -218,7 +234,7 @@ function LandingHeader({
           />
         </Link>
 
-        <nav className="hidden items-center gap-10 text-[15px] font-semibold text-white xl:flex">
+        <nav className="hidden items-center justify-center gap-9 text-[15px] font-semibold text-white xl:flex 2xl:gap-11">
           {navItems.map((item) => (
             <a key={item.label} href={item.href} className="inline-flex items-center gap-1.5 transition hover:text-[#12C76F]">
               {item.label}
@@ -227,7 +243,7 @@ function LandingHeader({
           ))}
         </nav>
 
-        <div className="hidden items-center gap-6 lg:flex">
+        <div className="hidden items-center justify-end gap-6 lg:flex">
           <button className="inline-flex items-center gap-2 text-sm font-semibold text-white" type="button">
             <Globe2 className="h-5 w-5" />
             FR
@@ -290,7 +306,7 @@ function LandingHeader({
   );
 }
 
-function HeroSection() {
+function HeroSection({ phrase }: { phrase: string }) {
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#030706] px-5 pb-16 pt-[120px] text-white sm:px-8 lg:px-12">
       <div className="pointer-events-none absolute inset-0">
@@ -307,7 +323,7 @@ function HeroSection() {
         />
       </div>
 
-      <div className="relative mx-auto grid min-h-[calc(100vh-120px)] max-w-[1440px] items-center gap-12 lg:grid-cols-[0.4fr_0.6fr]">
+      <div className="relative mx-auto grid min-h-[calc(100vh-120px)] max-w-[1500px] items-center gap-16 lg:grid-cols-[0.38fr_0.62fr] xl:gap-20">
         <div className="relative z-10 max-w-[590px]">
           <motion.h1
             initial={{ opacity: 0, y: 28 }}
@@ -319,14 +335,27 @@ function HeroSection() {
             <br />
             Développez votre agence
             <br />
-            <span className="text-[#12C76F]">sans limites.</span>
+            <span className="relative inline-grid min-h-[1.12em] min-w-[8.5em] overflow-hidden align-top text-[#12C76F]">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={phrase}
+                  initial={{ y: "82%", opacity: 0, filter: "blur(8px)" }}
+                  animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+                  exit={{ y: "-82%", opacity: 0, filter: "blur(8px)" }}
+                  transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
+                  className="col-start-1 row-start-1 whitespace-nowrap"
+                >
+                  {phrase}
+                </motion.span>
+              </AnimatePresence>
+            </span>
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" as const }}
-            className="mt-7 max-w-[560px] text-[17px] leading-[1.78] text-white/70 sm:text-lg"
+            className="mt-8 max-w-[560px] text-[17px] leading-[1.78] text-white/70 sm:text-lg"
           >
             SLAIVIO centralise vos clients, colis, expéditions, paiements et WhatsApp dans
             une seule plateforme. Gagnez du temps, réduisez les erreurs et offrez une
@@ -337,7 +366,7 @@ function HeroSection() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" as const }}
-            className="mt-10 flex flex-col gap-4 sm:flex-row"
+            className="mt-12 flex flex-col gap-4 sm:flex-row"
           >
             <a
               href="#demo"
@@ -360,7 +389,7 @@ function HeroSection() {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.85, delay: 0.4, ease: "easeOut" as const }}
-          className="relative z-10 ml-auto w-full max-w-[850px]"
+          className="relative z-10 ml-auto w-full max-w-[860px]"
         >
           <motion.div
             aria-hidden="true"

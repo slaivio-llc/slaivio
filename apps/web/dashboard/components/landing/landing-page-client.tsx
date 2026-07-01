@@ -6,6 +6,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import {
   ArrowRight,
+  AlarmClock,
+  AlertTriangle,
+  BarChart3,
   Bell,
   Bot,
   Building2,
@@ -13,8 +16,10 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
+  Clock,
   CreditCard,
   FileText,
+  FileSpreadsheet,
   Globe2,
   Inbox,
   LockKeyhole,
@@ -24,12 +29,13 @@ import {
   Package,
   PlayCircle,
   Receipt,
+  Rocket,
   Route,
   Search,
   Send,
   Settings,
-  ShieldCheck,
   Sparkles,
+  Target,
   Truck,
   UserCircle,
   Users,
@@ -697,41 +703,263 @@ function FloatingCard({
 }
 
 function ProblemSection() {
-  return (
-    <section id="solutions" className="border-t border-white/[0.08] bg-[#03100d] px-5 py-20 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-        <motion.div {...fadeUp}>
-          <Pill icon={ShieldCheck}>Le vrai problème</Pill>
-          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-            Quand l&apos;agence grandit, le chaos grandit aussi.
-          </h2>
-          <p className="mt-5 text-lg leading-8 text-white/65">
-            WhatsApp contient les demandes. Excel contient les suivis. Les paiements sont ailleurs.
-            Les managers passent leur journée à recoller les morceaux au lieu de piloter.
-          </p>
-        </motion.div>
+  const problemCards: Array<{
+    icon: LucideIcon;
+    title: string;
+    text: string;
+  }> = [
+    {
+      icon: MessageCircle,
+      title: "WhatsApp dispersé",
+      text: "Les conversations clients sont partout et difficiles à suivre.",
+    },
+    {
+      icon: FileSpreadsheet,
+      title: "Excel et papiers partout",
+      text: "Données éparpillées, risques d’erreurs et pertes d’informations.",
+    },
+    {
+      icon: Clock,
+      title: "Relances oubliées",
+      text: "Des opportunités perdues et des clients qui partent.",
+    },
+    {
+      icon: Package,
+      title: "Suivi des colis manuel",
+      text: "Vos colis sont difficiles à retrouver et à tracer.",
+    },
+    {
+      icon: BarChart3,
+      title: "Pas de visibilité",
+      text: "Aucune donnée claire pour prendre les bonnes décisions.",
+    },
+    {
+      icon: Users,
+      title: "Croissance freinée",
+      text: "Votre agence grandit, mais vos opérations ne suivent pas.",
+    },
+  ];
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            ["Messages dispersés", "Les conversations importantes restent bloquées dans les téléphones."],
-            ["Dossiers incomplets", "Les pièces, statuts, paiements et notes ne vivent pas ensemble."],
-            ["Relances oubliées", "Les clients attendent parce que personne ne voit la prochaine action."],
-            ["Croissance difficile", "Plus de clients finit par créer plus de charge manuelle."],
-          ].map(([title, text], index) => (
+  const alerts: Array<{
+    icon: LucideIcon;
+    title: string;
+    text: string;
+    badge?: string;
+    tone: "green" | "red" | "orange";
+    className: string;
+  }> = [
+    {
+      icon: MessageCircle,
+      title: "+235 messages non lus",
+      text: "3 groupes • 8 clients",
+      badge: "235",
+      tone: "green",
+      className: "left-2 top-8 sm:-left-10 xl:-left-12",
+    },
+    {
+      icon: AlarmClock,
+      title: "Relance client",
+      text: "En retard depuis 2 jours",
+      badge: "3",
+      tone: "red",
+      className: "right-2 top-12 hidden sm:flex xl:-right-8",
+    },
+    {
+      icon: FileSpreadsheet,
+      title: "Tarifs.xlsx",
+      text: "Dernière modif : il y a 5 jours",
+      tone: "orange",
+      className: "left-0 top-[31%] hidden md:flex xl:-left-16",
+    },
+    {
+      icon: Package,
+      title: "Colis sans suivi",
+      text: "47 colis non tracés",
+      badge: "47",
+      tone: "orange",
+      className: "right-0 top-[43%] hidden md:flex xl:-right-10",
+    },
+    {
+      icon: BarChart3,
+      title: "Chiffre d’affaires",
+      text: "Pas de rapport cette semaine",
+      tone: "red",
+      className: "right-3 bottom-[24%] hidden lg:flex xl:-right-4",
+    },
+  ];
+
+  const benefits: Array<{
+    icon: LucideIcon;
+    title: string;
+    text: string;
+  }> = [
+    { icon: Clock, title: "Gagnez du temps", text: "sur les tâches répétitives" },
+    { icon: Target, title: "Réduisez les erreurs", text: "et les oublis" },
+    { icon: BarChart3, title: "Améliorez la satisfaction", text: "de vos clients" },
+    { icon: Rocket, title: "Développez votre agence", text: "sans limites" },
+  ];
+
+  return (
+    <section id="solutions" className="relative overflow-hidden bg-[#FAFCFB] px-5 py-20 text-[#07111F] sm:px-8 lg:px-12 lg:pb-20 lg:pt-[120px]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-0 bottom-0 h-[360px] bg-[radial-gradient(circle_at_50%_100%,rgba(18,199,111,0.13),transparent_58%)]" />
+        <div
+          className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.22]"
+          style={{
+            backgroundImage: "radial-gradient(circle, rgba(18,199,111,.55) 1px, transparent 1.2px)",
+            backgroundSize: "13px 13px",
+          }}
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-[1440px]">
+        <div className="grid gap-12 xl:grid-cols-[0.95fr_0.85fr] xl:items-start">
+          <div>
             <motion.div
-              key={title}
-              {...fadeUp}
-              transition={{ duration: 0.55, delay: index * 0.06 }}
-              className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.62, ease: "easeOut" as const }}
+              className="mb-9 h-1.5 w-16 rounded-full bg-[#12C76F]"
+            />
+            <motion.h2
+              initial={{ opacity: 0, y: 28 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.68, ease: "easeOut" as const }}
+              className="max-w-[680px] text-[38px] font-extrabold leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[48px] xl:text-[56px]"
             >
-              <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-full bg-red-500/12 text-red-300">
-                <X className="h-5 w-5" />
-              </div>
-              <h3 className="font-bold">{title}</h3>
-              <p className="mt-2 text-sm leading-6 text-white/58">{text}</p>
-            </motion.div>
-          ))}
+              Votre agence travaille dur.
+              <br />
+              Mais vos outils <span className="text-[#12C76F]">vous ralentissent.</span>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.68, delay: 0.08, ease: "easeOut" as const }}
+              className="mt-7 max-w-[620px] text-[18px] leading-[1.75] text-[#475569] sm:text-[19px]"
+            >
+              Entre WhatsApp, Excel, appels manqués et paperasse, vos équipes perdent du temps
+              sur des tâches répétitives au lieu de se concentrer sur vos clients.
+            </motion.p>
+
+            <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {problemCards.map((card, index) => (
+                <motion.div
+                  key={card.title}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-80px" }}
+                  transition={{ duration: 0.56, delay: index * 0.08, ease: "easeOut" as const }}
+                  className="min-h-[170px] rounded-[18px] border border-slate-900/[0.08] bg-white/[0.92] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.07)]"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EAFBF2] text-[#12A85E]">
+                    <card.icon className="h-7 w-7" />
+                  </div>
+                  <h3 className="mt-5 text-[17px] font-extrabold tracking-[-0.02em] text-[#07111F]">
+                    {card.title}
+                  </h3>
+                  <p className="mt-3 text-[15px] leading-7 text-[#334155]">{card.text}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.75, delay: 0.12, ease: "easeOut" as const }}
+            className="relative mx-auto w-full max-w-[640px] xl:mx-0 xl:ml-auto"
+          >
+            <div className="absolute -right-8 -top-10 hidden h-[220px] w-[220px] rounded-full border border-dashed border-[#12C76F]/30 lg:block" />
+            <div className="absolute -bottom-8 right-0 hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/25 lg:block" />
+            <div className="relative h-[520px] overflow-hidden rounded-[28px] shadow-[0_30px_80px_rgba(15,23,42,0.16)] sm:h-[660px]">
+              <Image
+                src="/landing/problem-manager-photo.png"
+                alt="Manager cargo concentré devant son téléphone et son ordinateur"
+                fill
+                sizes="(min-width: 1280px) 640px, 100vw"
+                className="object-cover"
+              />
+            </div>
+
+            {alerts.map((alert, index) => (
+              <motion.div
+                key={alert.title}
+                animate={{ y: [0, index % 2 === 0 ? -6 : 6, 0] }}
+                transition={{
+                  duration: 5.4 + index * 0.55,
+                  repeat: Infinity,
+                  repeatType: "mirror",
+                  ease: "easeInOut" as const,
+                }}
+                className={`absolute z-10 flex min-w-[210px] items-center gap-3 rounded-[18px] border border-slate-900/[0.08] bg-white/[0.96] px-[18px] py-4 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur ${alert.className}`}
+              >
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                    alert.tone === "green"
+                      ? "bg-[#EAFBF2] text-[#12C76F]"
+                      : alert.tone === "orange"
+                        ? "bg-orange-50 text-orange-500"
+                        : "bg-red-50 text-red-500"
+                  }`}
+                >
+                  <alert.icon className="h-6 w-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-extrabold text-[#07111F]">{alert.title}</p>
+                  <p className="mt-1 truncate text-[13px] text-[#475569]">{alert.text}</p>
+                </div>
+                {alert.badge ? (
+                  <span className={`absolute -right-2 -top-2 rounded-full px-2 py-1 text-xs font-black text-white ${alert.tone === "orange" ? "bg-orange-500" : "bg-red-500"}`}>
+                    {alert.badge}
+                  </span>
+                ) : (
+                  <AlertTriangle className={`h-5 w-5 ${alert.tone === "orange" ? "text-orange-400" : "text-red-500"}`} />
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 26 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.68, ease: "easeOut" as const }}
+          className="mt-10 grid gap-6 rounded-[24px] border border-[#12C76F]/[0.14] bg-[linear-gradient(90deg,#F7FFFA,#FFFFFF)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:mt-12 lg:grid-cols-[1.4fr_repeat(4,1fr)] lg:p-8"
+        >
+          <div className="flex flex-col gap-5 md:flex-row md:items-center lg:border-r lg:border-slate-900/[0.08] lg:pr-7">
+            <Image
+              src="/slaivio-logo-official-dark.png"
+              alt="SLAIVIO"
+              width={150}
+              height={58}
+              className="h-auto w-[150px] shrink-0"
+            />
+            <div>
+              <h3 className="text-xl font-black tracking-[-0.03em]">
+                SLAIVIO <span className="text-[#12C76F]">change tout.</span>
+              </h3>
+              <p className="mt-2 max-w-[420px] text-[15px] leading-7 text-[#334155]">
+                Centralisez, automatisez et pilotez votre activité cargo depuis une seule plateforme conçue pour votre métier.
+              </p>
+            </div>
+          </div>
+          {benefits.map((benefit) => (
+            <div key={benefit.title} className="flex items-start gap-4 lg:border-r lg:border-slate-900/[0.08] lg:px-7 last:lg:border-r-0">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#EAFBF2] text-[#12A85E]">
+                <benefit.icon className="h-7 w-7" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-[#07111F]">{benefit.title}</h4>
+                <p className="mt-1 text-[15px] leading-6 text-[#334155]">{benefit.text}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
       </div>
     </section>
   );

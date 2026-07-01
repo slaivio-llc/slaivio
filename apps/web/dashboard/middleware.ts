@@ -41,7 +41,6 @@ export default hasClerkKey
 
 export const config = {
   matcher: [
-    "/((?!.*\\..*|_next).*)",
-    "/",
+    "/((?!$|.*\\..*|_next).+)",
   ],
 };

@@ -314,7 +314,7 @@ function LandingHeader({
 
 function HeroSection({ phrase }: { phrase: string }) {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-[#030706] px-5 pb-16 pt-[120px] text-white sm:px-8 lg:px-12">
+    <section className="relative min-h-screen overflow-hidden bg-[#030706] px-5 pb-20 pt-[120px] text-white sm:px-8 lg:px-10 xl:pb-0">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_55%,rgba(18,199,111,0.25),transparent_35%),radial-gradient(circle_at_30%_80%,rgba(18,199,111,0.10),transparent_30%),linear-gradient(180deg,#030706_0%,#050A09_48%,#07110D_100%)]" />
         <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,.32)_100%)]" />
@@ -329,13 +329,13 @@ function HeroSection({ phrase }: { phrase: string }) {
         />
       </div>
 
-      <div className="relative mx-auto grid min-h-[calc(100vh-120px)] max-w-[1500px] items-center gap-16 lg:grid-cols-[0.38fr_0.62fr] xl:gap-20">
-        <div className="relative z-10 max-w-[590px]">
+      <div className="relative mx-auto grid min-h-[calc(100vh-120px)] max-w-[1500px] items-center gap-12 lg:grid-cols-[0.42fr_0.58fr] xl:gap-14">
+        <div className="relative z-10 max-w-[610px] lg:pl-2 xl:pl-4">
           <motion.h1
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" as const }}
-            className="text-[42px] font-bold leading-[1.04] tracking-[-0.025em] text-white sm:text-[56px] xl:text-[68px]"
+            className="text-[42px] font-bold leading-[1.04] tracking-[-0.025em] text-white sm:text-[56px] xl:text-[64px] 2xl:text-[68px]"
           >
             Centralisez. Automatisez.
             <br />
@@ -395,25 +395,25 @@ function HeroSection({ phrase }: { phrase: string }) {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.85, delay: 0.4, ease: "easeOut" as const }}
-          className="relative z-10 ml-auto w-full max-w-[860px]"
+          className="relative z-10 mx-auto w-full max-w-[900px] lg:mx-0 lg:ml-auto lg:-mr-10 xl:-mr-16 2xl:-mr-4"
         >
           <motion.div
             aria-hidden="true"
             animate={{ rotate: 360 }}
             transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-            className="absolute -left-20 top-[46%] hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/70 lg:block"
+            className="absolute -left-12 top-[44%] hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/55 lg:block"
           />
           <motion.div
             aria-hidden="true"
             animate={{ rotate: -360 }}
             transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
-            className="absolute -right-10 bottom-10 hidden h-[300px] w-[300px] rounded-full border border-dashed border-[#12C76F]/60 lg:block"
+            className="absolute -right-2 bottom-12 hidden h-[300px] w-[300px] rounded-full border border-dashed border-[#12C76F]/45 lg:block"
           />
           <div className="absolute -inset-12 rounded-full bg-[#12C76F]/20 blur-[90px]" />
           <DashboardPreview />
 
           <FloatingCard
-            className="right-3 top-5 hidden rotate-[3deg] xl:block"
+            className="-right-2 top-7 hidden rotate-[3deg] 2xl:block"
             delay={0}
             icon={MessageCircle}
             title="Nouveau message WhatsApp"
@@ -422,7 +422,7 @@ function HeroSection({ phrase }: { phrase: string }) {
             variant="whatsapp"
           />
           <FloatingCard
-            className="-left-16 bottom-[-22px] hidden rotate-[-2deg] lg:block"
+            className="-left-10 bottom-10 hidden rotate-[-2deg] xl:block"
             delay={0.7}
             icon={Package}
             title="Colis reçu en entrepôt Chine"
@@ -431,7 +431,7 @@ function HeroSection({ phrase }: { phrase: string }) {
             variant="package"
           />
           <FloatingCard
-            className="right-2 bottom-[-46px] hidden rotate-[4deg] lg:block"
+            className="right-8 bottom-[-28px] hidden rotate-[4deg] xl:block"
             delay={1.2}
             icon={CheckCircle2}
             title="Expédition livrée"
@@ -480,7 +480,7 @@ function DashboardPreview() {
 
   return (
     <div className="relative overflow-hidden rounded-[24px] border border-white/[0.12] bg-[#070E0D]/85 shadow-[0_40px_120px_rgba(0,0,0,0.45)] backdrop-blur-[20px]">
-      <div className="grid min-h-[620px] grid-cols-1 lg:grid-cols-[176px_1fr] xl:grid-cols-[190px_1fr]">
+      <div className="grid min-h-[600px] grid-cols-1 lg:grid-cols-[176px_1fr] xl:grid-cols-[190px_1fr]">
         <aside className="hidden border-r border-white/[0.08] bg-black/10 px-3 py-5 lg:block">
           <div className="mb-5 flex items-center gap-2 px-2">
             <Image
@@ -507,7 +507,7 @@ function DashboardPreview() {
           </div>
         </aside>
 
-        <div className="min-w-0 p-4 sm:p-5">
+        <div className="min-w-0 p-4 sm:p-5 xl:p-5">
           <div className="flex flex-col gap-4 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex h-9 min-w-0 items-center gap-2 rounded-2xl border border-white/[0.08] bg-black/20 px-4 text-[11px] text-white/68 sm:w-[260px]">
               <Search className="h-4 w-4 shrink-0" />
@@ -529,10 +529,10 @@ function DashboardPreview() {
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {kpis.map(([title, value, delta]) => (
-              <div key={title} className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+              <div key={title} className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                 <p className="text-[11px] font-semibold text-white">{title}</p>
                 <div className="mt-3 flex items-end justify-between gap-2">
-                  <p className="text-2xl font-extrabold tracking-[-0.04em]">{value}</p>
+                  <p className="text-[22px] font-extrabold tracking-[-0.04em]">{value}</p>
                   <p className="text-[11px] font-black text-[#12C76F]">{delta}</p>
                 </div>
                 <p className="mt-2 text-[10px] text-white/55">vs mois dernier</p>
@@ -575,7 +575,7 @@ function DashboardPreview() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 xl:grid-cols-[0.78fr_1.2fr_0.86fr]">
+          <div className="mt-4 grid gap-3 xl:grid-cols-[0.82fr_1.15fr_0.9fr]">
             <div className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-[11px] font-bold">Revenus ce mois</h3>
@@ -762,14 +762,14 @@ function ProblemSection() {
       text: "En retard depuis 2 jours",
       badge: "3",
       tone: "red",
-      className: "right-2 top-12 hidden sm:flex xl:-right-8",
+      className: "right-2 top-14 hidden sm:flex xl:right-0",
     },
     {
       icon: FileSpreadsheet,
       title: "Tarifs.xlsx",
       text: "Dernière modif : il y a 5 jours",
       tone: "orange",
-      className: "left-0 top-[31%] hidden md:flex xl:-left-16",
+      className: "left-2 top-[30%] hidden md:flex xl:-left-6",
     },
     {
       icon: Package,
@@ -777,14 +777,14 @@ function ProblemSection() {
       text: "47 colis non tracés",
       badge: "47",
       tone: "orange",
-      className: "right-0 top-[43%] hidden md:flex xl:-right-10",
+      className: "right-0 top-[42%] hidden md:flex xl:-right-2",
     },
     {
       icon: BarChart3,
       title: "Chiffre d’affaires",
       text: "Pas de rapport cette semaine",
       tone: "red",
-      className: "right-3 bottom-[24%] hidden lg:flex xl:-right-4",
+      className: "right-6 bottom-[19%] hidden lg:flex xl:right-2",
     },
   ];
 
@@ -813,7 +813,7 @@ function ProblemSection() {
       </div>
 
       <div className="relative mx-auto max-w-[1440px]">
-        <div className="grid gap-12 xl:grid-cols-[0.95fr_0.85fr] xl:items-start">
+        <div className="grid gap-14 xl:grid-cols-[0.98fr_0.9fr] xl:items-start">
           <div>
             <motion.div
               initial={{ opacity: 0, y: 24 }}
@@ -844,7 +844,7 @@ function ProblemSection() {
               sur des tâches répétitives au lieu de se concentrer sur vos clients.
             </motion.p>
 
-            <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:max-w-[760px]">
               {problemCards.map((card, index) => (
                 <motion.div
                   key={card.title}
@@ -871,17 +871,17 @@ function ProblemSection() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.75, delay: 0.12, ease: "easeOut" as const }}
-            className="relative mx-auto w-full max-w-[640px] xl:mx-0 xl:ml-auto"
+            className="relative mx-auto min-h-[610px] w-full max-w-[690px] xl:mx-0 xl:ml-auto xl:min-h-[690px]"
           >
-            <div className="absolute -right-8 -top-10 hidden h-[220px] w-[220px] rounded-full border border-dashed border-[#12C76F]/30 lg:block" />
-            <div className="absolute -bottom-8 right-0 hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/25 lg:block" />
-            <div className="relative h-[520px] overflow-hidden rounded-[28px] shadow-[0_30px_80px_rgba(15,23,42,0.16)] sm:h-[660px]">
+            <div className="absolute right-2 top-0 hidden h-[220px] w-[220px] rounded-full border border-dashed border-[#12C76F]/30 lg:block" />
+            <div className="absolute -bottom-3 right-8 hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/25 lg:block" />
+            <div className="relative mx-auto h-[520px] max-w-[610px] overflow-hidden rounded-[28px] shadow-[0_30px_80px_rgba(15,23,42,0.16)] sm:h-[630px] xl:mr-4">
               <Image
                 src="/landing/problem-manager-photo.png"
                 alt="Manager cargo concentré devant son téléphone et son ordinateur"
                 fill
                 sizes="(min-width: 1280px) 640px, 100vw"
-                className="object-cover"
+                className="object-cover object-center"
               />
             </div>
 
@@ -929,16 +929,21 @@ function ProblemSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.68, ease: "easeOut" as const }}
-          className="mt-10 grid gap-6 rounded-[24px] border border-[#12C76F]/[0.14] bg-[linear-gradient(90deg,#F7FFFA,#FFFFFF)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:mt-12 lg:grid-cols-[1.4fr_repeat(4,1fr)] lg:p-8"
+          className="mt-12 grid gap-6 rounded-[24px] border border-[#12C76F]/[0.14] bg-[linear-gradient(90deg,#F7FFFA,#FFFFFF)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:mt-14 lg:grid-cols-[2.15fr_repeat(4,1fr)] lg:p-8"
         >
-          <div className="flex flex-col gap-5 md:flex-row md:items-center lg:border-r lg:border-slate-900/[0.08] lg:pr-7">
-            <Image
-              src="/slaivio-logo-official-dark.png"
-              alt="SLAIVIO"
-              width={150}
-              height={58}
-              className="h-auto w-[150px] shrink-0"
-            />
+          <div className="grid gap-5 md:grid-cols-[150px_1fr] md:items-center lg:border-r lg:border-slate-900/[0.08] lg:pr-7">
+            <div className="flex items-center gap-3" aria-label="SLAIVIO">
+              <Image
+                src="/slaivio-icon-official.png"
+                alt=""
+                width={58}
+                height={58}
+                className="h-[58px] w-[58px] object-contain"
+              />
+              <span className="text-[34px] font-bold tracking-[-0.04em] text-[#111827]">
+                Slaivio
+              </span>
+            </div>
             <div>
               <h3 className="text-xl font-black tracking-[-0.03em]">
                 SLAIVIO <span className="text-[#12C76F]">change tout.</span>

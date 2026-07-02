@@ -4,8 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "SLAIVIO - Cargo OS",
-    template: "%s | SLAIVIO",
+    default: "Slaivio - Cargo OS",
+    template: "%s | Slaivio",
   },
   description: "Enterprise cargo operations platform for agencies.",
   icons: {

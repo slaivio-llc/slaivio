@@ -29,13 +29,11 @@ import {
   Package,
   PlayCircle,
   Receipt,
-  Rocket,
   Route,
   Search,
   Send,
   Settings,
   Sparkles,
-  Target,
   Truck,
   UserCircle,
   Users,
@@ -205,7 +203,7 @@ export function LandingPageClient() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#020807] text-white">
+    <main className="min-h-screen overflow-x-hidden bg-[#020807] font-[Geist,Inter,'SF_Pro_Display','SF_Pro_Text',system-ui,sans-serif] text-white">
       <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       <HeroSection phrase={heroTitlePhrases[heroPhraseIndex]} />
       <ProblemSection />
@@ -314,7 +312,7 @@ function LandingHeader({
 
 function HeroSection({ phrase }: { phrase: string }) {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-[#030706] px-5 pb-20 pt-[120px] text-white sm:px-8 lg:px-10 xl:pb-0">
+    <section className="relative min-h-screen overflow-x-hidden bg-[#030706] px-5 pb-14 pt-[104px] text-white sm:px-8 md:pt-[120px] lg:px-10 xl:pb-0">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_55%,rgba(18,199,111,0.25),transparent_35%),radial-gradient(circle_at_30%_80%,rgba(18,199,111,0.10),transparent_30%),linear-gradient(180deg,#030706_0%,#050A09_48%,#07110D_100%)]" />
         <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,.32)_100%)]" />
@@ -329,13 +327,13 @@ function HeroSection({ phrase }: { phrase: string }) {
         />
       </div>
 
-      <div className="relative mx-auto grid min-h-[calc(100vh-120px)] max-w-[1500px] items-center gap-12 lg:grid-cols-[0.42fr_0.58fr] xl:gap-14">
+      <div className="relative mx-auto grid min-h-[calc(100vh-104px)] max-w-[1500px] items-center gap-12 md:min-h-[calc(100vh-120px)] lg:grid-cols-[0.42fr_0.58fr] xl:gap-14">
         <div className="relative z-10 max-w-[610px] lg:pl-2 xl:pl-4">
           <motion.h1
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" as const }}
-            className="text-[42px] font-bold leading-[1.04] tracking-[-0.025em] text-white sm:text-[56px] xl:text-[64px] 2xl:text-[68px]"
+            className="text-[38px] font-semibold leading-[1.06] tracking-[-0.025em] text-white sm:text-[54px] xl:text-[64px] 2xl:text-[68px]"
           >
             Centralisez. Automatisez.
             <br />
@@ -361,7 +359,7 @@ function HeroSection({ phrase }: { phrase: string }) {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" as const }}
-            className="mt-8 max-w-[560px] text-[17px] leading-[1.78] text-white/70 sm:text-lg"
+            className="mt-7 max-w-[560px] text-base leading-[1.75] text-white/70 sm:text-lg"
           >
             SLAIVIO centralise vos clients, colis, expéditions, paiements et WhatsApp dans
             une seule plateforme. Gagnez du temps, réduisez les erreurs et offrez une
@@ -372,18 +370,18 @@ function HeroSection({ phrase }: { phrase: string }) {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.3, ease: "easeOut" as const }}
-            className="mt-12 flex flex-col gap-4 sm:flex-row"
+            className="mt-9 flex flex-col gap-3 sm:mt-12 sm:flex-row sm:gap-4"
           >
             <a
               href="#demo"
-              className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[14px] bg-[#12C76F] px-6 text-base font-bold text-white shadow-[0_0_35px_rgba(18,199,111,0.32)] transition hover:-translate-y-0.5 hover:bg-[#18d87b] sm:w-auto"
+              className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#12C76F] px-5 text-[15px] font-semibold text-white shadow-[0_0_35px_rgba(18,199,111,0.28)] transition hover:-translate-y-0.5 hover:bg-[#18d87b] sm:h-14 sm:w-auto sm:px-6 sm:text-base"
             >
               <Send className="h-5 w-5" />
               Demander une démo
             </a>
             <a
               href="#plateforme"
-              className="inline-flex h-14 w-full items-center justify-center gap-3 rounded-[14px] border border-white/[0.18] bg-white/[0.03] px-6 text-base font-bold text-white backdrop-blur transition hover:border-[#12C76F]/70 hover:shadow-[0_0_28px_rgba(18,199,111,0.16)] sm:w-auto"
+              className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/[0.18] bg-white/[0.03] px-5 text-[15px] font-semibold text-white backdrop-blur transition hover:border-[#12C76F]/70 hover:shadow-[0_0_28px_rgba(18,199,111,0.16)] sm:h-14 sm:w-auto sm:px-6 sm:text-base"
             >
               <PlayCircle className="h-6 w-6 text-[#3B82F6]" />
               Watch a video
@@ -395,7 +393,7 @@ function HeroSection({ phrase }: { phrase: string }) {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.85, delay: 0.4, ease: "easeOut" as const }}
-          className="relative z-10 mx-auto w-full max-w-[900px] lg:mx-0 lg:ml-auto lg:-mr-10 xl:-mr-16 2xl:-mr-4"
+          className="relative z-10 mx-auto hidden w-full max-w-[900px] md:block lg:mx-0 lg:ml-auto lg:-mr-10 xl:-mr-16 2xl:-mr-4"
         >
           <motion.div
             aria-hidden="true"
@@ -703,6 +701,8 @@ function FloatingCard({
 }
 
 function ProblemSection() {
+  const [activeProblem, setActiveProblem] = useState(0);
+
   const problemCards: Array<{
     icon: LucideIcon;
     title: string;
@@ -739,6 +739,14 @@ function ProblemSection() {
       text: "Votre agence grandit, mais vos opérations ne suivent pas.",
     },
   ];
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setActiveProblem((index) => (index + 1) % problemCards.length);
+    }, 3200);
+
+    return () => window.clearInterval(interval);
+  }, [problemCards.length]);
 
   const alerts: Array<{
     icon: LucideIcon;
@@ -788,32 +796,24 @@ function ProblemSection() {
     },
   ];
 
-  const benefits: Array<{
-    icon: LucideIcon;
-    title: string;
-    text: string;
-  }> = [
-    { icon: Clock, title: "Gagnez du temps", text: "sur les tâches répétitives" },
-    { icon: Target, title: "Réduisez les erreurs", text: "et les oublis" },
-    { icon: BarChart3, title: "Améliorez la satisfaction", text: "de vos clients" },
-    { icon: Rocket, title: "Développez votre agence", text: "sans limites" },
-  ];
+  const ActiveIcon = problemCards[activeProblem].icon;
 
   return (
-    <section id="solutions" className="relative overflow-hidden bg-[#FAFCFB] px-5 py-20 text-[#07111F] sm:px-8 lg:px-12 lg:pb-20 lg:pt-[120px]">
+    <section id="solutions" className="relative overflow-x-hidden bg-[#07110D] px-5 py-20 text-white sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-x-0 bottom-0 h-[360px] bg-[radial-gradient(circle_at_50%_100%,rgba(18,199,111,0.13),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#030706_0%,#07110D_18%,#F4F8F6_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(18,199,111,0.22),transparent_58%)]" />
         <div
-          className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.22]"
+          className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.16]"
           style={{
-            backgroundImage: "radial-gradient(circle, rgba(18,199,111,.55) 1px, transparent 1.2px)",
+            backgroundImage: "radial-gradient(circle, rgba(18,199,111,.5) 1px, transparent 1.2px)",
             backgroundSize: "13px 13px",
           }}
         />
       </div>
 
       <div className="relative mx-auto max-w-[1440px]">
-        <div className="grid gap-14 xl:grid-cols-[0.98fr_0.9fr] xl:items-start">
+        <div className="grid gap-12 xl:grid-cols-[0.95fr_0.9fr] xl:items-start">
           <div>
             <motion.div
               initial={{ opacity: 0, y: 24 }}
@@ -827,7 +827,7 @@ function ProblemSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
               transition={{ duration: 0.68, ease: "easeOut" as const }}
-              className="max-w-[680px] text-[38px] font-extrabold leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[48px] xl:text-[56px]"
+              className="max-w-[700px] text-[36px] font-semibold leading-[1.08] tracking-[-0.025em] text-white sm:text-[48px] xl:text-[56px]"
             >
               Votre agence travaille dur.
               <br />
@@ -838,31 +838,71 @@ function ProblemSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
               transition={{ duration: 0.68, delay: 0.08, ease: "easeOut" as const }}
-              className="mt-7 max-w-[620px] text-[18px] leading-[1.75] text-[#475569] sm:text-[19px]"
+              className="mt-7 max-w-[620px] text-[17px] leading-[1.75] text-white/68 sm:text-[19px]"
             >
               Entre WhatsApp, Excel, appels manqués et paperasse, vos équipes perdent du temps
               sur des tâches répétitives au lieu de se concentrer sur vos clients.
             </motion.p>
 
-            <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:max-w-[760px]">
-              {problemCards.map((card, index) => (
-                <motion.div
-                  key={card.title}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-80px" }}
-                  transition={{ duration: 0.56, delay: index * 0.08, ease: "easeOut" as const }}
-                  className="min-h-[170px] rounded-[18px] border border-slate-900/[0.08] bg-white/[0.92] p-6 shadow-[0_18px_45px_rgba(15,23,42,0.07)]"
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EAFBF2] text-[#12A85E]">
-                    <card.icon className="h-7 w-7" />
-                  </div>
-                  <h3 className="mt-5 text-[17px] font-extrabold tracking-[-0.02em] text-[#07111F]">
+            <div className="mt-10 max-w-[760px]">
+              <div className="relative overflow-hidden rounded-[28px] border border-white/[0.12] bg-white/[0.06] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.24)] backdrop-blur sm:p-7">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={problemCards[activeProblem].title}
+                    initial={{ opacity: 0, x: 28, filter: "blur(8px)" }}
+                    animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, x: -28, filter: "blur(8px)" }}
+                    transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+                    className="grid min-h-[230px] gap-6 sm:grid-cols-[88px_1fr] sm:items-center"
+                  >
+                    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#12C76F]/14 text-[#12C76F] ring-1 ring-[#12C76F]/20">
+                      <ActiveIcon className="h-10 w-10" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#12C76F]">
+                        Problème {String(activeProblem + 1).padStart(2, "0")}
+                      </p>
+                      <h3 className="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[34px]">
+                        {problemCards[activeProblem].title}
+                      </h3>
+                      <p className="mt-4 max-w-[520px] text-[16px] leading-8 text-white/68">
+                        {problemCards[activeProblem].text}
+                      </p>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                <div className="mt-6 grid gap-2 sm:grid-cols-6">
+                  {problemCards.map((card, index) => (
+                    <button
+                      key={card.title}
+                      type="button"
+                      onClick={() => setActiveProblem(index)}
+                      className={`h-1.5 rounded-full transition ${
+                        index === activeProblem ? "bg-[#12C76F]" : "bg-white/16 hover:bg-white/28"
+                      }`}
+                      aria-label={`Afficher ${card.title}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {problemCards.map((card, index) => (
+                  <button
+                    key={card.title}
+                    type="button"
+                    onClick={() => setActiveProblem(index)}
+                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                      index === activeProblem
+                        ? "border-[#12C76F]/45 bg-[#12C76F]/12 text-white"
+                        : "border-white/[0.10] bg-white/[0.035] text-white/55 hover:border-white/20 hover:text-white"
+                    }`}
+                  >
                     {card.title}
-                  </h3>
-                  <p className="mt-3 text-[15px] leading-7 text-[#334155]">{card.text}</p>
-                </motion.div>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -871,7 +911,7 @@ function ProblemSection() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.75, delay: 0.12, ease: "easeOut" as const }}
-            className="relative mx-auto min-h-[610px] w-full max-w-[690px] xl:mx-0 xl:ml-auto xl:min-h-[690px]"
+            className="relative mx-auto hidden min-h-[610px] w-full max-w-[690px] lg:block xl:mx-0 xl:ml-auto xl:min-h-[690px]"
           >
             <div className="absolute right-2 top-0 hidden h-[220px] w-[220px] rounded-full border border-dashed border-[#12C76F]/30 lg:block" />
             <div className="absolute -bottom-3 right-8 hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/25 lg:block" />
@@ -895,7 +935,7 @@ function ProblemSection() {
                   repeatType: "mirror",
                   ease: "easeInOut" as const,
                 }}
-                className={`absolute z-10 flex min-w-[210px] items-center gap-3 rounded-[18px] border border-slate-900/[0.08] bg-white/[0.96] px-[18px] py-4 shadow-[0_20px_50px_rgba(15,23,42,0.12)] backdrop-blur ${alert.className}`}
+                className={`absolute z-10 flex min-w-[210px] items-center gap-3 rounded-[18px] border border-white/[0.14] bg-[#F8FBFA]/[0.96] px-[18px] py-4 shadow-[0_20px_50px_rgba(0,0,0,0.18)] backdrop-blur ${alert.className}`}
               >
                 <div
                   className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
@@ -923,48 +963,6 @@ function ProblemSection() {
             ))}
           </motion.div>
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 26 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.68, ease: "easeOut" as const }}
-          className="mt-12 grid gap-6 rounded-[24px] border border-[#12C76F]/[0.14] bg-[linear-gradient(90deg,#F7FFFA,#FFFFFF)] p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] lg:mt-14 lg:grid-cols-[2.15fr_repeat(4,1fr)] lg:p-8"
-        >
-          <div className="grid gap-5 md:grid-cols-[150px_1fr] md:items-center lg:border-r lg:border-slate-900/[0.08] lg:pr-7">
-            <div className="flex items-center gap-3" aria-label="SLAIVIO">
-              <Image
-                src="/slaivio-icon-official.png"
-                alt=""
-                width={58}
-                height={58}
-                className="h-[58px] w-[58px] object-contain"
-              />
-              <span className="text-[34px] font-bold tracking-[-0.04em] text-[#111827]">
-                Slaivio
-              </span>
-            </div>
-            <div>
-              <h3 className="text-xl font-black tracking-[-0.03em]">
-                SLAIVIO <span className="text-[#12C76F]">change tout.</span>
-              </h3>
-              <p className="mt-2 max-w-[420px] text-[15px] leading-7 text-[#334155]">
-                Centralisez, automatisez et pilotez votre activité cargo depuis une seule plateforme conçue pour votre métier.
-              </p>
-            </div>
-          </div>
-          {benefits.map((benefit) => (
-            <div key={benefit.title} className="flex items-start gap-4 lg:border-r lg:border-slate-900/[0.08] lg:px-7 last:lg:border-r-0">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#EAFBF2] text-[#12A85E]">
-                <benefit.icon className="h-7 w-7" />
-              </div>
-              <div>
-                <h4 className="font-extrabold text-[#07111F]">{benefit.title}</h4>
-                <p className="mt-1 text-[15px] leading-6 text-[#334155]">{benefit.text}</p>
-              </div>
-            </div>
-          ))}
-        </motion.div>
       </div>
     </section>
   );

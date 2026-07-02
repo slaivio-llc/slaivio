@@ -6,8 +6,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import {
   ArrowRight,
-  AlarmClock,
-  AlertTriangle,
   BarChart3,
   Bell,
   Bot,
@@ -203,7 +201,7 @@ export function LandingPageClient() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#020807] font-[Geist,Inter,'SF_Pro_Display','SF_Pro_Text',system-ui,sans-serif] text-white">
+    <main className="min-h-screen overflow-x-hidden bg-[#020807] font-[Inter,'Helvetica_Neue',Arial,system-ui,sans-serif] text-white">
       <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       <HeroSection phrase={heroTitlePhrases[heroPhraseIndex]} />
       <ProblemSection />
@@ -707,36 +705,43 @@ function ProblemSection() {
     icon: LucideIcon;
     title: string;
     text: string;
+    impact: string;
   }> = [
     {
       icon: MessageCircle,
       title: "WhatsApp dispersé",
-      text: "Les conversations clients sont partout et difficiles à suivre.",
+      text: "Les demandes arrivent dans plusieurs téléphones, groupes et conversations privées. Une information importante peut rester chez un agent, une relance peut être oubliée, et personne ne sait vraiment quel client attend quoi.",
+      impact: "Votre équipe répond plus lentement et perd l’historique client.",
     },
     {
       icon: FileSpreadsheet,
       title: "Excel et papiers partout",
-      text: "Données éparpillées, risques d’erreurs et pertes d’informations.",
+      text: "Les tarifs, les colis, les paiements et les routes vivent dans des fichiers séparés. Quand une ligne change ou qu’un document manque, toute l’agence dépend de vérifications manuelles.",
+      impact: "Les erreurs augmentent dès que le volume d’opérations monte.",
     },
     {
       icon: Clock,
       title: "Relances oubliées",
-      text: "Des opportunités perdues et des clients qui partent.",
+      text: "Les prospects chauds, les clients qui doivent payer, les colis à confirmer et les dossiers bloqués ne remontent pas automatiquement. Les agents doivent se souvenir de tout.",
+      impact: "Des revenus restent en attente et des clients partent ailleurs.",
     },
     {
       icon: Package,
       title: "Suivi des colis manuel",
-      text: "Vos colis sont difficiles à retrouver et à tracer.",
+      text: "Un client demande où se trouve son colis, puis l’équipe fouille dans WhatsApp, Excel, des photos de reçus ou des messages d’entrepôt. La réponse prend du temps et varie selon l’agent.",
+      impact: "La confiance baisse parce que le tracking n’est pas instantané.",
     },
     {
       icon: BarChart3,
       title: "Pas de visibilité",
-      text: "Aucune donnée claire pour prendre les bonnes décisions.",
+      text: "Le manager ne voit pas clairement les dossiers en retard, les revenus du mois, les colis non tracés ou les agents débordés. Les décisions se prennent avec des impressions, pas avec des données fiables.",
+      impact: "Vous pilotez l’agence sans tableau de bord opérationnel.",
     },
     {
       icon: Users,
       title: "Croissance freinée",
-      text: "Votre agence grandit, mais vos opérations ne suivent pas.",
+      text: "Plus l’agence reçoit de clients, plus les mêmes méthodes manuelles créent des blocages. Ajouter des agents ne suffit plus si l’organisation reste dispersée.",
+      impact: "La croissance devient lourde au lieu de devenir scalable.",
     },
   ];
 
@@ -748,60 +753,12 @@ function ProblemSection() {
     return () => window.clearInterval(interval);
   }, [problemCards.length]);
 
-  const alerts: Array<{
-    icon: LucideIcon;
-    title: string;
-    text: string;
-    badge?: string;
-    tone: "green" | "red" | "orange";
-    className: string;
-  }> = [
-    {
-      icon: MessageCircle,
-      title: "+235 messages non lus",
-      text: "3 groupes • 8 clients",
-      badge: "235",
-      tone: "green",
-      className: "left-2 top-8 sm:-left-10 xl:-left-12",
-    },
-    {
-      icon: AlarmClock,
-      title: "Relance client",
-      text: "En retard depuis 2 jours",
-      badge: "3",
-      tone: "red",
-      className: "right-2 top-14 hidden sm:flex xl:right-0",
-    },
-    {
-      icon: FileSpreadsheet,
-      title: "Tarifs.xlsx",
-      text: "Dernière modif : il y a 5 jours",
-      tone: "orange",
-      className: "left-2 top-[30%] hidden md:flex xl:-left-6",
-    },
-    {
-      icon: Package,
-      title: "Colis sans suivi",
-      text: "47 colis non tracés",
-      badge: "47",
-      tone: "orange",
-      className: "right-0 top-[42%] hidden md:flex xl:-right-2",
-    },
-    {
-      icon: BarChart3,
-      title: "Chiffre d’affaires",
-      text: "Pas de rapport cette semaine",
-      tone: "red",
-      className: "right-6 bottom-[19%] hidden lg:flex xl:right-2",
-    },
-  ];
-
   const ActiveIcon = problemCards[activeProblem].icon;
 
   return (
-    <section id="solutions" className="relative overflow-x-hidden bg-[#07110D] px-5 py-20 text-white sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
+    <section id="solutions" className="relative overflow-hidden bg-[#07110D] px-5 py-20 text-white sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#030706_0%,#07110D_18%,#F4F8F6_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#030706_0%,#07110D_24%,#08140F_100%)]" />
         <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(18,199,111,0.22),transparent_58%)]" />
         <div
           className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.16]"
@@ -810,11 +767,26 @@ function ProblemSection() {
             backgroundSize: "13px 13px",
           }}
         />
+        <div className="absolute right-0 top-24 hidden h-[760px] w-[56vw] lg:block">
+          <Image
+            src="/landing/problem-manager-photo.png"
+            alt=""
+            fill
+            sizes="56vw"
+            className="object-cover object-center opacity-[0.28]"
+            style={{
+              maskImage:
+                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.2) 16%, rgba(0,0,0,.82) 42%, rgba(0,0,0,.72) 100%)",
+              WebkitMaskImage:
+                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.2) 16%, rgba(0,0,0,.82) 42%, rgba(0,0,0,.72) 100%)",
+            }}
+          />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(18,199,111,0.22),transparent_38%),linear-gradient(180deg,rgba(7,17,13,0)_0%,rgba(8,20,15,0.9)_100%)]" />
+        </div>
       </div>
 
       <div className="relative mx-auto max-w-[1440px]">
-        <div className="grid gap-12 xl:grid-cols-[0.95fr_0.9fr] xl:items-start">
-          <div>
+        <div className="max-w-[860px]">
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -844,8 +816,9 @@ function ProblemSection() {
               sur des tâches répétitives au lieu de se concentrer sur vos clients.
             </motion.p>
 
-            <div className="mt-10 max-w-[760px]">
-              <div className="relative overflow-hidden rounded-[28px] border border-white/[0.12] bg-white/[0.06] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.24)] backdrop-blur sm:p-7">
+            <div className="mt-10 max-w-[820px]">
+              <div className="relative overflow-hidden rounded-[30px] border border-white/[0.10] bg-[#07110D]/80 p-5 shadow-[0_34px_100px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-8">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_14%,rgba(18,199,111,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={problemCards[activeProblem].title}
@@ -853,115 +826,48 @@ function ProblemSection() {
                     animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
                     exit={{ opacity: 0, x: -28, filter: "blur(8px)" }}
                     transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-                    className="grid min-h-[230px] gap-6 sm:grid-cols-[88px_1fr] sm:items-center"
+                    className="relative grid min-h-[330px] gap-6 sm:grid-cols-[92px_1fr] sm:items-start lg:min-h-[350px]"
                   >
-                    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#12C76F]/14 text-[#12C76F] ring-1 ring-[#12C76F]/20">
-                      <ActiveIcon className="h-10 w-10" />
+                    <div className="flex h-20 w-20 items-center justify-center rounded-[22px] bg-[#12C76F]/14 text-[#12C76F] ring-1 ring-[#12C76F]/20 sm:mt-1">
+                      <ActiveIcon className="h-9 w-9" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-[#12C76F]">
+                      <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#12C76F]">
                         Problème {String(activeProblem + 1).padStart(2, "0")}
                       </p>
-                      <h3 className="mt-3 text-[28px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[34px]">
+                      <h3 className="mt-3 text-[30px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[40px]">
                         {problemCards[activeProblem].title}
                       </h3>
-                      <p className="mt-4 max-w-[520px] text-[16px] leading-8 text-white/68">
+                      <p className="mt-5 max-w-[640px] text-[17px] leading-8 text-white/72">
                         {problemCards[activeProblem].text}
                       </p>
+                      <div className="mt-7 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4">
+                        <p className="text-sm font-semibold text-[#12C76F]">Impact direct</p>
+                        <p className="mt-1 text-[15px] leading-7 text-white/78">
+                          {problemCards[activeProblem].impact}
+                        </p>
+                      </div>
                     </div>
                   </motion.div>
                 </AnimatePresence>
 
-                <div className="mt-6 grid gap-2 sm:grid-cols-6">
+                <div className="relative mt-7 flex items-center gap-2">
                   {problemCards.map((card, index) => (
                     <button
                       key={card.title}
                       type="button"
                       onClick={() => setActiveProblem(index)}
-                      className={`h-1.5 rounded-full transition ${
-                        index === activeProblem ? "bg-[#12C76F]" : "bg-white/16 hover:bg-white/28"
+                      className={`h-2.5 rounded-full transition-all ${
+                        index === activeProblem
+                          ? "w-10 bg-[#12C76F]"
+                          : "w-2.5 bg-white/20 hover:bg-white/38"
                       }`}
                       aria-label={`Afficher ${card.title}`}
                     />
                   ))}
                 </div>
               </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {problemCards.map((card, index) => (
-                  <button
-                    key={card.title}
-                    type="button"
-                    onClick={() => setActiveProblem(index)}
-                    className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                      index === activeProblem
-                        ? "border-[#12C76F]/45 bg-[#12C76F]/12 text-white"
-                        : "border-white/[0.10] bg-white/[0.035] text-white/55 hover:border-white/20 hover:text-white"
-                    }`}
-                  >
-                    {card.title}
-                  </button>
-                ))}
-              </div>
             </div>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.75, delay: 0.12, ease: "easeOut" as const }}
-            className="relative mx-auto hidden min-h-[610px] w-full max-w-[690px] lg:block xl:mx-0 xl:ml-auto xl:min-h-[690px]"
-          >
-            <div className="absolute right-2 top-0 hidden h-[220px] w-[220px] rounded-full border border-dashed border-[#12C76F]/30 lg:block" />
-            <div className="absolute -bottom-3 right-8 hidden h-[260px] w-[260px] rounded-full border border-dashed border-[#12C76F]/25 lg:block" />
-            <div className="relative mx-auto h-[520px] max-w-[610px] overflow-hidden rounded-[28px] shadow-[0_30px_80px_rgba(15,23,42,0.16)] sm:h-[630px] xl:mr-4">
-              <Image
-                src="/landing/problem-manager-photo.png"
-                alt="Manager cargo concentré devant son téléphone et son ordinateur"
-                fill
-                sizes="(min-width: 1280px) 640px, 100vw"
-                className="object-cover object-center"
-              />
-            </div>
-
-            {alerts.map((alert, index) => (
-              <motion.div
-                key={alert.title}
-                animate={{ y: [0, index % 2 === 0 ? -6 : 6, 0] }}
-                transition={{
-                  duration: 5.4 + index * 0.55,
-                  repeat: Infinity,
-                  repeatType: "mirror",
-                  ease: "easeInOut" as const,
-                }}
-                className={`absolute z-10 flex min-w-[210px] items-center gap-3 rounded-[18px] border border-white/[0.14] bg-[#F8FBFA]/[0.96] px-[18px] py-4 shadow-[0_20px_50px_rgba(0,0,0,0.18)] backdrop-blur ${alert.className}`}
-              >
-                <div
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                    alert.tone === "green"
-                      ? "bg-[#EAFBF2] text-[#12C76F]"
-                      : alert.tone === "orange"
-                        ? "bg-orange-50 text-orange-500"
-                        : "bg-red-50 text-red-500"
-                  }`}
-                >
-                  <alert.icon className="h-6 w-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-extrabold text-[#07111F]">{alert.title}</p>
-                  <p className="mt-1 truncate text-[13px] text-[#475569]">{alert.text}</p>
-                </div>
-                {alert.badge ? (
-                  <span className={`absolute -right-2 -top-2 rounded-full px-2 py-1 text-xs font-black text-white ${alert.tone === "orange" ? "bg-orange-500" : "bg-red-500"}`}>
-                    {alert.badge}
-                  </span>
-                ) : (
-                  <AlertTriangle className={`h-5 w-5 ${alert.tone === "orange" ? "text-orange-400" : "text-red-500"}`} />
-                )}
-              </motion.div>
-            ))}
-          </motion.div>
         </div>
       </div>
     </section>

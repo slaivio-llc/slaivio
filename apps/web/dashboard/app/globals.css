@@ -29,6 +29,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family:
+    "Neue Haas Grotesk Display Pro",
+    "Neue Haas Grotesk Text",
     Inter,
     "Helvetica Neue",
     Arial,
@@ -39,10 +41,12 @@ body {
     "Segoe UI",
     sans-serif;
   font-feature-settings:
+    "ss01" 1,
     "cv02" 1,
     "cv03" 1,
     "cv04" 1,
     "cv11" 1;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
 }

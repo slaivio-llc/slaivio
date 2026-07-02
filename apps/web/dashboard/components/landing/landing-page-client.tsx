@@ -201,7 +201,7 @@ export function LandingPageClient() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#020807] font-[Inter,'Helvetica_Neue',Arial,system-ui,sans-serif] text-white">
+    <main className="min-h-screen overflow-x-hidden bg-[#020807] font-['Neue_Haas_Grotesk_Display_Pro','Neue_Haas_Grotesk_Text',Inter,'Helvetica_Neue',Arial,system-ui,sans-serif] text-white">
       <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       <HeroSection phrase={heroTitlePhrases[heroPhraseIndex]} />
       <ProblemSection />
@@ -787,87 +787,87 @@ function ProblemSection() {
 
       <div className="relative mx-auto max-w-[1440px]">
         <div className="max-w-[860px]">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.62, ease: "easeOut" as const }}
-              className="mb-9 h-1.5 w-16 rounded-full bg-[#12C76F]"
-            />
-            <motion.h2
-              initial={{ opacity: 0, y: 28 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.68, ease: "easeOut" as const }}
-              className="max-w-[700px] text-[36px] font-semibold leading-[1.08] tracking-[-0.025em] text-white sm:text-[48px] xl:text-[56px]"
-            >
-              Votre agence travaille dur.
-              <br />
-              Mais vos outils <span className="text-[#12C76F]">vous ralentissent.</span>
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.68, delay: 0.08, ease: "easeOut" as const }}
-              className="mt-7 max-w-[620px] text-[17px] leading-[1.75] text-white/68 sm:text-[19px]"
-            >
-              Entre WhatsApp, Excel, appels manqués et paperasse, vos équipes perdent du temps
-              sur des tâches répétitives au lieu de se concentrer sur vos clients.
-            </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.62, ease: "easeOut" as const }}
+            className="mb-9 h-1.5 w-16 rounded-full bg-[#12C76F]"
+          />
+          <motion.h2
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.68, ease: "easeOut" as const }}
+            className="max-w-[700px] text-[36px] font-normal leading-[1.08] tracking-[-0.035em] text-white sm:text-[48px] xl:text-[56px]"
+          >
+            Votre agence travaille dur.
+            <br />
+            Mais vos outils <span className="text-[#12C76F]">vous ralentissent.</span>
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.68, delay: 0.08, ease: "easeOut" as const }}
+            className="mt-7 max-w-[620px] text-[17px] font-normal leading-[1.75] tracking-[-0.01em] text-white/68 sm:text-[19px]"
+          >
+            Entre WhatsApp, Excel, appels manqués et paperasse, vos équipes perdent du temps
+            sur des tâches répétitives au lieu de se concentrer sur vos clients.
+          </motion.p>
 
-            <div className="mt-10 max-w-[820px]">
-              <div className="relative overflow-hidden rounded-[30px] border border-white/[0.10] bg-[#07110D]/80 p-5 shadow-[0_34px_100px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:p-8">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_14%,rgba(18,199,111,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={problemCards[activeProblem].title}
-                    initial={{ opacity: 0, x: 28, filter: "blur(8px)" }}
-                    animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, x: -28, filter: "blur(8px)" }}
-                    transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-                    className="relative grid min-h-[330px] gap-6 sm:grid-cols-[92px_1fr] sm:items-start lg:min-h-[350px]"
-                  >
-                    <div className="flex h-20 w-20 items-center justify-center rounded-[22px] bg-[#12C76F]/14 text-[#12C76F] ring-1 ring-[#12C76F]/20 sm:mt-1">
-                      <ActiveIcon className="h-9 w-9" />
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-[#12C76F]">
-                        Problème {String(activeProblem + 1).padStart(2, "0")}
+          <div className="mt-10 max-w-[820px]">
+            <div className="relative h-[690px] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[#07110D]/80 p-5 shadow-[0_34px_100px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:h-[550px] sm:p-8 lg:h-[540px]">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_14%,rgba(18,199,111,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={problemCards[activeProblem].title}
+                  initial={{ opacity: 0, x: 28, filter: "blur(8px)" }}
+                  animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, x: -28, filter: "blur(8px)" }}
+                  transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
+                  className="relative grid h-[600px] gap-6 sm:h-[430px] sm:grid-cols-[92px_1fr] sm:items-start lg:h-[420px]"
+                >
+                  <div className="flex h-20 w-20 items-center justify-center rounded-[22px] bg-[#12C76F]/14 text-[#12C76F] ring-1 ring-[#12C76F]/20 sm:mt-1">
+                    <ActiveIcon className="h-9 w-9" />
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[#12C76F]">
+                      Problème {String(activeProblem + 1).padStart(2, "0")}
+                    </p>
+                    <h3 className="mt-3 text-[30px] font-normal leading-tight tracking-[-0.035em] text-white sm:text-[40px]">
+                      {problemCards[activeProblem].title}
+                    </h3>
+                    <p className="mt-5 max-w-[640px] text-[17px] font-normal leading-8 tracking-[-0.01em] text-white/72">
+                      {problemCards[activeProblem].text}
+                    </p>
+                    <div className="mt-7 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4">
+                      <p className="text-sm font-medium text-[#12C76F]">Impact direct</p>
+                      <p className="mt-1 text-[15px] font-normal leading-7 tracking-[-0.01em] text-white/78">
+                        {problemCards[activeProblem].impact}
                       </p>
-                      <h3 className="mt-3 text-[30px] font-semibold leading-tight tracking-[-0.025em] text-white sm:text-[40px]">
-                        {problemCards[activeProblem].title}
-                      </h3>
-                      <p className="mt-5 max-w-[640px] text-[17px] leading-8 text-white/72">
-                        {problemCards[activeProblem].text}
-                      </p>
-                      <div className="mt-7 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4">
-                        <p className="text-sm font-semibold text-[#12C76F]">Impact direct</p>
-                        <p className="mt-1 text-[15px] leading-7 text-white/78">
-                          {problemCards[activeProblem].impact}
-                        </p>
-                      </div>
                     </div>
-                  </motion.div>
-                </AnimatePresence>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
 
-                <div className="relative mt-7 flex items-center gap-2">
-                  {problemCards.map((card, index) => (
-                    <button
-                      key={card.title}
-                      type="button"
-                      onClick={() => setActiveProblem(index)}
-                      className={`h-2.5 rounded-full transition-all ${
-                        index === activeProblem
-                          ? "w-10 bg-[#12C76F]"
-                          : "w-2.5 bg-white/20 hover:bg-white/38"
-                      }`}
-                      aria-label={`Afficher ${card.title}`}
-                    />
-                  ))}
-                </div>
+              <div className="absolute bottom-5 left-5 right-5 flex items-center gap-2 sm:bottom-8 sm:left-8 sm:right-8">
+                {problemCards.map((card, index) => (
+                  <button
+                    key={card.title}
+                    type="button"
+                    onClick={() => setActiveProblem(index)}
+                    className={`h-2.5 rounded-full transition-all ${
+                      index === activeProblem
+                        ? "w-10 bg-[#12C76F]"
+                        : "w-2.5 bg-white/20 hover:bg-white/38"
+                    }`}
+                    aria-label={`Afficher ${card.title}`}
+                  />
+                ))}
               </div>
             </div>
+          </div>
         </div>
       </div>
     </section>

@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
+  ClipboardCheck,
+  ClipboardList,
   Clock,
   CreditCard,
   FileText,
@@ -33,6 +35,7 @@ import {
   Settings,
   Sparkles,
   Truck,
+  User,
   UserCircle,
   Users,
   Warehouse,
@@ -100,22 +103,84 @@ const operatingCards: Array<{
   },
 ];
 
-const workflowSteps = [
+const processSteps: Array<{
+  title: string;
+  text: string;
+  icon: LucideIcon;
+}> = [
   {
-    title: "Connecter WhatsApp",
-    text: "L'agence relie son WhatsApp Business officiel et récupère ses conversations au même endroit.",
+    title: "Prise de demande",
+    text: "Enregistrez vos clients et leurs demandes depuis WhatsApp, au bureau ou en ligne.",
+    icon: User,
   },
   {
-    title: "Configurer l'agence",
-    text: "Bureaux, routes, entrepôts, équipes, tarifs et rôles sont modélisés selon votre réalité.",
+    title: "Dossier & devis",
+    text: "Créez un dossier, ajoutez les informations, calculez les tarifs et envoyez le devis.",
+    icon: ClipboardList,
   },
   {
-    title: "Créer les opérations",
-    text: "Chaque demande devient un dossier avec colis, paiements, statuts et historique complet.",
+    title: "Réception des colis",
+    text: "Enregistrez les colis reçus en entrepôt, pesez, étiquetez et validez les informations.",
+    icon: Package,
   },
   {
-    title: "Piloter la croissance",
-    text: "Les managers suivent les blocages, les relances et les priorités sans dépendre d'Excel.",
+    title: "Expédition & transit",
+    text: "Regroupez, expédiez et suivez vos envois de l'entrepôt jusqu'à leur arrivée à destination.",
+    icon: Truck,
+  },
+  {
+    title: "Dédouanement & livraison",
+    text: "Gérez les documents, suivez le dédouanement et organisez la livraison au client.",
+    icon: ClipboardCheck,
+  },
+  {
+    title: "Paiements & rapports",
+    text: "Suivez les paiements, générez vos rapports et analysez la performance de votre agence.",
+    icon: BarChart3,
+  },
+];
+
+const processCards: Array<{
+  title: string;
+  text: string;
+  icon: LucideIcon;
+  side: "left" | "right";
+}> = [
+  {
+    title: "WhatsApp connecté",
+    text: "Toutes vos conversations centralisées au même endroit.",
+    icon: MessageCircle,
+    side: "left",
+  },
+  {
+    title: "Suivi en temps réel",
+    text: "Suivez chaque colis et chaque expédition en temps réel.",
+    icon: Package,
+    side: "left",
+  },
+  {
+    title: "Notifications automatiques",
+    text: "Informez vos clients sans effort à chaque étape importante.",
+    icon: Bell,
+    side: "left",
+  },
+  {
+    title: "Documents centralisés",
+    text: "Factures, BL, déclarations... tout est organisé.",
+    icon: FileText,
+    side: "right",
+  },
+  {
+    title: "Rapports intelligents",
+    text: "Analysez votre activité et prenez de meilleures décisions.",
+    icon: BarChart3,
+    side: "right",
+  },
+  {
+    title: "Données sécurisées",
+    text: "Vos données et celles de vos clients sont 100% sécurisées.",
+    icon: LockKeyhole,
+    side: "right",
   },
 ];
 
@@ -911,34 +976,320 @@ function PlatformSection() {
 }
 
 function WorkflowSection() {
+  const leftCards = processCards.filter((card) => card.side === "left");
+  const rightCards = processCards.filter((card) => card.side === "right");
+
   return (
-    <section id="workflow" className="border-y border-white/[0.08] bg-[#06110e] px-5 py-20 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <motion.div {...fadeUp} className="max-w-3xl">
-          <Pill icon={Route}>Méthode de déploiement</Pill>
-          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-            Une mise en place progressive, sans casser votre activité.
+    <section id="workflow" className="relative overflow-hidden bg-[#FAFCFB] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 lg:py-24">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(7,17,13,0.10),rgba(250,252,251,0))]" />
+        <div className="absolute left-1/2 top-20 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#12C76F]/[0.055] blur-[90px]" />
+        <div
+          className="absolute bottom-0 right-0 h-[320px] w-[520px] opacity-[0.16]"
+          style={{
+            backgroundImage: "radial-gradient(circle, rgba(18,199,111,.5) 1px, transparent 1.2px)",
+            backgroundSize: "14px 14px",
+          }}
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-[1500px]">
+        <motion.div {...fadeUp} className="mx-auto max-w-[900px] text-center">
+          <div className="mx-auto mb-8 h-1.5 w-[72px] rounded-full bg-[#12C76F]" />
+          <h2 className="text-[38px] font-normal leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[54px] xl:text-[64px]">
+            Tout votre processus cargo,
+            <br />
+            centralisé en <span className="text-[#12C76F]">6 étapes simples.</span>
           </h2>
+          <p className="mx-auto mt-6 max-w-[820px] text-[17px] font-normal leading-[1.7] tracking-[-0.01em] text-[#475569] sm:text-[20px]">
+            SLAIVIO vous accompagne à chaque étape, de la prise de demande jusqu&apos;à la livraison finale.
+            <br className="hidden md:block" />
+            Tout est connecté, automatisé et suivi en temps réel.
+          </p>
         </motion.div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-4">
-          {workflowSteps.map((step, index) => (
+        <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-6 xl:gap-5">
+          {processSteps.map((step, index) => (
             <motion.div
               key={step.title}
               {...fadeUp}
               transition={{ duration: 0.55, delay: index * 0.08 }}
-              className="relative rounded-[1.7rem] border border-white/10 bg-[#020807] p-6"
+              className="relative text-center"
             >
-              <div className="mb-8 flex h-11 w-11 items-center justify-center rounded-full bg-[#12C76F] text-lg font-black text-[#02130b]">
-                {index + 1}
+              {index < processSteps.length - 1 && (
+                <div className="absolute left-[calc(50%+46px)] top-[18px] hidden h-px w-[calc(100%-92px)] border-t border-dashed border-[#12C76F]/35 xl:block" />
+              )}
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#EAFBF2] text-[13px] font-semibold text-[#07111F]">
+                {String(index + 1).padStart(2, "0")}
               </div>
-              <h3 className="text-lg font-bold">{step.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-white/58">{step.text}</p>
+              <div className="mx-auto mt-5 flex h-[58px] w-[58px] items-center justify-center rounded-[16px] bg-[#EAFBF2] text-[#0BAA5D]">
+                <step.icon className="h-7 w-7" />
+              </div>
+              <h3 className="mt-5 text-[16px] font-semibold tracking-[-0.02em] text-[#07111F]">{step.title}</h3>
+              <p className="mx-auto mt-3 max-w-[220px] text-[14px] font-normal leading-[1.75] tracking-[-0.01em] text-[#475569]">
+                {step.text}
+              </p>
             </motion.div>
           ))}
         </div>
+
+        <div className="relative mt-16 lg:mt-20">
+          <div className="relative mx-auto grid max-w-[1460px] gap-6 xl:grid-cols-[250px_minmax(0,980px)_250px] xl:items-center xl:gap-8">
+            <div className="hidden space-y-8 xl:block">
+              {leftCards.map((card, index) => (
+                <ProcessFloatingCard key={card.title} card={card} delay={index * 0.2} align="left" />
+              ))}
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.75, ease: "easeOut" as const }}
+              className="relative mx-auto w-full max-w-[980px]"
+            >
+              <div className="absolute -left-10 top-[18%] hidden h-[250px] w-12 border-y border-l border-dashed border-[#12C76F]/28 rounded-l-[40px] xl:block" />
+              <div className="absolute -right-10 top-[18%] hidden h-[250px] w-12 border-y border-r border-dashed border-[#12C76F]/28 rounded-r-[40px] xl:block" />
+              <LightDashboardPreview />
+            </motion.div>
+
+            <div className="hidden space-y-8 xl:block">
+              {rightCards.map((card, index) => (
+                <ProcessFloatingCard key={card.title} card={card} delay={0.3 + index * 0.2} align="right" />
+              ))}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:hidden">
+              {processCards.map((card, index) => (
+                <ProcessStaticCard key={card.title} card={card} delay={index * 0.05} />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </section>
+  );
+}
+
+function ProcessFloatingCard({
+  card,
+  delay,
+  align,
+}: {
+  card: (typeof processCards)[number];
+  delay: number;
+  align: "left" | "right";
+}) {
+  return (
+    <motion.div
+      {...fadeUp}
+      animate={{ y: [0, -7, 0] }}
+      transition={{
+        duration: 6.5,
+        delay,
+        repeat: Infinity,
+        repeatType: "mirror",
+        ease: "easeInOut" as const,
+      }}
+      className={`relative rounded-[18px] border border-slate-900/[0.08] bg-white p-[22px] shadow-[0_20px_50px_rgba(15,23,42,0.08)] ${
+        align === "left" ? "text-left" : "text-left"
+      }`}
+    >
+      <div
+        className={`absolute top-1/2 hidden h-px w-10 border-t border-dashed border-[#12C76F]/40 xl:block ${
+          align === "left" ? "-right-10" : "-left-10"
+        }`}
+      />
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EAFBF2] text-[#0BAA5D]">
+          <card.icon className="h-7 w-7" />
+        </div>
+        <div>
+          <h3 className="text-[15px] font-semibold tracking-[-0.02em] text-[#07111F]">{card.title}</h3>
+          <p className="mt-2 text-[13px] font-normal leading-6 tracking-[-0.01em] text-[#475569]">{card.text}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ProcessStaticCard({ card, delay }: { card: (typeof processCards)[number]; delay: number }) {
+  return (
+    <motion.div
+      {...fadeUp}
+      transition={{ duration: 0.5, delay }}
+      className="rounded-[18px] border border-slate-900/[0.08] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.07)]"
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#EAFBF2] text-[#0BAA5D]">
+          <card.icon className="h-6 w-6" />
+        </div>
+        <div>
+          <h3 className="text-[15px] font-semibold tracking-[-0.02em] text-[#07111F]">{card.title}</h3>
+          <p className="mt-1.5 text-sm leading-6 text-[#475569]">{card.text}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function LightDashboardPreview() {
+  const menu: Array<[string, LucideIcon, string?]> = [
+    ["Dashboard", Route],
+    ["Clients", Users],
+    ["Dossiers", FileText],
+    ["Colis", Package],
+    ["Expéditions", Truck],
+    ["Tracking", Search],
+    ["WhatsApp Inbox", MessageCircle, "12"],
+    ["Broadcasts", Megaphone],
+    ["Relances", Bell],
+    ["Base de connaissances", Inbox],
+    ["Tarification", CircleDollarSign],
+    ["Services", Warehouse],
+    ["Paiements", CreditCard],
+  ];
+  const kpis = [
+    ["Clients", "1,248", "+14.5%"],
+    ["Dossiers", "842", "+12.3%"],
+    ["Colis", "2,453", "+18.7%"],
+    ["Expéditions", "320", "+9.1%"],
+    ["Revenus (ce mois)", "$24,850", "+16.3%"],
+  ];
+  const shipments = [
+    ["EXP-2024-1250", "Chine → Kinshasa", "En transit", "12 Juin 2024", "green"],
+    ["EXP-2024-1249", "Dubai → Douala", "Arrivé", "08 Juin 2024", "green"],
+    ["EXP-2024-1248", "Turquie → Abidjan", "En préparation", "15 Juin 2024", "amber"],
+    ["EXP-2024-1247", "Chine → Yaoundé", "En transit", "10 Juin 2024", "purple"],
+    ["EXP-2024-1246", "Inde → Lubumbashi", "Validé", "—", "green"],
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-slate-900/[0.08] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.10)]">
+      <div className="grid min-h-[520px] grid-cols-1 lg:grid-cols-[190px_1fr]">
+        <aside className="hidden border-r border-slate-900/[0.07] bg-[#FBFDFD] px-4 py-5 lg:block">
+          <div className="mb-5 flex items-center gap-2">
+            <Image
+              src="/slaivio-icon-official.png"
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7 object-contain"
+            />
+            <span className="text-[19px] font-semibold tracking-[-0.04em] text-[#07111F]">Slaivio</span>
+          </div>
+          <div className="space-y-1.5">
+            {menu.map(([item, Icon, badge], index) => (
+              <div
+                key={item}
+                className={`flex h-8 items-center gap-2 rounded-lg px-2 text-[11px] font-medium ${
+                  index === 0 ? "bg-[#12C76F]/12 text-[#0BAA5D]" : "text-[#334155]"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{item}</span>
+                {badge && <span className="rounded-full bg-[#12C76F] px-1.5 py-0.5 text-[9px] font-bold text-white">{badge}</span>}
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <div className="min-w-0 p-4 sm:p-5 lg:p-6">
+          <div className="flex flex-col gap-3 border-b border-slate-900/[0.06] pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex h-9 min-w-0 items-center gap-2 rounded-2xl border border-slate-900/[0.08] bg-[#FAFCFB] px-4 text-[11px] text-[#64748B] sm:w-[285px]">
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="truncate">Rechercher un client, dossier, colis...</span>
+            </div>
+            <div className="flex items-center gap-3 text-[#334155]">
+              <Bell className="h-4 w-4" />
+              <MessageCircle className="h-4 w-4" />
+              <UserCircle className="h-5 w-5" />
+              <div className="hidden sm:block">
+                <p className="text-[11px] font-semibold text-[#07111F]">OTI Cargo Express</p>
+                <p className="text-[10px] text-[#64748B]">Kinshasa, RDC</p>
+              </div>
+            </div>
+          </div>
+
+          <h3 className="mt-5 text-[18px] font-semibold tracking-[-0.02em] text-[#07111F]">Tableau de bord</h3>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {kpis.map(([title, value, delta]) => (
+              <div key={title} className="rounded-xl border border-slate-900/[0.07] bg-white p-3.5 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+                <p className="truncate text-[11px] font-medium text-[#475569]">{title}</p>
+                <div className="mt-3 flex items-end justify-between gap-2">
+                  <p className="text-[21px] font-semibold tracking-[-0.04em] text-[#07111F]">{value}</p>
+                  <p className="text-[10px] font-semibold text-[#12C76F]">{delta}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 xl:grid-cols-[1.45fr_0.9fr]">
+            <div className="rounded-xl border border-slate-900/[0.07] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+              <div className="mb-4 flex items-center justify-between">
+                <h4 className="text-[13px] font-semibold text-[#07111F]">Expéditions en cours</h4>
+                <ChevronDown className="-rotate-90 h-4 w-4 text-[#475569]" />
+              </div>
+              <div className="grid grid-cols-[1.15fr_1.1fr_0.9fr_1fr] border-y border-slate-900/[0.06] py-2 text-[10px] text-[#64748B]">
+                <span>Expédition</span>
+                <span>Route</span>
+                <span>Statut</span>
+                <span>ETA</span>
+              </div>
+              <div className="divide-y divide-slate-900/[0.05]">
+                {shipments.map(([id, route, status, eta, tone]) => (
+                  <div key={id} className="grid grid-cols-[1.15fr_1.1fr_0.9fr_1fr] items-center py-2 text-[10px]">
+                    <span className="truncate font-semibold text-[#07111F]">{id}</span>
+                    <span className="truncate text-[#334155]">{route}</span>
+                    <span>
+                      <span
+                        className={`rounded-full px-2 py-1 font-semibold ${
+                          tone === "amber"
+                            ? "bg-amber-100 text-amber-700"
+                            : tone === "purple"
+                              ? "bg-violet-100 text-violet-700"
+                              : "bg-[#12C76F]/12 text-[#0BAA5D]"
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </span>
+                    <span className="truncate text-[#334155]">{eta}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-900/[0.07] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+              <h4 className="text-[13px] font-semibold text-[#07111F]">Répartition par service</h4>
+              <div className="mt-5 flex items-center gap-5">
+                <div className="relative h-[122px] w-[122px] shrink-0 rounded-full bg-[conic-gradient(#38BDF8_0_45%,#12C76F_45%_80%,#F59E0B_80%_95%,#8B5CF6_95%_100%)] p-[14px]">
+                  <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center">
+                    <span className="text-xl font-semibold text-[#07111F]">2,453</span>
+                    <span className="text-[10px] text-[#64748B]">Colis</span>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 space-y-3 text-[11px]">
+                  {[
+                    ["Air Cargo", "45%", "#38BDF8"],
+                    ["Sea Cargo", "35%", "#12C76F"],
+                    ["Express", "15%", "#F59E0B"],
+                    ["Groupage", "5%", "#8B5CF6"],
+                  ].map(([label, value, color]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="flex-1 truncate text-[#334155]">{label}</span>
+                      <span className="text-[#64748B]">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

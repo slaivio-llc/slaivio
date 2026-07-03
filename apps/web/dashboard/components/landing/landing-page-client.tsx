@@ -22,22 +22,27 @@ import {
   Globe2,
   Inbox,
   LockKeyhole,
+  Mail,
   Megaphone,
   Menu,
   MessageCircle,
   Package,
   PlayCircle,
+  PlusCircle,
   Receipt,
+  RefreshCw,
   Route,
   Search,
   Send,
   Settings,
+  ShieldCheck,
   Truck,
   User,
   UserCircle,
   Users,
   Warehouse,
   X,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -176,6 +181,59 @@ const demoTimeline: Array<{
   },
 ];
 
+const integrations: Array<{
+  id: "whatsapp" | "gmail" | "tiktok";
+  title: string;
+  eyebrow: string;
+  text: string;
+}> = [
+  {
+    id: "whatsapp",
+    title: "WhatsApp Business",
+    eyebrow: "Intégration native",
+    text: "Gérez toutes vos conversations WhatsApp Business depuis une seule inbox centrale.",
+  },
+  {
+    id: "gmail",
+    title: "Gmail",
+    eyebrow: "Synchronisation",
+    text: "Envoyez et recevez vos emails professionnels sans quitter SLAIVIO.",
+  },
+  {
+    id: "tiktok",
+    title: "TikTok",
+    eyebrow: "Messagerie connectée",
+    text: "Répondez aux messages et commentaires TikTok directement depuis votre dashboard.",
+  },
+];
+
+const integrationBenefits: Array<{
+  title: string;
+  text: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "Connexion rapide",
+    text: "Intégrez vos outils en quelques minutes seulement.",
+    icon: Zap,
+  },
+  {
+    title: "Sécurité garantie",
+    text: "Vos données sont chiffrées et protégées à 100%.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Synchronisation en temps réel",
+    text: "Toutes vos données sont mises à jour automatiquement.",
+    icon: RefreshCw,
+  },
+  {
+    title: "Plus d’intégrations à venir",
+    text: "Nous ajoutons régulièrement de nouveaux outils.",
+    icon: PlusCircle,
+  },
+];
+
 const securityItems = [
   "Authentification moderne avec Clerk",
   "Connexion WhatsApp officielle via Meta",
@@ -276,6 +334,7 @@ export function LandingPageClient() {
       <ProblemSection />
       <WorkflowSection />
       <WatchDemoSection />
+      <IntegrationsSection />
       <SecuritySection />
       <DemoSection formStatus={formStatus} onSubmit={submitDemoRequest} />
       <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
@@ -1647,6 +1706,262 @@ function DemoDashboardPreview() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function IntegrationsSection() {
+  return (
+    <section id="integrations" className="relative overflow-hidden bg-white px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-0 top-0 h-[520px] w-[620px] rounded-full bg-[#12C76F]/[0.035] blur-[100px]" />
+        <div className="absolute right-0 bottom-0 h-[520px] w-[700px] rounded-full bg-slate-100/80 blur-[110px]" />
+        <div
+          className="absolute right-10 top-32 hidden h-[280px] w-[440px] opacity-[0.08] lg:block"
+          style={{
+            backgroundImage: "radial-gradient(circle, rgba(18,199,111,.7) 1px, transparent 1.2px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-[1440px]">
+        <motion.div {...fadeUp} className="mx-auto max-w-[880px] text-center">
+          <div className="mb-8 ml-0 h-1.5 w-[70px] rounded-full bg-[#12C76F] sm:ml-12" />
+          <h2 className="text-[38px] font-normal leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[54px] xl:text-[64px]">
+            SLAIVIO s’intègre avec
+            <br />
+            vos outils <span className="text-[#12C76F]">essentiels.</span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-[760px] text-[17px] leading-[1.75] tracking-[-0.01em] text-[#475569] sm:text-[20px]">
+            Connectez facilement SLAIVIO à vos outils préférés et centralisez
+            <br className="hidden md:block" />
+            toutes vos communications au même endroit.
+          </p>
+        </motion.div>
+
+        <div className="relative mx-auto mt-16 hidden h-[600px] max-w-[1160px] lg:block">
+          <svg aria-hidden="true" viewBox="0 0 1160 600" className="absolute inset-0 h-full w-full">
+            <motion.path
+              d="M348 176 C420 152 455 176 505 226"
+              fill="none"
+              stroke="#12C76F"
+              strokeDasharray="6 6"
+              strokeLinecap="round"
+              strokeWidth="2"
+              opacity="0.75"
+              initial={{ pathLength: 0 }}
+              whileInView={{ pathLength: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 1.2, ease: "easeOut" as const }}
+            />
+            <motion.path
+              d="M812 176 C740 152 705 176 655 226"
+              fill="none"
+              stroke="#12C76F"
+              strokeDasharray="6 6"
+              strokeLinecap="round"
+              strokeWidth="2"
+              opacity="0.75"
+              initial={{ pathLength: 0 }}
+              whileInView={{ pathLength: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 1.2, delay: 0.1, ease: "easeOut" as const }}
+            />
+            <motion.path
+              d="M580 478 C580 418 580 390 580 340"
+              fill="none"
+              stroke="#12C76F"
+              strokeDasharray="6 6"
+              strokeLinecap="round"
+              strokeWidth="2"
+              opacity="0.75"
+              initial={{ pathLength: 0 }}
+              whileInView={{ pathLength: 1 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 1.2, delay: 0.2, ease: "easeOut" as const }}
+            />
+          </svg>
+
+          <IntegrationCard integration={integrations[0]} className="left-0 top-[88px]" delay={0} />
+          <IntegrationCard integration={integrations[1]} className="right-0 top-[88px]" delay={0.08} />
+          <IntegrationCard integration={integrations[2]} className="bottom-2 left-1/2 -translate-x-1/2" delay={0.16} />
+
+          <div className="absolute left-1/2 top-[58px] h-[438px] w-[438px] -translate-x-1/2 rounded-full">
+            <motion.div
+              aria-hidden="true"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 44, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 rounded-full border border-dashed border-[#12C76F]/35"
+            />
+            <div className="absolute inset-10 rounded-full bg-[#12C76F]/[0.055]" />
+            <motion.div
+              animate={{ y: [0, -8, 0], x: [0, -4, 0] }}
+              transition={{ duration: 6.8, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" as const }}
+              className="absolute left-[58px] top-[46px]"
+            >
+              <IntegrationBubble id="whatsapp" />
+            </motion.div>
+            <motion.div
+              animate={{ y: [0, -7, 0], x: [0, 4, 0] }}
+              transition={{ duration: 7.4, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" as const }}
+              className="absolute right-[58px] top-[46px]"
+            >
+              <IntegrationBubble id="gmail" />
+            </motion.div>
+            <motion.div
+              animate={{ y: [0, 8, 0] }}
+              transition={{ duration: 7, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" as const }}
+              className="absolute bottom-[-8px] left-1/2 -translate-x-1/2"
+            >
+              <IntegrationBubble id="tiktok" />
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.7, ease: "easeOut" as const }}
+              className="absolute left-1/2 top-1/2 flex h-[172px] w-[172px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#12C76F]/16 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.10)]"
+            >
+              <div className="absolute inset-[-18px] rounded-full bg-[#12C76F]/[0.055]" />
+              <Image
+                src="/slaivio-icon-official.png"
+                alt="SLAIVIO"
+                width={92}
+                height={92}
+                className="relative h-[92px] w-[92px] object-contain"
+              />
+            </motion.div>
+          </div>
+        </div>
+
+        <div className="mt-12 grid gap-4 lg:hidden">
+          {integrations.map((integration, index) => (
+            <IntegrationMobileCard key={integration.id} integration={integration} delay={index * 0.08} />
+          ))}
+        </div>
+
+        <motion.div
+          {...fadeUp}
+          className="mx-auto mt-20 grid w-full max-w-[1320px] gap-0 overflow-hidden rounded-[22px] border border-[#12C76F]/16 bg-white/90 shadow-[0_20px_60px_rgba(15,23,42,0.05)] sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {integrationBenefits.map((benefit, index) => (
+            <div
+              key={benefit.title}
+              className={`p-6 sm:p-7 ${index > 0 ? "border-t border-slate-900/[0.06] sm:border-t-0 lg:border-l" : ""} ${
+                index === 2 ? "sm:border-l-0 lg:border-l" : ""
+              } border-slate-900/[0.06]`}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAFBF2] text-[#12C76F]">
+                <benefit.icon className="h-6 w-6 stroke-[1.8]" />
+              </div>
+              <h3 className="mt-5 text-[17px] font-semibold tracking-[-0.02em] text-[#07111F]">{benefit.title}</h3>
+              <p className="mt-2 text-[14px] leading-6 text-[#475569]">{benefit.text}</p>
+            </div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function IntegrationCard({
+  integration,
+  className,
+  delay,
+}: {
+  integration: (typeof integrations)[number];
+  className: string;
+  delay: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 22 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.55, delay, ease: "easeOut" as const }}
+      whileHover={{ y: -4, boxShadow: "0 24px 64px rgba(15,23,42,0.12)" }}
+      className={`absolute w-[260px] rounded-[18px] border border-slate-900/[0.08] bg-white p-7 shadow-[0_20px_50px_rgba(15,23,42,0.08)] ${className}`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[13px] font-semibold text-[#12C76F]">{integration.eyebrow}</p>
+          <h3 className="mt-2 text-[20px] font-semibold tracking-[-0.03em] text-[#07111F]">{integration.title}</h3>
+        </div>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#12C76F] text-white">
+          <Check className="h-4 w-4" />
+        </span>
+      </div>
+      <p className="mt-4 text-[14px] leading-7 text-[#475569]">{integration.text}</p>
+    </motion.div>
+  );
+}
+
+function IntegrationMobileCard({
+  integration,
+  delay,
+}: {
+  integration: (typeof integrations)[number];
+  delay: number;
+}) {
+  return (
+    <motion.div
+      {...fadeUp}
+      transition={{ duration: 0.55, delay }}
+      className="rounded-[22px] border border-slate-900/[0.08] bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.07)]"
+    >
+      <div className="flex items-start gap-4">
+        <IntegrationBubble id={integration.id} compact />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[13px] font-semibold text-[#12C76F]">{integration.eyebrow}</p>
+              <h3 className="mt-1 text-[20px] font-semibold tracking-[-0.03em] text-[#07111F]">{integration.title}</h3>
+            </div>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#12C76F] text-white">
+              <Check className="h-4 w-4" />
+            </span>
+          </div>
+          <p className="mt-3 text-[14px] leading-7 text-[#475569]">{integration.text}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function IntegrationBubble({
+  id,
+  compact = false,
+}: {
+  id: (typeof integrations)[number]["id"];
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-full border border-slate-900/[0.06] bg-white shadow-[0_18px_45px_rgba(15,23,42,0.10)] ${
+        compact ? "h-14 w-14" : "h-[88px] w-[88px]"
+      }`}
+      aria-label={id}
+    >
+      {id === "whatsapp" && (
+        <div className={`flex items-center justify-center rounded-full bg-[#25D366] text-white ${compact ? "h-9 w-9" : "h-14 w-14"}`}>
+          <MessageCircle className={compact ? "h-5 w-5" : "h-8 w-8"} />
+        </div>
+      )}
+      {id === "gmail" && (
+        <div className={`relative flex items-center justify-center rounded-2xl bg-white ${compact ? "h-10 w-10" : "h-14 w-14"}`}>
+          <Mail className={`${compact ? "h-8 w-8" : "h-11 w-11"} text-[#EA4335]`} />
+          <span className="absolute bottom-2 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full bg-[#34A853]" />
+        </div>
+      )}
+      {id === "tiktok" && (
+        <div className={`relative flex items-center justify-center rounded-full bg-[#07111F] text-white ${compact ? "h-10 w-10" : "h-14 w-14"}`}>
+          <span className={`${compact ? "text-2xl" : "text-4xl"} font-black leading-none text-white`}>♪</span>
+          <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#25F4EE]" />
+          <span className="absolute bottom-3 left-3 h-2 w-2 rounded-full bg-[#FE2C55]" />
+        </div>
+      )}
     </div>
   );
 }

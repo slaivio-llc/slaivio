@@ -8,7 +8,6 @@ import {
   ArrowRight,
   BarChart3,
   Bell,
-  Bot,
   Building2,
   Check,
   CheckCircle2,
@@ -33,7 +32,6 @@ import {
   Search,
   Send,
   Settings,
-  Sparkles,
   Truck,
   User,
   UserCircle,
@@ -46,7 +44,7 @@ import {
 import { createDemoRequest } from "@/services/landing";
 
 const navItems = [
-  { label: "Fonctionnalités", href: "#plateforme", hasChevron: true },
+  { label: "Fonctionnalités", href: "#workflow", hasChevron: true },
   { label: "Comment ça marche", href: "#workflow" },
   { label: "Tarifs", href: "#demo" },
   { label: "Ressources", href: "#securite", hasChevron: true },
@@ -58,49 +56,6 @@ const heroTitlePhrases = [
   "plus vite.",
   "sans chaos.",
   "avec précision.",
-];
-
-const operatingCards: Array<{
-  title: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-  {
-    title: "WhatsApp centralisé",
-    description:
-      "Une inbox opérationnelle pour suivre demandes, relances et décisions sans perdre l'historique client.",
-    icon: MessageCircle,
-  },
-  {
-    title: "Dossiers cargo",
-    description:
-      "Chaque client, colis, paiement et étape logistique est relié à un dossier clair.",
-    icon: Package,
-  },
-  {
-    title: "Tracking vivant",
-    description:
-      "Vos équipes savent où se trouve chaque marchandise et quoi communiquer au client.",
-    icon: Route,
-  },
-  {
-    title: "Paiements reliés",
-    description:
-      "Les encaissements et soldes clients restent attachés aux opérations qui les concernent.",
-    icon: CircleDollarSign,
-  },
-  {
-    title: "Multi-bureaux",
-    description:
-      "Pilotez Kinshasa, Guangzhou, Dubaï ou Paris avec une organisation unique.",
-    icon: Building2,
-  },
-  {
-    title: "IA supervisée",
-    description:
-      "SLAIVIO assiste l'équipe, prépare les réponses et automatise les relances répétitives.",
-    icon: Bot,
-  },
 ];
 
 const processSteps: Array<{
@@ -181,6 +136,43 @@ const processCards: Array<{
     text: "Vos données et celles de vos clients sont 100% sécurisées.",
     icon: LockKeyhole,
     side: "right",
+  },
+];
+
+const demoTimeline: Array<{
+  title: string;
+  text: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "Tableau de bord",
+    text: "Vue d'ensemble de votre activité en temps réel. Suivez vos indicateurs clés en un coup d'œil.",
+    icon: BarChart3,
+  },
+  {
+    title: "Clients & Dossiers",
+    text: "Accédez à tous vos clients et dossiers. Historique complet et suivi détaillé.",
+    icon: Users,
+  },
+  {
+    title: "Colis",
+    text: "Enregistrez, suivez et gérez vos colis de l'entrepôt jusqu'à la livraison.",
+    icon: Package,
+  },
+  {
+    title: "Tracking & Expéditions",
+    text: "Suivez vos expéditions en temps réel et informez automatiquement vos clients.",
+    icon: Truck,
+  },
+  {
+    title: "WhatsApp Inbox",
+    text: "Toutes vos conversations WhatsApp centralisées. Répondez plus vite, ne ratez aucun client.",
+    icon: MessageCircle,
+  },
+  {
+    title: "Organisation",
+    text: "Gérez bureaux, entrepôts, routes, services et tarifs.",
+    icon: ClipboardList,
   },
 ];
 
@@ -270,8 +262,8 @@ export function LandingPageClient() {
       <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       <HeroSection phrase={heroTitlePhrases[heroPhraseIndex]} />
       <ProblemSection />
-      <PlatformSection />
       <WorkflowSection />
+      <WatchDemoSection />
       <SecuritySection />
       <DemoSection formStatus={formStatus} onSubmit={submitDemoRequest} />
       <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
@@ -443,7 +435,7 @@ function HeroSection({ phrase }: { phrase: string }) {
               Demander une démo
             </a>
             <a
-              href="#plateforme"
+              href="#watch-demo"
               className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/[0.18] bg-white/[0.03] px-5 text-[15px] font-semibold text-white backdrop-blur transition hover:border-[#12C76F]/70 hover:shadow-[0_0_28px_rgba(18,199,111,0.16)] sm:h-14 sm:w-auto sm:px-6 sm:text-base"
             >
               <PlayCircle className="h-6 w-6 text-[#3B82F6]" />
@@ -939,42 +931,6 @@ function ProblemSection() {
   );
 }
 
-function PlatformSection() {
-  return (
-    <section id="plateforme" className="px-5 py-20 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
-          <Pill icon={Sparkles}>Plateforme unifiée</Pill>
-          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-            Tout ce que votre agence doit contrôler, au même endroit.
-          </h2>
-          <p className="mt-5 text-lg leading-8 text-white/65">
-            SLAIVIO ne vend pas une page de plus. C&apos;est une colonne vertébrale opérationnelle
-            pour les équipes cargo qui travaillent tous les jours avec WhatsApp.
-          </p>
-        </motion.div>
-
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {operatingCards.map((card, index) => (
-            <motion.div
-              key={card.title}
-              {...fadeUp}
-              transition={{ duration: 0.55, delay: index * 0.05 }}
-              className="group rounded-[1.7rem] border border-white/10 bg-white/[0.045] p-6 transition hover:-translate-y-1 hover:border-[#12C76F]/35 hover:bg-white/[0.065]"
-            >
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#12C76F]/12 text-[#12C76F] transition group-hover:scale-105">
-                <card.icon className="h-7 w-7" />
-              </div>
-              <h3 className="mt-6 text-xl font-bold">{card.title}</h3>
-              <p className="mt-3 text-sm leading-7 text-white/60">{card.description}</p>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function WorkflowSection() {
   const leftCards = processCards.filter((card) => card.side === "left");
   const rightCards = processCards.filter((card) => card.side === "right");
@@ -1293,6 +1249,326 @@ function LightDashboardPreview() {
   );
 }
 
+function WatchDemoSection() {
+  return (
+    <section id="watch-demo" className="relative overflow-hidden bg-white px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-0 top-0 h-[460px] w-[520px] rounded-full bg-[#12C76F]/[0.04] blur-[90px]" />
+        <div className="absolute right-0 top-[22%] h-[520px] w-[680px] rounded-full bg-slate-100/80 blur-[100px]" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1440px]">
+        <div className="grid gap-14 xl:grid-cols-[0.45fr_0.55fr] xl:items-center xl:gap-14">
+          <motion.div {...fadeUp} className="max-w-[560px]">
+            <div className="mb-[34px] h-1.5 w-[70px] rounded-full bg-[#16C35B]" />
+            <h2 className="text-[40px] font-extrabold leading-[1.05] tracking-[-0.04em] text-[#07111F] sm:text-[56px] xl:text-[64px]">
+              Voyez comment SLAIVIO
+              <br />
+              <span className="text-[#16C35B]">simplifie votre quotidien.</span>
+            </h2>
+            <p className="mt-7 max-w-[520px] text-[18px] font-normal leading-[1.7] tracking-[-0.01em] text-[#5B6472] sm:text-[22px]">
+              Une plateforme complète pour gérer vos clients, colis, expéditions, WhatsApp
+              et paiements depuis un seul endroit.
+            </p>
+
+            <div className="mt-10 max-w-[430px] space-y-[26px]">
+              {demoTimeline.map((step, index) => (
+                <DemoTimelineItem key={step.title} step={step} index={index} />
+              ))}
+            </div>
+          </motion.div>
+
+          <div className="relative">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 250 230"
+              className="absolute -left-[160px] top-[42%] hidden h-[230px] w-[250px] text-[#16C35B] xl:block"
+            >
+              <motion.path
+                d="M10 210 C80 210 20 75 116 72 C158 70 177 40 235 35"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="7 9"
+                strokeLinecap="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                whileInView={{ pathLength: 1, opacity: 0.75 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 1.4, ease: "easeOut" as const }}
+              />
+              <path d="M231 27 L244 35 L231 43" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+
+            <motion.div {...fadeUp} className="mx-auto mb-5 max-w-[760px] text-center">
+              <h3 className="text-[30px] font-bold leading-tight tracking-[-0.035em] text-[#07111F] sm:text-[40px]">
+                Une plateforme,
+                <br className="sm:hidden" /> toutes vos opérations.
+              </h3>
+              <p className="mt-2 text-[17px] font-normal leading-7 text-[#697386] sm:text-[18px]">
+                Cliquez, explorez et voyez la puissance de SLAIVIO.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 24 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.78, ease: "easeOut" as const }}
+              className="mx-auto w-full max-w-[760px]"
+            >
+              <DemoDashboardPreview />
+            </motion.div>
+          </div>
+        </div>
+
+        <motion.div
+          {...fadeUp}
+          className="mx-auto mt-12 flex min-h-[130px] w-full max-w-[760px] flex-col gap-5 rounded-[26px] border border-slate-900/[0.06] bg-[#FBFCFC] p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] sm:p-6 lg:mt-11 lg:flex-row lg:items-center lg:justify-between xl:max-w-[760px]"
+        >
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <motion.div
+              animate={{ scale: [1, 1.04, 1] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" as const }}
+              className="relative flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-full bg-white text-[#16C35B] shadow-[0_16px_38px_rgba(15,23,42,0.12)]"
+            >
+              <span className="absolute -left-12 hidden h-7 w-9 bg-[linear-gradient(90deg,transparent_0_15%,#16C35B_15%_22%,transparent_22%_38%,#16C35B_38%_45%,transparent_45%_62%,#16C35B_62%_69%,transparent_69%)] opacity-60 sm:block" />
+              <PlayCircle className="h-8 w-8 fill-[#16C35B]/10" />
+              <span className="absolute -right-12 hidden h-7 w-9 bg-[linear-gradient(90deg,transparent_0_15%,#16C35B_15%_22%,transparent_22%_38%,#16C35B_38%_45%,transparent_45%_62%,#16C35B_62%_69%,transparent_69%)] opacity-60 sm:block" />
+            </motion.div>
+            <div>
+              <h3 className="text-[24px] font-bold leading-tight tracking-[-0.03em] text-[#07111F] sm:text-[30px]">
+                Regardez SLAIVIO en action
+              </h3>
+              <p className="mt-2 max-w-[520px] text-[15px] leading-7 text-[#5B6472] sm:text-base">
+                Découvrez en vidéo comment SLAIVIO simplifie et accélère la gestion de votre agence cargo.
+              </p>
+            </div>
+          </div>
+          <a
+            href="#watch-demo"
+            className="group inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl px-5 text-[16px] font-bold text-[#0BAA5D] transition duration-300 hover:bg-[#16C35B] hover:text-white lg:w-auto"
+          >
+            Regarder la vidéo
+            <ArrowRight className="h-5 w-5 transition duration-300 group-hover:translate-x-[5px]" />
+          </a>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function DemoTimelineItem({
+  step,
+  index,
+}: {
+  step: (typeof demoTimeline)[number];
+  index: number;
+}) {
+  return (
+    <motion.div
+      {...fadeUp}
+      transition={{ duration: 0.55, delay: index * 0.12 }}
+      className="relative flex gap-5"
+    >
+      <div className="relative shrink-0">
+        <div className="flex h-[70px] w-[70px] items-center justify-center rounded-[18px] border border-slate-900/[0.06] bg-white text-[#16C35B] shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+          <step.icon className="h-8 w-8 stroke-[1.7]" />
+        </div>
+        {index < demoTimeline.length - 1 && (
+          <div className="absolute left-1/2 top-[78px] h-[42px] -translate-x-1/2 border-l border-dashed border-[#16C35B]/20" />
+        )}
+      </div>
+      <div className="min-w-0 pt-2">
+        <div className="flex items-center gap-4">
+          <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#16C35B] text-[13px] font-bold text-white">
+            {index + 1}
+          </span>
+          <h3 className="text-[18px] font-bold tracking-[-0.02em] text-[#07111F]">{step.title}</h3>
+        </div>
+        <p className="mt-3 text-[15px] leading-7 tracking-[-0.01em] text-[#5B6472]">{step.text}</p>
+      </div>
+    </motion.div>
+  );
+}
+
+function DemoDashboardPreview() {
+  const menu: Array<[string, LucideIcon, string?]> = [
+    ["Dashboard", Route],
+    ["Clients", Users],
+    ["Dossiers", FileText],
+    ["Colis", Package],
+    ["Expéditions", Truck],
+    ["Tracking", Search],
+    ["WhatsApp Inbox", MessageCircle, "12"],
+    ["Broadcasts", Megaphone],
+    ["Relances", Bell],
+    ["Base de connaissances", Inbox],
+    ["Tarification", CircleDollarSign],
+    ["Services", Warehouse],
+    ["Factures", Receipt],
+    ["Organisation", Building2],
+    ["Paramètres", Settings],
+  ];
+  const kpis = [
+    ["Clients", "1,248", "+14.5%"],
+    ["Dossiers", "842", "+12.3%"],
+    ["Colis", "2,453", "+18.7%"],
+    ["Expéditions", "320", "+9.1%"],
+    ["Revenus", "24,850$", "+16.3%"],
+  ];
+  const shipments = [
+    ["EXP-2024-1250", "Chine → Kinshasa", "En transit", "12 Juin 2024", "green"],
+    ["EXP-2024-1249", "Dubai → Douala", "Arrivé", "08 Juin 2024", "green"],
+    ["EXP-2024-1248", "Turquie → Abidjan", "En préparation", "15 Juin 2024", "amber"],
+    ["EXP-2024-1247", "Chine → Yaoundé", "En transit", "10 Juin 2024", "purple"],
+    ["EXP-2024-1246", "Inde → Lubumbashi", "Validé", "—", "green"],
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-[28px] border border-slate-900/[0.06] bg-white shadow-[0_45px_120px_rgba(15,23,42,0.10)]">
+      <div className="grid min-h-[600px] grid-cols-1 lg:grid-cols-[170px_1fr]">
+        <aside className="hidden border-r border-slate-900/[0.06] bg-[#FBFCFC] px-3 py-5 lg:block">
+          <div className="mb-5 flex items-center gap-2 px-1">
+            <Image src="/slaivio-icon-official.png" alt="" width={28} height={28} className="h-7 w-7 object-contain" />
+            <span className="text-[18px] font-bold tracking-[-0.04em] text-[#07111F]">SLAIVIO</span>
+          </div>
+          <div className="space-y-1.5">
+            {menu.map(([item, Icon, badge], index) => (
+              <div
+                key={item}
+                className={`flex h-8 items-center gap-2 rounded-lg px-2 text-[10.5px] font-semibold ${
+                  index === 0 ? "bg-[#16C35B]/10 text-[#0BAA5D]" : "text-[#334155]"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{item}</span>
+                {badge && <span className="rounded-full bg-[#16C35B] px-1.5 py-0.5 text-[8px] font-bold text-white">{badge}</span>}
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <div className="min-w-0 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-4 border-b border-slate-900/[0.06] pb-4">
+            <div className="flex h-9 min-w-0 items-center gap-2 rounded-2xl border border-slate-900/[0.06] bg-[#FBFCFC] px-4 text-[10px] text-[#697386] sm:w-[255px]">
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="truncate">Rechercher un client, dossier, colis...</span>
+            </div>
+            <div className="flex items-center gap-3 text-[#334155]">
+              <Bell className="h-4 w-4" />
+              <MessageCircle className="h-4 w-4" />
+              <UserCircle className="h-5 w-5" />
+              <div className="hidden sm:block">
+                <p className="text-[10.5px] font-bold text-[#07111F]">OTI Cargo Express</p>
+                <p className="text-[9px] text-[#697386]">Kinshasa, RDC</p>
+              </div>
+              <ChevronDown className="hidden h-3.5 w-3.5 sm:block" />
+            </div>
+          </div>
+
+          <h3 className="mt-5 text-[18px] font-bold tracking-[-0.02em] text-[#07111F]">Tableau de bord</h3>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {kpis.map(([title, value, delta]) => (
+              <div key={title} className="rounded-xl border border-slate-900/[0.06] bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                <p className="truncate text-[10px] font-medium text-[#5B6472]">{title}</p>
+                <div className="mt-3 flex items-end justify-between gap-2">
+                  <p className="text-[20px] font-extrabold tracking-[-0.04em] text-[#07111F]">{value}</p>
+                  <p className="text-[9.5px] font-bold text-[#16C35B]">{delta}</p>
+                </div>
+                <p className="mt-2 text-[9px] text-[#697386]">vs mois dernier</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 xl:grid-cols-[1.25fr_0.9fr]">
+            <div className="rounded-xl border border-slate-900/[0.06] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+              <div className="mb-3 flex items-center justify-between">
+                <h4 className="text-[12px] font-bold text-[#07111F]">Expéditions en cours</h4>
+                <ChevronDown className="-rotate-90 h-4 w-4 text-[#697386]" />
+              </div>
+              <div className="grid grid-cols-[1.15fr_1fr_0.9fr_1fr] border-y border-slate-900/[0.06] py-2 text-[9.5px] text-[#697386]">
+                <span>Expédition</span>
+                <span>Route</span>
+                <span>Statut</span>
+                <span>ETA</span>
+              </div>
+              <div className="divide-y divide-slate-900/[0.05]">
+                {shipments.map(([id, route, status, eta, tone]) => (
+                  <div key={id} className="grid grid-cols-[1.15fr_1fr_0.9fr_1fr] items-center py-2 text-[9.5px]">
+                    <span className="truncate font-bold text-[#07111F]">{id}</span>
+                    <span className="truncate text-[#334155]">{route}</span>
+                    <span>
+                      <span
+                        className={`rounded-full px-2 py-1 font-bold ${
+                          tone === "amber"
+                            ? "bg-amber-100 text-amber-700"
+                            : tone === "purple"
+                              ? "bg-violet-100 text-violet-700"
+                              : "bg-[#16C35B]/12 text-[#0BAA5D]"
+                        }`}
+                      >
+                        {status}
+                      </span>
+                    </span>
+                    <span className="truncate text-[#334155]">{eta}</span>
+                  </div>
+                ))}
+              </div>
+              <a href="#demo" className="mt-4 inline-flex items-center gap-2 text-[11px] font-bold text-[#0BAA5D]">
+                Voir toutes les expéditions <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            </div>
+
+            <div className="rounded-xl border border-slate-900/[0.06] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+              <h4 className="text-[12px] font-bold text-[#07111F]">Répartition par service</h4>
+              <div className="mt-5 flex items-center gap-4">
+                <div className="relative h-[118px] w-[118px] shrink-0 rounded-full bg-[conic-gradient(#60A5FA_0_45%,#16C35B_45%_80%,#F59E0B_80%_95%,#8B5CF6_95%_100%)] p-[15px]">
+                  <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white text-center">
+                    <span className="text-xl font-extrabold text-[#07111F]">2,453</span>
+                    <span className="text-[9px] text-[#697386]">Colis</span>
+                  </div>
+                </div>
+                <div className="min-w-0 flex-1 space-y-3 text-[10px]">
+                  {[
+                    ["Air Cargo", "45%", "#60A5FA"],
+                    ["Sea Cargo", "35%", "#16C35B"],
+                    ["Express", "15%", "#F59E0B"],
+                    ["Groupage", "5%", "#8B5CF6"],
+                  ].map(([label, value, color]) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                      <span className="flex-1 truncate text-[#334155]">{label}</span>
+                      <span className="text-[#697386]">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {[
+              ["Messages WhatsApp", "128", "Non lus"],
+              ["Derniers colis reçus", "CBJ-987654", "12.5 kg"],
+              ["Paiements récents", "PAY-2024-5421", "850$"],
+            ].map(([title, value, detail]) => (
+              <div key={title} className="rounded-xl border border-slate-900/[0.06] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                <div className="flex items-center justify-between">
+                  <h4 className="truncate text-[11px] font-bold text-[#07111F]">{title}</h4>
+                  <span className="text-[9px] font-semibold text-[#697386]">Voir tous</span>
+                </div>
+                <p className="mt-4 text-[17px] font-extrabold tracking-[-0.03em] text-[#07111F]">{value}</p>
+                <p className="mt-1 text-[10px] text-[#697386]">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SecuritySection() {
   return (
     <section id="securite" className="px-5 py-20 lg:px-8">
@@ -1473,7 +1749,7 @@ function LandingFooter() {
           </div>
         </div>
         <div className="flex flex-wrap gap-5 text-sm text-white/55">
-          <a href="#plateforme" className="hover:text-white">Plateforme</a>
+          <a href="#workflow" className="hover:text-white">Plateforme</a>
           <a href="#solutions" className="hover:text-white">Solutions</a>
           <a href="#demo" className="hover:text-white">Démo</a>
           <Link href="/sign-in" className="hover:text-white">Connexion</Link>

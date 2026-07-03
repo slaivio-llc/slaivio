@@ -224,6 +224,7 @@ export function LandingPageClient() {
   const [openFaq, setOpenFaq] = useState(0);
   const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [heroPhraseIndex, setHeroPhraseIndex] = useState(0);
+  const [headerFixed, setHeaderFixed] = useState(false);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -231,6 +232,17 @@ export function LandingPageClient() {
     }, 2600);
 
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const updateHeader = () => {
+      setHeaderFixed(window.scrollY > 92);
+    };
+
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+
+    return () => window.removeEventListener("scroll", updateHeader);
   }, []);
 
   async function submitDemoRequest(event: FormEvent<HTMLFormElement>) {
@@ -259,7 +271,7 @@ export function LandingPageClient() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#020807] font-['Neue_Haas_Grotesk_Display_Pro','Neue_Haas_Grotesk_Text',Inter,'Helvetica_Neue',Arial,system-ui,sans-serif] text-white">
-      <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+      <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} isFixed={headerFixed} />
       <HeroSection phrase={heroTitlePhrases[heroPhraseIndex]} />
       <ProblemSection />
       <WorkflowSection />
@@ -275,25 +287,55 @@ export function LandingPageClient() {
 function LandingHeader({
   menuOpen,
   setMenuOpen,
+  isFixed,
 }: {
   menuOpen: boolean;
   setMenuOpen: (value: boolean) => void;
+  isFixed: boolean;
 }) {
   return (
-    <header className="absolute left-0 right-0 top-0 z-50">
-      <div className="mx-auto grid h-[88px] max-w-[1600px] grid-cols-[1fr_auto] items-center px-4 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)_auto] lg:px-8 2xl:px-10">
+    <header
+      className={`left-0 right-0 z-50 transition-all duration-500 ${
+        isFixed ? "fixed top-3 px-3 sm:px-5" : "absolute top-0 px-0"
+      }`}
+    >
+      <div
+        className={`mx-auto grid grid-cols-[1fr_auto] items-center transition-all duration-500 lg:grid-cols-[230px_minmax(0,1fr)_auto] ${
+          isFixed
+            ? "h-[72px] max-w-[1420px] rounded-2xl border border-slate-900/[0.08] bg-white/92 px-4 text-[#07111F] shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:px-6 lg:px-7"
+            : "h-[88px] max-w-[1600px] px-4 text-white sm:px-6 lg:px-8 2xl:px-10"
+        }`}
+      >
         <Link href="/" className="flex items-center gap-3" aria-label="SLAIVIO">
-          <Image
-            src="/slaivio-logo-official-dark.png"
-            alt="SLAIVIO"
-            width={156}
-            height={60}
-            className="h-auto w-[142px] object-contain sm:w-[154px]"
-            priority
-          />
+          {isFixed ? (
+            <>
+              <Image
+                src="/slaivio-icon-official.png"
+                alt=""
+                width={34}
+                height={34}
+                className="h-8 w-8 object-contain"
+                priority
+              />
+              <span className="text-[24px] font-bold tracking-[-0.045em] text-[#07111F]">Slaivio</span>
+            </>
+          ) : (
+            <Image
+              src="/slaivio-logo-official-dark.png"
+              alt="SLAIVIO"
+              width={156}
+              height={60}
+              className="h-auto w-[142px] object-contain sm:w-[154px]"
+              priority
+            />
+          )}
         </Link>
 
-        <nav className="hidden items-center justify-center gap-9 text-[15px] font-semibold text-white xl:flex 2xl:gap-11">
+        <nav
+          className={`hidden items-center justify-center gap-9 text-[15px] font-semibold xl:flex 2xl:gap-11 ${
+            isFixed ? "text-[#1F2937]" : "text-white"
+          }`}
+        >
           {navItems.map((item) => (
             <a key={item.label} href={item.href} className="inline-flex items-center gap-1.5 transition hover:text-[#12C76F]">
               {item.label}
@@ -303,12 +345,18 @@ function LandingHeader({
         </nav>
 
         <div className="hidden items-center justify-end gap-6 lg:flex">
-          <button className="inline-flex items-center gap-2 text-sm font-semibold text-white" type="button">
+          <button
+            className={`inline-flex items-center gap-2 text-sm font-semibold ${isFixed ? "text-[#1F2937]" : "text-white"}`}
+            type="button"
+          >
             <Globe2 className="h-5 w-5" />
             FR
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
-          <Link href="/sign-in" className="text-sm font-semibold text-white transition hover:text-[#12C76F]">
+          <Link
+            href="/sign-in"
+            className={`text-sm font-semibold transition hover:text-[#12C76F] ${isFixed ? "text-[#1F2937]" : "text-white"}`}
+          >
             Se connecter
           </Link>
           <a
@@ -320,7 +368,11 @@ function LandingHeader({
         </div>
 
         <button
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white lg:hidden"
+          className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border lg:hidden ${
+            isFixed
+              ? "border-slate-900/[0.08] bg-slate-50 text-[#07111F]"
+              : "border-white/10 bg-white/[0.04] text-white"
+          }`}
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Ouvrir le menu"
         >
@@ -334,20 +386,24 @@ function LandingHeader({
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="border-t border-white/10 bg-[#020807]/95 px-5 py-5 lg:hidden"
+            className={`mt-2 rounded-2xl border px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.14)] lg:hidden ${
+              isFixed
+                ? "border-slate-900/[0.08] bg-white text-[#07111F]"
+                : "border-white/10 bg-[#020807]/95 text-white"
+            }`}
           >
             <div className="flex flex-col gap-4">
               {navItems.map((item) => (
                 <a
                   key={item.label}
                   href={item.href}
-                  className="text-sm font-semibold text-white/75"
+                  className={`text-sm font-semibold ${isFixed ? "text-[#475569]" : "text-white/75"}`}
                   onClick={() => setMenuOpen(false)}
                 >
                   {item.label}
                 </a>
               ))}
-              <Link href="/sign-in" className="text-sm font-semibold text-white/75">
+              <Link href="/sign-in" className={`text-sm font-semibold ${isFixed ? "text-[#475569]" : "text-white/75"}`}>
                 Se connecter
               </Link>
               <a
@@ -813,12 +869,13 @@ function ProblemSection() {
   const ActiveIcon = problemCards[activeProblem].icon;
 
   return (
-    <section id="solutions" className="relative overflow-hidden bg-[#F4FAF7] px-5 py-20 text-[#07111F] sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
+    <section id="solutions" className="relative overflow-hidden bg-[#FBFCFB] px-5 py-20 text-[#07111F] sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#FFFFFF_0%,#F4FAF7_42%,#EEF8F2_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(18,199,111,0.12),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFB_48%,#F4F8F6_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(18,199,111,0.08),transparent_60%)]" />
+        <div className="absolute -left-24 top-32 h-[420px] w-[420px] rounded-full bg-[#12C76F]/[0.045] blur-[90px]" />
         <div
-          className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.18]"
+          className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.10]"
           style={{
             backgroundImage: "radial-gradient(circle, rgba(18,199,111,.5) 1px, transparent 1.2px)",
             backgroundSize: "13px 13px",
@@ -838,7 +895,7 @@ function ProblemSection() {
                 "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.12) 16%, rgba(0,0,0,.55) 42%, rgba(0,0,0,.45) 100%)",
             }}
           />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(18,199,111,0.14),transparent_38%),linear-gradient(180deg,rgba(244,250,247,0)_0%,rgba(244,250,247,0.88)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(18,199,111,0.10),transparent_38%),linear-gradient(180deg,rgba(251,252,251,0)_0%,rgba(251,252,251,0.92)_100%)]" />
         </div>
       </div>
 
@@ -883,12 +940,12 @@ function ProblemSection() {
                   animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
                   exit={{ opacity: 0, x: -28, filter: "blur(8px)" }}
                   transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-                  className="relative grid h-[600px] gap-6 sm:h-[430px] sm:grid-cols-[92px_1fr] sm:items-start lg:h-[420px]"
+                  className="relative grid h-[600px] gap-6 sm:h-[430px] sm:grid-cols-[92px_1fr] sm:items-center lg:h-[420px]"
                 >
                   <div className="flex h-20 w-20 items-center justify-center rounded-[22px] bg-[#12C76F]/14 text-[#12C76F] ring-1 ring-[#12C76F]/20 sm:mt-1">
                     <ActiveIcon className="h-9 w-9" />
                   </div>
-                  <div>
+                  <div className="flex h-full flex-col justify-center">
                     <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[#12C76F]">
                       Problème {String(activeProblem + 1).padStart(2, "0")}
                     </p>
@@ -936,12 +993,14 @@ function WorkflowSection() {
   const rightCards = processCards.filter((card) => card.side === "right");
 
   return (
-    <section id="workflow" className="relative overflow-hidden bg-[#FAFCFB] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 lg:py-24">
+    <section id="workflow" className="relative overflow-hidden bg-[#F6F7F4] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 lg:py-24">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(7,17,13,0.10),rgba(250,252,251,0))]" />
-        <div className="absolute left-1/2 top-20 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#12C76F]/[0.055] blur-[90px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#FBFCFB_0%,#F6F7F4_52%,#FFFFFF_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(7,17,13,0.055),rgba(246,247,244,0))]" />
+        <div className="absolute left-1/2 top-20 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#12C76F]/[0.045] blur-[90px]" />
+        <div className="absolute bottom-20 left-1/2 h-[420px] w-[760px] -translate-x-1/2 rounded-full bg-[#07111F]/[0.035] blur-[100px]" />
         <div
-          className="absolute bottom-0 right-0 h-[320px] w-[520px] opacity-[0.16]"
+          className="absolute bottom-0 right-0 h-[320px] w-[520px] opacity-[0.10]"
           style={{
             backgroundImage: "radial-gradient(circle, rgba(18,199,111,.5) 1px, transparent 1.2px)",
             backgroundSize: "14px 14px",
@@ -1006,7 +1065,7 @@ function WorkflowSection() {
             >
               <div className="absolute -left-10 top-[18%] hidden h-[250px] w-12 border-y border-l border-dashed border-[#12C76F]/28 rounded-l-[40px] xl:block" />
               <div className="absolute -right-10 top-[18%] hidden h-[250px] w-12 border-y border-r border-dashed border-[#12C76F]/28 rounded-r-[40px] xl:block" />
-              <LightDashboardPreview />
+              <DashboardPreview />
             </motion.div>
 
             <div className="hidden space-y-8 xl:block">
@@ -1038,16 +1097,41 @@ function ProcessFloatingCard({
 }) {
   return (
     <motion.div
-      {...fadeUp}
-      animate={{ y: [0, -7, 0] }}
-      transition={{
-        duration: 6.5,
-        delay,
-        repeat: Infinity,
-        repeatType: "mirror",
-        ease: "easeInOut" as const,
+      initial={{ opacity: 0, scale: 0.98 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, margin: "-80px" }}
+      animate={{
+        y: [0, align === "left" ? -12 : -9, 0],
+        x: [0, align === "left" ? -5 : 5, 0],
+        rotate: [0, align === "left" ? -0.7 : 0.7, 0],
       }}
-      className={`relative rounded-[18px] border border-slate-900/[0.08] bg-white p-[22px] shadow-[0_20px_50px_rgba(15,23,42,0.08)] ${
+      transition={{
+        opacity: { duration: 0.55, delay },
+        scale: { duration: 0.55, delay },
+        y: {
+          duration: align === "left" ? 7.2 : 8,
+          delay,
+          repeat: Infinity,
+          repeatType: "mirror",
+          ease: "easeInOut" as const,
+        },
+        x: {
+          duration: align === "left" ? 7.2 : 8,
+          delay,
+          repeat: Infinity,
+          repeatType: "mirror",
+          ease: "easeInOut" as const,
+        },
+        rotate: {
+          duration: align === "left" ? 7.2 : 8,
+          delay,
+          repeat: Infinity,
+          repeatType: "mirror",
+          ease: "easeInOut" as const,
+        },
+      }}
+      whileHover={{ y: -10, scale: 1.025, rotate: 0 }}
+      className={`relative rounded-[18px] border border-slate-900/[0.08] bg-white/95 p-[22px] shadow-[0_24px_60px_rgba(15,23,42,0.10)] backdrop-blur transition ${
         align === "left" ? "text-left" : "text-left"
       }`}
     >

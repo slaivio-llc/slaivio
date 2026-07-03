@@ -813,12 +813,12 @@ function ProblemSection() {
   const ActiveIcon = problemCards[activeProblem].icon;
 
   return (
-    <section id="solutions" className="relative overflow-hidden bg-[#07110D] px-5 py-20 text-white sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
+    <section id="solutions" className="relative overflow-hidden bg-[#F4FAF7] px-5 py-20 text-[#07111F] sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#030706_0%,#07110D_24%,#08140F_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(18,199,111,0.22),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#FFFFFF_0%,#F4FAF7_42%,#EEF8F2_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(18,199,111,0.12),transparent_58%)]" />
         <div
-          className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.16]"
+          className="absolute bottom-14 left-0 h-[260px] w-[420px] opacity-[0.18]"
           style={{
             backgroundImage: "radial-gradient(circle, rgba(18,199,111,.5) 1px, transparent 1.2px)",
             backgroundSize: "13px 13px",
@@ -830,15 +830,15 @@ function ProblemSection() {
             alt=""
             fill
             sizes="56vw"
-            className="object-cover object-center opacity-[0.28]"
+            className="object-cover object-center opacity-[0.18]"
             style={{
               maskImage:
-                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.2) 16%, rgba(0,0,0,.82) 42%, rgba(0,0,0,.72) 100%)",
+                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.12) 16%, rgba(0,0,0,.55) 42%, rgba(0,0,0,.45) 100%)",
               WebkitMaskImage:
-                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.2) 16%, rgba(0,0,0,.82) 42%, rgba(0,0,0,.72) 100%)",
+                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.12) 16%, rgba(0,0,0,.55) 42%, rgba(0,0,0,.45) 100%)",
             }}
           />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(18,199,111,0.22),transparent_38%),linear-gradient(180deg,rgba(7,17,13,0)_0%,rgba(8,20,15,0.9)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(18,199,111,0.14),transparent_38%),linear-gradient(180deg,rgba(244,250,247,0)_0%,rgba(244,250,247,0.88)_100%)]" />
         </div>
       </div>
 
@@ -856,7 +856,7 @@ function ProblemSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.68, ease: "easeOut" as const }}
-            className="max-w-[700px] text-[36px] font-normal leading-[1.08] tracking-[-0.035em] text-white sm:text-[48px] xl:text-[56px]"
+            className="max-w-[700px] text-[36px] font-normal leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[48px] xl:text-[56px]"
           >
             Votre agence travaille dur.
             <br />
@@ -867,15 +867,15 @@ function ProblemSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.68, delay: 0.08, ease: "easeOut" as const }}
-            className="mt-7 max-w-[620px] text-[17px] font-normal leading-[1.75] tracking-[-0.01em] text-white/68 sm:text-[19px]"
+            className="mt-7 max-w-[620px] text-[17px] font-normal leading-[1.75] tracking-[-0.01em] text-[#475569] sm:text-[19px]"
           >
             Entre WhatsApp, Excel, appels manqués et paperasse, vos équipes perdent du temps
             sur des tâches répétitives au lieu de se concentrer sur vos clients.
           </motion.p>
 
           <div className="mt-10 max-w-[820px]">
-            <div className="relative h-[690px] overflow-hidden rounded-[30px] border border-white/[0.10] bg-[#07110D]/80 p-5 shadow-[0_34px_100px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:h-[550px] sm:p-8 lg:h-[540px]">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_14%,rgba(18,199,111,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]" />
+            <div className="relative h-[690px] overflow-hidden rounded-[30px] border border-slate-900/[0.07] bg-white/90 p-5 shadow-[0_30px_90px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:h-[550px] sm:p-8 lg:h-[540px]">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_14%,rgba(18,199,111,0.10),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.92),rgba(255,255,255,0.62))]" />
               <AnimatePresence mode="wait">
                 <motion.div
                   key={problemCards[activeProblem].title}
@@ -892,15 +892,15 @@ function ProblemSection() {
                     <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[#12C76F]">
                       Problème {String(activeProblem + 1).padStart(2, "0")}
                     </p>
-                    <h3 className="mt-3 text-[30px] font-normal leading-tight tracking-[-0.035em] text-white sm:text-[40px]">
+                    <h3 className="mt-3 text-[30px] font-normal leading-tight tracking-[-0.035em] text-[#07111F] sm:text-[40px]">
                       {problemCards[activeProblem].title}
                     </h3>
-                    <p className="mt-5 max-w-[640px] text-[17px] font-normal leading-8 tracking-[-0.01em] text-white/72">
+                    <p className="mt-5 max-w-[640px] text-[17px] font-normal leading-8 tracking-[-0.01em] text-[#475569]">
                       {problemCards[activeProblem].text}
                     </p>
-                    <div className="mt-7 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4">
+                    <div className="mt-7 rounded-2xl border border-[#12C76F]/16 bg-[#EAFBF2] p-4">
                       <p className="text-sm font-medium text-[#12C76F]">Impact direct</p>
-                      <p className="mt-1 text-[15px] font-normal leading-7 tracking-[-0.01em] text-white/78">
+                      <p className="mt-1 text-[15px] font-normal leading-7 tracking-[-0.01em] text-[#334155]">
                         {problemCards[activeProblem].impact}
                       </p>
                     </div>
@@ -917,7 +917,7 @@ function ProblemSection() {
                     className={`h-2.5 rounded-full transition-all ${
                       index === activeProblem
                         ? "w-10 bg-[#12C76F]"
-                        : "w-2.5 bg-white/20 hover:bg-white/38"
+                        : "w-2.5 bg-slate-900/14 hover:bg-slate-900/28"
                     }`}
                     aria-label={`Afficher ${card.title}`}
                   />
@@ -1331,9 +1331,7 @@ function WatchDemoSection() {
               transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" as const }}
               className="relative flex h-[68px] w-[68px] shrink-0 items-center justify-center rounded-full bg-white text-[#16C35B] shadow-[0_16px_38px_rgba(15,23,42,0.12)]"
             >
-              <span className="absolute -left-12 hidden h-7 w-9 bg-[linear-gradient(90deg,transparent_0_15%,#16C35B_15%_22%,transparent_22%_38%,#16C35B_38%_45%,transparent_45%_62%,#16C35B_62%_69%,transparent_69%)] opacity-60 sm:block" />
               <PlayCircle className="h-8 w-8 fill-[#16C35B]/10" />
-              <span className="absolute -right-12 hidden h-7 w-9 bg-[linear-gradient(90deg,transparent_0_15%,#16C35B_15%_22%,transparent_22%_38%,#16C35B_38%_45%,transparent_45%_62%,#16C35B_62%_69%,transparent_69%)] opacity-60 sm:block" />
             </motion.div>
             <div>
               <h3 className="text-[24px] font-bold leading-tight tracking-[-0.03em] text-[#07111F] sm:text-[30px]">
@@ -1571,14 +1569,14 @@ function DemoDashboardPreview() {
 
 function SecuritySection() {
   return (
-    <section id="securite" className="px-5 py-20 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-10 rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 backdrop-blur lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
+    <section id="securite" className="bg-[#F7FAF9] px-5 py-20 text-[#07111F] lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-10 rounded-[2rem] border border-slate-900/[0.06] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
         <motion.div {...fadeUp}>
           <Pill icon={LockKeyhole}>Production mindset</Pill>
           <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
             Pensé pour devenir une infrastructure, pas juste un dashboard.
           </h2>
-          <p className="mt-5 text-lg leading-8 text-white/65">
+          <p className="mt-5 text-lg leading-8 text-[#475569]">
             Le cap est simple: chaque bloc doit être testé en réel, relié à la production,
             et compréhensible par une agence qui n&apos;a pas d&apos;équipe technique.
           </p>
@@ -1586,11 +1584,11 @@ function SecuritySection() {
 
         <div className="grid gap-3">
           {securityItems.map((item) => (
-            <div key={item} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/18 p-4">
+            <div key={item} className="flex items-center gap-4 rounded-2xl border border-slate-900/[0.06] bg-[#FBFCFC] p-4">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#12C76F]/15 text-[#12C76F]">
                 <Check className="h-5 w-5" />
               </span>
-              <span className="font-semibold text-white/82">{item}</span>
+              <span className="font-semibold text-[#334155]">{item}</span>
             </div>
           ))}
         </div>
@@ -1607,14 +1605,14 @@ function DemoSection({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <section id="demo" className="border-y border-white/[0.08] bg-[#03100d] px-5 py-20 lg:px-8">
+    <section id="demo" className="border-y border-slate-900/[0.06] bg-white px-5 py-20 text-[#07111F] lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1fr] lg:items-start">
         <motion.div {...fadeUp}>
           <Pill icon={MessageCircle}>Passer à la démo</Pill>
           <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
             Montrez-nous votre flux actuel. On vous montre où SLAIVIO enlève le chaos.
           </h2>
-          <p className="mt-5 text-lg leading-8 text-white/65">
+          <p className="mt-5 text-lg leading-8 text-[#475569]">
             Pas besoin d&apos;avoir tout prêt. Une agence peut commencer par l&apos;inbox, les dossiers
             et le tracking, puis activer les automatisations par étapes.
           </p>
@@ -1623,12 +1621,12 @@ function DemoSection({
         <motion.form
           {...fadeUp}
           onSubmit={onSubmit}
-          className="rounded-[2rem] border border-white/10 bg-[#020807] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] sm:p-7"
+          className="rounded-[2rem] border border-slate-900/[0.07] bg-[#FBFCFC] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:p-7"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             {formFields.map((field) => (
               <label key={field.name} className="block">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">
                   {field.label}
                 </span>
                 <input
@@ -1636,21 +1634,21 @@ function DemoSection({
                   required={field.name === "full_name" || field.name === "email"}
                   type={field.name === "email" ? "email" : "text"}
                   placeholder={field.placeholder}
-                  className="mt-2 h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
+                  className="mt-2 h-[52px] w-full rounded-2xl border border-slate-900/[0.08] bg-white px-4 text-sm text-[#07111F] outline-none transition placeholder:text-slate-400 focus:border-[#12C76F]/60 focus:shadow-[0_0_0_4px_rgba(18,199,111,0.10)]"
                 />
               </label>
             ))}
           </div>
 
           <label className="mt-4 block">
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+            <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">
               Message
             </span>
             <textarea
               name="message"
               rows={5}
               placeholder="Dites-nous comment votre agence travaille aujourd'hui..."
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
+              className="mt-2 w-full rounded-2xl border border-slate-900/[0.08] bg-white px-4 py-4 text-sm text-[#07111F] outline-none transition placeholder:text-slate-400 focus:border-[#12C76F]/60 focus:shadow-[0_0_0_4px_rgba(18,199,111,0.10)]"
             />
           </label>
 
@@ -1664,12 +1662,12 @@ function DemoSection({
           </button>
 
           {formStatus === "success" && (
-            <p className="mt-4 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4 text-sm text-[#74f0af]">
+            <p className="mt-4 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4 text-sm text-[#0BAA5D]">
               Demande reçue. On vous contactera avec les prochaines étapes.
             </p>
           )}
           {formStatus === "error" && (
-            <p className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">
+            <p className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-700">
               Impossible d&apos;envoyer la demande pour le moment. Réessayez dans quelques instants.
             </p>
           )}
@@ -1687,7 +1685,7 @@ function FaqSection({
   setOpenFaq: (index: number) => void;
 }) {
   return (
-    <section className="px-5 py-20 lg:px-8">
+    <section className="bg-[#F7FAF9] px-5 py-20 text-[#07111F] lg:px-8">
       <div className="mx-auto max-w-4xl">
         <motion.div {...fadeUp} className="text-center">
           <Pill icon={Globe2}>FAQ</Pill>
@@ -1702,7 +1700,7 @@ function FaqSection({
               key={question}
               {...fadeUp}
               transition={{ duration: 0.45, delay: index * 0.04 }}
-              className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045]"
+              className="overflow-hidden rounded-3xl border border-slate-900/[0.07] bg-white shadow-[0_16px_45px_rgba(15,23,42,0.05)]"
             >
               <button
                 className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left font-bold"
@@ -1720,7 +1718,7 @@ function FaqSection({
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <p className="px-5 pb-5 text-sm leading-7 text-white/62">{answer}</p>
+                    <p className="px-5 pb-5 text-sm leading-7 text-[#475569]">{answer}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1734,25 +1732,26 @@ function FaqSection({
 
 function LandingFooter() {
   return (
-    <footer className="border-t border-white/[0.08] px-5 py-10 lg:px-8">
+    <footer className="border-t border-slate-900/[0.08] bg-white px-5 py-10 text-[#07111F] lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <Image
-            src="/slaivio-logo-official-dark.png"
-            alt="SLAIVIO"
-            width={132}
-            height={51}
-            className="h-auto w-[126px] object-contain"
+            src="/slaivio-icon-official.png"
+            alt=""
+            width={34}
+            height={34}
+            className="h-8 w-8 object-contain"
           />
           <div>
-            <p className="text-sm text-white/45">Cargo operations platform</p>
+            <p className="text-lg font-bold tracking-[-0.04em] text-[#07111F]">Slaivio</p>
+            <p className="text-sm text-[#64748B]">Cargo operations platform</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-5 text-sm text-white/55">
-          <a href="#workflow" className="hover:text-white">Plateforme</a>
-          <a href="#solutions" className="hover:text-white">Solutions</a>
-          <a href="#demo" className="hover:text-white">Démo</a>
-          <Link href="/sign-in" className="hover:text-white">Connexion</Link>
+        <div className="flex flex-wrap gap-5 text-sm text-[#64748B]">
+          <a href="#workflow" className="hover:text-[#0BAA5D]">Plateforme</a>
+          <a href="#solutions" className="hover:text-[#0BAA5D]">Solutions</a>
+          <a href="#demo" className="hover:text-[#0BAA5D]">Démo</a>
+          <Link href="/sign-in" className="hover:text-[#0BAA5D]">Connexion</Link>
         </div>
       </div>
     </footer>
@@ -1761,7 +1760,7 @@ function LandingFooter() {
 
 function Pill({ children, icon: Icon }: { children: ReactNode; icon: LucideIcon }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-[#12C76F]/25 bg-[#12C76F]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#74f0af]">
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#12C76F]/20 bg-[#12C76F]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#0BAA5D]">
       <Icon className="h-4 w-4" />
       {children}
     </span>

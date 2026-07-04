@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -12,6 +12,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   ClipboardCheck,
   ClipboardList,
@@ -234,6 +236,81 @@ const integrationBenefits: Array<{
   },
 ];
 
+const coreFeatures: Array<{
+  title: string;
+  text: string;
+  icon: LucideIcon;
+  screen: "clients" | "dossiers" | "colis" | "tracking" | "whatsapp";
+}> = [
+  {
+    title: "Gestion des clients",
+    text: "Centralisez tous vos clients et leurs informations en un seul endroit.",
+    icon: Users,
+    screen: "clients",
+  },
+  {
+    title: "Gestion des dossiers",
+    text: "Chaque opération est organisée dans un dossier complet et traçable.",
+    icon: ClipboardList,
+    screen: "dossiers",
+  },
+  {
+    title: "Gestion des colis",
+    text: "Enregistrez, suivez et gérez tous vos colis de l'entrepôt jusqu'à la livraison.",
+    icon: Package,
+    screen: "colis",
+  },
+  {
+    title: "Suivi en temps réel",
+    text: "Suivez chaque étape des expéditions avec des mises à jour automatiques.",
+    icon: CheckCircle2,
+    screen: "tracking",
+  },
+  {
+    title: "WhatsApp centralisé",
+    text: "Toutes vos conversations WhatsApp dans une inbox unique.",
+    icon: MessageCircle,
+    screen: "whatsapp",
+  },
+];
+
+const additionalFeatures: Array<{
+  title: string;
+  text: string;
+  icon: LucideIcon;
+}> = [
+  {
+    title: "Entrepôts & Bureaux",
+    text: "Gérez vos entrepôts, bureaux et équipes sur plusieurs pays.",
+    icon: Warehouse,
+  },
+  {
+    title: "Routes & Services",
+    text: "Configurez vos routes, moyens d'expédition et services.",
+    icon: Route,
+  },
+  {
+    title: "Tarification avancée",
+    text: "Créez des grilles tarifaires par route, poids, CBM ou catégorie.",
+    icon: CircleDollarSign,
+  },
+  {
+    title: "Paiements & Facturation",
+    text: "Suivez les paiements, générez des factures et relances.",
+    icon: CreditCard,
+  },
+  {
+    title: "Rapports & Analyses",
+    text: "Analysez vos performances et prenez les meilleures décisions.",
+    icon: BarChart3,
+  },
+  {
+    title: "Sécurité & Permissions",
+    text: "Contrôlez les accès et protégez les données de votre agence.",
+    icon: ShieldCheck,
+  },
+];
+
 const securityItems = [
   "Authentification moderne avec Clerk",
   "Connexion WhatsApp officielle via Meta",
@@ -335,6 +412,7 @@ export function LandingPageClient() {
       <WorkflowSection />
       <WatchDemoSection />
       <IntegrationsSection />
+      <CoreFeaturesSection />
       <SecuritySection />
       <DemoSection formStatus={formStatus} onSubmit={submitDemoRequest} />
       <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
@@ -1863,6 +1941,418 @@ function IntegrationsSection() {
         </motion.div>
       </div>
     </section>
+  );
+}
+
+function CoreFeaturesSection() {
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [activeFeature, setActiveFeature] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    if (isPaused) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveFeature((index) => (index + 1) % coreFeatures.length);
+    }, 6000);
+
+    return () => window.clearInterval(interval);
+  }, [isPaused]);
+
+  useEffect(() => {
+    const card = carouselRef.current?.children.item(activeFeature);
+    card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+  }, [activeFeature]);
+
+  const goToFeature = (direction: "previous" | "next") => {
+    setActiveFeature((index) => {
+      if (direction === "previous") {
+        return index === 0 ? coreFeatures.length - 1 : index - 1;
+      }
+
+      return (index + 1) % coreFeatures.length;
+    });
+  };
+
+  return (
+    <section
+      id="features"
+      className="bg-white px-5 py-[92px] text-[#07111F] sm:px-8 lg:px-10 xl:py-[140px]"
+      style={{ fontFeatureSettings: '"cv02" 1, "cv03" 1, "liga" 1, "kern" 1' }}
+    >
+      <div className="mx-auto max-w-[1440px]">
+        <motion.div {...fadeUp} className="mx-auto max-w-[1320px] text-center">
+          <div className="mb-[42px] h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
+          <h2 className="mx-auto max-w-[1040px] text-[42px] font-extrabold leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[56px] xl:text-[68px]">
+            Toutes les fonctionnalités pour
+            <br />
+            <span className="text-[#12C76F]">piloter votre agence cargo.</span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-[780px] text-[18px] font-normal leading-[1.7] text-[#667085] sm:text-[22px]">
+            SLAIVIO regroupe tous les outils dont vous avez besoin pour gérer efficacement
+            vos opérations, vos équipes et vos clients.
+          </p>
+          <div className="mx-auto mt-7 h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
+        </motion.div>
+
+        <div
+          className="relative mx-auto mt-16 max-w-[1320px]"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          <button
+            type="button"
+            aria-label="Fonctionnalité précédente"
+            onClick={() => goToFeature("previous")}
+            className="absolute left-[-30px] top-[238px] z-20 hidden h-[58px] w-[58px] items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:bg-[#12C76F] hover:text-white xl:flex"
+          >
+            <ChevronLeft className="h-6 w-6 stroke-[1.8]" />
+          </button>
+          <button
+            type="button"
+            aria-label="Fonctionnalité suivante"
+            onClick={() => goToFeature("next")}
+            className="absolute right-[-30px] top-[238px] z-20 hidden h-[58px] w-[58px] items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:bg-[#12C76F] hover:text-white xl:flex"
+          >
+            <ChevronRight className="h-6 w-6 stroke-[1.8]" />
+          </button>
+
+          <div
+            ref={carouselRef}
+            className="flex h-[560px] snap-x snap-mandatory gap-[26px] overflow-x-auto scroll-smooth pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {coreFeatures.map((feature, index) => (
+              <motion.article
+                key={feature.title}
+                initial={{ opacity: 0, y: 26 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.56, delay: index * 0.1, ease: "easeOut" as const }}
+                onClick={() => setActiveFeature(index)}
+                className="group flex h-[540px] min-w-full snap-start flex-col overflow-hidden rounded-[24px] border border-slate-900/[0.06] bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_28px_78px_rgba(15,23,42,0.12)] md:min-w-[calc((100%_-_52px)_/_3)] xl:min-w-[calc((100%_-_104px)_/_5)]"
+              >
+                <div className="h-[360px] border-b border-slate-900/[0.05] bg-[#FBFCFC] px-5 py-5">
+                  <FeatureScreen type={feature.screen} />
+                </div>
+                <div className="flex flex-1 flex-col px-5 pb-6 pt-5">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
+                    <feature.icon className="h-6 w-6 stroke-[1.8]" />
+                  </div>
+                  <h3 className="mt-4 text-[18px] font-bold tracking-[-0.025em] text-[#07111F]">{feature.title}</h3>
+                  <p className="mt-3 text-[14px] leading-7 text-[#475569]">{feature.text}</p>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+
+          <div className="mt-6 flex items-center justify-center gap-4 xl:hidden">
+            <button
+              type="button"
+              aria-label="Fonctionnalité précédente"
+              onClick={() => goToFeature("previous")}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_16px_40px_rgba(15,23,42,0.08)] transition hover:bg-[#12C76F] hover:text-white"
+            >
+              <ChevronLeft className="h-5 w-5 stroke-[1.8]" />
+            </button>
+            <button
+              type="button"
+              aria-label="Fonctionnalité suivante"
+              onClick={() => goToFeature("next")}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_16px_40px_rgba(15,23,42,0.08)] transition hover:bg-[#12C76F] hover:text-white"
+            >
+              <ChevronRight className="h-5 w-5 stroke-[1.8]" />
+            </button>
+          </div>
+
+          <div className="mt-3 flex justify-center gap-4 xl:mt-2">
+            {coreFeatures.map((feature, index) => (
+              <button
+                key={feature.title}
+                type="button"
+                aria-label={`Afficher ${feature.title}`}
+                onClick={() => setActiveFeature(index)}
+                className={`h-2 w-2 rounded-full transition ${
+                  index === activeFeature ? "bg-[#12C76F]" : "bg-[#D9DDE5] hover:bg-[#AAB2C0]"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <motion.div
+          {...fadeUp}
+          className="mx-auto mt-12 grid max-w-[1320px] overflow-hidden rounded-[22px] border border-slate-900/[0.06] bg-white p-0 shadow-[0_18px_52px_rgba(15,23,42,0.035)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+        >
+          {additionalFeatures.map((feature, index) => (
+            <div
+              key={feature.title}
+              className={`p-[26px] ${
+                index > 0 ? "border-t border-slate-900/[0.06] sm:border-t-0 sm:border-l" : ""
+              } ${index === 2 ? "sm:border-l-0 lg:border-l" : ""} ${index === 3 ? "lg:border-l-0 xl:border-l" : ""} border-slate-900/[0.06]`}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
+                <feature.icon className="h-6 w-6 stroke-[1.8]" />
+              </div>
+              <h3 className="mt-4 text-[15px] font-bold tracking-[-0.025em] text-[#07111F]">{feature.title}</h3>
+              <p className="mt-3 text-[14px] leading-7 text-[#475569]">{feature.text}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          {...fadeUp}
+          className="mx-auto mt-8 flex max-w-[860px] flex-col items-center gap-5 rounded-[22px] border border-slate-900/[0.06] bg-[#FBFCFC] px-6 py-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)] md:h-[120px] md:flex-row md:px-7 md:py-0"
+        >
+          <div className="flex items-center gap-4 text-[#12C76F]">
+            <AudioWave />
+            <motion.button
+              type="button"
+              aria-label="Lire la vidéo"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" as const }}
+              className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-white text-[#12C76F] shadow-[0_14px_34px_rgba(15,23,42,0.10)]"
+            >
+              <PlayCircle className="h-7 w-7 fill-[#12C76F]/10 stroke-[1.8]" />
+            </motion.button>
+            <AudioWave />
+          </div>
+
+          <div className="min-w-0 flex-1 text-center md:text-left">
+            <h3 className="text-[24px] font-bold tracking-[-0.035em] text-[#07111F] sm:text-[30px]">
+              Découvrez SLAIVIO en action
+            </h3>
+            <p className="mt-1 text-[15px] leading-6 text-[#475569]">
+              Voyez comment SLAIVIO simplifie votre quotidien en quelques minutes.
+            </p>
+          </div>
+
+          <a
+            href="#watch-demo"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-xl px-5 text-[15px] font-bold text-[#0BAA5D] transition duration-250 hover:bg-[#12C76F] hover:text-white"
+          >
+            Regarder la vidéo
+            <ArrowRight className="h-4 w-4" />
+          </a>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function FeatureScreen({ type }: { type: (typeof coreFeatures)[number]["screen"] }) {
+  if (type === "clients") {
+    return (
+      <div className="h-full rounded-[18px] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
+        <ScreenHeader title="Clients" action="Nouveau client" />
+        <div className="mt-4 flex h-8 items-center gap-2 rounded-lg bg-[#F5F7FA] px-3 text-[9px] font-medium text-[#697386]">
+          <Search className="h-3 w-3" />
+          Rechercher un client...
+        </div>
+        <div className="mt-4 space-y-3">
+          {["Jean Kabasele", "Marie Tshibola", "David Mwamba", "Grace Mukendi"].map((name, index) => (
+            <div key={name} className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#FECACA] via-[#FED7AA] to-[#111827]" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[10px] font-bold text-[#07111F]">{name}</p>
+                <p className="text-[8px] text-[#697386]">+243 89 {index + 1}23 4567</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-xl bg-[#F8FAFC] p-3">
+          {["Total dossiers", "Total colis", "Total dépensé"].map((label, index) => (
+            <div key={label} className="flex items-center justify-between py-1 text-[9px]">
+              <span className="text-[#697386]">{label}</span>
+              <span className="font-bold text-[#07111F]">{["12", "24", "$4,560"][index]}</span>
+            </div>
+          ))}
+          <div className="mt-3 rounded-lg border border-slate-900/[0.06] bg-white py-2 text-center text-[9px] font-bold text-[#07111F]">
+            Voir le profil
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "dossiers") {
+    return (
+      <div className="h-full rounded-[18px] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
+        <ScreenHeader title="Dossiers" />
+        <div className="mt-5 flex justify-between text-[8px] font-bold text-[#07111F]">
+          {["Tous", "En cours", "Terminés", "Archivés"].map((tab, index) => (
+            <span key={tab} className={index === 0 ? "border-b-2 border-[#12C76F] pb-2" : "pb-2"}>
+              {tab}
+            </span>
+          ))}
+        </div>
+        <div className="mt-4 space-y-4">
+          {["DOS-2024-1250", "DOS-2024-1249", "DOS-2024-1248", "DOS-2024-1247"].map((id, index) => (
+            <div key={id} className="flex items-center gap-3">
+              <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${["bg-orange-100", "bg-orange-100", "bg-violet-100", "bg-sky-100"][index]}`}>
+                <Package className={`h-4 w-4 ${["text-orange-500", "text-orange-500", "text-violet-500", "text-sky-500"][index]}`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold text-[#07111F]">{id}</p>
+                <p className="text-[8px] text-[#697386]">{["Jean Kabasele", "Grace Mukendi", "David Mwamba", "Marie Tshibola"][index]}</p>
+              </div>
+              <span className={`rounded-md px-2 py-1 text-[8px] font-bold ${["bg-[#D1FADF] text-[#0BAA5D]", "bg-sky-100 text-sky-600", "bg-violet-100 text-violet-600", "bg-orange-100 text-orange-600"][index]}`}>
+                {["En cours", "Nouveau", "En transit", "En attente"][index]}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "colis") {
+    return (
+      <div className="h-full rounded-[18px] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
+        <ScreenHeader title="Colis" action="Nouveau colis" />
+        <div className="mt-4 flex items-start gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-orange-100">
+            <Package className="h-9 w-9 text-orange-500" />
+          </div>
+          <div>
+            <p className="text-[13px] font-extrabold text-[#07111F]">COL-2024-1246</p>
+            <p className="mt-1 text-[9px] text-[#697386]">Enregistré le 12 Juin 2024</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-[#F8FAFC] p-3">
+          {[
+            ["Poids", "12.5 kg"],
+            ["Dimensions", "50x40x30 cm"],
+            ["Catégorie", "Électronique"],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <p className="text-[8px] text-[#697386]">{label}</p>
+              <p className="mt-1 text-[9px] font-bold text-[#07111F]">{value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2 rounded-xl bg-[#F8FAFC] p-3">
+          {[
+            ["Entrepôt", "Yiwu, Chine"],
+            ["Expédition", "EXP-2024-1250"],
+            ["Statut", "En préparation"],
+          ].map(([label, value], index) => (
+            <div key={label}>
+              <p className="text-[8px] text-[#697386]">{label}</p>
+              <p className={`mt-1 text-[9px] font-bold ${index === 2 ? "rounded-md bg-orange-100 px-1 py-0.5 text-orange-600" : "text-[#07111F]"}`}>
+                {value}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="h-10 rounded-lg bg-gradient-to-br from-orange-200 via-orange-100 to-slate-200" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "tracking") {
+    return (
+      <div className="h-full rounded-[18px] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
+        <ScreenHeader title="Tracking" />
+        <div className="mt-5 space-y-4">
+          {[
+            ["Reçu à l'entrepôt", "Yiwu, Chine", "12 Juin 2024", true],
+            ["Validé", "Yiwu, Chine", "12 Juin 2024", true],
+            ["En transit", "Guangzhou, Chine", "14 Juin 2024", true],
+            ["Arrivé à destination", "Kinshasa, RDC", "22 Juin 2024", true],
+            ["Livré au client", "", "ETA", false],
+          ].map(([title, place, date, done], index) => (
+            <div key={String(title)} className="relative flex gap-3">
+              {index < 4 && <span className="absolute left-[9px] top-5 h-8 border-l border-dashed border-[#12C76F]/60" />}
+              <span className={`relative z-10 mt-0.5 flex h-5 w-5 items-center justify-center rounded-full ${done ? "bg-[#12C76F] text-white" : "bg-[#EEF2F6] text-[#98A2B3]"}`}>
+                <Check className="h-3 w-3" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[10px] font-bold text-[#07111F]">{title}</p>
+                  <p className="text-right text-[8px] text-[#344054]">{date}</p>
+                </div>
+                {place && <p className="mt-1 text-[8px] text-[#697386]">{place}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full rounded-[18px] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] font-extrabold text-[#07111F]">WhatsApp Inbox</p>
+        <MessageCircle className="h-8 w-8 text-[#12C76F]" />
+      </div>
+      <div className="mt-4 flex h-8 items-center gap-2 rounded-lg bg-[#F5F7FA] px-3 text-[9px] font-medium text-[#697386]">
+        <Search className="h-3 w-3" />
+        Rechercher...
+      </div>
+      <div className="mt-4 flex gap-5 text-[8px] font-bold text-[#07111F]">
+        {["Toutes", "Non lues", "En attente"].map((tab, index) => (
+          <span key={tab} className={index === 0 ? "border-b-2 border-[#12C76F] pb-2" : "pb-2"}>
+            {tab}
+          </span>
+        ))}
+      </div>
+      <div className="mt-4 space-y-4">
+        {[
+          ["Jean Kabasele", "Bonjour, ou en est mon colis ?", "10:30", "2"],
+          ["Grace Mukendi", "Merci pour les informations", "09:15", ""],
+          ["+237 6 98 76 54 32", "Bonjour, j'aimerais un devis", "Hier", ""],
+          ["David Mwamba", "Mon colis est-il déjà arrivé ?", "Hier", ""],
+        ].map(([name, message, time, badge], index) => (
+          <div key={name} className="flex items-start gap-3">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-br from-[#FECACA] via-[#FED7AA] to-[#111827]" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate text-[10px] font-bold text-[#07111F]">{name}</p>
+                <p className="text-[8px] text-[#344054]">{time}</p>
+              </div>
+              <p className="mt-1 truncate text-[8px] text-[#697386]">{message}</p>
+            </div>
+            {badge && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#12C76F] text-[8px] font-bold text-white">{badge}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScreenHeader({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <p className="text-[13px] font-extrabold text-[#07111F]">{title}</p>
+      {action && (
+        <span className="rounded-md bg-[#12C76F] px-2.5 py-1.5 text-[8px] font-bold text-white">
+          + {action}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function AudioWave() {
+  return (
+    <div className="flex h-8 items-center gap-1" aria-hidden="true">
+      {[12, 22, 15, 28].map((height, index) => (
+        <motion.span
+          key={`${height}-${index}`}
+          animate={{ height: [height * 0.45, height, height * 0.55] }}
+          transition={{ duration: 1.1, delay: index * 0.12, repeat: Infinity, ease: "easeInOut" as const }}
+          className="w-0.5 rounded-full bg-[#12C76F]"
+          style={{ height }}
+        />
+      ))}
+    </div>
   );
 }
 

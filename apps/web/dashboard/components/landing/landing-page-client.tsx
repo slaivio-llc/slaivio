@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -978,7 +978,7 @@ function ProblemSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.62, ease: "easeOut" as const }}
-            className="mb-9 h-1.5 w-16 rounded-full bg-[#12C76F]"
+            className="hidden"
           />
           <motion.h2
             initial={{ opacity: 0, y: 28 }}
@@ -1065,7 +1065,7 @@ function WorkflowSection() {
   const rightCards = processCards.filter((card) => card.side === "right");
 
   return (
-    <section id="workflow" className="relative overflow-hidden bg-[#F6F7F4] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 lg:py-24">
+    <section id="workflow" className="relative overflow-hidden bg-[#F3F6F4] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 lg:py-24">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(180deg,#FBFCFB_0%,#F6F7F4_52%,#FFFFFF_100%)]" />
         <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(7,17,13,0.055),rgba(246,247,244,0))]" />
@@ -1082,13 +1082,12 @@ function WorkflowSection() {
 
       <div className="relative mx-auto max-w-[1500px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[900px] text-center">
-          <div className="mx-auto mb-8 h-1.5 w-[72px] rounded-full bg-[#12C76F]" />
-          <h2 className="text-[38px] font-normal leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[54px] xl:text-[64px]">
+          <h2 className="text-[34px] font-normal leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[56px] xl:text-[64px]">
             Tout votre processus cargo,
             <br />
             centralisé en <span className="text-[#12C76F]">6 étapes simples.</span>
           </h2>
-          <p className="mx-auto mt-6 max-w-[820px] text-[17px] font-normal leading-[1.7] tracking-[-0.01em] text-[#475569] sm:text-[20px]">
+          <p className="mx-auto mt-6 max-w-[820px] text-[16px] font-normal leading-[1.7] tracking-[-0.01em] text-[#475569] sm:text-[18px] lg:text-[20px]">
             SLAIVIO vous accompagne à chaque étape, de la prise de demande jusqu&apos;à la livraison finale.
             <br className="hidden md:block" />
             Tout est connecté, automatisé et suivi en temps réel.
@@ -1407,7 +1406,7 @@ function LightDashboardPreview() {
 
 function WatchDemoSection() {
   return (
-    <section id="watch-demo" className="relative overflow-hidden bg-white px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
+    <section id="watch-demo" className="relative overflow-hidden bg-[#FAFBF8] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-0 top-0 h-[460px] w-[520px] rounded-full bg-[#12C76F]/[0.04] blur-[90px]" />
         <div className="absolute right-0 top-[22%] h-[520px] w-[680px] rounded-full bg-slate-100/80 blur-[100px]" />
@@ -1416,13 +1415,12 @@ function WatchDemoSection() {
       <div className="relative mx-auto max-w-[1440px]">
         <div className="grid gap-14 xl:grid-cols-[0.45fr_0.55fr] xl:items-center xl:gap-14">
           <motion.div {...fadeUp} className="max-w-[560px]">
-            <div className="mb-[34px] h-1.5 w-[70px] rounded-full bg-[#16C35B]" />
-            <h2 className="text-[40px] font-extrabold leading-[1.05] tracking-[-0.04em] text-[#07111F] sm:text-[56px] xl:text-[64px]">
+            <h2 className="text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[56px] xl:text-[64px]">
               Voyez comment SLAIVIO
               <br />
               <span className="text-[#16C35B]">simplifie votre quotidien.</span>
             </h2>
-            <p className="mt-7 max-w-[520px] text-[18px] font-normal leading-[1.7] tracking-[-0.01em] text-[#5B6472] sm:text-[22px]">
+            <p className="mt-7 max-w-[520px] text-[16px] font-normal leading-[1.7] tracking-[-0.01em] text-[#5B6472] sm:text-[18px] lg:text-[21px]">
               Une plateforme complète pour gérer vos clients, colis, expéditions, WhatsApp
               et paiements depuis un seul endroit.
             </p>
@@ -1725,7 +1723,7 @@ function DemoDashboardPreview() {
 
 function IntegrationsSection() {
   return (
-    <section id="integrations" className="relative overflow-hidden bg-white px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
+    <section id="integrations" className="relative overflow-hidden bg-[#F3F6F4] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-0 top-0 h-[520px] w-[620px] rounded-full bg-[#12C76F]/[0.035] blur-[100px]" />
         <div className="absolute right-0 bottom-0 h-[520px] w-[700px] rounded-full bg-slate-100/80 blur-[110px]" />
@@ -1740,20 +1738,19 @@ function IntegrationsSection() {
 
       <div className="relative mx-auto max-w-[1440px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[880px] text-center">
-          <div className="mb-8 ml-0 h-1.5 w-[70px] rounded-full bg-[#12C76F] sm:ml-12" />
-          <h2 className="text-[38px] font-normal leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[54px] xl:text-[64px]">
+          <h2 className="text-[34px] font-normal leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[56px] xl:text-[64px]">
             SLAIVIO s’intègre avec
             <br />
             vos outils <span className="text-[#12C76F]">essentiels.</span>
           </h2>
-          <p className="mx-auto mt-6 max-w-[760px] text-[17px] leading-[1.75] tracking-[-0.01em] text-[#475569] sm:text-[20px]">
+          <p className="mx-auto mt-6 max-w-[760px] text-[16px] leading-[1.75] tracking-[-0.01em] text-[#475569] sm:text-[18px] lg:text-[20px]">
             Connectez facilement SLAIVIO à vos outils préférés et centralisez
             <br className="hidden md:block" />
             toutes vos communications au même endroit.
           </p>
         </motion.div>
 
-        <div className="relative mx-auto mt-16 hidden h-[600px] max-w-[1160px] lg:block">
+        <div className="relative mx-auto mt-16 hidden h-[680px] max-w-[1160px] lg:block">
           <svg aria-hidden="true" viewBox="0 0 1160 600" className="absolute inset-0 h-full w-full">
             <motion.path
               d="M348 176 C420 152 455 176 505 226"
@@ -1798,9 +1795,9 @@ function IntegrationsSection() {
 
           <IntegrationCard integration={integrations[0]} className="left-0 top-[88px]" delay={0} />
           <IntegrationCard integration={integrations[1]} className="right-0 top-[88px]" delay={0.08} />
-          <IntegrationCard integration={integrations[2]} className="bottom-2 left-1/2 -translate-x-1/2" delay={0.16} />
+          <IntegrationCard integration={integrations[2]} className="bottom-0 left-1/2 -translate-x-1/2" delay={0.16} />
 
-          <div className="absolute left-1/2 top-[58px] h-[438px] w-[438px] -translate-x-1/2 rounded-full">
+          <div className="absolute left-1/2 top-[42px] h-[438px] w-[438px] -translate-x-1/2 rounded-full">
             <motion.div
               aria-hidden="true"
               animate={{ rotate: 360 }}
@@ -1867,9 +1864,9 @@ function IntegrationsSection() {
 }
 
 function CoreFeaturesSection() {
-  const carouselRef = useRef<HTMLDivElement>(null);
   const [activeFeature, setActiveFeature] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const activeCoreFeature = coreFeatures[activeFeature];
 
   useEffect(() => {
     if (isPaused) {
@@ -1882,11 +1879,6 @@ function CoreFeaturesSection() {
 
     return () => window.clearInterval(interval);
   }, [isPaused]);
-
-  useEffect(() => {
-    const card = carouselRef.current?.children.item(activeFeature);
-    card?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
-  }, [activeFeature]);
 
   const goToFeature = (direction: "previous" | "next") => {
     setActiveFeature((index) => {
@@ -1901,26 +1893,24 @@ function CoreFeaturesSection() {
   return (
     <section
       id="features"
-      className="bg-white px-5 py-[92px] text-[#07111F] sm:px-8 lg:px-10 xl:py-[140px]"
+      className="bg-[#F7F8F5] px-5 py-[86px] text-[#07111F] sm:px-8 lg:px-10 xl:py-[132px]"
       style={{ fontFeatureSettings: '"cv02" 1, "cv03" 1, "liga" 1, "kern" 1' }}
     >
       <div className="mx-auto max-w-[1440px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[1320px] text-center">
-          <div className="mb-[42px] h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
-          <h2 className="mx-auto max-w-[1040px] text-[42px] font-extrabold leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[56px] xl:text-[68px]">
+          <h2 className="mx-auto max-w-[1040px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[58px] xl:text-[64px]">
             Toutes les fonctionnalités pour
             <br />
             <span className="text-[#12C76F]">piloter votre agence cargo.</span>
           </h2>
-          <p className="mx-auto mt-6 max-w-[780px] text-[18px] font-normal leading-[1.7] text-[#667085] sm:text-[22px]">
+          <p className="mx-auto mt-6 max-w-[780px] text-[16px] font-normal leading-[1.7] text-[#667085] sm:text-[19px] lg:text-[21px]">
             SLAIVIO regroupe tous les outils dont vous avez besoin pour gérer efficacement
             vos opérations, vos équipes et vos clients.
           </p>
-          <div className="mx-auto mt-7 h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
         </motion.div>
 
         <div
-          className="relative mx-auto mt-16 max-w-[1320px]"
+          className="relative mx-auto mt-14 max-w-[980px]"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -1928,7 +1918,7 @@ function CoreFeaturesSection() {
             type="button"
             aria-label="Fonctionnalité précédente"
             onClick={() => goToFeature("previous")}
-            className="absolute left-[-30px] top-[238px] z-20 hidden h-[58px] w-[58px] items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:bg-[#12C76F] hover:text-white xl:flex"
+            className="absolute left-[-30px] top-1/2 z-20 hidden h-[58px] w-[58px] -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:bg-[#12C76F] hover:text-white xl:flex"
           >
             <ChevronLeft className="h-6 w-6 stroke-[1.8]" />
           </button>
@@ -1936,37 +1926,40 @@ function CoreFeaturesSection() {
             type="button"
             aria-label="Fonctionnalité suivante"
             onClick={() => goToFeature("next")}
-            className="absolute right-[-30px] top-[238px] z-20 hidden h-[58px] w-[58px] items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:bg-[#12C76F] hover:text-white xl:flex"
+            className="absolute right-[-30px] top-1/2 z-20 hidden h-[58px] w-[58px] -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:bg-[#12C76F] hover:text-white xl:flex"
           >
             <ChevronRight className="h-6 w-6 stroke-[1.8]" />
           </button>
 
-          <div
-            ref={carouselRef}
-            className="flex h-[560px] snap-x snap-mandatory gap-[26px] overflow-x-auto scroll-smooth pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {coreFeatures.map((feature, index) => (
+          <div className="min-h-[620px] sm:min-h-[560px]">
+            <AnimatePresence mode="wait">
               <motion.article
-                key={feature.title}
-                initial={{ opacity: 0, y: 26 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.56, delay: index * 0.1, ease: "easeOut" as const }}
-                onClick={() => setActiveFeature(index)}
-                className="group flex h-[540px] min-w-full snap-start flex-col overflow-hidden rounded-[24px] border border-slate-900/[0.06] bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_28px_78px_rgba(15,23,42,0.12)] md:min-w-[calc((100%_-_52px)_/_3)] xl:min-w-[calc((100%_-_104px)_/_5)]"
+                key={activeCoreFeature.title}
+                initial={{ opacity: 0, x: 42, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -42, scale: 0.98 }}
+                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                className="grid overflow-hidden rounded-[28px] border border-slate-900/[0.06] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.10)] lg:grid-cols-[1.1fr_0.9fr]"
               >
-                <div className="h-[360px] border-b border-slate-900/[0.05] bg-[#FBFCFC] px-5 py-5">
-                  <FeatureScreen type={feature.screen} />
+                <div className="min-h-[360px] border-b border-slate-900/[0.05] bg-[#FBFCFC] px-5 py-5 lg:border-b-0 lg:border-r lg:px-7 lg:py-7">
+                  <FeatureScreen type={activeCoreFeature.screen} />
                 </div>
-                <div className="flex flex-1 flex-col px-5 pb-6 pt-5">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
-                    <feature.icon className="h-6 w-6 stroke-[1.8]" />
+                <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
+                    <activeCoreFeature.icon className="h-7 w-7 stroke-[1.8]" />
                   </div>
-                  <h3 className="mt-4 text-[18px] font-bold tracking-[-0.025em] text-[#07111F]">{feature.title}</h3>
-                  <p className="mt-3 text-[14px] leading-7 text-[#475569]">{feature.text}</p>
+                  <p className="mt-8 text-sm font-bold uppercase tracking-[0.14em] text-[#12C76F]">
+                    Fonctionnalité {String(activeFeature + 1).padStart(2, "0")}
+                  </p>
+                  <h3 className="mt-3 text-[30px] font-bold leading-tight tracking-[-0.035em] text-[#07111F] sm:text-[38px]">
+                    {activeCoreFeature.title}
+                  </h3>
+                  <p className="mt-5 text-[16px] leading-8 text-[#475569] sm:text-[18px]">
+                    {activeCoreFeature.text}
+                  </p>
                 </div>
               </motion.article>
-            ))}
+            </AnimatePresence>
           </div>
 
           <div className="mt-6 flex items-center justify-center gap-4 xl:hidden">
@@ -1988,7 +1981,7 @@ function CoreFeaturesSection() {
             </button>
           </div>
 
-          <div className="mt-3 flex justify-center gap-4 xl:mt-2">
+          <div className="mt-6 flex justify-center gap-4">
             {coreFeatures.map((feature, index) => (
               <button
                 key={feature.title}
@@ -2393,7 +2386,7 @@ function IntegrationBubble({
 
 function SecuritySection() {
   return (
-    <section id="securite" className="bg-[#F7FAF9] px-5 py-20 text-[#07111F] lg:px-8">
+    <section id="securite" className="bg-[#FAFBF8] px-5 py-20 text-[#07111F] lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-10 rounded-[2rem] border border-slate-900/[0.06] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
         <motion.div {...fadeUp}>
           <Pill icon={LockKeyhole}>Production mindset</Pill>
@@ -2429,14 +2422,14 @@ function DemoSection({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <section id="demo" className="border-y border-slate-900/[0.06] bg-white px-5 py-20 text-[#07111F] lg:px-8">
+    <section id="demo" className="border-y border-white/[0.08] bg-[#020807] px-5 py-20 text-white lg:px-8">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1fr] lg:items-start">
         <motion.div {...fadeUp}>
           <Pill icon={MessageCircle}>Passer à la démo</Pill>
           <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
             Montrez-nous votre flux actuel. On vous montre où SLAIVIO enlève le chaos.
           </h2>
-          <p className="mt-5 text-lg leading-8 text-[#475569]">
+          <p className="mt-5 text-lg leading-8 text-white/65">
             Pas besoin d&apos;avoir tout prêt. Une agence peut commencer par l&apos;inbox, les dossiers
             et le tracking, puis activer les automatisations par étapes.
           </p>
@@ -2445,12 +2438,12 @@ function DemoSection({
         <motion.form
           {...fadeUp}
           onSubmit={onSubmit}
-          className="rounded-[2rem] border border-slate-900/[0.07] bg-[#FBFCFC] p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:p-7"
+          className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] sm:p-7"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             {formFields.map((field) => (
               <label key={field.name} className="block">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
                   {field.label}
                 </span>
                 <input
@@ -2458,21 +2451,21 @@ function DemoSection({
                   required={field.name === "full_name" || field.name === "email"}
                   type={field.name === "email" ? "email" : "text"}
                   placeholder={field.placeholder}
-                  className="mt-2 h-[52px] w-full rounded-2xl border border-slate-900/[0.08] bg-white px-4 text-sm text-[#07111F] outline-none transition placeholder:text-slate-400 focus:border-[#12C76F]/60 focus:shadow-[0_0_0_4px_rgba(18,199,111,0.10)]"
+                  className="mt-2 h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
                 />
               </label>
             ))}
           </div>
 
           <label className="mt-4 block">
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">
+            <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
               Message
             </span>
             <textarea
               name="message"
               rows={5}
               placeholder="Dites-nous comment votre agence travaille aujourd'hui..."
-              className="mt-2 w-full rounded-2xl border border-slate-900/[0.08] bg-white px-4 py-4 text-sm text-[#07111F] outline-none transition placeholder:text-slate-400 focus:border-[#12C76F]/60 focus:shadow-[0_0_0_4px_rgba(18,199,111,0.10)]"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
             />
           </label>
 
@@ -2509,7 +2502,7 @@ function FaqSection({
   setOpenFaq: (index: number) => void;
 }) {
   return (
-    <section className="bg-[#F7FAF9] px-5 py-20 text-[#07111F] lg:px-8">
+    <section className="bg-[#F3F6F4] px-5 py-20 text-[#07111F] lg:px-8">
       <div className="mx-auto max-w-4xl">
         <motion.div {...fadeUp} className="text-center">
           <Pill icon={Globe2}>FAQ</Pill>
@@ -2556,7 +2549,7 @@ function FaqSection({
 
 function LandingFooter() {
   return (
-    <footer className="border-t border-slate-900/[0.08] bg-white px-5 py-10 text-[#07111F] lg:px-8">
+    <footer className="border-t border-white/[0.08] bg-[#020807] px-5 py-10 text-white lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <Image
@@ -2567,15 +2560,15 @@ function LandingFooter() {
             className="h-8 w-8 object-contain"
           />
           <div>
-            <p className="text-lg font-bold tracking-[-0.04em] text-[#07111F]">Slaivio</p>
-            <p className="text-sm text-[#64748B]">Cargo operations platform</p>
+            <p className="text-lg font-bold tracking-[-0.04em] text-white">Slaivio</p>
+            <p className="text-sm text-white/45">Cargo operations platform</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-5 text-sm text-[#64748B]">
-          <a href="#workflow" className="hover:text-[#0BAA5D]">Plateforme</a>
-          <a href="#solutions" className="hover:text-[#0BAA5D]">Solutions</a>
-          <a href="#demo" className="hover:text-[#0BAA5D]">Démo</a>
-          <Link href="/sign-in" className="hover:text-[#0BAA5D]">Connexion</Link>
+        <div className="flex flex-wrap gap-5 text-sm text-white/55">
+          <a href="#workflow" className="hover:text-white">Plateforme</a>
+          <a href="#solutions" className="hover:text-white">Solutions</a>
+          <a href="#demo" className="hover:text-white">Démo</a>
+          <Link href="/sign-in" className="hover:text-white">Connexion</Link>
         </div>
       </div>
     </footer>

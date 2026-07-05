@@ -20,6 +20,7 @@ import {
   FileText,
   FileSpreadsheet,
   Globe2,
+  Home,
   Inbox,
   LockKeyhole,
   Mail,
@@ -28,28 +29,24 @@ import {
   MessageCircle,
   Package,
   PlayCircle,
-  PlusCircle,
   Receipt,
-  RefreshCw,
   Route,
   Search,
   Send,
   Settings,
-  ShieldCheck,
   Truck,
   User,
   UserCircle,
   Users,
   Warehouse,
   X,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 
 import { createDemoRequest } from "@/services/landing";
 
 const navItems = [
-  { label: "Fonctionnalités", href: "#workflow", hasChevron: true },
+  { label: "Fonctionnalités", href: "#features", hasChevron: true },
   { label: "Comment ça marche", href: "#workflow" },
   { label: "Tarifs", href: "#demo" },
   { label: "Ressources", href: "#securite", hasChevron: true },
@@ -207,30 +204,78 @@ const integrations: Array<{
   },
 ];
 
-const integrationBenefits: Array<{
+const featureCards: Array<{
+  title: string;
+  text: string;
+  icon: LucideIcon;
+  variant: "clients" | "dossiers" | "colis" | "tracking" | "whatsapp";
+}> = [
+  {
+    title: "Gestion des clients",
+    text: "Centralisez tous vos clients et leurs informations en un seul endroit.",
+    icon: Users,
+    variant: "clients",
+  },
+  {
+    title: "Gestion des dossiers",
+    text: "Chaque opération est organisée dans un dossier complet et traçable.",
+    icon: FileText,
+    variant: "dossiers",
+  },
+  {
+    title: "Gestion des colis",
+    text: "Enregistrez, suivez et gérez tous vos colis de l'entrepôt jusqu'à la livraison.",
+    icon: Package,
+    variant: "colis",
+  },
+  {
+    title: "Suivi en temps réel",
+    text: "Suivez chaque étape des expéditions avec des mises à jour automatiques.",
+    icon: Route,
+    variant: "tracking",
+  },
+  {
+    title: "WhatsApp centralisé",
+    text: "Toutes vos conversations WhatsApp dans une inbox unique et intelligente.",
+    icon: MessageCircle,
+    variant: "whatsapp",
+  },
+];
+
+const additionalFeatures: Array<{
   title: string;
   text: string;
   icon: LucideIcon;
 }> = [
   {
-    title: "Connexion rapide",
-    text: "Intégrez vos outils en quelques minutes seulement.",
-    icon: Zap,
+    title: "Entrepôts & Bureaux",
+    text: "Gérez vos entrepôts, bureaux et équipes sur plusieurs pays.",
+    icon: Home,
   },
   {
-    title: "Sécurité garantie",
-    text: "Vos données sont chiffrées et protégées à 100%.",
-    icon: ShieldCheck,
+    title: "Routes & Services",
+    text: "Configurez vos routes, moyens d'expédition et services.",
+    icon: Route,
   },
   {
-    title: "Synchronisation en temps réel",
-    text: "Toutes vos données sont mises à jour automatiquement.",
-    icon: RefreshCw,
+    title: "Tarification avancée",
+    text: "Créez des grilles tarifaires par route, poids, CBM ou catégorie.",
+    icon: CircleDollarSign,
   },
   {
-    title: "Plus d’intégrations à venir",
-    text: "Nous ajoutons régulièrement de nouveaux outils.",
-    icon: PlusCircle,
+    title: "Paiements & Facturation",
+    text: "Suivez les paiements, générez des factures et relances.",
+    icon: CreditCard,
+  },
+  {
+    title: "Rapports & Analyses",
+    text: "Analysez vos performances et prenez les meilleures décisions.",
+    icon: BarChart3,
+  },
+  {
+    title: "Sécurité & Permissions",
+    text: "Contrôlez les accès et protégez les données de votre agence.",
+    icon: LockKeyhole,
   },
 ];
 
@@ -335,6 +380,7 @@ export function LandingPageClient() {
       <WorkflowSection />
       <WatchDemoSection />
       <IntegrationsSection />
+      <FeaturesSection />
       <SecuritySection />
       <DemoSection formStatus={formStatus} onSubmit={submitDemoRequest} />
       <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
@@ -354,47 +400,25 @@ function LandingHeader({
 }) {
   return (
     <header
-      className={`left-0 right-0 z-50 transition-all duration-500 ${
-        isFixed ? "fixed top-3 px-3 sm:px-5" : "absolute top-0 px-0"
+      className={`left-0 right-0 top-0 z-50 transition-colors duration-300 ${
+        isFixed ? "fixed bg-[#020807]/88 shadow-[0_16px_44px_rgba(0,0,0,0.18)] backdrop-blur-xl" : "absolute bg-transparent"
       }`}
     >
       <div
-        className={`mx-auto grid grid-cols-[1fr_auto] items-center transition-all duration-500 lg:grid-cols-[230px_minmax(0,1fr)_auto] ${
-          isFixed
-            ? "h-[72px] max-w-[1420px] rounded-2xl border border-slate-900/[0.08] bg-white/92 px-4 text-[#07111F] shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:px-6 lg:px-7"
-            : "h-[88px] max-w-[1600px] px-4 text-white sm:px-6 lg:px-8 2xl:px-10"
-        }`}
+        className="mx-auto grid h-[88px] max-w-[1600px] grid-cols-[1fr_auto] items-center px-4 text-white sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)_auto] lg:px-8 2xl:px-10"
       >
         <Link href="/" className="flex items-center gap-3" aria-label="SLAIVIO">
-          {isFixed ? (
-            <>
-              <Image
-                src="/slaivio-icon-official.png"
-                alt=""
-                width={34}
-                height={34}
-                className="h-8 w-8 object-contain"
-                priority
-              />
-              <span className="text-[24px] font-bold tracking-[-0.045em] text-[#07111F]">Slaivio</span>
-            </>
-          ) : (
-            <Image
-              src="/slaivio-logo-official-dark.png"
-              alt="SLAIVIO"
-              width={156}
-              height={60}
-              className="h-auto w-[142px] object-contain sm:w-[154px]"
-              priority
-            />
-          )}
+          <Image
+            src="/slaivio-logo-official-dark.png"
+            alt="SLAIVIO"
+            width={156}
+            height={60}
+            className="h-auto w-[142px] object-contain sm:w-[154px]"
+            priority
+          />
         </Link>
 
-        <nav
-          className={`hidden items-center justify-center gap-9 text-[15px] font-semibold xl:flex 2xl:gap-11 ${
-            isFixed ? "text-[#1F2937]" : "text-white"
-          }`}
-        >
+        <nav className="hidden items-center justify-center gap-9 text-[15px] font-semibold text-white xl:flex 2xl:gap-11">
           {navItems.map((item) => (
             <a key={item.label} href={item.href} className="inline-flex items-center gap-1.5 transition hover:text-[#12C76F]">
               {item.label}
@@ -404,18 +428,12 @@ function LandingHeader({
         </nav>
 
         <div className="hidden items-center justify-end gap-6 lg:flex">
-          <button
-            className={`inline-flex items-center gap-2 text-sm font-semibold ${isFixed ? "text-[#1F2937]" : "text-white"}`}
-            type="button"
-          >
+          <button className="inline-flex items-center gap-2 text-sm font-semibold text-white" type="button">
             <Globe2 className="h-5 w-5" />
             FR
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
-          <Link
-            href="/sign-in"
-            className={`text-sm font-semibold transition hover:text-[#12C76F] ${isFixed ? "text-[#1F2937]" : "text-white"}`}
-          >
+          <Link href="/sign-in" className="text-sm font-semibold text-white transition hover:text-[#12C76F]">
             Se connecter
           </Link>
           <a
@@ -427,11 +445,7 @@ function LandingHeader({
         </div>
 
         <button
-          className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border lg:hidden ${
-            isFixed
-              ? "border-slate-900/[0.08] bg-slate-50 text-[#07111F]"
-              : "border-white/10 bg-white/[0.04] text-white"
-          }`}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white lg:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Ouvrir le menu"
         >
@@ -445,24 +459,20 @@ function LandingHeader({
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className={`mt-2 rounded-2xl border px-5 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.14)] lg:hidden ${
-              isFixed
-                ? "border-slate-900/[0.08] bg-white text-[#07111F]"
-                : "border-white/10 bg-[#020807]/95 text-white"
-            }`}
+            className="border-t border-white/10 bg-[#020807]/95 px-5 py-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.14)] lg:hidden"
           >
             <div className="flex flex-col gap-4">
               {navItems.map((item) => (
                 <a
                   key={item.label}
                   href={item.href}
-                  className={`text-sm font-semibold ${isFixed ? "text-[#475569]" : "text-white/75"}`}
+                  className="text-sm font-semibold text-white/75"
                   onClick={() => setMenuOpen(false)}
                 >
                   {item.label}
                 </a>
               ))}
-              <Link href="/sign-in" className={`text-sm font-semibold ${isFixed ? "text-[#475569]" : "text-white/75"}`}>
+              <Link href="/sign-in" className="text-sm font-semibold text-white/75">
                 Se connecter
               </Link>
               <a
@@ -1796,25 +1806,31 @@ function IntegrationsSection() {
             />
             <div className="absolute inset-10 rounded-full bg-[#12C76F]/[0.055]" />
             <motion.div
-              animate={{ y: [0, -8, 0], x: [0, -4, 0] }}
-              transition={{ duration: 6.8, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" as const }}
-              className="absolute left-[58px] top-[46px]"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0"
             >
-              <IntegrationBubble id="whatsapp" />
-            </motion.div>
-            <motion.div
-              animate={{ y: [0, -7, 0], x: [0, 4, 0] }}
-              transition={{ duration: 7.4, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" as const }}
-              className="absolute right-[58px] top-[46px]"
-            >
-              <IntegrationBubble id="gmail" />
-            </motion.div>
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 7, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" as const }}
-              className="absolute bottom-[-8px] left-1/2 -translate-x-1/2"
-            >
-              <IntegrationBubble id="tiktok" />
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
+                className="absolute left-[58px] top-[46px]"
+              >
+                <IntegrationBubble id="whatsapp" />
+              </motion.div>
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
+                className="absolute right-[58px] top-[46px]"
+              >
+                <IntegrationBubble id="gmail" />
+              </motion.div>
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 38, repeat: Infinity, ease: "linear" }}
+                className="absolute bottom-[-8px] left-1/2 -translate-x-1/2"
+              >
+                <IntegrationBubble id="tiktok" />
+              </motion.div>
             </motion.div>
 
             <motion.div
@@ -1842,25 +1858,6 @@ function IntegrationsSection() {
           ))}
         </div>
 
-        <motion.div
-          {...fadeUp}
-          className="mx-auto mt-20 grid w-full max-w-[1320px] gap-0 overflow-hidden rounded-[22px] border border-[#12C76F]/16 bg-white/90 shadow-[0_20px_60px_rgba(15,23,42,0.05)] sm:grid-cols-2 lg:grid-cols-4"
-        >
-          {integrationBenefits.map((benefit, index) => (
-            <div
-              key={benefit.title}
-              className={`p-6 sm:p-7 ${index > 0 ? "border-t border-slate-900/[0.06] sm:border-t-0 lg:border-l" : ""} ${
-                index === 2 ? "sm:border-l-0 lg:border-l" : ""
-              } border-slate-900/[0.06]`}
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAFBF2] text-[#12C76F]">
-                <benefit.icon className="h-6 w-6 stroke-[1.8]" />
-              </div>
-              <h3 className="mt-5 text-[17px] font-semibold tracking-[-0.02em] text-[#07111F]">{benefit.title}</h3>
-              <p className="mt-2 text-[14px] leading-6 text-[#475569]">{benefit.text}</p>
-            </div>
-          ))}
-        </motion.div>
       </div>
     </section>
   );
@@ -1945,22 +1942,349 @@ function IntegrationBubble({
       aria-label={id}
     >
       {id === "whatsapp" && (
-        <div className={`flex items-center justify-center rounded-full bg-[#25D366] text-white ${compact ? "h-9 w-9" : "h-14 w-14"}`}>
-          <MessageCircle className={compact ? "h-5 w-5" : "h-8 w-8"} />
-        </div>
+        <svg viewBox="0 0 64 64" className={compact ? "h-10 w-10" : "h-14 w-14"} aria-hidden="true">
+          <circle cx="32" cy="32" r="30" fill="#25D366" />
+          <path
+            d="M20.4 45.5l1.8-6.7A13.9 13.9 0 1134.1 46c-2.3 0-4.5-.6-6.5-1.6l-7.2 1.1z"
+            fill="#fff"
+          />
+          <path
+            d="M28.2 23.9c-.3-.8-.7-.8-1.1-.8h-.9c-.3 0-.8.1-1.2.6-.4.5-1.6 1.6-1.6 3.8s1.7 4.4 1.9 4.7c.2.3 3.2 5.1 8 6.9 4 1.6 4.8 1.3 5.7 1.2.9-.1 2.8-1.1 3.2-2.3.4-1.1.4-2.1.3-2.3-.1-.2-.4-.3-.9-.6l-3.1-1.5c-.5-.2-.8-.3-1.1.3-.3.5-1.2 1.5-1.5 1.8-.3.3-.6.3-1.1.1-.5-.2-2.1-.8-4-2.5-1.5-1.3-2.5-3-2.8-3.5-.3-.5 0-.8.2-1 .2-.2.5-.6.8-.9.3-.3.4-.5.6-.9.2-.3.1-.7 0-1-.1-.2-1.1-2.8-1.4-3.7z"
+            fill="#25D366"
+          />
+        </svg>
       )}
       {id === "gmail" && (
-        <div className={`relative flex items-center justify-center rounded-2xl bg-white ${compact ? "h-10 w-10" : "h-14 w-14"}`}>
-          <Mail className={`${compact ? "h-8 w-8" : "h-11 w-11"} text-[#EA4335]`} />
-          <span className="absolute bottom-2 left-1/2 h-1 w-5 -translate-x-1/2 rounded-full bg-[#34A853]" />
-        </div>
+        <svg viewBox="0 0 64 64" className={compact ? "h-10 w-10" : "h-14 w-14"} aria-hidden="true">
+          <rect x="8" y="14" width="48" height="36" rx="6" fill="#fff" />
+          <path d="M14 18l18 15 18-15v8L32 41 14 26z" fill="#EA4335" />
+          <path d="M14 26v20H8V20z" fill="#C5221F" />
+          <path d="M50 26v20h6V20z" fill="#34A853" />
+          <path d="M14 18l18 15 18-15h-8L32 26 22 18z" fill="#FBBC04" />
+          <path d="M8 20l6 6v20H8z" fill="#4285F4" />
+        </svg>
       )}
       {id === "tiktok" && (
-        <div className={`relative flex items-center justify-center rounded-full bg-[#07111F] text-white ${compact ? "h-10 w-10" : "h-14 w-14"}`}>
-          <span className={`${compact ? "text-2xl" : "text-4xl"} font-black leading-none text-white`}>♪</span>
-          <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#25F4EE]" />
-          <span className="absolute bottom-3 left-3 h-2 w-2 rounded-full bg-[#FE2C55]" />
+        <svg viewBox="0 0 64 64" className={compact ? "h-10 w-10" : "h-14 w-14"} aria-hidden="true">
+          <circle cx="32" cy="32" r="30" fill="#050505" />
+          <path d="M36 17c1 6 4.5 9.5 10 10v7c-3.8 0-7.1-1.1-10-3.3v12.1c0 7.1-5.4 12.2-12.2 12.2-6.4 0-11.8-4.9-11.8-11.5 0-7.2 6.1-12.2 13.5-11.2v7.1c-3.1-1-6.2.8-6.2 4.1 0 2.7 2.1 4.4 4.6 4.4 2.7 0 4.7-1.9 4.7-5V17z" fill="#25F4EE" />
+          <path d="M39 17c1 6 4.5 9.5 10 10v7c-3.8 0-7.1-1.1-10-3.3v12.1c0 7.1-5.4 12.2-12.2 12.2-4.7 0-8.9-2.7-10.7-6.7 2.1 1.7 4.7 2.7 7.7 2.7 6.8 0 12.2-5.1 12.2-12.2V26.7c2.9 2.2 6.2 3.3 10 3.3v-3c-3.9-.9-6.6-3.2-8-7z" fill="#FE2C55" opacity=".9" />
+          <path d="M36 17c1 6 4.5 9.5 10 10v4c-3.8 0-7.1-1.1-10-3.3v12.1c0 7.1-5.4 12.2-12.2 12.2-6.4 0-11.8-4.9-11.8-11.5 0-7.2 6.1-12.2 13.5-11.2v4.1c-3.1-1-6.2.8-6.2 4.1 0 2.7 2.1 4.4 4.6 4.4 2.7 0 4.7-1.9 4.7-5V17z" fill="#fff" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function FeaturesSection() {
+  const [activeFeature, setActiveFeature] = useState(0);
+  const [carouselPaused, setCarouselPaused] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(1440);
+  const visibleCards = viewportWidth >= 1280 ? 5 : viewportWidth >= 640 ? 3 : 1;
+  const maxFeatureIndex = Math.max(0, featureCards.length - visibleCards);
+  const carouselStep =
+    viewportWidth >= 1280
+      ? "(100% - 104px) / 5 + 26px"
+      : viewportWidth >= 640
+        ? "(100% - 52px) / 3 + 26px"
+        : "100% + 26px";
+
+  useEffect(() => {
+    const updateViewport = () => setViewportWidth(window.innerWidth);
+
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    setActiveFeature((index) => Math.min(index, maxFeatureIndex));
+  }, [maxFeatureIndex]);
+
+  useEffect(() => {
+    if (carouselPaused) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveFeature((index) => (maxFeatureIndex === 0 ? 0 : (index + 1) % (maxFeatureIndex + 1)));
+    }, 6000);
+
+    return () => window.clearInterval(interval);
+  }, [carouselPaused, maxFeatureIndex]);
+
+  const goToFeature = (index: number) => {
+    if (maxFeatureIndex === 0) {
+      setActiveFeature(0);
+      return;
+    }
+
+    setActiveFeature(Math.min(Math.max(index, 0), maxFeatureIndex));
+  };
+
+  return (
+    <section id="features" className="relative overflow-hidden bg-white px-5 py-24 text-[#07111F] sm:px-8 lg:px-10 xl:py-[140px]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-24 h-[560px] w-[920px] -translate-x-1/2 rounded-full bg-slate-100/70 blur-[110px]" />
+        <div className="absolute right-[-120px] top-44 h-[460px] w-[520px] rounded-full bg-[#12C76F]/[0.035] blur-[100px]" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1440px]">
+        <motion.div {...fadeUp} className="mx-auto max-w-[1320px]">
+          <div className="mb-[42px] h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
+          <div className="text-center">
+            <h2 className="text-[38px] font-extrabold leading-[1.08] tracking-[-0.04em] text-[#07111F] sm:text-[56px] xl:text-[68px]">
+              Toutes les fonctionnalités pour
+              <br />
+              <span className="text-[#12C76F]">piloter votre agence cargo.</span>
+            </h2>
+            <p className="mx-auto mt-6 max-w-[780px] text-[18px] font-normal leading-[1.7] tracking-[-0.01em] text-[#667085] sm:text-[22px]">
+              SLAIVIO regroupe tous les outils dont vous avez besoin pour gérer efficacement
+              vos opérations, vos équipes et vos clients.
+            </p>
+            <div className="mx-auto mt-7 h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
+          </div>
+        </motion.div>
+
+        <div
+          className="relative mt-14"
+          onMouseEnter={() => setCarouselPaused(true)}
+          onMouseLeave={() => setCarouselPaused(false)}
+        >
+          <button
+            type="button"
+            onClick={() => goToFeature(activeFeature - 1)}
+            className="absolute left-0 top-1/2 z-10 hidden h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition hover:bg-[#12C76F] hover:text-white xl:flex"
+            aria-label="Fonctionnalité précédente"
+          >
+            <ArrowRight className="h-5 w-5 rotate-180" />
+          </button>
+          <button
+            type="button"
+            onClick={() => goToFeature(activeFeature + 1)}
+            className="absolute right-0 top-1/2 z-10 hidden h-[58px] w-[58px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.06] bg-white text-[#12C76F] shadow-[0_20px_60px_rgba(15,23,42,0.08)] transition hover:bg-[#12C76F] hover:text-white xl:flex"
+            aria-label="Fonctionnalité suivante"
+          >
+            <ArrowRight className="h-5 w-5" />
+          </button>
+
+          <div className="overflow-hidden px-1 py-4">
+            <motion.div
+              className="flex gap-[26px]"
+              animate={{ x: `calc(-${activeFeature} * (${carouselStep}))` }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {featureCards.map((feature, index) => (
+                <motion.article
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 28 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-80px" }}
+                  transition={{ duration: 0.55, delay: index * 0.1 }}
+                  className="group h-[540px] min-w-full overflow-hidden rounded-[24px] border border-slate-900/[0.06] bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-2 hover:shadow-[0_28px_76px_rgba(15,23,42,0.12)] sm:min-w-[calc((100%-52px)/3)] xl:min-w-[calc((100%-104px)/5)]"
+                >
+                  <FeatureMockup variant={feature.variant} />
+                  <div className="p-6">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
+                      <feature.icon className="h-7 w-7 stroke-[1.8]" />
+                    </div>
+                    <h3 className="mt-5 text-[20px] font-bold tracking-[-0.03em] text-[#07111F]">{feature.title}</h3>
+                    <p className="mt-3 text-[15px] leading-7 text-[#475569]">{feature.text}</p>
+                  </div>
+                </motion.article>
+              ))}
+            </motion.div>
+          </div>
+
+          <div className="mt-5 flex items-center justify-center gap-3">
+            {Array.from({ length: Math.max(1, maxFeatureIndex + 1) }).map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => goToFeature(index)}
+                className={`h-2 rounded-full transition-all ${index === activeFeature ? "w-5 bg-[#12C76F]" : "w-2 bg-slate-300"}`}
+                aria-label={`Afficher le groupe ${index + 1}`}
+              />
+            ))}
+          </div>
         </div>
+
+        <motion.div
+          {...fadeUp}
+          className="mx-auto mt-14 grid max-w-[1320px] overflow-hidden rounded-[22px] border border-slate-900/[0.06] bg-white p-0 shadow-[0_18px_55px_rgba(15,23,42,0.045)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+        >
+          {additionalFeatures.map((feature, index) => (
+            <div
+              key={feature.title}
+              className={`p-6 sm:p-7 ${
+                index > 0 ? "border-t border-slate-900/[0.06] sm:border-t-0 sm:border-l" : ""
+              } ${index === 2 ? "lg:border-l" : ""} ${index === 3 ? "lg:border-l xl:border-l" : ""} border-slate-900/[0.06]`}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
+                <feature.icon className="h-6 w-6 stroke-[1.8]" />
+              </div>
+              <h3 className="mt-5 text-[16px] font-bold tracking-[-0.02em] text-[#07111F]">{feature.title}</h3>
+              <p className="mt-3 text-[14px] leading-7 text-[#475569]">{feature.text}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          {...fadeUp}
+          className="mx-auto mt-10 flex min-h-[120px] w-full max-w-[860px] flex-col gap-5 rounded-[22px] border border-slate-900/[0.06] bg-[#FBFCFC] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)] sm:p-6 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <span className="hidden h-8 w-7 bg-[linear-gradient(90deg,transparent_0_12%,#12C76F_12%_20%,transparent_20%_36%,#12C76F_36%_44%,transparent_44%_60%,#12C76F_60%_68%,transparent_68%)] opacity-75 sm:block" />
+              <motion.span
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" as const }}
+                className="flex h-[62px] w-[62px] items-center justify-center rounded-full bg-white text-[#12C76F] shadow-[0_16px_36px_rgba(15,23,42,0.12)]"
+              >
+                <PlayCircle className="h-8 w-8 fill-[#12C76F]/10" />
+              </motion.span>
+              <span className="hidden h-8 w-7 bg-[linear-gradient(90deg,transparent_0_12%,#12C76F_12%_20%,transparent_20%_36%,#12C76F_36%_44%,transparent_44%_60%,#12C76F_60%_68%,transparent_68%)] opacity-75 sm:block" />
+            </div>
+            <div>
+              <h3 className="text-[23px] font-bold tracking-[-0.03em] text-[#07111F] sm:text-[30px]">
+                Découvrez SLAIVIO en action
+              </h3>
+              <p className="mt-2 text-[15px] leading-7 text-[#475569]">
+                Voyez comment SLAIVIO simplifie votre quotidien en quelques minutes.
+              </p>
+            </div>
+          </div>
+          <a
+            href="#watch-demo"
+            className="group inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl px-5 text-[16px] font-bold text-[#0BAA5D] transition duration-300 hover:bg-[#12C76F] hover:text-white lg:w-auto"
+          >
+            Regarder la vidéo
+            <ArrowRight className="h-5 w-5 transition duration-300 group-hover:translate-x-1" />
+          </a>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function FeatureMockup({ variant }: { variant: (typeof featureCards)[number]["variant"] }) {
+  const rows = {
+    clients: ["Jean Kabasela", "Marie Tshibola", "David Mwamba", "Grace Mukendi"],
+    dossiers: ["DOS-2024-1250", "DOS-2024-1249", "DOS-2024-1248", "DOS-2024-1247"],
+    whatsapp: ["Jean Kabasela", "Grace Mukendi", "+237 6 98 76 54 32", "David Mwamba"],
+  };
+
+  return (
+    <div className="h-[300px] border-b border-slate-900/[0.06] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFC_100%)] p-5">
+      {variant === "clients" && (
+        <>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-[#07111F]">Clients</h4>
+            <span className="rounded-lg bg-[#12C76F]/12 px-2.5 py-1 text-[10px] font-bold text-[#0BAA5D]">+ Nouveau client</span>
+          </div>
+          <div className="mt-5 rounded-xl bg-slate-100 px-3 py-2 text-[10px] text-[#667085]">Rechercher un client...</div>
+          <div className="mt-5 space-y-3">
+            {rows.clients.map((name, index) => (
+              <div key={name} className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E8F1ED] text-[11px] font-bold text-[#0BAA5D]">{name[0]}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] font-bold text-[#07111F]">{name}</p>
+                  <p className="text-[9px] text-[#667085]">+243 8{index + 1} 234 5678</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {variant === "dossiers" && (
+        <>
+          <h4 className="text-sm font-bold text-[#07111F]">Dossiers</h4>
+          <div className="mt-5 flex gap-5 text-[10px] font-semibold text-[#475569]">
+            <span className="border-b-2 border-[#12C76F] pb-2 text-[#07111F]">Tous</span>
+            <span>En cours</span>
+            <span>Terminés</span>
+            <span>Archivés</span>
+          </div>
+          <div className="mt-5 space-y-4">
+            {rows.dossiers.map((id, index) => (
+              <div key={id} className="flex items-center gap-3">
+                <Package className={`h-5 w-5 ${index === 2 ? "text-violet-500" : index === 3 ? "text-orange-500" : "text-[#12C76F]"}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] font-bold text-[#07111F]">{id}</p>
+                  <p className="text-[9px] text-[#667085]">{index % 2 ? "Grace Mukendi" : "Jean Kabasela"}</p>
+                </div>
+                <span className="rounded-full bg-[#12C76F]/12 px-2 py-1 text-[9px] font-bold text-[#0BAA5D]">En cours</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {variant === "colis" && (
+        <>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-[#07111F]">Colis</h4>
+            <span className="rounded-lg bg-[#12C76F] px-2.5 py-1 text-[10px] font-bold text-white">+ Nouveau colis</span>
+          </div>
+          <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-center gap-4">
+              <Package className="h-12 w-12 text-orange-400" />
+              <div>
+                <p className="text-[13px] font-bold text-[#07111F]">COL-2024-1246</p>
+                <p className="text-[10px] text-[#667085]">Enregistré le 12 Juin 2024</p>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 text-[10px]">
+              {["12.5 kg", "50x40x30 cm", "Yiwu, Chine", "EXP-2024-1250"].map((item) => (
+                <div key={item} className="rounded-xl bg-white p-3 font-semibold text-[#07111F]">{item}</div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+      {variant === "tracking" && (
+        <>
+          <h4 className="text-sm font-bold text-[#07111F]">Tracking</h4>
+          <div className="mt-5 space-y-4">
+            {["Reçu à l'entrepôt", "Validé", "En transit", "Arrivé à destination", "Livré au client"].map((step, index) => (
+              <div key={step} className="flex items-start gap-3">
+                <span className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full ${index < 4 ? "bg-[#12C76F]" : "bg-slate-200"} text-white`}>
+                  {index < 4 && <Check className="h-3 w-3" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-[#07111F]">{step}</p>
+                  <p className="text-[9px] text-[#667085]">{index < 2 ? "Yiwu, Chine" : index < 4 ? "Guangzhou, Chine" : "Kinshasa, RDC"}</p>
+                </div>
+                <span className="text-[9px] text-[#667085]">{index < 4 ? "12 Juin" : "—"}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {variant === "whatsapp" && (
+        <>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-[#07111F]">WhatsApp Inbox</h4>
+            <IntegrationBubble id="whatsapp" compact />
+          </div>
+          <div className="mt-5 flex gap-5 text-[10px] font-semibold text-[#475569]">
+            <span className="border-b-2 border-[#12C76F] pb-2 text-[#07111F]">Toutes</span>
+            <span>Non lues</span>
+            <span>En attente</span>
+          </div>
+          <div className="mt-5 space-y-4">
+            {rows.whatsapp.map((name, index) => (
+              <div key={name} className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E8F1ED] text-[11px] font-bold text-[#0BAA5D]">{name[0]}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] font-bold text-[#07111F]">{name}</p>
+                  <p className="truncate text-[9px] text-[#667085]">Bonjour, où en est mon colis ?</p>
+                </div>
+                {index < 2 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#12C76F] text-[10px] font-bold text-white">{index + 1}</span>}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

@@ -51,7 +51,7 @@ import { createDemoRequest } from "@/services/landing";
 const navItems = [
   { label: "Fonctionnalités", href: "#features", hasChevron: true },
   { label: "Comment ça marche", href: "#workflow" },
-  { label: "Tarifs", href: "#demo" },
+  { label: "Tarifs", href: "#pricing" },
   { label: "Ressources", href: "#securite", hasChevron: true },
   { label: "Contact", href: "#demo" },
 ];
@@ -318,6 +318,101 @@ const formFields = [
   { name: "monthly_shipments", label: "Volume mensuel", placeholder: "Ex: 200 colis/mois" },
 ];
 
+const pricingPlans: Array<{
+  name: string;
+  description: string;
+  price: string;
+  annualText?: string;
+  discount?: string;
+  icon: LucideIcon;
+  accent?: "green" | "purple";
+  popular?: boolean;
+  highlights: string[];
+  features: string[];
+  cta: string;
+}> = [
+  {
+    name: "Starter",
+    description: "Pour les petites agences qui démarrent",
+    price: "119$",
+    annualText: "Facturé 1,428$/an",
+    discount: "-20%",
+    icon: Send,
+    highlights: ["Jusqu'à 10 bureaux", "500 colis/mois", "Conversations IA illimitées"],
+    features: [
+      "Clients & Dossiers illimités",
+      "Colis & Expéditions",
+      "WhatsApp Inbox",
+      "Relances automatiques",
+      "Tracking",
+      "Support standard",
+    ],
+    cta: "Commencer maintenant",
+  },
+  {
+    name: "Growth",
+    description: "Pour les agences qui accélèrent leurs opérations",
+    price: "299$",
+    annualText: "Facturé annuellement",
+    icon: BarChart3,
+    popular: true,
+    highlights: ["30 bureaux", "2,000 colis/mois", "Conversations IA illimitées"],
+    features: [
+      "Tout Starter +",
+      "Entrepôts multiples",
+      "Tarification avancée",
+      "Rapports",
+      "Gestion utilisateurs",
+      "API",
+      "Support prioritaire",
+    ],
+    cta: "Choisir Growth",
+  },
+  {
+    name: "Enterprise",
+    description: "Pour les groupes cargo multi-pays",
+    price: "799$",
+    annualText: "Facturé annuellement",
+    icon: Building2,
+    highlights: ["Bureaux illimités", "Colis illimités", "Conversations IA"],
+    features: [
+      "Workspace multi-pays",
+      "Gestion avancée rôles",
+      "Fonctions sur mesure",
+      "Support 24/7",
+      "Importation données",
+      "Formation équipe",
+    ],
+    cta: "Passer Enterprise",
+  },
+  {
+    name: "Enterprise",
+    description: "Pour les besoins spécifiques et volumes élevés",
+    price: "Sur devis",
+    icon: ShieldCheck,
+    accent: "purple",
+    highlights: ["Solution personnalisée", "Volume spécifique", "Accompagnement"],
+    features: [
+      "Développements spécifiques",
+      "Intégrations",
+      "Migration",
+      "Account Manager",
+      "Support Premium",
+      "SLA",
+    ],
+    cta: "Nous contacter",
+  },
+];
+
+const includedPlanItems: Array<{ title: string; icon: LucideIcon }> = [
+  { title: "Sécurité", icon: ShieldCheck },
+  { title: "Mises à jour", icon: CheckCircle2 },
+  { title: "Accès web & mobile", icon: Globe2 },
+  { title: "Formation", icon: Users },
+  { title: "Support", icon: MessageCircle },
+  { title: "Sauvegarde", icon: LockKeyhole },
+];
+
 const fadeUp = {
   initial: { opacity: 0, y: 28 },
   whileInView: { opacity: 1, y: 0 },
@@ -384,6 +479,7 @@ export function LandingPageClient() {
       <WatchDemoSection />
       <IntegrationsSection />
       <CoreFeaturesSection />
+      <PricingSection />
       <SecuritySection />
       <DemoSection formStatus={formStatus} onSubmit={submitDemoRequest} />
       <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
@@ -403,8 +499,10 @@ function LandingHeader({
 }) {
   return (
     <header
-      className={`left-0 right-0 top-0 z-50 transition-colors duration-300 ${
-        isFixed ? "fixed bg-[#020807]/88 shadow-[0_16px_44px_rgba(0,0,0,0.18)] backdrop-blur-xl" : "absolute bg-transparent"
+      className={`fixed left-0 right-0 top-0 z-50 transition-[background-color,box-shadow,border-color] duration-300 ${
+        isFixed
+          ? "border-b border-white/[0.08] bg-[#020807]/90 shadow-[0_16px_44px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+          : "border-b border-transparent bg-transparent"
       }`}
     >
       <div
@@ -1750,8 +1848,8 @@ function IntegrationsSection() {
           </p>
         </motion.div>
 
-        <div className="relative mx-auto mt-16 hidden h-[680px] max-w-[1160px] lg:block">
-          <svg aria-hidden="true" viewBox="0 0 1160 600" className="absolute inset-0 h-full w-full">
+        <div className="relative mx-auto mt-16 hidden h-[820px] max-w-[1160px] lg:block">
+          <svg aria-hidden="true" viewBox="0 0 1160 820" className="absolute inset-0 h-full w-full">
             <motion.path
               d="M348 176 C420 152 455 176 505 226"
               fill="none"
@@ -1779,7 +1877,7 @@ function IntegrationsSection() {
               transition={{ duration: 1.2, delay: 0.1, ease: "easeOut" as const }}
             />
             <motion.path
-              d="M580 478 C580 418 580 390 580 340"
+              d="M580 692 C580 560 580 432 580 340"
               fill="none"
               stroke="#12C76F"
               strokeDasharray="6 6"
@@ -2381,6 +2479,241 @@ function IntegrationBubble({
         </svg>
       )}
     </div>
+  );
+}
+
+function PricingSection() {
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
+
+  return (
+    <section
+      id="pricing"
+      className="relative overflow-hidden bg-[#05080D] px-5 py-20 text-white sm:px-8 lg:px-10 xl:py-[140px]"
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_center,rgba(18,199,111,.08),transparent_45%)]" />
+        <div className="absolute left-[-12%] top-[22%] h-[520px] w-[520px] rounded-full bg-[#12C76F]/[0.045] blur-[115px]" />
+        <div className="absolute bottom-[-18%] right-[-8%] h-[620px] w-[620px] rounded-full bg-emerald-900/[0.18] blur-[130px]" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1440px]">
+        <motion.div {...fadeUp} className="mx-auto max-w-[980px] text-center">
+          <div className="mx-auto mb-8 h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
+          <h2 className="mx-auto max-w-[1040px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.035em] text-white sm:text-[46px] lg:text-[58px] xl:text-[68px]">
+            Choisissez le plan adapté
+            <br />
+            à la taille de <span className="text-[#12C76F]">votre agence.</span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-[760px] text-[16px] leading-[1.7] text-white/70 sm:text-[19px] lg:text-[22px]">
+            Tous nos plans incluent les outils essentiels pour gérer votre activité
+            et faire grandir votre agence cargo.
+          </p>
+
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="relative inline-flex rounded-full border border-white/[0.08] bg-white/[0.06] p-1">
+              {(["monthly", "annual"] as const).map((cycle) => (
+                <button
+                  key={cycle}
+                  type="button"
+                  onClick={() => setBillingCycle(cycle)}
+                  className={`relative z-10 h-11 rounded-full px-6 text-sm font-bold transition duration-250 ${
+                    billingCycle === cycle ? "bg-[#12C76F] text-white" : "text-white/62 hover:text-white"
+                  }`}
+                >
+                  {cycle === "monthly" ? "Mensuel" : "Annuel"}
+                </button>
+              ))}
+            </div>
+            <span className="rounded-full border border-[#12C76F]/15 bg-[#12C76F]/10 px-4 py-2 text-sm font-bold text-[#12C76F]">
+              Economisez jusqu&apos;à 20%
+            </span>
+          </div>
+        </motion.div>
+
+        <div className="mt-14 grid gap-6 lg:grid-cols-2 2xl:grid-cols-4">
+          {pricingPlans.map((plan, index) => (
+            <PricingCard key={`${plan.name}-${index}`} plan={plan} index={index} />
+          ))}
+        </div>
+
+        <motion.div
+          {...fadeUp}
+          className="mt-10 grid overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D1219] shadow-[0_25px_70px_rgba(0,0,0,.30)] sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
+        >
+          <div className="p-6 xl:p-7">
+            <p className="text-[22px] font-extrabold leading-tight tracking-[-0.035em] text-white">
+              Inclus dans
+              <br />
+              <span className="text-[#12C76F]">tous nos plans</span>
+            </p>
+          </div>
+          {includedPlanItems.map((item, index) => (
+            <div
+              key={item.title}
+              className={`flex items-center gap-3 border-t border-white/[0.06] p-6 sm:border-l sm:border-t-0 xl:p-7 ${
+                index === 0 ? "sm:border-l" : ""
+              }`}
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#12C76F]/10 text-[#12C76F]">
+                <item.icon className="h-6 w-6 stroke-[1.8]" />
+              </span>
+              <span className="text-[15px] font-bold text-white/86">{item.title}</span>
+            </div>
+          ))}
+        </motion.div>
+
+        <motion.div
+          {...fadeUp}
+          className="mt-10 grid overflow-hidden rounded-[28px] border border-white/[0.06] bg-[#0B1117] p-6 shadow-[0_30px_100px_rgba(0,0,0,.36)] lg:grid-cols-[0.95fr_1.05fr] lg:p-11"
+        >
+          <motion.div
+            animate={{ y: [-5, 5, -5] }}
+            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" as const }}
+            className="relative min-h-[320px] overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#05080D] p-5"
+          >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(18,199,111,.16),transparent_36%)]" />
+            <div className="relative mx-auto max-w-[500px] rounded-[24px] border border-white/[0.10] bg-white/[0.06] p-4 shadow-[0_28px_80px_rgba(0,0,0,.45)]">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div className="flex items-center gap-2">
+                  <Image src="/slaivio-icon-official.png" alt="" width={28} height={28} className="h-7 w-7 object-contain" />
+                  <span className="text-sm font-extrabold">Slaivio</span>
+                </div>
+                <div className="h-8 w-28 rounded-full bg-white/[0.08]" />
+              </div>
+              <div className="mt-5 grid grid-cols-3 gap-3">
+                {["Clients", "Colis", "Revenus"].map((item, itemIndex) => (
+                  <div key={item} className="rounded-2xl border border-white/[0.08] bg-white/[0.045] p-3">
+                    <p className="text-[10px] text-white/45">{item}</p>
+                    <p className="mt-2 text-lg font-extrabold text-white">{["1,248", "2,453", "$24k"][itemIndex]}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-4">
+                <div className="mb-4 h-3 w-40 rounded-full bg-white/[0.10]" />
+                {[0, 1, 2, 3].map((item) => (
+                  <div key={item} className="mb-3 grid grid-cols-[1fr_0.8fr_0.55fr] gap-3">
+                    <div className="h-3 rounded-full bg-white/[0.10]" />
+                    <div className="h-3 rounded-full bg-white/[0.08]" />
+                    <div className="h-3 rounded-full bg-[#12C76F]/40" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="absolute bottom-6 right-6 w-[170px] rounded-[28px] border border-white/[0.12] bg-[#0D1219] p-4 shadow-[0_24px_70px_rgba(0,0,0,.42)]">
+              <div className="mx-auto h-1 w-10 rounded-full bg-white/18" />
+              <div className="mt-5 space-y-3">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className="h-9 rounded-xl bg-white/[0.07]" />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="flex flex-col justify-center pt-8 lg:pl-12 lg:pt-0">
+            <h3 className="max-w-[620px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.04em] text-white sm:text-[46px] xl:text-[56px]">
+              Prêt à <span className="text-[#12C76F]">transformer</span> votre agence cargo ?
+            </h3>
+            <p className="mt-6 max-w-[620px] text-[17px] leading-8 text-white/66 sm:text-[20px]">
+              Rejoignez des centaines d&apos;agences qui gagnent déjà du temps,
+              réduisent les erreurs et développent leur activité.
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function PricingCard({
+  plan,
+  index,
+}: {
+  plan: (typeof pricingPlans)[number];
+  index: number;
+}) {
+  const isPurple = plan.accent === "purple";
+  const accentColor = isPurple ? "#A855F7" : "#12C76F";
+  const Icon = plan.icon;
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.58, delay: index * 0.12, ease: "easeOut" as const }}
+      whileHover={{ y: -8 }}
+      className={`relative flex min-h-[660px] flex-col rounded-[24px] border bg-[#0D1219] p-6 shadow-[0_25px_70px_rgba(0,0,0,.45)] transition duration-300 ${
+        plan.popular
+          ? "border-[#12C76F]/70 shadow-[0_25px_90px_rgba(18,199,111,.16)]"
+          : isPurple
+            ? "border-white/[0.08] hover:border-[#A855F7]/70"
+            : "border-white/[0.08] hover:border-[#12C76F]/70"
+      }`}
+    >
+      {plan.popular && (
+        <span className="absolute right-5 top-5 rounded-full bg-[#12C76F] px-3 py-1.5 text-xs font-extrabold text-white">
+          Le plus populaire
+        </span>
+      )}
+
+      <div
+        className="flex h-14 w-14 items-center justify-center rounded-2xl"
+        style={{ backgroundColor: isPurple ? "rgba(168,85,247,.12)" : "rgba(18,199,111,.10)", color: accentColor }}
+      >
+        <Icon className="h-7 w-7 stroke-[1.8]" />
+      </div>
+
+      <h3 className="mt-6 text-[28px] font-extrabold tracking-[-0.04em] text-white">{plan.name}</h3>
+      <p className="mt-3 min-h-[52px] text-[15px] leading-7 text-white/58">{plan.description}</p>
+
+      <div className="mt-6 flex items-end gap-2">
+        <span className={`text-[46px] font-extrabold leading-none tracking-[-0.05em] text-white ${plan.price === "Sur devis" ? "text-[38px]" : "sm:text-[58px]"}`}>
+          {plan.price}
+        </span>
+        {plan.price !== "Sur devis" && <span className="pb-2 text-[17px] font-semibold text-white/52">/mois</span>}
+      </div>
+      <div className="mt-3 flex min-h-[26px] items-center gap-2">
+        {plan.annualText && <p className="text-sm text-white/42">{plan.annualText}</p>}
+        {plan.discount && <span className="rounded-full bg-[#12C76F]/14 px-2 py-1 text-xs font-extrabold text-[#12C76F]">{plan.discount}</span>}
+      </div>
+
+      <div
+        className="mt-6 rounded-[18px] border p-4"
+        style={{
+          borderColor: isPurple ? "rgba(168,85,247,.18)" : "rgba(18,199,111,.18)",
+          backgroundColor: isPurple ? "rgba(168,85,247,.10)" : "rgba(18,199,111,.10)",
+        }}
+      >
+        {plan.highlights.map((item) => (
+          <div key={item} className="flex items-center gap-3 py-1.5 text-[15px] font-bold text-white">
+            <Check className="h-4 w-4 shrink-0" style={{ color: accentColor }} />
+            {item}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {plan.features.map((feature) => (
+          <div key={feature} className="flex items-start gap-3 text-[15px] leading-6 text-white/86 xl:text-[17px]">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#12C76F]" />
+            <span>{feature}</span>
+          </div>
+        ))}
+      </div>
+
+      <a
+        href="#demo"
+        className={`mt-auto inline-flex h-[52px] items-center justify-center rounded-2xl px-5 text-[15px] font-extrabold transition duration-300 hover:scale-[1.03] ${
+          plan.popular
+            ? "bg-[#12C76F] text-white shadow-[0_0_34px_rgba(18,199,111,.24)] hover:bg-[#18d87b]"
+            : isPurple
+              ? "border border-[#A855F7]/50 text-[#C084FC] hover:bg-[#A855F7] hover:text-white"
+              : "border border-[#12C76F]/50 text-[#12C76F] hover:bg-[#12C76F] hover:text-white"
+        }`}
+      >
+        {plan.cta}
+      </a>
+    </motion.article>
   );
 }
 

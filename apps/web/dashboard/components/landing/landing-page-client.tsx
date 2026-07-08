@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -52,8 +52,7 @@ const navItems = [
   { label: "Fonctionnalités", href: "#features", hasChevron: true },
   { label: "Comment ça marche", href: "#workflow" },
   { label: "Tarifs", href: "#pricing" },
-  { label: "Ressources", href: "#securite", hasChevron: true },
-  { label: "Contact", href: "#demo" },
+  { label: "Ressources", href: "#faq", hasChevron: true },
 ];
 
 const heroTitlePhrases = [
@@ -108,37 +107,37 @@ const processCards: Array<{
 }> = [
   {
     title: "WhatsApp connecté",
-    text: "Toutes vos conversations centralisées au même endroit.",
+    text: "Les messages clients arrivent dans une inbox partagée, reliée aux dossiers et visible par toute l'équipe.",
     icon: MessageCircle,
     side: "left",
   },
   {
     title: "Suivi en temps réel",
-    text: "Suivez chaque colis et chaque expédition en temps réel.",
+    text: "Chaque colis garde son historique: entrepôt, expédition, transit, arrivée et livraison finale.",
     icon: Package,
     side: "left",
   },
   {
     title: "Notifications automatiques",
-    text: "Informez vos clients sans effort à chaque étape importante.",
+    text: "SLAIVIO prévient les clients au bon moment, sans que vos agents répètent les mêmes messages.",
     icon: Bell,
     side: "left",
   },
   {
     title: "Documents centralisés",
-    text: "Factures, BL, déclarations... tout est organisé.",
+    text: "Factures, BL, déclarations et pièces clients restent attachés au bon dossier, sans recherche manuelle.",
     icon: FileText,
     side: "right",
   },
   {
     title: "Rapports intelligents",
-    text: "Analysez votre activité et prenez de meilleures décisions.",
+    text: "Vous voyez les revenus, volumes, routes fortes et retards pour décider avec des données claires.",
     icon: BarChart3,
     side: "right",
   },
   {
     title: "Données sécurisées",
-    text: "Vos données et celles de vos clients sont 100% sécurisées.",
+    text: "Les accès, rôles et informations sensibles sont structurés pour protéger chaque bureau et chaque équipe.",
     icon: LockKeyhole,
     side: "right",
   },
@@ -211,37 +210,73 @@ const coreFeatures: Array<{
   title: string;
   text: string;
   icon: LucideIcon;
-  screen: "clients" | "dossiers" | "colis" | "tracking" | "whatsapp";
+  screen: "clients" | "dossiers" | "colis" | "tracking" | "whatsapp" | "warehouse" | "routes" | "pricing" | "payments" | "reports" | "security";
 }> = [
   {
     title: "Gestion des clients",
-    text: "Centralisez tous vos clients et leurs informations en un seul endroit.",
+    text: "Regroupez les coordonnées, historiques WhatsApp, dossiers, colis, paiements et préférences de chaque client. Vos agents savent immédiatement qui est le client, ce qu'il attend et quelles opérations sont en cours.",
     icon: Users,
     screen: "clients",
   },
   {
     title: "Gestion des dossiers",
-    text: "Chaque opération est organisée dans un dossier complet et traçable.",
+    text: "Chaque demande devient un dossier clair avec devis, colis, documents, route, statut et historique. Vous évitez les informations dispersées entre Excel, WhatsApp et carnets papier.",
     icon: ClipboardList,
     screen: "dossiers",
   },
   {
     title: "Gestion des colis",
-    text: "Enregistrez, suivez et gérez tous vos colis de l'entrepôt jusqu'à la livraison.",
+    text: "Enregistrez poids, dimensions, photos, entrepôt, propriétaire et statut. Les équipes retrouvent rapidement un colis et peuvent expliquer au client exactement où il se trouve.",
     icon: Package,
     screen: "colis",
   },
   {
     title: "Suivi en temps réel",
-    text: "Suivez chaque étape des expéditions avec des mises à jour automatiques.",
+    text: "Visualisez chaque étape: reçu à l'entrepôt, validé, en transit, arrivé, livré. Les mises à jour réduisent les appels répétitifs et renforcent la confiance client.",
     icon: CheckCircle2,
     screen: "tracking",
   },
   {
     title: "WhatsApp centralisé",
-    text: "Toutes vos conversations WhatsApp dans une inbox unique.",
+    text: "Toutes les conversations WhatsApp Business arrivent dans une inbox d'équipe. Assignez les demandes, reliez les messages aux dossiers et évitez qu'un client reste sans réponse.",
     icon: MessageCircle,
     screen: "whatsapp",
+  },
+  {
+    title: "Entrepôts & Bureaux",
+    text: "Pilotez plusieurs bureaux, entrepôts et équipes dans différents pays. Chaque site garde ses opérations, tout en remontant une vision globale à la direction.",
+    icon: Warehouse,
+    screen: "warehouse",
+  },
+  {
+    title: "Routes & Services",
+    text: "Configurez vos routes Chine, Dubaï, Turquie, Inde ou locales avec les services Air Cargo, Sea Cargo, Express et Groupage. Vos équipes appliquent les mêmes règles partout.",
+    icon: Route,
+    screen: "routes",
+  },
+  {
+    title: "Tarification avancée",
+    text: "Créez des grilles tarifaires par route, poids, CBM, catégorie ou service. Les devis deviennent plus rapides, plus cohérents et moins sujets aux erreurs.",
+    icon: CircleDollarSign,
+    screen: "pricing",
+  },
+  {
+    title: "Paiements & Facturation",
+    text: "Suivez les paiements partiels, soldes, factures et relances. Votre équipe commerciale sait qui a payé, qui doit encore payer et quoi relancer.",
+    icon: CreditCard,
+    screen: "payments",
+  },
+  {
+    title: "Rapports & Analyses",
+    text: "Analysez revenus, volumes, performances par route, retards, services utilisés et activité des bureaux. Vous pilotez votre agence avec des chiffres fiables.",
+    icon: BarChart3,
+    screen: "reports",
+  },
+  {
+    title: "Sécurité & Permissions",
+    text: "Définissez les rôles, permissions et accès par équipe. Les données sensibles restent protégées, même quand votre agence grandit sur plusieurs bureaux.",
+    icon: ShieldCheck,
+    screen: "security",
   },
 ];
 
@@ -292,20 +327,36 @@ const securityItems = [
 
 const faqItems = [
   [
-    "SLAIVIO remplace-t-il WhatsApp ?",
-    "Non. Vos clients continuent à parler sur WhatsApp. SLAIVIO devient la couche de pilotage pour votre équipe.",
+    "Qu'est-ce que Slaivio ?",
+    "Slaivio est une plateforme tout-en-un conçue pour les agences cargo. Elle centralise la gestion des clients, dossiers, expéditions, paiements et communications afin d'automatiser les opérations et améliorer la productivité.",
   ],
   [
-    "Une agence doit-elle connaître Meta Developer ?",
-    "Non. L'agence clique sur Connecter WhatsApp. La complexité Meta reste côté plateforme.",
+    "Quels sont les bénéfices de Slaivio pour mon agence ?",
+    "Vous réduisez les tâches manuelles, centralisez WhatsApp, suivez les expéditions en temps réel, automatisez les relances et obtenez une meilleure visibilité sur votre activité.",
   ],
   [
-    "Puis-je commencer sans automatisation complète ?",
-    "Oui. Vous pouvez d'abord centraliser l'inbox et les dossiers, puis activer progressivement les workflows.",
+    "Mes données sont-elles sécurisées ?",
+    "Oui. Toutes les données sont chiffrées, sauvegardées automatiquement et hébergées sur une infrastructure cloud sécurisée avec des contrôles d'accès avancés.",
   ],
   [
-    "Est-ce adapté aux agences multi-pays ?",
-    "Oui. SLAIVIO est pensé pour gérer plusieurs bureaux, routes, WABA, numéros et équipes.",
+    "Puis-je intégrer Slaivio avec mes outils actuels ?",
+    "Oui. Slaivio s'intègre progressivement avec WhatsApp Business, Gmail, TikTok ainsi que d'autres services professionnels.",
+  ],
+  [
+    "Slaivio convient-il aux petites agences ?",
+    "Oui. Les offres Starter sont spécialement conçues pour accompagner les petites agences avant de grandir vers Growth et Enterprise.",
+  ],
+  [
+    "Dans quels pays Slaivio est-il disponible ?",
+    "Slaivio est conçu pour les agences cargo opérant en Afrique ainsi que leurs partenaires internationaux.",
+  ],
+  [
+    "Quels moyens de paiement acceptez-vous ?",
+    "Les abonnements peuvent être réglés par carte bancaire internationale. D'autres moyens de paiement seront progressivement disponibles selon les pays.",
+  ],
+  [
+    "Comment puis-je obtenir de l'aide en cas de besoin ?",
+    "Notre équipe support est disponible pour accompagner chaque client pendant l'installation, la formation et l'utilisation quotidienne de la plateforme.",
   ],
 ];
 
@@ -426,6 +477,7 @@ export function LandingPageClient() {
   const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [heroPhraseIndex, setHeroPhraseIndex] = useState(0);
   const [headerFixed, setHeaderFixed] = useState(false);
+  const [demoModalOpen, setDemoModalOpen] = useState(false);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -444,6 +496,25 @@ export function LandingPageClient() {
     window.addEventListener("scroll", updateHeader, { passive: true });
 
     return () => window.removeEventListener("scroll", updateHeader);
+  }, []);
+
+  useEffect(() => {
+    const openDemoFromLink = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest('a[href="#demo"]');
+
+      if (!link) {
+        return;
+      }
+
+      event.preventDefault();
+      setFormStatus("idle");
+      setDemoModalOpen(true);
+    };
+
+    document.addEventListener("click", openDemoFromLink);
+
+    return () => document.removeEventListener("click", openDemoFromLink);
   }, []);
 
   async function submitDemoRequest(event: FormEvent<HTMLFormElement>) {
@@ -480,10 +551,14 @@ export function LandingPageClient() {
       <IntegrationsSection />
       <CoreFeaturesSection />
       <PricingSection />
-      <SecuritySection />
-      <DemoSection formStatus={formStatus} onSubmit={submitDemoRequest} />
       <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
       <LandingFooter />
+      <DemoRequestModal
+        open={demoModalOpen}
+        formStatus={formStatus}
+        onClose={() => setDemoModalOpen(false)}
+        onSubmit={submitDemoRequest}
+      />
     </main>
   );
 }
@@ -1159,23 +1234,38 @@ function ProblemSection() {
 }
 
 function WorkflowSection() {
-  const leftCards = processCards.filter((card) => card.side === "left");
-  const rightCards = processCards.filter((card) => card.side === "right");
+  const processPairs = [
+    [processCards[0], processCards[3]],
+    [processCards[1], processCards[4]],
+    [processCards[2], processCards[5]],
+  ];
+  const [activePair, setActivePair] = useState(0);
+  const [leftCard, rightCard] = processPairs[activePair];
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setActivePair((index) => (index + 1) % processPairs.length);
+    }, 5200);
+
+    return () => window.clearInterval(interval);
+  }, [processPairs.length]);
 
   return (
-    <section id="workflow" className="relative overflow-hidden bg-[#F3F6F4] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 lg:py-24">
+    <section id="workflow" className="relative overflow-hidden bg-[#EEF4EF] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 lg:py-24">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#FBFCFB_0%,#F6F7F4_52%,#FFFFFF_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#F6FAF7_0%,#EEF4EF_52%,#F8FAF6_100%)]" />
+        <div
+          className="absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(18,199,111,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(18,199,111,.16) 1px, transparent 1px)",
+            backgroundSize: "46px 46px",
+            maskImage: "radial-gradient(circle at 50% 42%, black, transparent 72%)",
+          }}
+        />
         <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(7,17,13,0.055),rgba(246,247,244,0))]" />
         <div className="absolute left-1/2 top-20 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[#12C76F]/[0.045] blur-[90px]" />
         <div className="absolute bottom-20 left-1/2 h-[420px] w-[760px] -translate-x-1/2 rounded-full bg-[#07111F]/[0.035] blur-[100px]" />
-        <div
-          className="absolute bottom-0 right-0 h-[320px] w-[520px] opacity-[0.10]"
-          style={{
-            backgroundImage: "radial-gradient(circle, rgba(18,199,111,.5) 1px, transparent 1.2px)",
-            backgroundSize: "14px 14px",
-          }}
-        />
       </div>
 
       <div className="relative mx-auto max-w-[1500px]">
@@ -1218,11 +1308,11 @@ function WorkflowSection() {
         </div>
 
         <div className="relative mt-16 lg:mt-20">
-          <div className="relative mx-auto grid max-w-[1460px] gap-6 xl:grid-cols-[250px_minmax(0,980px)_250px] xl:items-center xl:gap-8">
-            <div className="hidden space-y-8 xl:block">
-              {leftCards.map((card, index) => (
-                <ProcessFloatingCard key={card.title} card={card} delay={index * 0.2} align="left" />
-              ))}
+          <div className="relative mx-auto grid max-w-[1500px] gap-6 xl:grid-cols-[280px_minmax(0,1060px)_280px] xl:items-center xl:gap-8">
+            <div className="hidden xl:block">
+              <AnimatePresence mode="wait">
+                <ProcessFloatingCard key={leftCard.title} card={leftCard} align="left" />
+              </AnimatePresence>
             </div>
 
             <motion.div
@@ -1230,17 +1320,17 @@ function WorkflowSection() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.75, ease: "easeOut" as const }}
-              className="relative mx-auto w-full max-w-[980px]"
+              className="relative mx-auto w-full max-w-[1060px]"
             >
-              <div className="absolute -left-10 top-[18%] hidden h-[250px] w-12 border-y border-l border-dashed border-[#12C76F]/28 rounded-l-[40px] xl:block" />
-              <div className="absolute -right-10 top-[18%] hidden h-[250px] w-12 border-y border-r border-dashed border-[#12C76F]/28 rounded-r-[40px] xl:block" />
+              <div className="absolute -left-12 top-1/2 hidden h-px w-12 border-t border-dashed border-[#12C76F]/50 xl:block" />
+              <div className="absolute -right-12 top-1/2 hidden h-px w-12 border-t border-dashed border-[#12C76F]/50 xl:block" />
               <DashboardPreview />
             </motion.div>
 
-            <div className="hidden space-y-8 xl:block">
-              {rightCards.map((card, index) => (
-                <ProcessFloatingCard key={card.title} card={card} delay={0.3 + index * 0.2} align="right" />
-              ))}
+            <div className="hidden xl:block">
+              <AnimatePresence mode="wait">
+                <ProcessFloatingCard key={rightCard.title} card={rightCard} align="right" />
+              </AnimatePresence>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 xl:hidden">
@@ -1257,50 +1347,24 @@ function WorkflowSection() {
 
 function ProcessFloatingCard({
   card,
-  delay,
   align,
 }: {
   card: (typeof processCards)[number];
-  delay: number;
   align: "left" | "right";
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: "-80px" }}
-      animate={{
-        y: [0, align === "left" ? -12 : -9, 0],
-        x: [0, align === "left" ? -5 : 5, 0],
-        rotate: [0, align === "left" ? -0.7 : 0.7, 0],
-      }}
+      initial={{ opacity: 0, y: 22, x: align === "left" ? -24 : 24, scale: 0.96 }}
+      animate={{ opacity: 1, y: [0, -8, 0], x: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -18, x: align === "left" ? -24 : 24, scale: 0.96 }}
       transition={{
-        opacity: { duration: 0.55, delay },
-        scale: { duration: 0.55, delay },
-        y: {
-          duration: align === "left" ? 7.2 : 8,
-          delay,
-          repeat: Infinity,
-          repeatType: "mirror",
-          ease: "easeInOut" as const,
-        },
-        x: {
-          duration: align === "left" ? 7.2 : 8,
-          delay,
-          repeat: Infinity,
-          repeatType: "mirror",
-          ease: "easeInOut" as const,
-        },
-        rotate: {
-          duration: align === "left" ? 7.2 : 8,
-          delay,
-          repeat: Infinity,
-          repeatType: "mirror",
-          ease: "easeInOut" as const,
-        },
+        opacity: { duration: 0.45 },
+        x: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+        scale: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+        y: { duration: 4.8, repeat: Infinity, ease: "easeInOut" as const },
       }}
       whileHover={{ y: -10, scale: 1.025, rotate: 0 }}
-      className={`relative rounded-[18px] border border-slate-900/[0.08] bg-white/95 p-[22px] shadow-[0_24px_60px_rgba(15,23,42,0.10)] backdrop-blur transition ${
+      className={`relative min-h-[180px] rounded-[22px] border border-slate-900/[0.08] bg-white/95 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.10)] backdrop-blur transition ${
         align === "left" ? "text-left" : "text-left"
       }`}
     >
@@ -1315,7 +1379,7 @@ function ProcessFloatingCard({
         </div>
         <div>
           <h3 className="text-[15px] font-semibold tracking-[-0.02em] text-[#07111F]">{card.title}</h3>
-          <p className="mt-2 text-[13px] font-normal leading-6 tracking-[-0.01em] text-[#475569]">{card.text}</p>
+          <p className="mt-3 text-[14px] font-normal leading-7 tracking-[-0.01em] text-[#475569]">{card.text}</p>
         </div>
       </div>
     </motion.div>
@@ -2008,7 +2072,7 @@ function CoreFeaturesSection() {
         </motion.div>
 
         <div
-          className="relative mx-auto mt-14 max-w-[980px]"
+          className="relative mx-auto mt-14 max-w-[1180px]"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
@@ -2029,7 +2093,7 @@ function CoreFeaturesSection() {
             <ChevronRight className="h-6 w-6 stroke-[1.8]" />
           </button>
 
-          <div className="min-h-[620px] sm:min-h-[560px]">
+          <div className="min-h-[700px] sm:min-h-[620px]">
             <AnimatePresence mode="wait">
               <motion.article
                 key={activeCoreFeature.title}
@@ -2037,12 +2101,12 @@ function CoreFeaturesSection() {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: -42, scale: 0.98 }}
                 transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                className="grid overflow-hidden rounded-[28px] border border-slate-900/[0.06] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.10)] lg:grid-cols-[1.1fr_0.9fr]"
+                className="grid overflow-hidden rounded-[32px] border border-slate-900/[0.06] bg-white shadow-[0_28px_90px_rgba(15,23,42,0.11)] lg:min-h-[620px] lg:grid-cols-[1.12fr_0.88fr]"
               >
-                <div className="min-h-[360px] border-b border-slate-900/[0.05] bg-[#FBFCFC] px-5 py-5 lg:border-b-0 lg:border-r lg:px-7 lg:py-7">
+                <div className="min-h-[430px] border-b border-slate-900/[0.05] bg-[#FBFCFC] px-5 py-5 lg:border-b-0 lg:border-r lg:px-8 lg:py-8">
                   <FeatureScreen type={activeCoreFeature.screen} />
                 </div>
-                <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
+                <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-12">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
                     <activeCoreFeature.icon className="h-7 w-7 stroke-[1.8]" />
                   </div>
@@ -2052,7 +2116,7 @@ function CoreFeaturesSection() {
                   <h3 className="mt-3 text-[30px] font-bold leading-tight tracking-[-0.035em] text-[#07111F] sm:text-[38px]">
                     {activeCoreFeature.title}
                   </h3>
-                  <p className="mt-5 text-[16px] leading-8 text-[#475569] sm:text-[18px]">
+                  <p className="mt-5 text-[16px] leading-8 text-[#475569] sm:text-[19px] sm:leading-9">
                     {activeCoreFeature.text}
                   </p>
                 </div>
@@ -2093,62 +2157,6 @@ function CoreFeaturesSection() {
             ))}
           </div>
         </div>
-
-        <motion.div
-          {...fadeUp}
-          className="mx-auto mt-12 grid max-w-[1320px] overflow-hidden rounded-[22px] border border-slate-900/[0.06] bg-white p-0 shadow-[0_18px_52px_rgba(15,23,42,0.035)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
-        >
-          {additionalFeatures.map((feature, index) => (
-            <div
-              key={feature.title}
-              className={`p-[26px] ${
-                index > 0 ? "border-t border-slate-900/[0.06] sm:border-t-0 sm:border-l" : ""
-              } ${index === 2 ? "sm:border-l-0 lg:border-l" : ""} ${index === 3 ? "lg:border-l-0 xl:border-l" : ""} border-slate-900/[0.06]`}
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
-                <feature.icon className="h-6 w-6 stroke-[1.8]" />
-              </div>
-              <h3 className="mt-4 text-[15px] font-bold tracking-[-0.025em] text-[#07111F]">{feature.title}</h3>
-              <p className="mt-3 text-[14px] leading-7 text-[#475569]">{feature.text}</p>
-            </div>
-          ))}
-        </motion.div>
-
-        <motion.div
-          {...fadeUp}
-          className="mx-auto mt-8 flex max-w-[860px] flex-col items-center gap-5 rounded-[22px] border border-slate-900/[0.06] bg-[#FBFCFC] px-6 py-6 shadow-[0_18px_50px_rgba(15,23,42,0.05)] md:h-[120px] md:flex-row md:px-7 md:py-0"
-        >
-          <div className="flex items-center gap-4 text-[#12C76F]">
-            <AudioWave />
-            <motion.button
-              type="button"
-              aria-label="Lire la vidéo"
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" as const }}
-              className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-white text-[#12C76F] shadow-[0_14px_34px_rgba(15,23,42,0.10)]"
-            >
-              <PlayCircle className="h-7 w-7 fill-[#12C76F]/10 stroke-[1.8]" />
-            </motion.button>
-            <AudioWave />
-          </div>
-
-          <div className="min-w-0 flex-1 text-center md:text-left">
-            <h3 className="text-[24px] font-bold tracking-[-0.035em] text-[#07111F] sm:text-[30px]">
-              Découvrez SLAIVIO en action
-            </h3>
-            <p className="mt-1 text-[15px] leading-6 text-[#475569]">
-              Voyez comment SLAIVIO simplifie votre quotidien en quelques minutes.
-            </p>
-          </div>
-
-          <a
-            href="#watch-demo"
-            className="inline-flex h-12 shrink-0 items-center justify-center gap-3 rounded-xl px-5 text-[15px] font-bold text-[#0BAA5D] transition duration-250 hover:bg-[#12C76F] hover:text-white"
-          >
-            Regarder la vidéo
-            <ArrowRight className="h-4 w-4" />
-          </a>
-        </motion.div>
       </div>
     </section>
   );
@@ -2299,6 +2307,10 @@ function FeatureScreen({ type }: { type: (typeof coreFeatures)[number]["screen"]
     );
   }
 
+  if (type !== "whatsapp") {
+    return <GenericFeatureScreen type={type} />;
+  }
+
   return (
     <div className="h-full rounded-[18px] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
       <div className="flex items-center justify-between">
@@ -2335,6 +2347,98 @@ function FeatureScreen({ type }: { type: (typeof coreFeatures)[number]["screen"]
             {badge && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#12C76F] text-[8px] font-bold text-white">{badge}</span>}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function GenericFeatureScreen({
+  type,
+}: {
+  type: Exclude<(typeof coreFeatures)[number]["screen"], "clients" | "dossiers" | "colis" | "tracking" | "whatsapp">;
+}) {
+  const content = {
+    warehouse: {
+      title: "Entrepôts & Bureaux",
+      icon: Warehouse,
+      stats: ["3 pays", "12 bureaux", "8 entrepôts"],
+      rows: ["Kinshasa HQ", "Yiwu Warehouse", "Douala Office", "Abidjan Hub"],
+    },
+    routes: {
+      title: "Routes & Services",
+      icon: Route,
+      stats: ["Air Cargo", "Sea Cargo", "Express"],
+      rows: ["Chine → Kinshasa", "Dubaï → Douala", "Turquie → Abidjan", "Inde → Lubumbashi"],
+    },
+    pricing: {
+      title: "Tarification avancée",
+      icon: CircleDollarSign,
+      stats: ["Poids", "CBM", "Catégorie"],
+      rows: ["Air Cargo: 12.50$/kg", "Sea Cargo: 480$/CBM", "Express: 18.00$/kg", "Groupage: tarif mixte"],
+    },
+    payments: {
+      title: "Paiements & Facturation",
+      icon: CreditCard,
+      stats: ["$24,850", "18 factures", "7 relances"],
+      rows: ["PAY-2024-5421 payé", "PAY-2024-5420 partiel", "INV-2024-1189 envoyé", "Relance Grace Mukendi"],
+    },
+    reports: {
+      title: "Rapports & Analyses",
+      icon: BarChart3,
+      stats: ["+16.3%", "2,453 colis", "320 expéditions"],
+      rows: ["Route la plus rentable", "Volume par service", "Retards par destination", "Performance bureaux"],
+    },
+    security: {
+      title: "Sécurité & Permissions",
+      icon: ShieldCheck,
+      stats: ["Admin", "Manager", "Agent"],
+      rows: ["Accès finances limité", "Dossiers par bureau", "Journal d'activité", "Permissions par rôle"],
+    },
+  }[type];
+  const Icon = content.icon;
+
+  return (
+    <div className="h-full rounded-[20px] bg-white p-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
+            <Icon className="h-6 w-6 stroke-[1.8]" />
+          </div>
+          <div>
+            <p className="text-[15px] font-extrabold tracking-[-0.03em] text-[#07111F]">{content.title}</p>
+            <p className="mt-1 text-[10px] text-[#697386]">Vue opérationnelle</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-[#12C76F]/10 px-3 py-1.5 text-[10px] font-bold text-[#12C76F]">
+          Actif
+        </span>
+      </div>
+
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        {content.stats.map((stat) => (
+          <div key={stat} className="rounded-2xl border border-slate-900/[0.06] bg-[#F8FAFC] p-3">
+            <p className="text-[9px] text-[#697386]">Indicateur</p>
+            <p className="mt-2 truncate text-[13px] font-extrabold text-[#07111F]">{stat}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-slate-900/[0.06] bg-[#FBFCFC] p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="h-3 w-36 rounded-full bg-slate-200" />
+          <div className="h-7 w-20 rounded-full bg-[#12C76F]/12" />
+        </div>
+        <div className="space-y-3">
+          {content.rows.map((row, index) => (
+            <div key={row} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.035)]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ECFDF3] text-[10px] font-bold text-[#12C76F]">
+                {index + 1}
+              </span>
+              <span className="truncate text-[11px] font-bold text-[#07111F]">{row}</span>
+              <Check className="h-4 w-4 text-[#12C76F]" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -2498,7 +2602,6 @@ function PricingSection() {
 
       <div className="relative mx-auto max-w-[1440px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[980px] text-center">
-          <div className="mx-auto mb-8 h-1.5 w-[70px] rounded-full bg-[#12C76F]" />
           <h2 className="mx-auto max-w-[1040px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.035em] text-white sm:text-[46px] lg:text-[58px] xl:text-[68px]">
             Choisissez le plan adapté
             <br />
@@ -2535,90 +2638,6 @@ function PricingSection() {
             <PricingCard key={`${plan.name}-${index}`} plan={plan} index={index} />
           ))}
         </div>
-
-        <motion.div
-          {...fadeUp}
-          className="mt-10 grid overflow-hidden rounded-[24px] border border-white/[0.06] bg-[#0D1219] shadow-[0_25px_70px_rgba(0,0,0,.30)] sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
-        >
-          <div className="p-6 xl:p-7">
-            <p className="text-[22px] font-extrabold leading-tight tracking-[-0.035em] text-white">
-              Inclus dans
-              <br />
-              <span className="text-[#12C76F]">tous nos plans</span>
-            </p>
-          </div>
-          {includedPlanItems.map((item, index) => (
-            <div
-              key={item.title}
-              className={`flex items-center gap-3 border-t border-white/[0.06] p-6 sm:border-l sm:border-t-0 xl:p-7 ${
-                index === 0 ? "sm:border-l" : ""
-              }`}
-            >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#12C76F]/10 text-[#12C76F]">
-                <item.icon className="h-6 w-6 stroke-[1.8]" />
-              </span>
-              <span className="text-[15px] font-bold text-white/86">{item.title}</span>
-            </div>
-          ))}
-        </motion.div>
-
-        <motion.div
-          {...fadeUp}
-          className="mt-10 grid overflow-hidden rounded-[28px] border border-white/[0.06] bg-[#0B1117] p-6 shadow-[0_30px_100px_rgba(0,0,0,.36)] lg:grid-cols-[0.95fr_1.05fr] lg:p-11"
-        >
-          <motion.div
-            animate={{ y: [-5, 5, -5] }}
-            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" as const }}
-            className="relative min-h-[320px] overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#05080D] p-5"
-          >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(18,199,111,.16),transparent_36%)]" />
-            <div className="relative mx-auto max-w-[500px] rounded-[24px] border border-white/[0.10] bg-white/[0.06] p-4 shadow-[0_28px_80px_rgba(0,0,0,.45)]">
-              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-                <div className="flex items-center gap-2">
-                  <Image src="/slaivio-icon-official.png" alt="" width={28} height={28} className="h-7 w-7 object-contain" />
-                  <span className="text-sm font-extrabold">Slaivio</span>
-                </div>
-                <div className="h-8 w-28 rounded-full bg-white/[0.08]" />
-              </div>
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                {["Clients", "Colis", "Revenus"].map((item, itemIndex) => (
-                  <div key={item} className="rounded-2xl border border-white/[0.08] bg-white/[0.045] p-3">
-                    <p className="text-[10px] text-white/45">{item}</p>
-                    <p className="mt-2 text-lg font-extrabold text-white">{["1,248", "2,453", "$24k"][itemIndex]}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.045] p-4">
-                <div className="mb-4 h-3 w-40 rounded-full bg-white/[0.10]" />
-                {[0, 1, 2, 3].map((item) => (
-                  <div key={item} className="mb-3 grid grid-cols-[1fr_0.8fr_0.55fr] gap-3">
-                    <div className="h-3 rounded-full bg-white/[0.10]" />
-                    <div className="h-3 rounded-full bg-white/[0.08]" />
-                    <div className="h-3 rounded-full bg-[#12C76F]/40" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="absolute bottom-6 right-6 w-[170px] rounded-[28px] border border-white/[0.12] bg-[#0D1219] p-4 shadow-[0_24px_70px_rgba(0,0,0,.42)]">
-              <div className="mx-auto h-1 w-10 rounded-full bg-white/18" />
-              <div className="mt-5 space-y-3">
-                {[0, 1, 2].map((item) => (
-                  <div key={item} className="h-9 rounded-xl bg-white/[0.07]" />
-                ))}
-              </div>
-            </div>
-          </motion.div>
-
-          <div className="flex flex-col justify-center pt-8 lg:pl-12 lg:pt-0">
-            <h3 className="max-w-[620px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.04em] text-white sm:text-[46px] xl:text-[56px]">
-              Prêt à <span className="text-[#12C76F]">transformer</span> votre agence cargo ?
-            </h3>
-            <p className="mt-6 max-w-[620px] text-[17px] leading-8 text-white/66 sm:text-[20px]">
-              Rejoignez des centaines d&apos;agences qui gagnent déjà du temps,
-              réduisent les erreurs et développent leur activité.
-            </p>
-          </div>
-        </motion.div>
       </div>
     </section>
   );
@@ -2827,6 +2846,167 @@ function DemoSection({
   );
 }
 
+function DemoRequestModal({
+  open,
+  formStatus,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  formStatus: "idle" | "loading" | "success" | "error";
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onClose]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[#020807]/75 px-4 py-6 backdrop-blur-xl"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onMouseDown={onClose}
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="demo-modal-title"
+            initial={{ opacity: 0, y: 26, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.96 }}
+            transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="relative max-h-[92vh] w-full max-w-[860px] overflow-y-auto rounded-[32px] border border-white/[0.10] bg-[#07110D] p-5 text-white shadow-[0_40px_140px_rgba(0,0,0,.55)] sm:p-7"
+          >
+            <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[radial-gradient(circle_at_top_left,rgba(18,199,111,.18),transparent_42%)]" />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fermer"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.12] hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="relative grid gap-7 lg:grid-cols-[0.78fr_1.22fr]">
+              <div className="rounded-[26px] border border-white/[0.08] bg-white/[0.045] p-6">
+                <Image
+                  src="/slaivio-logo-official-dark.png"
+                  alt="Slaivio"
+                  width={170}
+                  height={64}
+                  className="h-auto w-[156px] object-contain"
+                />
+                <h2 id="demo-modal-title" className="mt-8 text-[32px] font-extrabold leading-tight tracking-[-0.04em]">
+                  Demander une démo personnalisée
+                </h2>
+                <p className="mt-4 text-[16px] leading-7 text-white/62">
+                  Partagez quelques informations sur votre agence. Notre équipe vous contactera avec une présentation adaptée à vos opérations.
+                </p>
+                <div className="mt-7 space-y-3 text-sm text-white/70">
+                  {["Analyse de votre flux actuel", "Présentation du dashboard", "Conseils pour démarrer proprement"].map((item) => (
+                    <div key={item} className="flex items-center gap-3">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#12C76F]/14 text-[#12C76F]">
+                        <Check className="h-4 w-4" />
+                      </span>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {formStatus === "success" ? (
+                <div className="flex min-h-[460px] flex-col items-center justify-center rounded-[26px] border border-[#12C76F]/18 bg-[#12C76F]/[0.07] p-7 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#12C76F] text-white shadow-[0_0_40px_rgba(18,199,111,.25)]">
+                    <CheckCircle2 className="h-9 w-9" />
+                  </div>
+                  <h3 className="mt-6 text-[30px] font-extrabold tracking-[-0.04em]">Message envoyé avec succès</h3>
+                  <p className="mt-4 max-w-[460px] text-[16px] leading-7 text-white/66">
+                    Merci. Votre demande de démo a bien été transmise. Notre équipe vous contactera prochainement pour organiser la présentation de SLAIVIO.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-8 inline-flex h-12 items-center justify-center rounded-2xl bg-[#12C76F] px-6 text-sm font-extrabold text-white transition hover:bg-[#18d87b]"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={onSubmit} className="rounded-[26px] border border-white/[0.08] bg-white/[0.045] p-5 sm:p-6">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {formFields.map((field) => (
+                      <label key={field.name} className="block">
+                        <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+                          {field.label}
+                        </span>
+                        <input
+                          name={field.name}
+                          required={field.name === "full_name" || field.name === "email"}
+                          type={field.name === "email" ? "email" : "text"}
+                          placeholder={field.placeholder}
+                          className="mt-2 h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/70"
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <label className="mt-4 block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
+                      Message
+                    </span>
+                    <textarea
+                      name="message"
+                      rows={5}
+                      placeholder="Dites-nous comment votre agence travaille aujourd'hui..."
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/70"
+                    />
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={formStatus === "loading"}
+                    className="mt-5 inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-[#12C76F] px-6 text-sm font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-[#18d87b] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {formStatus === "loading" ? "Envoi en cours..." : "Envoyer la demande"}
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+
+                  {formStatus === "error" && (
+                    <p className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">
+                      Impossible d&apos;envoyer la demande pour le moment. Réessayez dans quelques instants.
+                    </p>
+                  )}
+                </form>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function FaqSection({
   openFaq,
   setOpenFaq,
@@ -2834,77 +3014,247 @@ function FaqSection({
   openFaq: number;
   setOpenFaq: (index: number) => void;
 }) {
+  const handleFaqKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+      return;
+    }
+
+    event.preventDefault();
+    const nextIndex =
+      event.key === "ArrowDown"
+        ? (index + 1) % faqItems.length
+        : index === 0
+          ? faqItems.length - 1
+          : index - 1;
+    const nextButton = document.getElementById(`faq-trigger-${nextIndex}`);
+    nextButton?.focus();
+  };
+
   return (
-    <section className="bg-[#F3F6F4] px-5 py-20 text-[#07111F] lg:px-8">
-      <div className="mx-auto max-w-4xl">
-        <motion.div {...fadeUp} className="text-center">
-          <Pill icon={Globe2}>FAQ</Pill>
-          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-            Les questions avant une vraie mise en production.
+    <section id="faq" className="relative overflow-hidden bg-[#F8FAF7] px-5 py-24 text-[#0F172A] sm:px-8 lg:px-10 xl:py-[150px]">
+      <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute inset-0 opacity-[0.16]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(18,199,111,.20) 1px, transparent 1.2px), radial-gradient(circle, rgba(15,23,42,.08) 1px, transparent 1.2px)",
+            backgroundPosition: "0 0, 18px 18px",
+            backgroundSize: "36px 36px",
+            maskImage: "linear-gradient(180deg, transparent 0%, black 18%, black 78%, transparent 100%)",
+          }}
+        />
+        <div className="absolute left-1/2 top-24 h-[420px] w-[760px] -translate-x-1/2 rounded-full bg-[#12C76F]/[0.045] blur-[105px]" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1320px]">
+        <motion.div {...fadeUp} className="mx-auto max-w-[900px] text-center">
+          <h2 className="text-[42px] font-extrabold leading-[1.04] tracking-[-0.04em] text-[#0F172A] sm:text-[56px] xl:text-[72px]">
+            Questions fréquentes
+            <br />
+            sur <span className="text-[#12C76F]">Slaivio</span>
           </h2>
+          <p className="mx-auto mt-7 max-w-[760px] text-[18px] leading-[1.7] text-[#64748B] sm:text-[20px] xl:text-[22px]">
+            Retrouvez les réponses aux questions les plus courantes sur notre plateforme,
+            ses fonctionnalités et nos services.
+          </p>
         </motion.div>
 
-        <div className="mt-10 space-y-3">
+        <motion.div
+          {...fadeUp}
+          role="region"
+          aria-label="Questions fréquentes"
+          className="mx-auto mt-16 max-w-[980px] overflow-hidden rounded-[26px] border border-[#E7EDF4] bg-white shadow-[0_20px_70px_rgba(15,23,42,.05)] xl:mt-[70px]"
+        >
           {faqItems.map(([question, answer], index) => (
             <motion.div
               key={question}
-              {...fadeUp}
-              transition={{ duration: 0.45, delay: index * 0.04 }}
-              className="overflow-hidden rounded-3xl border border-slate-900/[0.07] bg-white shadow-[0_16px_45px_rgba(15,23,42,0.05)]"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.48, delay: index * 0.08, ease: "easeOut" as const }}
+              className="border-b border-[#EEF2F7] last:border-b-0"
             >
               <button
-                className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left font-bold"
+                id={`faq-trigger-${index}`}
+                type="button"
+                className="flex min-h-[88px] w-full items-center justify-between gap-5 bg-white px-6 text-left transition duration-250 hover:bg-[#FAFCFE] sm:min-h-[94px] sm:px-[38px]"
                 onClick={() => setOpenFaq(openFaq === index ? -1 : index)}
                 aria-expanded={openFaq === index}
+                aria-controls={`faq-panel-${index}`}
+                onKeyDown={(event) => handleFaqKeyDown(event, index)}
               >
-                {question}
-                <ChevronDown className={`h-5 w-5 transition ${openFaq === index ? "rotate-180" : ""}`} />
+                <span className="text-[16px] font-bold leading-6 text-[#0F172A] sm:text-[18px]">{question}</span>
+                <ChevronDown className={`h-[22px] w-[22px] shrink-0 stroke-[2] text-[#0F172A] transition duration-250 ${openFaq === index ? "rotate-180 text-[#12C76F]" : ""}`} />
               </button>
               <AnimatePresence initial={false}>
                 {openFaq === index && (
                   <motion.div
+                    id={`faq-panel-${index}`}
+                    role="region"
+                    aria-labelledby={`faq-trigger-${index}`}
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
                     className="overflow-hidden"
                   >
-                    <p className="px-5 pb-5 text-sm leading-7 text-[#475569]">{answer}</p>
+                    <motion.p
+                      initial={{ y: 8, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: 8, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="w-[90%] px-6 pb-8 text-[16px] leading-[1.8] text-[#475569] sm:px-[38px] sm:pb-[34px] sm:text-[17px]"
+                    >
+                      {answer}
+                    </motion.p>
                   </motion.div>
                 )}
               </AnimatePresence>
             </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );
 }
 
 function LandingFooter() {
+  const footerColumns = [
+    {
+      title: "Produit",
+      links: [
+        ["Fonctionnalités", "#features"],
+        ["Tarification", "#pricing"],
+        ["Intégrations", "#integrations"],
+        ["Mises à jour", "#workflow"],
+        ["Sécurité", "#faq"],
+      ],
+    },
+    {
+      title: "Ressources",
+      links: [
+        ["Blog", "#"],
+        ["Guides", "#"],
+        ["Centre d’aide", "#"],
+        ["FAQ", "#faq"],
+        ["Webinaires", "#"],
+      ],
+    },
+    {
+      title: "Société",
+      links: [
+        ["À propos", "#"],
+        ["Carrières", "#"],
+        ["Partenaires", "#"],
+        ["Contact", "#demo"],
+        ["Presse", "#"],
+      ],
+    },
+    {
+      title: "Légal",
+      links: [
+        ["Conditions d’utilisation", "#"],
+        ["Politique de confidentialité", "#"],
+        ["Politique de cookies", "#"],
+        ["Mentions légales", "#"],
+      ],
+    },
+  ];
+
   return (
-    <footer className="border-t border-white/[0.08] bg-[#020807] px-5 py-10 text-white lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/slaivio-icon-official.png"
-            alt=""
-            width={34}
-            height={34}
-            className="h-8 w-8 object-contain"
-          />
-          <div>
-            <p className="text-lg font-bold tracking-[-0.04em] text-white">Slaivio</p>
-            <p className="text-sm text-white/45">Cargo operations platform</p>
+    <footer className="relative overflow-hidden bg-[#060B10] px-5 py-16 text-white sm:px-8 lg:px-10">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_center,rgba(18,199,111,0.06),transparent_45%)]" />
+      <motion.div {...fadeUp} className="relative mx-auto max-w-[1440px]">
+        <div className="h-px w-full bg-white/[0.14]" />
+
+        <div className="grid gap-12 py-16 lg:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_1fr_1fr] xl:gap-[72px] xl:py-[72px]">
+          <div className="lg:col-span-2 xl:col-span-1">
+            <Image
+              src="/slaivio-logo-official-dark.png"
+              alt="Slaivio"
+              width={210}
+              height={80}
+              className="h-auto w-[190px] object-contain sm:w-[210px]"
+            />
+            <p className="mt-8 max-w-[420px] text-[18px] leading-[1.75] text-white/78 sm:text-[20px]">
+              L’Operating System des Agences Cargo.
+              <br />
+              Centralisez, automatisez et développez
+              <br />
+              votre agence avec une plateforme
+              <br />
+              tout-en-un puissante et simple à utiliser.
+            </p>
+            <div className="mt-10 flex gap-[18px]">
+              <FooterSocial href="https://wa.me/" label="WhatsApp" type="whatsapp" />
+              <FooterSocial href="#" label="LinkedIn" type="linkedin" />
+              <FooterSocial href="#" label="YouTube" type="youtube" />
+              <FooterSocial href="mailto:contact@slaivio.com" label="Email" type="email" />
+            </div>
           </div>
+
+          {footerColumns.map((column) => (
+            <div key={column.title}>
+              <h3 className="text-[20px] font-bold text-[#12C76F]">{column.title}</h3>
+              <div className="mt-8 flex flex-col gap-7">
+                {column.links.map(([label, href]) => (
+                  <a
+                    key={label}
+                    href={href}
+                    className="text-[18px] leading-none text-white/78 transition duration-200 hover:translate-x-1 hover:text-[#12C76F] sm:text-[20px]"
+                  >
+                    {label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="flex flex-wrap gap-5 text-sm text-white/55">
-          <a href="#workflow" className="hover:text-white">Plateforme</a>
-          <a href="#solutions" className="hover:text-white">Solutions</a>
-          <a href="#demo" className="hover:text-white">Démo</a>
-          <Link href="/sign-in" className="hover:text-white">Connexion</Link>
+
+        <div className="h-px w-full bg-white/[0.14]" />
+        <div className="flex flex-col gap-6 pt-10 md:flex-row md:items-center md:justify-between">
+          <p className="text-[16px] text-white/56 sm:text-[18px]">© 2024 Slaivio. Tous droits réservés.</p>
+          <button
+            type="button"
+            className="flex w-fit items-center gap-3 text-[18px] font-semibold text-white md:border-l md:border-white/[0.14] md:pl-12 sm:text-[20px]"
+          >
+            Français
+            <ChevronDown className="h-5 w-5" />
+          </button>
         </div>
-      </div>
+      </motion.div>
     </footer>
+  );
+}
+
+function FooterSocial({
+  href,
+  label,
+  type,
+}: {
+  href: string;
+  label: string;
+  type: "whatsapp" | "linkedin" | "youtube" | "email";
+}) {
+  return (
+    <a
+      href={href}
+      aria-label={label}
+      className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.06] text-[#12C76F] transition duration-200 hover:-translate-y-1 hover:border-[#12C76F]/40 hover:bg-[#12C76F]/14"
+    >
+      {type === "email" && <Mail className="h-6 w-6 stroke-[1.8]" />}
+      {type === "whatsapp" && <MessageCircle className="h-6 w-6 stroke-[1.8]" />}
+      {type === "linkedin" && (
+        <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true" fill="currentColor">
+          <path d="M6.94 8.75H3.56V20h3.38zM5.25 7.2a1.96 1.96 0 100-3.92 1.96 1.96 0 000 3.92zM20.44 20v-6.38c0-3.42-1.82-5.02-4.25-5.02a3.67 3.67 0 00-3.32 1.83h-.05V8.75H9.58V20h3.37v-5.56c0-1.47.28-2.9 2.1-2.9 1.8 0 1.83 1.69 1.83 3V20z" />
+        </svg>
+      )}
+      {type === "youtube" && (
+        <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true" fill="currentColor">
+          <path d="M21.58 7.19a2.75 2.75 0 00-1.94-1.95C17.93 4.78 12 4.78 12 4.78s-5.93 0-7.64.46a2.75 2.75 0 00-1.94 1.95A28.7 28.7 0 002 12a28.7 28.7 0 00.42 4.81 2.75 2.75 0 001.94 1.95c1.71.46 7.64.46 7.64.46s5.93 0 7.64-.46a2.75 2.75 0 001.94-1.95A28.7 28.7 0 0022 12a28.7 28.7 0 00-.42-4.81zM10 15.22V8.78L15.5 12z" />
+        </svg>
+      )}
+    </a>
   );
 }
 

@@ -210,73 +210,92 @@ const coreFeatures: Array<{
   title: string;
   text: string;
   icon: LucideIcon;
+  imageSrc: string;
   screen: "clients" | "dossiers" | "colis" | "tracking" | "whatsapp" | "warehouse" | "routes" | "pricing" | "payments" | "reports" | "security";
 }> = [
+  {
+    title: "Tableau de bord",
+    text: "Suivez les clients actifs, colis en transit, expéditions, revenus, notifications et messages WhatsApp depuis une vue centrale. Le manager comprend l'état de l'agence sans ouvrir dix outils différents.",
+    icon: BarChart3,
+    imageSrc: "/landing/features/dashboard.webp",
+    screen: "reports",
+  },
   {
     title: "Gestion des clients",
     text: "Regroupez les coordonnées, historiques WhatsApp, dossiers, colis, paiements et préférences de chaque client. Vos agents savent immédiatement qui est le client, ce qu'il attend et quelles opérations sont en cours.",
     icon: Users,
+    imageSrc: "/landing/features/clients.webp",
     screen: "clients",
   },
   {
     title: "Gestion des dossiers",
     text: "Chaque demande devient un dossier clair avec devis, colis, documents, route, statut et historique. Vous évitez les informations dispersées entre Excel, WhatsApp et carnets papier.",
     icon: ClipboardList,
+    imageSrc: "/landing/features/dossiers.webp",
     screen: "dossiers",
   },
   {
     title: "Gestion des colis",
     text: "Enregistrez poids, dimensions, photos, entrepôt, propriétaire et statut. Les équipes retrouvent rapidement un colis et peuvent expliquer au client exactement où il se trouve.",
     icon: Package,
+    imageSrc: "/landing/features/colis.webp",
     screen: "colis",
+  },
+  {
+    title: "Expéditions",
+    text: "Organisez les envois par route, service, date de départ, arrivée estimée, progression et statut. Vous voyez quelles expéditions sont en préparation, en transit, arrivées ou déjà livrées.",
+    icon: Truck,
+    imageSrc: "/landing/features/expeditions.webp",
+    screen: "routes",
   },
   {
     title: "Suivi en temps réel",
     text: "Visualisez chaque étape: reçu à l'entrepôt, validé, en transit, arrivé, livré. Les mises à jour réduisent les appels répétitifs et renforcent la confiance client.",
     icon: CheckCircle2,
+    imageSrc: "/landing/features/tracking.webp",
     screen: "tracking",
   },
   {
     title: "WhatsApp centralisé",
     text: "Toutes les conversations WhatsApp Business arrivent dans une inbox d'équipe. Assignez les demandes, reliez les messages aux dossiers et évitez qu'un client reste sans réponse.",
     icon: MessageCircle,
+    imageSrc: "/landing/features/whatsapp.webp",
     screen: "whatsapp",
   },
   {
-    title: "Entrepôts & Bureaux",
-    text: "Pilotez plusieurs bureaux, entrepôts et équipes dans différents pays. Chaque site garde ses opérations, tout en remontant une vision globale à la direction.",
-    icon: Warehouse,
-    screen: "warehouse",
-  },
-  {
-    title: "Routes & Services",
-    text: "Configurez vos routes Chine, Dubaï, Turquie, Inde ou locales avec les services Air Cargo, Sea Cargo, Express et Groupage. Vos équipes appliquent les mêmes règles partout.",
-    icon: Route,
-    screen: "routes",
-  },
-  {
-    title: "Tarification avancée",
-    text: "Créez des grilles tarifaires par route, poids, CBM, catégorie ou service. Les devis deviennent plus rapides, plus cohérents et moins sujets aux erreurs.",
-    icon: CircleDollarSign,
-    screen: "pricing",
-  },
-  {
-    title: "Paiements & Facturation",
+    title: "Paiements",
     text: "Suivez les paiements partiels, soldes, factures et relances. Votre équipe commerciale sait qui a payé, qui doit encore payer et quoi relancer.",
     icon: CreditCard,
+    imageSrc: "/landing/features/paiements.webp",
     screen: "payments",
   },
   {
-    title: "Rapports & Analyses",
-    text: "Analysez revenus, volumes, performances par route, retards, services utilisés et activité des bureaux. Vous pilotez votre agence avec des chiffres fiables.",
-    icon: BarChart3,
-    screen: "reports",
+    title: "Relances",
+    text: "Automatisez les rappels de paiement et de suivi client selon le canal le plus efficace: WhatsApp, email ou appel. Vous réduisez les oublis et accélérez les encaissements.",
+    icon: Bell,
+    imageSrc: "/landing/features/relances.webp",
+    screen: "payments",
   },
   {
-    title: "Sécurité & Permissions",
-    text: "Définissez les rôles, permissions et accès par équipe. Les données sensibles restent protégées, même quand votre agence grandit sur plusieurs bureaux.",
-    icon: ShieldCheck,
+    title: "Broadcasts",
+    text: "Envoyez des communications groupées à vos clients pour annoncer une arrivée, une promotion, un changement de route ou une relance. Vous gardez une communication claire à grande échelle.",
+    icon: Megaphone,
+    imageSrc: "/landing/features/broadcasts.webp",
+    screen: "whatsapp",
+  },
+  {
+    title: "Base de connaissances",
+    text: "Centralisez les réponses, procédures, articles et ressources utilisées par l'équipe et l'IA. Vos agents répondent plus vite avec des informations cohérentes.",
+    icon: Inbox,
+    imageSrc: "/landing/features/knowledge.webp",
     screen: "security",
+  },
+  {
+    title: "WhatsApp IA",
+    text: "Répondez automatiquement aux questions fréquentes sur les colis, statuts, paiements et délais. L'IA aide vos équipes sans remplacer l'humain quand un dossier exige une vraie intervention.",
+    icon: MessageCircle,
+    imageSrc: "/landing/features/whatsapp-ai.webp",
+    screen: "whatsapp",
   },
 ];
 
@@ -1114,9 +1133,18 @@ function ProblemSection() {
   const ActiveIcon = problemCards[activeProblem].icon;
 
   return (
-    <section id="solutions" className="relative overflow-hidden bg-[#FBFCFB] px-5 py-20 text-[#07111F] sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
+    <section id="solutions" className="relative overflow-hidden bg-[#EEF3EF] px-5 py-20 text-[#07111F] sm:px-8 lg:px-12 lg:pb-24 lg:pt-[112px]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFB_48%,#F4F8F6_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#F6FAF7_0%,#EEF3EF_48%,#E7EFE9_100%)]" />
+        <div
+          className="absolute inset-0 opacity-[0.20]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(18,199,111,.18) 1px, transparent 1.2px), linear-gradient(rgba(15,23,42,.045) 1px, transparent 1px)",
+            backgroundSize: "30px 30px, 60px 60px",
+            maskImage: "radial-gradient(circle at 24% 44%, black, transparent 72%)",
+          }}
+        />
         <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(18,199,111,0.08),transparent_60%)]" />
         <div className="absolute -left-24 top-32 h-[420px] w-[420px] rounded-full bg-[#12C76F]/[0.045] blur-[90px]" />
         <div
@@ -1241,6 +1269,12 @@ function WorkflowSection() {
   ];
   const [activePair, setActivePair] = useState(0);
   const [leftCard, rightCard] = processPairs[activePair];
+  const pairPositions = [
+    ["xl:self-start xl:mt-10", "xl:self-end xl:mb-10"],
+    ["xl:self-center", "xl:self-center"],
+    ["xl:self-end xl:mb-10", "xl:self-start xl:mt-10"],
+  ];
+  const [leftPosition, rightPosition] = pairPositions[activePair];
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -1309,7 +1343,7 @@ function WorkflowSection() {
 
         <div className="relative mt-16 lg:mt-20">
           <div className="relative mx-auto grid max-w-[1500px] gap-6 xl:grid-cols-[280px_minmax(0,1060px)_280px] xl:items-center xl:gap-8">
-            <div className="hidden xl:block">
+            <div className={`hidden xl:block ${leftPosition}`}>
               <AnimatePresence mode="wait">
                 <ProcessFloatingCard key={leftCard.title} card={leftCard} align="left" />
               </AnimatePresence>
@@ -1320,14 +1354,23 @@ function WorkflowSection() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.75, ease: "easeOut" as const }}
-              className="relative mx-auto w-full max-w-[1060px]"
+              className="relative mx-auto w-full max-w-[1120px]"
             >
               <div className="absolute -left-12 top-1/2 hidden h-px w-12 border-t border-dashed border-[#12C76F]/50 xl:block" />
               <div className="absolute -right-12 top-1/2 hidden h-px w-12 border-t border-dashed border-[#12C76F]/50 xl:block" />
-              <DashboardPreview />
+              <div className="relative aspect-[16/9] overflow-hidden rounded-[28px] border border-white/[0.12] bg-[#07110D] shadow-[0_34px_110px_rgba(0,0,0,0.36)]">
+                <Image
+                  src="/landing/official/hero-dashboard.png"
+                  alt="Dashboard SLAIVIO"
+                  fill
+                  sizes="1120px"
+                  className="object-cover object-top"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_60%_40%,rgba(18,199,111,.10),transparent_42%)]" />
+              </div>
             </motion.div>
 
-            <div className="hidden xl:block">
+            <div className={`hidden xl:block ${rightPosition}`}>
               <AnimatePresence mode="wait">
                 <ProcessFloatingCard key={rightCard.title} card={rightCard} align="right" />
               </AnimatePresence>
@@ -1355,13 +1398,13 @@ function ProcessFloatingCard({
   return (
     <motion.div
       initial={{ opacity: 0, y: 22, x: align === "left" ? -24 : 24, scale: 0.96 }}
-      animate={{ opacity: 1, y: [0, -8, 0], x: 0, scale: 1 }}
+      animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
       exit={{ opacity: 0, y: -18, x: align === "left" ? -24 : 24, scale: 0.96 }}
       transition={{
         opacity: { duration: 0.45 },
         x: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
         scale: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
-        y: { duration: 4.8, repeat: Infinity, ease: "easeInOut" as const },
+        y: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
       }}
       whileHover={{ y: -10, scale: 1.025, rotate: 0 }}
       className={`relative min-h-[180px] rounded-[22px] border border-slate-900/[0.08] bg-white/95 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.10)] backdrop-blur transition ${
@@ -1568,8 +1611,18 @@ function LightDashboardPreview() {
 
 function WatchDemoSection() {
   return (
-    <section id="watch-demo" className="relative overflow-hidden bg-[#FAFBF8] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
+    <section id="watch-demo" className="relative overflow-hidden bg-[#F2F5F1] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
       <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,.72),rgba(230,239,232,.72))]" />
+        <div
+          className="absolute inset-0 opacity-[0.16]"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(18,199,111,.16) 1px, transparent 1px), linear-gradient(rgba(18,199,111,.10) 1px, transparent 1px)",
+            backgroundSize: "54px 54px",
+            maskImage: "radial-gradient(circle at 66% 40%, black, transparent 70%)",
+          }}
+        />
         <div className="absolute left-0 top-0 h-[460px] w-[520px] rounded-full bg-[#12C76F]/[0.04] blur-[90px]" />
         <div className="absolute right-0 top-[22%] h-[520px] w-[680px] rounded-full bg-slate-100/80 blur-[100px]" />
       </div>
@@ -1885,8 +1938,18 @@ function DemoDashboardPreview() {
 
 function IntegrationsSection() {
   return (
-    <section id="integrations" className="relative overflow-hidden bg-[#F3F6F4] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
+    <section id="integrations" className="relative overflow-hidden bg-[#EAF1EC] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
       <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute inset-0 opacity-[0.20]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, rgba(18,199,111,.20) 1px, transparent 1.3px), radial-gradient(circle, rgba(7,17,31,.07) 1px, transparent 1.2px)",
+            backgroundPosition: "0 0, 18px 18px",
+            backgroundSize: "36px 36px",
+            maskImage: "radial-gradient(circle at 50% 52%, black, transparent 72%)",
+          }}
+        />
         <div className="absolute left-0 top-0 h-[520px] w-[620px] rounded-full bg-[#12C76F]/[0.035] blur-[100px]" />
         <div className="absolute right-0 bottom-0 h-[520px] w-[700px] rounded-full bg-slate-100/80 blur-[110px]" />
         <div
@@ -2055,10 +2118,23 @@ function CoreFeaturesSection() {
   return (
     <section
       id="features"
-      className="bg-[#F7F8F5] px-5 py-[86px] text-[#07111F] sm:px-8 lg:px-10 xl:py-[132px]"
+      className="relative overflow-hidden bg-[#F0F5F1] px-5 py-[86px] text-[#07111F] sm:px-8 lg:px-10 xl:py-[132px]"
       style={{ fontFeatureSettings: '"cv02" 1, "cv03" 1, "liga" 1, "kern" 1' }}
     >
-      <div className="mx-auto max-w-[1440px]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#F8FAF6_0%,#F0F5F1_48%,#E8F0EA_100%)]" />
+        <div
+          className="absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(18,199,111,.16) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.045) 1px, transparent 1px)",
+            backgroundSize: "58px 58px",
+            maskImage: "radial-gradient(circle at 50% 42%, black, transparent 76%)",
+          }}
+        />
+        <div className="absolute left-1/2 top-24 h-[520px] w-[920px] -translate-x-1/2 rounded-full bg-[#12C76F]/[0.045] blur-[100px]" />
+      </div>
+      <div className="relative mx-auto max-w-[1440px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[1320px] text-center">
           <h2 className="mx-auto max-w-[1040px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[58px] xl:text-[64px]">
             Toutes les fonctionnalités pour
@@ -2101,10 +2177,10 @@ function CoreFeaturesSection() {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: -42, scale: 0.98 }}
                 transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                className="grid overflow-hidden rounded-[32px] border border-slate-900/[0.06] bg-white shadow-[0_28px_90px_rgba(15,23,42,0.11)] lg:min-h-[620px] lg:grid-cols-[1.12fr_0.88fr]"
+                className="grid overflow-hidden rounded-[32px] border border-slate-900/[0.06] bg-white shadow-[0_28px_90px_rgba(15,23,42,0.11)] lg:min-h-[600px] lg:grid-cols-[1.2fr_0.8fr]"
               >
-                <div className="min-h-[430px] border-b border-slate-900/[0.05] bg-[#FBFCFC] px-5 py-5 lg:border-b-0 lg:border-r lg:px-8 lg:py-8">
-                  <FeatureScreen type={activeCoreFeature.screen} />
+                <div className="min-h-[430px] border-b border-slate-900/[0.05] bg-[#F4F7F5] p-3 lg:border-b-0 lg:border-r lg:p-4">
+                  <FeatureImage feature={activeCoreFeature} />
                 </div>
                 <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-12">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF3] text-[#12C76F]">
@@ -2159,6 +2235,20 @@ function CoreFeaturesSection() {
         </div>
       </div>
     </section>
+  );
+}
+
+function FeatureImage({ feature }: { feature: (typeof coreFeatures)[number] }) {
+  return (
+    <div className="relative h-full min-h-[430px] overflow-hidden rounded-[24px] border border-slate-900/[0.07] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+      <Image
+        src={feature.imageSrc}
+        alt={feature.title}
+        fill
+        sizes="(max-width: 1024px) 100vw, 720px"
+        className="object-cover object-left-top"
+      />
+    </div>
   );
 }
 

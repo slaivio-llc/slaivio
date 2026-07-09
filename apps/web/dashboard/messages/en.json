@@ -1,0 +1,107 @@
+{
+  "metadata": {
+    "title": "Slaivio - Cargo OS",
+    "description": "The Operating System for Cargo Agencies. Centralize WhatsApp, customers, cases, parcels, shipments, payments and multi-country operations in one platform.",
+    "ogTitle": "Slaivio - Cargo OS",
+    "ogDescription": "The platform that centralizes and automates modern cargo agency operations."
+  },
+  "navigation": {
+    "features": "Features",
+    "workflow": "How it works",
+    "pricing": "Pricing",
+    "resources": "Resources",
+    "signIn": "Sign in",
+    "requestDemo": "Request a demo",
+    "openMenu": "Open menu",
+    "language": "Language"
+  },
+  "language": {
+    "fr": "Français",
+    "en": "English",
+    "shortFr": "FR",
+    "shortEn": "EN"
+  },
+  "hero": {
+    "phrases": ["without limits.", "faster.", "without chaos.", "with precision."],
+    "line1": "Centralize. Automate.",
+    "line2": "Grow your agency",
+    "subtitle": "SLAIVIO centralizes your customers, parcels, shipments, payments and WhatsApp in one platform. Save time, reduce errors and deliver a better customer experience.",
+    "watchVideo": "Watch a video",
+    "floatingWhatsapp": "New WhatsApp message",
+    "floatingWhatsappFrom": "From: +243 81 234 5678",
+    "floatingNow": "now",
+    "floatingPackage": "Parcel received in China warehouse",
+    "floatingPackageId": "CBJ-987654",
+    "floatingPackageWeight": "Weight: 12.5 kg",
+    "floatingDelivered": "Shipment delivered",
+    "floatingDeliveredId": "EXP-2024-1240",
+    "floatingDeliveredLocation": "Kinshasa, DRC",
+    "twoMinutes": "2 min ago",
+    "fifteenMinutes": "15 min ago"
+  },
+  "problem": {
+    "titleLine1": "Your agency works hard.",
+    "titleLine2": "But your tools",
+    "titleAccent": "slow you down.",
+    "subtitle": "Between WhatsApp, Excel, missed calls and paperwork, your teams lose time on repetitive tasks instead of focusing on your customers.",
+    "problemLabel": "Problem",
+    "impactLabel": "Direct impact"
+  },
+  "workflow": {
+    "titleLine1": "Your entire cargo process,",
+    "titleLine2": "centralized in",
+    "titleAccent": "6 simple steps.",
+    "subtitle": "SLAIVIO supports every step, from the first request to final delivery. Everything is connected, automated and tracked in real time."
+  },
+  "features": {
+    "titleLine1": "All the features you need to",
+    "titleAccent": "run your cargo agency.",
+    "subtitle": "SLAIVIO brings together the tools you need to manage your operations, teams and customers efficiently.",
+    "label": "Feature"
+  },
+  "pricing": {
+    "titleLine1": "Choose the right plan",
+    "titleLine2": "for the size of",
+    "titleAccent": "your agency.",
+    "subtitle": "All plans include the essential tools to manage your activity and grow your cargo agency.",
+    "monthly": "Monthly",
+    "annual": "Annual",
+    "save": "Save up to 20%",
+    "perMonth": "/month",
+    "popular": "Most popular"
+  },
+  "faq": {
+    "titleLine1": "Frequently asked questions",
+    "titleLine2": "about",
+    "titleAccent": "Slaivio",
+    "subtitle": "Find answers to the most common questions about our platform, features and services.",
+    "aria": "Frequently asked questions"
+  },
+  "footer": {
+    "description": "The Operating System for Cargo Agencies.\nCentralize, automate and grow\nyour agency with a powerful,\nsimple all-in-one platform.",
+    "product": "Product",
+    "resources": "Resources",
+    "company": "Company",
+    "legal": "Legal",
+    "copyright": "© 2024 Slaivio. All rights reserved."
+  },
+  "forms": {
+    "demoTitle": "Request a personalized demo",
+    "demoDescription": "Share a few details about your agency. Our team will contact you with a walkthrough tailored to your operations.",
+    "benefits": ["Review your current workflow", "Dashboard walkthrough", "Practical launch guidance"],
+    "fullName": "Full name",
+    "agency": "Agency",
+    "country": "Country",
+    "email": "Email",
+    "phone": "WhatsApp",
+    "monthlyShipments": "Monthly volume",
+    "message": "Message",
+    "messagePlaceholder": "Tell us how your agency works today...",
+    "send": "Send request",
+    "sending": "Sending...",
+    "successTitle": "Message sent successfully",
+    "successText": "Thank you. Your demo request has been received. Our team will contact you shortly to schedule your SLAIVIO walkthrough.",
+    "close": "Close",
+    "error": "We could not send your request right now. Please try again in a moment."
+  }
+}

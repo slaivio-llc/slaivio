@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
+import { useLocale, useTranslations } from "next-intl";
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import {
   ArrowRight,
@@ -49,17 +51,10 @@ import {
 import { createDemoRequest } from "@/services/landing";
 
 const navItems = [
-  { label: "Fonctionnalités", href: "#features", hasChevron: true },
-  { label: "Comment ça marche", href: "#workflow" },
-  { label: "Tarifs", href: "#pricing" },
-  { label: "Ressources", href: "#faq", hasChevron: true },
-];
-
-const heroTitlePhrases = [
-  "sans limites.",
-  "plus vite.",
-  "sans chaos.",
-  "avec précision.",
+  { key: "features", href: "#features", hasChevron: true },
+  { key: "workflow", href: "#workflow" },
+  { key: "pricing", href: "#pricing" },
+  { key: "resources", href: "#faq", hasChevron: true },
 ];
 
 const processSteps: Array<{
@@ -299,51 +294,6 @@ const coreFeatures: Array<{
   },
 ];
 
-const additionalFeatures: Array<{
-  title: string;
-  text: string;
-  icon: LucideIcon;
-}> = [
-  {
-    title: "Entrepôts & Bureaux",
-    text: "Gérez vos entrepôts, bureaux et équipes sur plusieurs pays.",
-    icon: Warehouse,
-  },
-  {
-    title: "Routes & Services",
-    text: "Configurez vos routes, moyens d'expédition et services.",
-    icon: Route,
-  },
-  {
-    title: "Tarification avancée",
-    text: "Créez des grilles tarifaires par route, poids, CBM ou catégorie.",
-    icon: CircleDollarSign,
-  },
-  {
-    title: "Paiements & Facturation",
-    text: "Suivez les paiements, générez des factures et relances.",
-    icon: CreditCard,
-  },
-  {
-    title: "Rapports & Analyses",
-    text: "Analysez vos performances et prenez les meilleures décisions.",
-    icon: BarChart3,
-  },
-  {
-    title: "Sécurité & Permissions",
-    text: "Contrôlez les accès et protégez les données de votre agence.",
-    icon: ShieldCheck,
-  },
-];
-
-const securityItems = [
-  "Authentification moderne avec Clerk",
-  "Connexion WhatsApp officielle via Meta",
-  "Données séparées par organisation",
-  "Backend prêt pour production et logs",
-  "Architecture pensée multi-bureaux",
-];
-
 const faqItems = [
   [
     "Qu'est-ce que Slaivio ?",
@@ -474,15 +424,6 @@ const pricingPlans: Array<{
   },
 ];
 
-const includedPlanItems: Array<{ title: string; icon: LucideIcon }> = [
-  { title: "Sécurité", icon: ShieldCheck },
-  { title: "Mises à jour", icon: CheckCircle2 },
-  { title: "Accès web & mobile", icon: Globe2 },
-  { title: "Formation", icon: Users },
-  { title: "Support", icon: MessageCircle },
-  { title: "Sauvegarde", icon: LockKeyhole },
-];
-
 const fadeUp = {
   initial: { opacity: 0, y: 28 },
   whileInView: { opacity: 1, y: 0 },
@@ -491,20 +432,22 @@ const fadeUp = {
 };
 
 export function LandingPageClient() {
+  const heroTranslations = useTranslations("hero");
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
   const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [heroPhraseIndex, setHeroPhraseIndex] = useState(0);
   const [headerFixed, setHeaderFixed] = useState(false);
   const [demoModalOpen, setDemoModalOpen] = useState(false);
+  const heroPhrases = heroTranslations.raw("phrases") as string[];
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setHeroPhraseIndex((index) => (index + 1) % heroTitlePhrases.length);
+      setHeroPhraseIndex((index) => (index + 1) % heroPhrases.length);
     }, 2600);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [heroPhrases.length]);
 
   useEffect(() => {
     const updateHeader = () => {
@@ -563,7 +506,7 @@ export function LandingPageClient() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#020807] font-['Neue_Haas_Grotesk_Display_Pro','Neue_Haas_Grotesk_Text',Inter,'Helvetica_Neue',Arial,system-ui,sans-serif] text-white">
       <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} isFixed={headerFixed} />
-      <HeroSection phrase={heroTitlePhrases[heroPhraseIndex]} />
+      <HeroSection phrase={heroPhrases[heroPhraseIndex]} />
       <ProblemSection />
       <WorkflowSection />
       <WatchDemoSection />
@@ -591,6 +534,8 @@ function LandingHeader({
   setMenuOpen: (value: boolean) => void;
   isFixed: boolean;
 }) {
+  const t = useTranslations("navigation");
+
   return (
     <header
       className={`fixed left-0 right-0 top-0 z-50 transition-[background-color,box-shadow,border-color] duration-300 ${
@@ -615,34 +560,30 @@ function LandingHeader({
 
         <nav className="hidden items-center justify-center gap-9 text-[15px] font-semibold text-white xl:flex 2xl:gap-11">
           {navItems.map((item) => (
-            <a key={item.label} href={item.href} className="inline-flex items-center gap-1.5 transition hover:text-[#12C76F]">
-              {item.label}
+            <a key={item.key} href={item.href} className="inline-flex items-center gap-1.5 transition hover:text-[#12C76F]">
+              {t(item.key)}
               {item.hasChevron && <ChevronDown className="h-3.5 w-3.5" />}
             </a>
           ))}
         </nav>
 
         <div className="hidden items-center justify-end gap-6 lg:flex">
-          <button className="inline-flex items-center gap-2 text-sm font-semibold text-white" type="button">
-            <Globe2 className="h-5 w-5" />
-            FR
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
+          <LanguageSwitcher />
           <Link href="/sign-in" className="text-sm font-semibold text-white transition hover:text-[#12C76F]">
-            Se connecter
+            {t("signIn")}
           </Link>
           <a
             href="#demo"
             className="inline-flex h-11 items-center justify-center rounded-xl bg-[#12C76F] px-[22px] text-sm font-bold text-white shadow-[0_0_28px_rgba(18,199,111,0.26)] transition hover:-translate-y-0.5 hover:bg-[#18d87b]"
           >
-            Demander une démo
+            {t("requestDemo")}
           </a>
         </div>
 
         <button
           className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white lg:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Ouvrir le menu"
+          aria-label={t("openMenu")}
         >
           {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -654,28 +595,29 @@ function LandingHeader({
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="border-t border-white/10 bg-[#020807]/95 px-5 py-5 text-white shadow-[0_18px_45px_rgba(15,23,42,0.14)] lg:hidden"
+            className="fixed left-4 right-4 top-[96px] z-50 rounded-3xl border border-white/10 bg-[#020807]/96 px-5 py-5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.35)] backdrop-blur-xl lg:hidden"
           >
             <div className="flex flex-col gap-4">
               {navItems.map((item) => (
                 <a
-                  key={item.label}
+                  key={item.key}
                   href={item.href}
                   className="text-sm font-semibold text-white/75"
                   onClick={() => setMenuOpen(false)}
                 >
-                  {item.label}
+                  {t(item.key)}
                 </a>
               ))}
+              <LanguageSwitcher compact />
               <Link href="/sign-in" className="text-sm font-semibold text-white/75">
-                Se connecter
+                {t("signIn")}
               </Link>
               <a
                 href="#demo"
                 onClick={() => setMenuOpen(false)}
                 className="rounded-xl bg-[#12C76F] px-5 py-3 text-center text-sm font-bold text-white"
               >
-                Demander une démo
+                {t("requestDemo")}
               </a>
             </div>
           </motion.div>
@@ -685,7 +627,83 @@ function LandingHeader({
   );
 }
 
+function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
+  const t = useTranslations("language");
+  const navT = useTranslations("navigation");
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  const switchLocale = (nextLocale: "fr" | "en") => {
+    const segments = pathname.split("/");
+    const currentLocale = segments[1];
+
+    if (currentLocale === "fr" || currentLocale === "en") {
+      segments[1] = nextLocale;
+    } else {
+      segments.splice(1, 0, nextLocale);
+    }
+
+    document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
+    window.localStorage.setItem("slaivio-locale", nextLocale);
+    router.replace(segments.join("/") || `/${nextLocale}`, { scroll: false });
+    setOpen(false);
+  };
+
+  return (
+    <div className={`relative ${compact ? "w-full" : ""}`}>
+      <button
+        type="button"
+        aria-label={navT("language")}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white transition hover:border-[#12C76F]/40 hover:bg-white/[0.08] ${
+          compact ? "w-full justify-between" : ""
+        }`}
+      >
+        <span className="inline-flex items-center gap-2">
+          <Globe2 className="h-5 w-5" />
+          {locale === "en" ? t("shortEn") : t("shortFr")}
+        </span>
+        <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -6 }}
+            transition={{ duration: 0.18 }}
+            className={`absolute z-[70] mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#07110D]/98 p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl ${
+              compact ? "left-0 right-0" : "right-0 w-44"
+            }`}
+          >
+            {(["fr", "en"] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => switchLocale(item)}
+                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                  locale === item ? "bg-[#12C76F]/14 text-[#12C76F]" : "text-white/76 hover:bg-white/[0.06] hover:text-white"
+                }`}
+              >
+                {item === "fr" ? t("fr") : t("en")}
+                {locale === item && <Check className="h-4 w-4" />}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function HeroSection({ phrase }: { phrase: string }) {
+  const t = useTranslations("hero");
+  const buttons = useTranslations("navigation");
+
   return (
     <section className="relative min-h-screen overflow-x-hidden bg-[#030706] px-5 pb-14 pt-[104px] text-white sm:px-8 md:pt-[120px] lg:px-10 xl:pb-0">
       <div className="pointer-events-none absolute inset-0">
@@ -710,9 +728,9 @@ function HeroSection({ phrase }: { phrase: string }) {
             transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" as const }}
             className="text-[38px] font-semibold leading-[1.06] tracking-[-0.025em] text-white sm:text-[54px] xl:text-[64px] 2xl:text-[68px]"
           >
-            Centralisez. Automatisez.
+            {t("line1")}
             <br />
-            Développez votre agence
+            {t("line2")}
             <br />
             <span className="relative inline-grid min-h-[1.12em] min-w-[8.5em] overflow-hidden align-top text-[#12C76F]">
               <AnimatePresence mode="wait">
@@ -736,9 +754,7 @@ function HeroSection({ phrase }: { phrase: string }) {
             transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" as const }}
             className="mt-7 max-w-[560px] text-base leading-[1.75] text-white/70 sm:text-lg"
           >
-            SLAIVIO centralise vos clients, colis, expéditions, paiements et WhatsApp dans
-            une seule plateforme. Gagnez du temps, réduisez les erreurs et offrez une
-            meilleure expérience à vos clients.
+            {t("subtitle")}
           </motion.p>
 
           <motion.div
@@ -752,14 +768,14 @@ function HeroSection({ phrase }: { phrase: string }) {
               className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-[#12C76F] px-5 text-[15px] font-semibold text-white shadow-[0_0_35px_rgba(18,199,111,0.28)] transition hover:-translate-y-0.5 hover:bg-[#18d87b] sm:h-14 sm:w-auto sm:px-6 sm:text-base"
             >
               <Send className="h-5 w-5" />
-              Demander une démo
+              {buttons("requestDemo")}
             </a>
             <a
               href="#watch-demo"
               className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-white/[0.18] bg-white/[0.03] px-5 text-[15px] font-semibold text-white backdrop-blur transition hover:border-[#12C76F]/70 hover:shadow-[0_0_28px_rgba(18,199,111,0.16)] sm:h-14 sm:w-auto sm:px-6 sm:text-base"
             >
               <PlayCircle className="h-6 w-6 text-[#3B82F6]" />
-              Watch a video
+              {t("watchVideo")}
             </a>
           </motion.div>
         </div>
@@ -789,27 +805,27 @@ function HeroSection({ phrase }: { phrase: string }) {
             className="-right-2 top-7 hidden rotate-[3deg] 2xl:block"
             delay={0}
             icon={MessageCircle}
-            title="Nouveau message WhatsApp"
-            lines={["De : +243 81 234 5678"]}
-            badge="maintenant"
+            title={t("floatingWhatsapp")}
+            lines={[t("floatingWhatsappFrom")]}
+            badge={t("floatingNow")}
             variant="whatsapp"
           />
           <FloatingCard
             className="-left-10 bottom-10 hidden rotate-[-2deg] xl:block"
             delay={0.7}
             icon={Package}
-            title="Colis reçu en entrepôt Chine"
-            lines={["CBJ-987654", "Poids : 12.5 kg"]}
-            badge="Il y a 2 min"
+            title={t("floatingPackage")}
+            lines={[t("floatingPackageId"), t("floatingPackageWeight")]}
+            badge={t("twoMinutes")}
             variant="package"
           />
           <FloatingCard
             className="right-8 bottom-[-28px] hidden rotate-[4deg] xl:block"
             delay={1.2}
             icon={CheckCircle2}
-            title="Expédition livrée"
-            lines={["EXP-2024-1240", "Kinshasa, RDC"]}
-            badge="Il y a 15 min"
+            title={t("floatingDelivered")}
+            lines={[t("floatingDeliveredId"), t("floatingDeliveredLocation")]}
+            badge={t("fifteenMinutes")}
             variant="success"
           />
         </motion.div>
@@ -1076,6 +1092,7 @@ function FloatingCard({
 }
 
 function ProblemSection() {
+  const t = useTranslations("problem");
   const [activeProblem, setActiveProblem] = useState(0);
 
   const problemCards: Array<{
@@ -1188,9 +1205,9 @@ function ProblemSection() {
             transition={{ duration: 0.68, ease: "easeOut" as const }}
             className="max-w-[700px] text-[36px] font-normal leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[48px] xl:text-[56px]"
           >
-            Votre agence travaille dur.
+            {t("titleLine1")}
             <br />
-            Mais vos outils <span className="text-[#12C76F]">vous ralentissent.</span>
+            {t("titleLine2")} <span className="text-[#12C76F]">{t("titleAccent")}</span>
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 24 }}
@@ -1199,8 +1216,7 @@ function ProblemSection() {
             transition={{ duration: 0.68, delay: 0.08, ease: "easeOut" as const }}
             className="mt-7 max-w-[620px] text-[17px] font-normal leading-[1.75] tracking-[-0.01em] text-[#475569] sm:text-[19px]"
           >
-            Entre WhatsApp, Excel, appels manqués et paperasse, vos équipes perdent du temps
-            sur des tâches répétitives au lieu de se concentrer sur vos clients.
+            {t("subtitle")}
           </motion.p>
 
           <div className="mt-10 max-w-[820px]">
@@ -1220,7 +1236,7 @@ function ProblemSection() {
                   </div>
                   <div className="flex h-full flex-col justify-center">
                     <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-[#12C76F]">
-                      Problème {String(activeProblem + 1).padStart(2, "0")}
+                      {t("problemLabel")} {String(activeProblem + 1).padStart(2, "0")}
                     </p>
                     <h3 className="mt-3 text-[30px] font-normal leading-tight tracking-[-0.035em] text-[#07111F] sm:text-[40px]">
                       {problemCards[activeProblem].title}
@@ -1229,7 +1245,7 @@ function ProblemSection() {
                       {problemCards[activeProblem].text}
                     </p>
                     <div className="mt-7 rounded-2xl border border-[#12C76F]/16 bg-[#EAFBF2] p-4">
-                      <p className="text-sm font-medium text-[#12C76F]">Impact direct</p>
+                      <p className="text-sm font-medium text-[#12C76F]">{t("impactLabel")}</p>
                       <p className="mt-1 text-[15px] font-normal leading-7 tracking-[-0.01em] text-[#334155]">
                         {problemCards[activeProblem].impact}
                       </p>
@@ -1262,6 +1278,7 @@ function ProblemSection() {
 }
 
 function WorkflowSection() {
+  const t = useTranslations("workflow");
   const processPairs = [
     [processCards[0], processCards[3]],
     [processCards[1], processCards[4]],
@@ -1305,14 +1322,12 @@ function WorkflowSection() {
       <div className="relative mx-auto max-w-[1500px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[900px] text-center">
           <h2 className="text-[34px] font-normal leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[56px] xl:text-[64px]">
-            Tout votre processus cargo,
+            {t("titleLine1")}
             <br />
-            centralisé en <span className="text-[#12C76F]">6 étapes simples.</span>
+            {t("titleLine2")} <span className="text-[#12C76F]">{t("titleAccent")}</span>
           </h2>
           <p className="mx-auto mt-6 max-w-[820px] text-[16px] font-normal leading-[1.7] tracking-[-0.01em] text-[#475569] sm:text-[18px] lg:text-[20px]">
-            SLAIVIO vous accompagne à chaque étape, de la prise de demande jusqu&apos;à la livraison finale.
-            <br className="hidden md:block" />
-            Tout est connecté, automatisé et suivi en temps réel.
+            {t("subtitle")}
           </p>
         </motion.div>
 
@@ -2089,6 +2104,7 @@ function IntegrationsSection() {
 }
 
 function CoreFeaturesSection() {
+  const t = useTranslations("features");
   const [activeFeature, setActiveFeature] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const activeCoreFeature = coreFeatures[activeFeature];
@@ -2137,13 +2153,12 @@ function CoreFeaturesSection() {
       <div className="relative mx-auto max-w-[1440px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[1320px] text-center">
           <h2 className="mx-auto max-w-[1040px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[58px] xl:text-[64px]">
-            Toutes les fonctionnalités pour
+            {t("titleLine1")}
             <br />
-            <span className="text-[#12C76F]">piloter votre agence cargo.</span>
+            <span className="text-[#12C76F]">{t("titleAccent")}</span>
           </h2>
           <p className="mx-auto mt-6 max-w-[780px] text-[16px] font-normal leading-[1.7] text-[#667085] sm:text-[19px] lg:text-[21px]">
-            SLAIVIO regroupe tous les outils dont vous avez besoin pour gérer efficacement
-            vos opérations, vos équipes et vos clients.
+            {t("subtitle")}
           </p>
         </motion.div>
 
@@ -2187,7 +2202,7 @@ function CoreFeaturesSection() {
                     <activeCoreFeature.icon className="h-7 w-7 stroke-[1.8]" />
                   </div>
                   <p className="mt-8 text-sm font-bold uppercase tracking-[0.14em] text-[#12C76F]">
-                    Fonctionnalité {String(activeFeature + 1).padStart(2, "0")}
+                    {t("label")} {String(activeFeature + 1).padStart(2, "0")}
                   </p>
                   <h3 className="mt-3 text-[30px] font-bold leading-tight tracking-[-0.035em] text-[#07111F] sm:text-[38px]">
                     {activeCoreFeature.title}
@@ -2677,6 +2692,7 @@ function IntegrationBubble({
 }
 
 function PricingSection() {
+  const t = useTranslations("pricing");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
 
   return (
@@ -2693,13 +2709,12 @@ function PricingSection() {
       <div className="relative mx-auto max-w-[1440px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[980px] text-center">
           <h2 className="mx-auto max-w-[1040px] text-[34px] font-extrabold leading-[1.08] tracking-[-0.035em] text-white sm:text-[46px] lg:text-[58px] xl:text-[68px]">
-            Choisissez le plan adapté
+            {t("titleLine1")}
             <br />
-            à la taille de <span className="text-[#12C76F]">votre agence.</span>
+            {t("titleLine2")} <span className="text-[#12C76F]">{t("titleAccent")}</span>
           </h2>
           <p className="mx-auto mt-6 max-w-[760px] text-[16px] leading-[1.7] text-white/70 sm:text-[19px] lg:text-[22px]">
-            Tous nos plans incluent les outils essentiels pour gérer votre activité
-            et faire grandir votre agence cargo.
+            {t("subtitle")}
           </p>
 
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -2713,12 +2728,12 @@ function PricingSection() {
                     billingCycle === cycle ? "bg-[#12C76F] text-white" : "text-white/62 hover:text-white"
                   }`}
                 >
-                  {cycle === "monthly" ? "Mensuel" : "Annuel"}
+                  {cycle === "monthly" ? t("monthly") : t("annual")}
                 </button>
               ))}
             </div>
             <span className="rounded-full border border-[#12C76F]/15 bg-[#12C76F]/10 px-4 py-2 text-sm font-bold text-[#12C76F]">
-              Economisez jusqu&apos;à 20%
+              {t("save")}
             </span>
           </div>
         </motion.div>
@@ -2740,6 +2755,7 @@ function PricingCard({
   plan: (typeof pricingPlans)[number];
   index: number;
 }) {
+  const t = useTranslations("pricing");
   const isPurple = plan.accent === "purple";
   const accentColor = isPurple ? "#A855F7" : "#12C76F";
   const Icon = plan.icon;
@@ -2761,7 +2777,7 @@ function PricingCard({
     >
       {plan.popular && (
         <span className="absolute right-5 top-5 rounded-full bg-[#12C76F] px-3 py-1.5 text-xs font-extrabold text-white">
-          Le plus populaire
+          {t("popular")}
         </span>
       )}
 
@@ -2779,7 +2795,7 @@ function PricingCard({
         <span className={`text-[46px] font-extrabold leading-none tracking-[-0.05em] text-white ${plan.price === "Sur devis" ? "text-[38px]" : "sm:text-[58px]"}`}>
           {plan.price}
         </span>
-        {plan.price !== "Sur devis" && <span className="pb-2 text-[17px] font-semibold text-white/52">/mois</span>}
+        {plan.price !== "Sur devis" && <span className="pb-2 text-[17px] font-semibold text-white/52">{t("perMonth")}</span>}
       </div>
       <div className="mt-3 flex min-h-[26px] items-center gap-2">
         {plan.annualText && <p className="text-sm text-white/42">{plan.annualText}</p>}
@@ -2826,116 +2842,6 @@ function PricingCard({
   );
 }
 
-function SecuritySection() {
-  return (
-    <section id="securite" className="bg-[#FAFBF8] px-5 py-20 text-[#07111F] lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-10 rounded-[2rem] border border-slate-900/[0.06] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.06)] lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
-        <motion.div {...fadeUp}>
-          <Pill icon={LockKeyhole}>Production mindset</Pill>
-          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-            Pensé pour devenir une infrastructure, pas juste un dashboard.
-          </h2>
-          <p className="mt-5 text-lg leading-8 text-[#475569]">
-            Le cap est simple: chaque bloc doit être testé en réel, relié à la production,
-            et compréhensible par une agence qui n&apos;a pas d&apos;équipe technique.
-          </p>
-        </motion.div>
-
-        <div className="grid gap-3">
-          {securityItems.map((item) => (
-            <div key={item} className="flex items-center gap-4 rounded-2xl border border-slate-900/[0.06] bg-[#FBFCFC] p-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#12C76F]/15 text-[#12C76F]">
-                <Check className="h-5 w-5" />
-              </span>
-              <span className="font-semibold text-[#334155]">{item}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function DemoSection({
-  formStatus,
-  onSubmit,
-}: {
-  formStatus: "idle" | "loading" | "success" | "error";
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  return (
-    <section id="demo" className="border-y border-white/[0.08] bg-[#020807] px-5 py-20 text-white lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1fr] lg:items-start">
-        <motion.div {...fadeUp}>
-          <Pill icon={MessageCircle}>Passer à la démo</Pill>
-          <h2 className="mt-5 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-            Montrez-nous votre flux actuel. On vous montre où SLAIVIO enlève le chaos.
-          </h2>
-          <p className="mt-5 text-lg leading-8 text-white/65">
-            Pas besoin d&apos;avoir tout prêt. Une agence peut commencer par l&apos;inbox, les dossiers
-            et le tracking, puis activer les automatisations par étapes.
-          </p>
-        </motion.div>
-
-        <motion.form
-          {...fadeUp}
-          onSubmit={onSubmit}
-          className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] sm:p-7"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            {formFields.map((field) => (
-              <label key={field.name} className="block">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
-                  {field.label}
-                </span>
-                <input
-                  name={field.name}
-                  required={field.name === "full_name" || field.name === "email"}
-                  type={field.name === "email" ? "email" : "text"}
-                  placeholder={field.placeholder}
-                  className="mt-2 h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
-                />
-              </label>
-            ))}
-          </div>
-
-          <label className="mt-4 block">
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
-              Message
-            </span>
-            <textarea
-              name="message"
-              rows={5}
-              placeholder="Dites-nous comment votre agence travaille aujourd'hui..."
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/60"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={formStatus === "loading"}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#12C76F] px-6 py-4 text-sm font-black text-[#02130b] transition hover:-translate-y-0.5 hover:bg-[#36e68e] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {formStatus === "loading" ? "Envoi..." : "Demander une démo"}
-            <ArrowRight className="h-4 w-4" />
-          </button>
-
-          {formStatus === "success" && (
-            <p className="mt-4 rounded-2xl border border-[#12C76F]/20 bg-[#12C76F]/10 p-4 text-sm text-[#0BAA5D]">
-              Demande reçue. On vous contactera avec les prochaines étapes.
-            </p>
-          )}
-          {formStatus === "error" && (
-            <p className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-700">
-              Impossible d&apos;envoyer la demande pour le moment. Réessayez dans quelques instants.
-            </p>
-          )}
-        </motion.form>
-      </div>
-    </section>
-  );
-}
-
 function DemoRequestModal({
   open,
   formStatus,
@@ -2947,6 +2853,9 @@ function DemoRequestModal({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const t = useTranslations("forms");
+  const benefits = t.raw("benefits") as string[];
+
   useEffect(() => {
     if (!open) {
       return;
@@ -2992,7 +2901,7 @@ function DemoRequestModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Fermer"
+              aria-label={t("close")}
               className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-white/70 transition hover:bg-white/[0.12] hover:text-white"
             >
               <X className="h-5 w-5" />
@@ -3008,13 +2917,13 @@ function DemoRequestModal({
                   className="h-auto w-[156px] object-contain"
                 />
                 <h2 id="demo-modal-title" className="mt-8 text-[32px] font-extrabold leading-tight tracking-[-0.04em]">
-                  Demander une démo personnalisée
+                  {t("demoTitle")}
                 </h2>
                 <p className="mt-4 text-[16px] leading-7 text-white/62">
-                  Partagez quelques informations sur votre agence. Notre équipe vous contactera avec une présentation adaptée à vos opérations.
+                  {t("demoDescription")}
                 </p>
                 <div className="mt-7 space-y-3 text-sm text-white/70">
-                  {["Analyse de votre flux actuel", "Présentation du dashboard", "Conseils pour démarrer proprement"].map((item) => (
+                  {benefits.map((item) => (
                     <div key={item} className="flex items-center gap-3">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#12C76F]/14 text-[#12C76F]">
                         <Check className="h-4 w-4" />
@@ -3030,16 +2939,14 @@ function DemoRequestModal({
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#12C76F] text-white shadow-[0_0_40px_rgba(18,199,111,.25)]">
                     <CheckCircle2 className="h-9 w-9" />
                   </div>
-                  <h3 className="mt-6 text-[30px] font-extrabold tracking-[-0.04em]">Message envoyé avec succès</h3>
-                  <p className="mt-4 max-w-[460px] text-[16px] leading-7 text-white/66">
-                    Merci. Votre demande de démo a bien été transmise. Notre équipe vous contactera prochainement pour organiser la présentation de SLAIVIO.
-                  </p>
+                  <h3 className="mt-6 text-[30px] font-extrabold tracking-[-0.04em]">{t("successTitle")}</h3>
+                  <p className="mt-4 max-w-[460px] text-[16px] leading-7 text-white/66">{t("successText")}</p>
                   <button
                     type="button"
                     onClick={onClose}
                     className="mt-8 inline-flex h-12 items-center justify-center rounded-2xl bg-[#12C76F] px-6 text-sm font-extrabold text-white transition hover:bg-[#18d87b]"
                   >
-                    Fermer
+                    {t("close")}
                   </button>
                 </div>
               ) : (
@@ -3048,7 +2955,17 @@ function DemoRequestModal({
                     {formFields.map((field) => (
                       <label key={field.name} className="block">
                         <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
-                          {field.label}
+                          {field.name === "full_name"
+                            ? t("fullName")
+                            : field.name === "agency_name"
+                              ? t("agency")
+                              : field.name === "country"
+                                ? t("country")
+                                : field.name === "email"
+                                  ? t("email")
+                                  : field.name === "phone"
+                                    ? t("phone")
+                                    : t("monthlyShipments")}
                         </span>
                         <input
                           name={field.name}
@@ -3063,12 +2980,12 @@ function DemoRequestModal({
 
                   <label className="mt-4 block">
                     <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
-                      Message
+                      {t("message")}
                     </span>
                     <textarea
                       name="message"
                       rows={5}
-                      placeholder="Dites-nous comment votre agence travaille aujourd'hui..."
+                      placeholder={t("messagePlaceholder")}
                       className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 py-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/70"
                     />
                   </label>
@@ -3078,13 +2995,13 @@ function DemoRequestModal({
                     disabled={formStatus === "loading"}
                     className="mt-5 inline-flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-[#12C76F] px-6 text-sm font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-[#18d87b] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {formStatus === "loading" ? "Envoi en cours..." : "Envoyer la demande"}
+                    {formStatus === "loading" ? t("sending") : t("send")}
                     <ArrowRight className="h-4 w-4" />
                   </button>
 
                   {formStatus === "error" && (
                     <p className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">
-                      Impossible d&apos;envoyer la demande pour le moment. Réessayez dans quelques instants.
+                      {t("error")}
                     </p>
                   )}
                 </form>
@@ -3104,6 +3021,8 @@ function FaqSection({
   openFaq: number;
   setOpenFaq: (index: number) => void;
 }) {
+  const t = useTranslations("faq");
+
   const handleFaqKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
       return;
@@ -3139,20 +3058,19 @@ function FaqSection({
       <div className="relative mx-auto max-w-[1320px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[900px] text-center">
           <h2 className="text-[42px] font-extrabold leading-[1.04] tracking-[-0.04em] text-[#0F172A] sm:text-[56px] xl:text-[72px]">
-            Questions fréquentes
+            {t("titleLine1")}
             <br />
-            sur <span className="text-[#12C76F]">Slaivio</span>
+            {t("titleLine2")} <span className="text-[#12C76F]">{t("titleAccent")}</span>
           </h2>
           <p className="mx-auto mt-7 max-w-[760px] text-[18px] leading-[1.7] text-[#64748B] sm:text-[20px] xl:text-[22px]">
-            Retrouvez les réponses aux questions les plus courantes sur notre plateforme,
-            ses fonctionnalités et nos services.
+            {t("subtitle")}
           </p>
         </motion.div>
 
         <motion.div
           {...fadeUp}
           role="region"
-          aria-label="Questions fréquentes"
+          aria-label={t("aria")}
           className="mx-auto mt-16 max-w-[980px] overflow-hidden rounded-[26px] border border-[#E7EDF4] bg-white shadow-[0_20px_70px_rgba(15,23,42,.05)] xl:mt-[70px]"
         >
           {faqItems.map(([question, answer], index) => (
@@ -3209,9 +3127,11 @@ function FaqSection({
 }
 
 function LandingFooter() {
+  const t = useTranslations("footer");
+  const language = useTranslations("language");
   const footerColumns = [
     {
-      title: "Produit",
+      title: t("product"),
       links: [
         ["Fonctionnalités", "#features"],
         ["Tarification", "#pricing"],
@@ -3221,7 +3141,7 @@ function LandingFooter() {
       ],
     },
     {
-      title: "Ressources",
+      title: t("resources"),
       links: [
         ["Blog", "#"],
         ["Guides", "#"],
@@ -3231,7 +3151,7 @@ function LandingFooter() {
       ],
     },
     {
-      title: "Société",
+      title: t("company"),
       links: [
         ["À propos", "#"],
         ["Carrières", "#"],
@@ -3241,7 +3161,7 @@ function LandingFooter() {
       ],
     },
     {
-      title: "Légal",
+      title: t("legal"),
       links: [
         ["Conditions d’utilisation", "#"],
         ["Politique de confidentialité", "#"],
@@ -3266,14 +3186,8 @@ function LandingFooter() {
               height={80}
               className="h-auto w-[190px] object-contain sm:w-[210px]"
             />
-            <p className="mt-8 max-w-[420px] text-[18px] leading-[1.75] text-white/78 sm:text-[20px]">
-              L’Operating System des Agences Cargo.
-              <br />
-              Centralisez, automatisez et développez
-              <br />
-              votre agence avec une plateforme
-              <br />
-              tout-en-un puissante et simple à utiliser.
+            <p className="mt-8 max-w-[420px] whitespace-pre-line text-[18px] leading-[1.75] text-white/78 sm:text-[20px]">
+              {t("description")}
             </p>
             <div className="mt-10 flex gap-[18px]">
               <FooterSocial href="https://wa.me/" label="WhatsApp" type="whatsapp" />
@@ -3303,12 +3217,12 @@ function LandingFooter() {
 
         <div className="h-px w-full bg-white/[0.14]" />
         <div className="flex flex-col gap-6 pt-10 md:flex-row md:items-center md:justify-between">
-          <p className="text-[16px] text-white/56 sm:text-[18px]">© 2024 Slaivio. Tous droits réservés.</p>
+          <p className="text-[16px] text-white/56 sm:text-[18px]">{t("copyright")}</p>
           <button
             type="button"
             className="flex w-fit items-center gap-3 text-[18px] font-semibold text-white md:border-l md:border-white/[0.14] md:pl-12 sm:text-[20px]"
           >
-            Français
+            {language("fr")}
             <ChevronDown className="h-5 w-5" />
           </button>
         </div>

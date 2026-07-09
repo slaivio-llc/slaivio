@@ -6,5 +6,5 @@ export const fetchCache = "force-no-store";
 export const runtime = "nodejs";
 
 export default function LandingPage() {
-  redirect("/");
+  redirect("/fr");
 }

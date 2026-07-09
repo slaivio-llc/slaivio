@@ -57,370 +57,149 @@ const navItems = [
   { key: "resources", href: "#faq", hasChevron: true },
 ];
 
-const processSteps: Array<{
+type TextCard = {
   title: string;
   text: string;
-  icon: LucideIcon;
-}> = [
-  {
-    title: "Prise de demande",
-    text: "Enregistrez vos clients et leurs demandes depuis WhatsApp, au bureau ou en ligne.",
-    icon: User,
-  },
-  {
-    title: "Dossier & devis",
-    text: "Créez un dossier, ajoutez les informations, calculez les tarifs et envoyez le devis.",
-    icon: ClipboardList,
-  },
-  {
-    title: "Réception des colis",
-    text: "Enregistrez les colis reçus en entrepôt, pesez, étiquetez et validez les informations.",
-    icon: Package,
-  },
-  {
-    title: "Expédition & transit",
-    text: "Regroupez, expédiez et suivez vos envois de l'entrepôt jusqu'à leur arrivée à destination.",
-    icon: Truck,
-  },
-  {
-    title: "Dédouanement & livraison",
-    text: "Gérez les documents, suivez le dédouanement et organisez la livraison au client.",
-    icon: ClipboardCheck,
-  },
-  {
-    title: "Paiements & rapports",
-    text: "Suivez les paiements, générez vos rapports et analysez la performance de votre agence.",
-    icon: BarChart3,
-  },
-];
+};
 
-const processCards: Array<{
-  title: string;
-  text: string;
+type ProblemCardCopy = TextCard & {
+  impact: string;
+};
+
+type IntegrationCopy = TextCard & {
+  eyebrow: string;
+};
+
+type PricingPlanCopy = {
+  name: string;
+  description: string;
+  price: string;
+  annualText?: string;
+  highlights: string[];
+  features: string[];
+  cta: string;
+};
+
+const processStepIcons = [User, ClipboardList, Package, Truck, ClipboardCheck, BarChart3];
+
+const processCardMeta: Array<{
   icon: LucideIcon;
   side: "left" | "right";
 }> = [
-  {
-    title: "WhatsApp connecté",
-    text: "Les messages clients arrivent dans une inbox partagée, reliée aux dossiers et visible par toute l'équipe.",
-    icon: MessageCircle,
-    side: "left",
-  },
-  {
-    title: "Suivi en temps réel",
-    text: "Chaque colis garde son historique: entrepôt, expédition, transit, arrivée et livraison finale.",
-    icon: Package,
-    side: "left",
-  },
-  {
-    title: "Notifications automatiques",
-    text: "SLAIVIO prévient les clients au bon moment, sans que vos agents répètent les mêmes messages.",
-    icon: Bell,
-    side: "left",
-  },
-  {
-    title: "Documents centralisés",
-    text: "Factures, BL, déclarations et pièces clients restent attachés au bon dossier, sans recherche manuelle.",
-    icon: FileText,
-    side: "right",
-  },
-  {
-    title: "Rapports intelligents",
-    text: "Vous voyez les revenus, volumes, routes fortes et retards pour décider avec des données claires.",
-    icon: BarChart3,
-    side: "right",
-  },
-  {
-    title: "Données sécurisées",
-    text: "Les accès, rôles et informations sensibles sont structurés pour protéger chaque bureau et chaque équipe.",
-    icon: LockKeyhole,
-    side: "right",
-  },
+  { icon: MessageCircle, side: "left" },
+  { icon: Package, side: "left" },
+  { icon: Bell, side: "left" },
+  { icon: FileText, side: "right" },
+  { icon: BarChart3, side: "right" },
+  { icon: LockKeyhole, side: "right" },
 ];
 
-const demoTimeline: Array<{
-  title: string;
-  text: string;
-  icon: LucideIcon;
-}> = [
-  {
-    title: "Tableau de bord",
-    text: "Vue d'ensemble de votre activité en temps réel. Suivez vos indicateurs clés en un coup d'œil.",
-    icon: BarChart3,
-  },
-  {
-    title: "Clients & Dossiers",
-    text: "Accédez à tous vos clients et dossiers. Historique complet et suivi détaillé.",
-    icon: Users,
-  },
-  {
-    title: "Colis",
-    text: "Enregistrez, suivez et gérez vos colis de l'entrepôt jusqu'à la livraison.",
-    icon: Package,
-  },
-  {
-    title: "Tracking & Expéditions",
-    text: "Suivez vos expéditions en temps réel et informez automatiquement vos clients.",
-    icon: Truck,
-  },
-  {
-    title: "WhatsApp Inbox",
-    text: "Toutes vos conversations WhatsApp centralisées. Répondez plus vite, ne ratez aucun client.",
-    icon: MessageCircle,
-  },
-  {
-    title: "Organisation",
-    text: "Gérez bureaux, entrepôts, routes, services et tarifs.",
-    icon: ClipboardList,
-  },
-];
+const demoTimelineIcons = [BarChart3, Users, Package, Truck, MessageCircle, ClipboardList];
 
-const integrations: Array<{
+const integrationIds: Array<{
   id: "whatsapp" | "gmail" | "tiktok";
-  title: string;
-  eyebrow: string;
-  text: string;
 }> = [
-  {
-    id: "whatsapp",
-    title: "WhatsApp Business",
-    eyebrow: "Intégration native",
-    text: "Gérez toutes vos conversations WhatsApp Business depuis une seule inbox centrale.",
-  },
-  {
-    id: "gmail",
-    title: "Gmail",
-    eyebrow: "Synchronisation",
-    text: "Envoyez et recevez vos emails professionnels sans quitter SLAIVIO.",
-  },
-  {
-    id: "tiktok",
-    title: "TikTok",
-    eyebrow: "Messagerie connectée",
-    text: "Répondez aux messages et commentaires TikTok directement depuis votre dashboard.",
-  },
+  { id: "whatsapp" },
+  { id: "gmail" },
+  { id: "tiktok" },
 ];
 
-const coreFeatures: Array<{
-  title: string;
-  text: string;
+const coreFeatureMeta: Array<{
   icon: LucideIcon;
   imageSrc: string;
   screen: "clients" | "dossiers" | "colis" | "tracking" | "whatsapp" | "warehouse" | "routes" | "pricing" | "payments" | "reports" | "security";
 }> = [
   {
-    title: "Tableau de bord",
-    text: "Suivez les clients actifs, colis en transit, expéditions, revenus, notifications et messages WhatsApp depuis une vue centrale. Le manager comprend l'état de l'agence sans ouvrir dix outils différents.",
     icon: BarChart3,
     imageSrc: "/landing/features/dashboard.webp",
     screen: "reports",
   },
   {
-    title: "Gestion des clients",
-    text: "Regroupez les coordonnées, historiques WhatsApp, dossiers, colis, paiements et préférences de chaque client. Vos agents savent immédiatement qui est le client, ce qu'il attend et quelles opérations sont en cours.",
     icon: Users,
     imageSrc: "/landing/features/clients.webp",
     screen: "clients",
   },
   {
-    title: "Gestion des dossiers",
-    text: "Chaque demande devient un dossier clair avec devis, colis, documents, route, statut et historique. Vous évitez les informations dispersées entre Excel, WhatsApp et carnets papier.",
     icon: ClipboardList,
     imageSrc: "/landing/features/dossiers.webp",
     screen: "dossiers",
   },
   {
-    title: "Gestion des colis",
-    text: "Enregistrez poids, dimensions, photos, entrepôt, propriétaire et statut. Les équipes retrouvent rapidement un colis et peuvent expliquer au client exactement où il se trouve.",
     icon: Package,
     imageSrc: "/landing/features/colis.webp",
     screen: "colis",
   },
   {
-    title: "Expéditions",
-    text: "Organisez les envois par route, service, date de départ, arrivée estimée, progression et statut. Vous voyez quelles expéditions sont en préparation, en transit, arrivées ou déjà livrées.",
     icon: Truck,
     imageSrc: "/landing/features/expeditions.webp",
     screen: "routes",
   },
   {
-    title: "Suivi en temps réel",
-    text: "Visualisez chaque étape: reçu à l'entrepôt, validé, en transit, arrivé, livré. Les mises à jour réduisent les appels répétitifs et renforcent la confiance client.",
     icon: CheckCircle2,
     imageSrc: "/landing/features/tracking.webp",
     screen: "tracking",
   },
   {
-    title: "WhatsApp centralisé",
-    text: "Toutes les conversations WhatsApp Business arrivent dans une inbox d'équipe. Assignez les demandes, reliez les messages aux dossiers et évitez qu'un client reste sans réponse.",
     icon: MessageCircle,
     imageSrc: "/landing/features/whatsapp.webp",
     screen: "whatsapp",
   },
   {
-    title: "Paiements",
-    text: "Suivez les paiements partiels, soldes, factures et relances. Votre équipe commerciale sait qui a payé, qui doit encore payer et quoi relancer.",
     icon: CreditCard,
     imageSrc: "/landing/features/paiements.webp",
     screen: "payments",
   },
   {
-    title: "Relances",
-    text: "Automatisez les rappels de paiement et de suivi client selon le canal le plus efficace: WhatsApp, email ou appel. Vous réduisez les oublis et accélérez les encaissements.",
     icon: Bell,
     imageSrc: "/landing/features/relances.webp",
     screen: "payments",
   },
   {
-    title: "Broadcasts",
-    text: "Envoyez des communications groupées à vos clients pour annoncer une arrivée, une promotion, un changement de route ou une relance. Vous gardez une communication claire à grande échelle.",
     icon: Megaphone,
     imageSrc: "/landing/features/broadcasts.webp",
     screen: "whatsapp",
   },
   {
-    title: "Base de connaissances",
-    text: "Centralisez les réponses, procédures, articles et ressources utilisées par l'équipe et l'IA. Vos agents répondent plus vite avec des informations cohérentes.",
     icon: Inbox,
     imageSrc: "/landing/features/knowledge.webp",
     screen: "security",
   },
   {
-    title: "WhatsApp IA",
-    text: "Répondez automatiquement aux questions fréquentes sur les colis, statuts, paiements et délais. L'IA aide vos équipes sans remplacer l'humain quand un dossier exige une vraie intervention.",
     icon: MessageCircle,
     imageSrc: "/landing/features/whatsapp-ai.webp",
     screen: "whatsapp",
   },
 ];
 
-const faqItems = [
-  [
-    "Qu'est-ce que Slaivio ?",
-    "Slaivio est une plateforme tout-en-un conçue pour les agences cargo. Elle centralise la gestion des clients, dossiers, expéditions, paiements et communications afin d'automatiser les opérations et améliorer la productivité.",
-  ],
-  [
-    "Quels sont les bénéfices de Slaivio pour mon agence ?",
-    "Vous réduisez les tâches manuelles, centralisez WhatsApp, suivez les expéditions en temps réel, automatisez les relances et obtenez une meilleure visibilité sur votre activité.",
-  ],
-  [
-    "Mes données sont-elles sécurisées ?",
-    "Oui. Toutes les données sont chiffrées, sauvegardées automatiquement et hébergées sur une infrastructure cloud sécurisée avec des contrôles d'accès avancés.",
-  ],
-  [
-    "Puis-je intégrer Slaivio avec mes outils actuels ?",
-    "Oui. Slaivio s'intègre progressivement avec WhatsApp Business, Gmail, TikTok ainsi que d'autres services professionnels.",
-  ],
-  [
-    "Slaivio convient-il aux petites agences ?",
-    "Oui. Les offres Starter sont spécialement conçues pour accompagner les petites agences avant de grandir vers Growth et Enterprise.",
-  ],
-  [
-    "Dans quels pays Slaivio est-il disponible ?",
-    "Slaivio est conçu pour les agences cargo opérant en Afrique ainsi que leurs partenaires internationaux.",
-  ],
-  [
-    "Quels moyens de paiement acceptez-vous ?",
-    "Les abonnements peuvent être réglés par carte bancaire internationale. D'autres moyens de paiement seront progressivement disponibles selon les pays.",
-  ],
-  [
-    "Comment puis-je obtenir de l'aide en cas de besoin ?",
-    "Notre équipe support est disponible pour accompagner chaque client pendant l'installation, la formation et l'utilisation quotidienne de la plateforme.",
-  ],
-];
-
 const formFields = [
-  { name: "full_name", label: "Nom complet", placeholder: "Jeremy Akiemane" },
-  { name: "agency_name", label: "Agence", placeholder: "SLAIVIO Demo Agency" },
-  { name: "country", label: "Pays", placeholder: "RDC" },
-  { name: "email", label: "Email", placeholder: "vous@agence.com" },
-  { name: "phone", label: "WhatsApp", placeholder: "+243 ..." },
-  { name: "monthly_shipments", label: "Volume mensuel", placeholder: "Ex: 200 colis/mois" },
+  { name: "full_name", labelKey: "fullName", placeholderKey: "fullNamePlaceholder" },
+  { name: "agency_name", labelKey: "agency", placeholderKey: "agencyPlaceholder" },
+  { name: "country", labelKey: "country", placeholderKey: "countryPlaceholder" },
+  { name: "email", labelKey: "email", placeholderKey: "emailPlaceholder" },
+  { name: "phone", labelKey: "phone", placeholderKey: "phonePlaceholder" },
+  { name: "monthly_shipments", labelKey: "monthlyShipments", placeholderKey: "monthlyShipmentsPlaceholder" },
 ];
 
-const pricingPlans: Array<{
-  name: string;
-  description: string;
-  price: string;
-  annualText?: string;
+const pricingPlanMeta: Array<{
   discount?: string;
   icon: LucideIcon;
   accent?: "green" | "purple";
   popular?: boolean;
-  highlights: string[];
-  features: string[];
-  cta: string;
 }> = [
   {
-    name: "Starter",
-    description: "Pour les petites agences qui démarrent",
-    price: "119$",
-    annualText: "Facturé 1,428$/an",
     discount: "-20%",
     icon: Send,
-    highlights: ["Jusqu'à 10 bureaux", "500 colis/mois", "Conversations IA illimitées"],
-    features: [
-      "Clients & Dossiers illimités",
-      "Colis & Expéditions",
-      "WhatsApp Inbox",
-      "Relances automatiques",
-      "Tracking",
-      "Support standard",
-    ],
-    cta: "Commencer maintenant",
   },
   {
-    name: "Growth",
-    description: "Pour les agences qui accélèrent leurs opérations",
-    price: "299$",
-    annualText: "Facturé annuellement",
     icon: BarChart3,
     popular: true,
-    highlights: ["30 bureaux", "2,000 colis/mois", "Conversations IA illimitées"],
-    features: [
-      "Tout Starter +",
-      "Entrepôts multiples",
-      "Tarification avancée",
-      "Rapports",
-      "Gestion utilisateurs",
-      "API",
-      "Support prioritaire",
-    ],
-    cta: "Choisir Growth",
   },
   {
-    name: "Enterprise",
-    description: "Pour les groupes cargo multi-pays",
-    price: "799$",
-    annualText: "Facturé annuellement",
     icon: Building2,
-    highlights: ["Bureaux illimités", "Colis illimités", "Conversations IA"],
-    features: [
-      "Workspace multi-pays",
-      "Gestion avancée rôles",
-      "Fonctions sur mesure",
-      "Support 24/7",
-      "Importation données",
-      "Formation équipe",
-    ],
-    cta: "Passer Enterprise",
   },
   {
-    name: "Enterprise",
-    description: "Pour les besoins spécifiques et volumes élevés",
-    price: "Sur devis",
     icon: ShieldCheck,
     accent: "purple",
-    highlights: ["Solution personnalisée", "Volume spécifique", "Accompagnement"],
-    features: [
-      "Développements spécifiques",
-      "Intégrations",
-      "Migration",
-      "Account Manager",
-      "Support Premium",
-      "SLA",
-    ],
-    cta: "Nous contacter",
   },
 ];
 
@@ -1094,50 +873,11 @@ function FloatingCard({
 function ProblemSection() {
   const t = useTranslations("problem");
   const [activeProblem, setActiveProblem] = useState(0);
-
-  const problemCards: Array<{
-    icon: LucideIcon;
-    title: string;
-    text: string;
-    impact: string;
-  }> = [
-    {
-      icon: MessageCircle,
-      title: "WhatsApp dispersé",
-      text: "Les demandes arrivent dans plusieurs téléphones, groupes et conversations privées. Une information importante peut rester chez un agent, une relance peut être oubliée, et personne ne sait vraiment quel client attend quoi.",
-      impact: "Votre équipe répond plus lentement et perd l’historique client.",
-    },
-    {
-      icon: FileSpreadsheet,
-      title: "Excel et papiers partout",
-      text: "Les tarifs, les colis, les paiements et les routes vivent dans des fichiers séparés. Quand une ligne change ou qu’un document manque, toute l’agence dépend de vérifications manuelles.",
-      impact: "Les erreurs augmentent dès que le volume d’opérations monte.",
-    },
-    {
-      icon: Clock,
-      title: "Relances oubliées",
-      text: "Les prospects chauds, les clients qui doivent payer, les colis à confirmer et les dossiers bloqués ne remontent pas automatiquement. Les agents doivent se souvenir de tout.",
-      impact: "Des revenus restent en attente et des clients partent ailleurs.",
-    },
-    {
-      icon: Package,
-      title: "Suivi des colis manuel",
-      text: "Un client demande où se trouve son colis, puis l’équipe fouille dans WhatsApp, Excel, des photos de reçus ou des messages d’entrepôt. La réponse prend du temps et varie selon l’agent.",
-      impact: "La confiance baisse parce que le tracking n’est pas instantané.",
-    },
-    {
-      icon: BarChart3,
-      title: "Pas de visibilité",
-      text: "Le manager ne voit pas clairement les dossiers en retard, les revenus du mois, les colis non tracés ou les agents débordés. Les décisions se prennent avec des impressions, pas avec des données fiables.",
-      impact: "Vous pilotez l’agence sans tableau de bord opérationnel.",
-    },
-    {
-      icon: Users,
-      title: "Croissance freinée",
-      text: "Plus l’agence reçoit de clients, plus les mêmes méthodes manuelles créent des blocages. Ajouter des agents ne suffit plus si l’organisation reste dispersée.",
-      impact: "La croissance devient lourde au lieu de devenir scalable.",
-    },
-  ];
+  const problemIcons = [MessageCircle, FileSpreadsheet, Clock, Package, BarChart3, Users];
+  const problemCards = (t.raw("cards") as ProblemCardCopy[]).map((card, index) => ({
+    ...card,
+    icon: problemIcons[index],
+  }));
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -1279,6 +1019,14 @@ function ProblemSection() {
 
 function WorkflowSection() {
   const t = useTranslations("workflow");
+  const processSteps = (t.raw("steps") as TextCard[]).map((step, index) => ({
+    ...step,
+    icon: processStepIcons[index],
+  }));
+  const processCards = (t.raw("cards") as TextCard[]).map((card, index) => ({
+    ...card,
+    ...processCardMeta[index],
+  }));
   const processPairs = [
     [processCards[0], processCards[3]],
     [processCards[1], processCards[4]],
@@ -1407,7 +1155,7 @@ function ProcessFloatingCard({
   card,
   align,
 }: {
-  card: (typeof processCards)[number];
+  card: TextCard & { icon: LucideIcon; side: "left" | "right" };
   align: "left" | "right";
 }) {
   return (
@@ -1444,7 +1192,13 @@ function ProcessFloatingCard({
   );
 }
 
-function ProcessStaticCard({ card, delay }: { card: (typeof processCards)[number]; delay: number }) {
+function ProcessStaticCard({
+  card,
+  delay,
+}: {
+  card: TextCard & { icon: LucideIcon; side: "left" | "right" };
+  delay: number;
+}) {
   return (
     <motion.div
       {...fadeUp}
@@ -1625,6 +1379,12 @@ function LightDashboardPreview() {
 }
 
 function WatchDemoSection() {
+  const t = useTranslations("demo");
+  const demoTimeline = (t.raw("timeline") as TextCard[]).map((step, index) => ({
+    ...step,
+    icon: demoTimelineIcons[index],
+  }));
+
   return (
     <section id="watch-demo" className="relative overflow-hidden bg-[#F2F5F1] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
       <div className="pointer-events-none absolute inset-0">
@@ -1646,13 +1406,12 @@ function WatchDemoSection() {
         <div className="grid gap-14 xl:grid-cols-[0.45fr_0.55fr] xl:items-center xl:gap-14">
           <motion.div {...fadeUp} className="max-w-[560px]">
             <h2 className="text-[34px] font-extrabold leading-[1.05] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[56px] xl:text-[64px]">
-              Voyez comment SLAIVIO
+              {t("titleLine1")}
               <br />
-              <span className="text-[#16C35B]">simplifie votre quotidien.</span>
+              <span className="text-[#16C35B]">{t("titleAccent")}</span>
             </h2>
             <p className="mt-7 max-w-[520px] text-[16px] font-normal leading-[1.7] tracking-[-0.01em] text-[#5B6472] sm:text-[18px] lg:text-[21px]">
-              Une plateforme complète pour gérer vos clients, colis, expéditions, WhatsApp
-              et paiements depuis un seul endroit.
+              {t("subtitle")}
             </p>
 
             <div className="mt-10 max-w-[430px] space-y-[26px]">
@@ -1685,11 +1444,11 @@ function WatchDemoSection() {
 
             <motion.div {...fadeUp} className="mx-auto mb-5 max-w-[760px] text-center">
               <h3 className="text-[30px] font-bold leading-tight tracking-[-0.035em] text-[#07111F] sm:text-[40px]">
-                Une plateforme,
-                <br className="sm:hidden" /> toutes vos opérations.
+                {t("dashboardTitleLine1")}
+                <br className="sm:hidden" /> {t("dashboardTitleLine2")}
               </h3>
               <p className="mt-2 text-[17px] font-normal leading-7 text-[#697386] sm:text-[18px]">
-                Cliquez, explorez et voyez la puissance de SLAIVIO.
+                {t("dashboardSubtitle")}
               </p>
             </motion.div>
 
@@ -1719,10 +1478,10 @@ function WatchDemoSection() {
             </motion.div>
             <div>
               <h3 className="text-[24px] font-bold leading-tight tracking-[-0.03em] text-[#07111F] sm:text-[30px]">
-                Regardez SLAIVIO en action
+                {t("videoTitle")}
               </h3>
               <p className="mt-2 max-w-[520px] text-[15px] leading-7 text-[#5B6472] sm:text-base">
-                Découvrez en vidéo comment SLAIVIO simplifie et accélère la gestion de votre agence cargo.
+                {t("videoText")}
               </p>
             </div>
           </div>
@@ -1730,7 +1489,7 @@ function WatchDemoSection() {
             href="#watch-demo"
             className="group inline-flex h-12 w-full items-center justify-center gap-3 rounded-2xl px-5 text-[16px] font-bold text-[#0BAA5D] transition duration-300 hover:bg-[#16C35B] hover:text-white lg:w-auto"
           >
-            Regarder la vidéo
+            {t("videoButton")}
             <ArrowRight className="h-5 w-5 transition duration-300 group-hover:translate-x-[5px]" />
           </a>
         </motion.div>
@@ -1743,7 +1502,7 @@ function DemoTimelineItem({
   step,
   index,
 }: {
-  step: (typeof demoTimeline)[number];
+  step: TextCard & { icon: LucideIcon };
   index: number;
 }) {
   return (
@@ -1756,7 +1515,7 @@ function DemoTimelineItem({
         <div className="flex h-[70px] w-[70px] items-center justify-center rounded-[18px] border border-slate-900/[0.06] bg-white text-[#16C35B] shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
           <step.icon className="h-8 w-8 stroke-[1.7]" />
         </div>
-        {index < demoTimeline.length - 1 && (
+        {index < demoTimelineIcons.length - 1 && (
           <div className="absolute left-1/2 top-[78px] h-[42px] -translate-x-1/2 border-l border-dashed border-[#16C35B]/20" />
         )}
       </div>
@@ -1952,6 +1711,12 @@ function DemoDashboardPreview() {
 }
 
 function IntegrationsSection() {
+  const t = useTranslations("integrations");
+  const integrations = (t.raw("items") as IntegrationCopy[]).map((item, index) => ({
+    ...item,
+    ...integrationIds[index],
+  }));
+
   return (
     <section id="integrations" className="relative overflow-hidden bg-[#EAF1EC] px-5 py-20 text-[#07111F] sm:px-8 lg:px-10 xl:py-[120px]">
       <div className="pointer-events-none absolute inset-0">
@@ -1979,14 +1744,12 @@ function IntegrationsSection() {
       <div className="relative mx-auto max-w-[1440px]">
         <motion.div {...fadeUp} className="mx-auto max-w-[880px] text-center">
           <h2 className="text-[34px] font-normal leading-[1.08] tracking-[-0.035em] text-[#07111F] sm:text-[46px] lg:text-[56px] xl:text-[64px]">
-            SLAIVIO s’intègre avec
+            {t("titleLine1")}
             <br />
-            vos outils <span className="text-[#12C76F]">essentiels.</span>
+            {t("titleLine2")} <span className="text-[#12C76F]">{t("titleAccent")}</span>
           </h2>
           <p className="mx-auto mt-6 max-w-[760px] text-[16px] leading-[1.75] tracking-[-0.01em] text-[#475569] sm:text-[18px] lg:text-[20px]">
-            Connectez facilement SLAIVIO à vos outils préférés et centralisez
-            <br className="hidden md:block" />
-            toutes vos communications au même endroit.
+            {t("subtitle")}
           </p>
         </motion.div>
 
@@ -2107,6 +1870,10 @@ function CoreFeaturesSection() {
   const t = useTranslations("features");
   const [activeFeature, setActiveFeature] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const coreFeatures = (t.raw("items") as TextCard[]).map((feature, index) => ({
+    ...feature,
+    ...coreFeatureMeta[index],
+  }));
   const activeCoreFeature = coreFeatures[activeFeature];
 
   useEffect(() => {
@@ -2253,7 +2020,11 @@ function CoreFeaturesSection() {
   );
 }
 
-function FeatureImage({ feature }: { feature: (typeof coreFeatures)[number] }) {
+function FeatureImage({
+  feature,
+}: {
+  feature: TextCard & (typeof coreFeatureMeta)[number];
+}) {
   return (
     <div className="relative h-full min-h-[430px] overflow-hidden rounded-[24px] border border-slate-900/[0.07] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
       <Image
@@ -2267,7 +2038,7 @@ function FeatureImage({ feature }: { feature: (typeof coreFeatures)[number] }) {
   );
 }
 
-function FeatureScreen({ type }: { type: (typeof coreFeatures)[number]["screen"] }) {
+function FeatureScreen({ type }: { type: (typeof coreFeatureMeta)[number]["screen"] }) {
   if (type === "clients") {
     return (
       <div className="h-full rounded-[18px] bg-white p-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.04)]">
@@ -2460,7 +2231,7 @@ function FeatureScreen({ type }: { type: (typeof coreFeatures)[number]["screen"]
 function GenericFeatureScreen({
   type,
 }: {
-  type: Exclude<(typeof coreFeatures)[number]["screen"], "clients" | "dossiers" | "colis" | "tracking" | "whatsapp">;
+  type: Exclude<(typeof coreFeatureMeta)[number]["screen"], "clients" | "dossiers" | "colis" | "tracking" | "whatsapp">;
 }) {
   const content = {
     warehouse: {
@@ -2583,7 +2354,7 @@ function IntegrationCard({
   className,
   delay,
 }: {
-  integration: (typeof integrations)[number];
+  integration: IntegrationCopy & (typeof integrationIds)[number];
   className: string;
   delay: number;
 }) {
@@ -2614,7 +2385,7 @@ function IntegrationMobileCard({
   integration,
   delay,
 }: {
-  integration: (typeof integrations)[number];
+  integration: IntegrationCopy & (typeof integrationIds)[number];
   delay: number;
 }) {
   return (
@@ -2646,7 +2417,7 @@ function IntegrationBubble({
   id,
   compact = false,
 }: {
-  id: (typeof integrations)[number]["id"];
+  id: (typeof integrationIds)[number]["id"];
   compact?: boolean;
 }) {
   return (
@@ -2694,6 +2465,10 @@ function IntegrationBubble({
 function PricingSection() {
   const t = useTranslations("pricing");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
+  const pricingPlans = (t.raw("plans") as PricingPlanCopy[]).map((plan, index) => ({
+    ...plan,
+    ...pricingPlanMeta[index],
+  }));
 
   return (
     <section
@@ -2752,7 +2527,7 @@ function PricingCard({
   plan,
   index,
 }: {
-  plan: (typeof pricingPlans)[number];
+  plan: PricingPlanCopy & (typeof pricingPlanMeta)[number];
   index: number;
 }) {
   const t = useTranslations("pricing");
@@ -2792,10 +2567,10 @@ function PricingCard({
       <p className="mt-3 min-h-[52px] text-[15px] leading-7 text-white/58">{plan.description}</p>
 
       <div className="mt-6 flex items-end gap-2">
-        <span className={`text-[46px] font-extrabold leading-none tracking-[-0.05em] text-white ${plan.price === "Sur devis" ? "text-[38px]" : "sm:text-[58px]"}`}>
+        <span className={`text-[46px] font-extrabold leading-none tracking-[-0.05em] text-white ${index === 3 ? "text-[38px]" : "sm:text-[58px]"}`}>
           {plan.price}
         </span>
-        {plan.price !== "Sur devis" && <span className="pb-2 text-[17px] font-semibold text-white/52">{t("perMonth")}</span>}
+        {index !== 3 && <span className="pb-2 text-[17px] font-semibold text-white/52">{t("perMonth")}</span>}
       </div>
       <div className="mt-3 flex min-h-[26px] items-center gap-2">
         {plan.annualText && <p className="text-sm text-white/42">{plan.annualText}</p>}
@@ -2955,23 +2730,13 @@ function DemoRequestModal({
                     {formFields.map((field) => (
                       <label key={field.name} className="block">
                         <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/45">
-                          {field.name === "full_name"
-                            ? t("fullName")
-                            : field.name === "agency_name"
-                              ? t("agency")
-                              : field.name === "country"
-                                ? t("country")
-                                : field.name === "email"
-                                  ? t("email")
-                                  : field.name === "phone"
-                                    ? t("phone")
-                                    : t("monthlyShipments")}
+                          {t(field.labelKey)}
                         </span>
                         <input
                           name={field.name}
                           required={field.name === "full_name" || field.name === "email"}
                           type={field.name === "email" ? "email" : "text"}
-                          placeholder={field.placeholder}
+                          placeholder={t(field.placeholderKey)}
                           className="mt-2 h-[52px] w-full rounded-2xl border border-white/10 bg-white/[0.055] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#12C76F]/70"
                         />
                       </label>
@@ -3022,6 +2787,7 @@ function FaqSection({
   setOpenFaq: (index: number) => void;
 }) {
   const t = useTranslations("faq");
+  const faqItems = t.raw("items") as Array<{ question: string; answer: string }>;
 
   const handleFaqKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
@@ -3073,7 +2839,7 @@ function FaqSection({
           aria-label={t("aria")}
           className="mx-auto mt-16 max-w-[980px] overflow-hidden rounded-[26px] border border-[#E7EDF4] bg-white shadow-[0_20px_70px_rgba(15,23,42,.05)] xl:mt-[70px]"
         >
-          {faqItems.map(([question, answer], index) => (
+          {faqItems.map(({ question, answer }, index) => (
             <motion.div
               key={question}
               initial={{ opacity: 0, y: 16 }}
@@ -3129,47 +2895,10 @@ function FaqSection({
 function LandingFooter() {
   const t = useTranslations("footer");
   const language = useTranslations("language");
-  const footerColumns = [
-    {
-      title: t("product"),
-      links: [
-        ["Fonctionnalités", "#features"],
-        ["Tarification", "#pricing"],
-        ["Intégrations", "#integrations"],
-        ["Mises à jour", "#workflow"],
-        ["Sécurité", "#faq"],
-      ],
-    },
-    {
-      title: t("resources"),
-      links: [
-        ["Blog", "#"],
-        ["Guides", "#"],
-        ["Centre d’aide", "#"],
-        ["FAQ", "#faq"],
-        ["Webinaires", "#"],
-      ],
-    },
-    {
-      title: t("company"),
-      links: [
-        ["À propos", "#"],
-        ["Carrières", "#"],
-        ["Partenaires", "#"],
-        ["Contact", "#demo"],
-        ["Presse", "#"],
-      ],
-    },
-    {
-      title: t("legal"),
-      links: [
-        ["Conditions d’utilisation", "#"],
-        ["Politique de confidentialité", "#"],
-        ["Politique de cookies", "#"],
-        ["Mentions légales", "#"],
-      ],
-    },
-  ];
+  const footerColumns = t.raw("columns") as Array<{
+    title: string;
+    links: Array<{ label: string; href: string }>;
+  }>;
 
   return (
     <footer className="relative overflow-hidden bg-[#060B10] px-5 py-16 text-white sm:px-8 lg:px-10">
@@ -3201,7 +2930,7 @@ function LandingFooter() {
             <div key={column.title}>
               <h3 className="text-[20px] font-bold text-[#12C76F]">{column.title}</h3>
               <div className="mt-8 flex flex-col gap-7">
-                {column.links.map(([label, href]) => (
+                {column.links.map(({ label, href }) => (
                   <a
                     key={label}
                     href={href}

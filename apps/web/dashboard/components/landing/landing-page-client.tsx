@@ -106,67 +106,54 @@ const integrationIds: Array<{
 
 const coreFeatureMeta: Array<{
   icon: LucideIcon;
-  imageSrc: string;
   screen: "clients" | "dossiers" | "colis" | "tracking" | "whatsapp" | "warehouse" | "routes" | "pricing" | "payments" | "reports" | "security";
 }> = [
   {
     icon: BarChart3,
-    imageSrc: "/landing/features/dashboard.webp",
     screen: "reports",
   },
   {
     icon: Users,
-    imageSrc: "/landing/features/clients.webp",
     screen: "clients",
   },
   {
     icon: ClipboardList,
-    imageSrc: "/landing/features/dossiers.webp",
     screen: "dossiers",
   },
   {
     icon: Package,
-    imageSrc: "/landing/features/colis.webp",
     screen: "colis",
   },
   {
     icon: Truck,
-    imageSrc: "/landing/features/expeditions.webp",
     screen: "routes",
   },
   {
     icon: CheckCircle2,
-    imageSrc: "/landing/features/tracking.webp",
     screen: "tracking",
   },
   {
     icon: MessageCircle,
-    imageSrc: "/landing/features/whatsapp.webp",
     screen: "whatsapp",
   },
   {
     icon: CreditCard,
-    imageSrc: "/landing/features/paiements.webp",
     screen: "payments",
   },
   {
     icon: Bell,
-    imageSrc: "/landing/features/relances.webp",
     screen: "payments",
   },
   {
     icon: Megaphone,
-    imageSrc: "/landing/features/broadcasts.webp",
     screen: "whatsapp",
   },
   {
     icon: Inbox,
-    imageSrc: "/landing/features/knowledge.webp",
     screen: "security",
   },
   {
     icon: MessageCircle,
-    imageSrc: "/landing/features/whatsapp-ai.webp",
     screen: "whatsapp",
   },
 ];
@@ -283,7 +270,7 @@ export function LandingPageClient() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#020807] font-['Neue_Haas_Grotesk_Display_Pro','Neue_Haas_Grotesk_Text',Inter,'Helvetica_Neue',Arial,system-ui,sans-serif] text-white">
+    <main className="min-h-screen bg-[#020807] font-['Neue_Haas_Grotesk_Display_Pro','Neue_Haas_Grotesk_Text',Inter,'Helvetica_Neue',Arial,system-ui,sans-serif] text-white">
       <LandingHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} isFixed={headerFixed} />
       <HeroSection phrase={heroPhrases[heroPhraseIndex]} />
       <ProblemSection />
@@ -316,10 +303,13 @@ function LandingHeader({
   const t = useTranslations("navigation");
 
   return (
-    <header
-      className={`fixed left-0 right-0 top-0 z-50 transition-[background-color,box-shadow,border-color] duration-300 ${
+    <motion.header
+      initial={false}
+      animate={{ y: isFixed ? 0 : 0 }}
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      className={`fixed left-0 right-0 top-0 z-50 will-change-transform transition-[background-color,box-shadow,border-color] duration-300 ${
         isFixed
-          ? "border-b border-white/[0.08] bg-[#020807]/90 shadow-[0_16px_44px_rgba(0,0,0,0.18)] backdrop-blur-xl"
+          ? "border-b border-white/[0.08] bg-[#020807]/88 shadow-[0_16px_44px_rgba(0,0,0,0.20)] backdrop-blur-xl"
           : "border-b border-transparent bg-transparent"
       }`}
     >
@@ -402,11 +392,19 @@ function LandingHeader({
           </motion.div>
         )}
       </AnimatePresence>
-    </header>
+    </motion.header>
   );
 }
 
-function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
+function LanguageSwitcher({
+  compact = false,
+  variant = "header",
+  display = "short",
+}: {
+  compact?: boolean;
+  variant?: "header" | "footer";
+  display?: "short" | "name";
+}) {
   const t = useTranslations("language");
   const navT = useTranslations("navigation");
   const locale = useLocale();
@@ -437,13 +435,23 @@ function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
         aria-label={navT("language")}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-semibold text-white transition hover:border-[#12C76F]/40 hover:bg-white/[0.08] ${
+        className={`inline-flex h-10 items-center justify-center gap-2 px-3 text-sm font-semibold text-white transition ${
+          variant === "footer"
+            ? "rounded-none bg-transparent hover:text-[#12C76F]"
+            : "rounded-xl border border-white/10 bg-white/[0.04] hover:border-[#12C76F]/40 hover:bg-white/[0.08]"
+        } ${
           compact ? "w-full justify-between" : ""
         }`}
       >
         <span className="inline-flex items-center gap-2">
           <Globe2 className="h-5 w-5" />
-          {locale === "en" ? t("shortEn") : t("shortFr")}
+          {display === "name"
+            ? locale === "en"
+              ? t("en")
+              : t("fr")
+            : locale === "en"
+              ? t("shortEn")
+              : t("shortFr")}
         </span>
         <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
       </button>
@@ -455,8 +463,8 @@ function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -6 }}
             transition={{ duration: 0.18 }}
-            className={`absolute z-[70] mt-2 overflow-hidden rounded-2xl border border-white/10 bg-[#07110D]/98 p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl ${
-              compact ? "left-0 right-0" : "right-0 w-44"
+            className={`absolute z-[70] overflow-hidden rounded-2xl border border-white/10 bg-[#07110D]/98 p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl ${
+              variant === "footer" ? "bottom-full mb-2 right-0 w-44" : `mt-2 ${compact ? "left-0 right-0" : "right-0 w-44"}`
             }`}
           >
             {(["fr", "en"] as const).map((item) => (
@@ -484,7 +492,7 @@ function HeroSection({ phrase }: { phrase: string }) {
   const buttons = useTranslations("navigation");
 
   return (
-    <section className="relative min-h-screen overflow-x-hidden bg-[#030706] px-5 pb-14 pt-[104px] text-white sm:px-8 md:pt-[120px] lg:px-10 xl:pb-0">
+    <section className="relative min-h-screen bg-[#030706] px-5 pb-14 pt-[104px] text-white sm:px-8 md:pt-[120px] lg:px-10 xl:pb-10">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_55%,rgba(18,199,111,0.25),transparent_35%),radial-gradient(circle_at_30%_80%,rgba(18,199,111,0.10),transparent_30%),linear-gradient(180deg,#030706_0%,#050A09_48%,#07110D_100%)]" />
         <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,.32)_100%)]" />
@@ -911,22 +919,15 @@ function ProblemSection() {
             backgroundSize: "13px 13px",
           }}
         />
-        <div className="absolute right-0 top-24 hidden h-[760px] w-[56vw] lg:block">
-          <Image
-            src="/landing/problem-manager-photo.png"
-            alt=""
-            fill
-            sizes="56vw"
-            className="object-cover object-center opacity-[0.18]"
-            style={{
-              maskImage:
-                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.12) 16%, rgba(0,0,0,.55) 42%, rgba(0,0,0,.45) 100%)",
-              WebkitMaskImage:
-                "linear-gradient(90deg, transparent 0%, rgba(0,0,0,.12) 16%, rgba(0,0,0,.55) 42%, rgba(0,0,0,.45) 100%)",
-            }}
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,rgba(18,199,111,0.10),transparent_38%),linear-gradient(180deg,rgba(251,252,251,0)_0%,rgba(251,252,251,0.92)_100%)]" />
-        </div>
+        <div
+          className="absolute right-0 top-24 hidden h-[620px] w-[50vw] opacity-[0.18] lg:block"
+          style={{
+            backgroundImage:
+              "linear-gradient(135deg, rgba(18,199,111,.26) 1px, transparent 1px), radial-gradient(circle, rgba(7,17,31,.18) 1px, transparent 1.4px)",
+            backgroundSize: "34px 34px, 22px 22px",
+            maskImage: "radial-gradient(circle at 64% 44%, black, transparent 72%)",
+          }}
+        />
       </div>
 
       <div className="relative mx-auto max-w-[1440px]">
@@ -960,7 +961,7 @@ function ProblemSection() {
           </motion.p>
 
           <div className="mt-10 max-w-[820px]">
-            <div className="relative h-[690px] overflow-hidden rounded-[30px] border border-slate-900/[0.07] bg-white/90 p-5 shadow-[0_30px_90px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:h-[550px] sm:p-8 lg:h-[540px]">
+            <div className="relative min-h-[610px] overflow-hidden rounded-[30px] border border-slate-900/[0.07] bg-white/90 p-5 shadow-[0_30px_90px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:min-h-[520px] sm:p-8 lg:min-h-[500px]">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_14%,rgba(18,199,111,0.10),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.92),rgba(255,255,255,0.62))]" />
               <AnimatePresence mode="wait">
                 <motion.div
@@ -969,7 +970,7 @@ function ProblemSection() {
                   animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
                   exit={{ opacity: 0, x: -28, filter: "blur(8px)" }}
                   transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-                  className="relative grid h-[600px] gap-6 sm:h-[430px] sm:grid-cols-[92px_1fr] sm:items-center lg:h-[420px]"
+                  className="relative grid min-h-[520px] gap-6 pb-12 sm:min-h-[390px] sm:grid-cols-[92px_1fr] sm:items-center sm:pb-10 lg:min-h-[370px]"
                 >
                   <div className="flex h-20 w-20 items-center justify-center rounded-[22px] bg-[#12C76F]/14 text-[#12C76F] ring-1 ring-[#12C76F]/20 sm:mt-1">
                     <ActiveIcon className="h-9 w-9" />
@@ -1121,16 +1122,7 @@ function WorkflowSection() {
             >
               <div className="absolute -left-12 top-1/2 hidden h-px w-12 border-t border-dashed border-[#12C76F]/50 xl:block" />
               <div className="absolute -right-12 top-1/2 hidden h-px w-12 border-t border-dashed border-[#12C76F]/50 xl:block" />
-              <div className="relative aspect-[16/9] overflow-hidden rounded-[28px] border border-white/[0.12] bg-[#07110D] shadow-[0_34px_110px_rgba(0,0,0,0.36)]">
-                <Image
-                  src="/landing/official/hero-dashboard.png"
-                  alt="Dashboard SLAIVIO"
-                  fill
-                  sizes="1120px"
-                  className="object-cover object-top"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_60%_40%,rgba(18,199,111,.10),transparent_42%)]" />
-              </div>
+              <DashboardPreview />
             </motion.div>
 
             <div className={`hidden xl:block ${rightPosition}`}>
@@ -1459,7 +1451,7 @@ function WatchDemoSection() {
               transition={{ duration: 0.78, ease: "easeOut" as const }}
               className="mx-auto w-full max-w-[760px]"
             >
-              <DemoDashboardPreview />
+              <DashboardPreview />
             </motion.div>
           </div>
         </div>
@@ -2027,13 +2019,7 @@ function FeatureImage({
 }) {
   return (
     <div className="relative h-full min-h-[430px] overflow-hidden rounded-[24px] border border-slate-900/[0.07] bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-      <Image
-        src={feature.imageSrc}
-        alt={feature.title}
-        fill
-        sizes="(max-width: 1024px) 100vw, 720px"
-        className="object-cover object-left-top"
-      />
+      <FeatureScreen type={feature.screen} />
     </div>
   );
 }
@@ -2894,7 +2880,6 @@ function FaqSection({
 
 function LandingFooter() {
   const t = useTranslations("footer");
-  const language = useTranslations("language");
   const footerColumns = t.raw("columns") as Array<{
     title: string;
     links: Array<{ label: string; href: string }>;
@@ -2947,13 +2932,9 @@ function LandingFooter() {
         <div className="h-px w-full bg-white/[0.14]" />
         <div className="flex flex-col gap-6 pt-10 md:flex-row md:items-center md:justify-between">
           <p className="text-[16px] text-white/56 sm:text-[18px]">{t("copyright")}</p>
-          <button
-            type="button"
-            className="flex w-fit items-center gap-3 text-[18px] font-semibold text-white md:border-l md:border-white/[0.14] md:pl-12 sm:text-[20px]"
-          >
-            {language("fr")}
-            <ChevronDown className="h-5 w-5" />
-          </button>
+          <div className="w-fit md:border-l md:border-white/[0.14] md:pl-12">
+            <LanguageSwitcher variant="footer" display="name" />
+          </div>
         </div>
       </motion.div>
     </footer>
@@ -2973,7 +2954,7 @@ function FooterSocial({
     <a
       href={href}
       aria-label={label}
-      className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.06] text-[#12C76F] transition duration-200 hover:-translate-y-1 hover:border-[#12C76F]/40 hover:bg-[#12C76F]/14"
+      className="flex h-10 w-10 items-center justify-center text-[#12C76F] transition duration-200 hover:-translate-y-1 hover:text-[#20E489]"
     >
       {type === "email" && <Mail className="h-6 w-6 stroke-[1.8]" />}
       {type === "whatsapp" && <MessageCircle className="h-6 w-6 stroke-[1.8]" />}

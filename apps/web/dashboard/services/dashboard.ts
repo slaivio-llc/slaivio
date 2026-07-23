@@ -8,6 +8,9 @@ export type HomeResource = {
   tone: string;
   is_starred: boolean;
   last_opened_at?: string | null;
+  count: number | null;
+  label: string;
+  state: "ready" | "empty" | "unavailable";
 };
 
 export type HomeNotification = {
@@ -21,12 +24,25 @@ export type HomeNotification = {
 };
 
 export type DashboardHome = {
-  status: "ok";
-  workspace: { org_id?: string | null; name: string };
+  status: "ok" | "no_workspace";
+  workspace: { org_id?: string | null; name: string; country?: string | null; city?: string | null };
   manager: { name: string; email: string; initials: string };
   resources: HomeResource[];
+  attention_items: HomeAttentionItem[];
   notifications: HomeNotification[];
   unread_count: number;
+  whatsapp: { configured: boolean; status: string; phone?: string | null };
+};
+
+export type HomeAttentionItem = {
+  id: string;
+  kind: "shipment" | "followup" | "payment";
+  title: string;
+  message: string;
+  status: string;
+  priority: "HIGH" | "NORMAL";
+  created_at: string;
+  href: string;
 };
 
 export type HomeSearchResult = {
@@ -51,4 +67,8 @@ export async function searchDashboardHome(query: string, signal?: AbortSignal) {
 
 export async function markHomeNotificationRead(id: string) {
   return (await api.patch(`/manager/events/${id}/read`)).data;
+}
+
+export async function markAllHomeNotificationsRead() {
+  return (await api.patch("/dashboard/home/notifications/read-all")).data;
 }

@@ -3,7 +3,12 @@ from pydantic import BaseModel
 
 from app.core.auth import get_current_manager
 from app.dashboard.repository import get_dashboard_overview
-from app.dashboard.home_repository import get_home, search_home, update_resource_preference
+from app.dashboard.home_repository import (
+    get_home,
+    mark_all_notifications_read,
+    search_home,
+    update_resource_preference,
+)
 from app.tenant.services.tenant_service import get_tenant_context
 
 
@@ -79,3 +84,11 @@ def dashboard_home_search(q: str = Query(min_length=2, max_length=100), manager=
     if not tenant.get("org_id"):
         return {"status": "ok", "results": []}
     return {"status": "ok", "results": search_home(tenant["org_id"], q)}
+
+
+@router.patch("/dashboard/home/notifications/read-all")
+def dashboard_home_read_all(manager=Depends(get_current_manager)):
+    tenant = _resolve_active_tenant(manager)
+    if not tenant.get("org_id"):
+        raise HTTPException(status_code=409, detail="No active organization")
+    return {"status": "ok", "updated": mark_all_notifications_read(tenant["org_id"])}

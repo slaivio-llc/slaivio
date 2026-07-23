@@ -37,6 +37,32 @@ async def clerk_webhook(
     event_type = event["type"]
     data = event["data"]
 
+    if event_type == "user.created":
+        user_id = data["id"]
+        email_addresses = data.get("email_addresses") or []
+        email = email_addresses[0].get("email_address") if email_addresses else None
+        display_name = " ".join(
+            part for part in [data.get("first_name"), data.get("last_name")] if part
+        ).strip() or email or "Nouvelle agence"
+        personal_clerk_org_id = f"personal_{user_id}"
+        org = provision_organization(
+            clerk_org_id=personal_clerk_org_id,
+            organization_name=f"Espace de {display_name}",
+        )
+        membership = sync_membership_with_role(
+            clerk_membership_id=f"personal_membership_{user_id}",
+            clerk_user_id=user_id,
+            clerk_org_id=personal_clerk_org_id,
+            org_id=str(org["id"]),
+            user_email=email,
+            default_role_code="OWNER",
+        )
+        return {
+            "status": "ok",
+            "organization": org,
+            "membership": membership,
+        }
+
     if event_type in {"organization.created", "organization.updated"}:
         org = provision_organization(
             clerk_org_id=data["id"],

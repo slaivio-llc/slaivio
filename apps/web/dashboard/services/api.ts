@@ -1,5 +1,12 @@
 import axios from "axios";
 
+type AccessTokenProvider = () => Promise<string | null>;
+let accessTokenProvider: AccessTokenProvider | null = null;
+
+export function setAccessTokenProvider(provider: AccessTokenProvider | null) {
+  accessTokenProvider = provider;
+}
+
 export const api = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_URL ||
@@ -11,10 +18,10 @@ export const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   if (typeof window !== "undefined") {
-    const clerk = (window as any).Clerk;
-    let token: string | null = null;
+    let token = accessTokenProvider ? await accessTokenProvider() : null;
+    const clerk = (window as Window & { Clerk?: { session?: { getToken?: () => Promise<string | null> } } }).Clerk;
 
-    if (clerk?.session?.getToken) {
+    if (!token && clerk?.session?.getToken) {
       token = await clerk.session.getToken();
     }
 

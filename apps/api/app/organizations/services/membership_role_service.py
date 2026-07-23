@@ -34,6 +34,7 @@ def sync_membership_with_role(
     clerk_org_id: str,
     org_id: str,
     user_email: str | None = None,
+    default_role_code: str = "SUPPORT",
 ):
     invitation = None
 
@@ -42,7 +43,7 @@ def sync_membership_with_role(
             email=user_email,
         )
 
-    role_code = invitation["role_code"] if invitation else "SUPPORT"
+    role_code = invitation["role_code"] if invitation else default_role_code
 
     membership = upsert_membership(
         clerk_membership_id=clerk_membership_id,

@@ -1,11 +1,12 @@
 "use client";
 
-import { ClerkProvider } from "@clerk/nextjs";
-import { ReactNode } from "react";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
+import { ReactNode, useEffect } from "react";
 
 import { EntitlementProvider } from "@/components/entitlements/entitlement-provider";
 import { FeatureProvider } from "@/components/features/feature-provider";
 import { PermissionProvider } from "@/components/permissions/permission-provider";
+import { setAccessTokenProvider } from "@/services/api";
 
 export function AppProviders({
   children,
@@ -27,8 +28,20 @@ export function AppProviders({
 
   return (
     <ClerkProvider publishableKey={publishableKey}>
-      {content}
+      <ClerkApiAuthBridge>{content}</ClerkApiAuthBridge>
     </ClerkProvider>
   );
+}
+
+function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
+  const { getToken, isLoaded } = useAuth();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    setAccessTokenProvider(() => getToken());
+    return () => setAccessTokenProvider(null);
+  }, [getToken, isLoaded]);
+
+  return children;
 }
 

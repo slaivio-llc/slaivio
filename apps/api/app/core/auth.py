@@ -15,7 +15,6 @@ def get_current_manager(
     clerk_org_id = (
         payload.get("org_id")
         or payload.get("orgId")
-        or payload.get("azp")
     )
     email = (
         payload.get("email")

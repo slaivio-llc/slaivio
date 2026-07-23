@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import text
 
+from app.core.logger import logger
 from app.db.database import engine
 
 
@@ -54,6 +55,24 @@ def _row(conn, statement: str, params: dict | None = None) -> dict:
     return _safe(dict(result._mapping)) if result else {}
 
 
+def _optional_row(conn, module: str, statement: str, params: dict | None = None) -> dict:
+    try:
+        with conn.begin_nested():
+            return _row(conn, statement, params)
+    except Exception as exc:
+        logger.warning("dashboard_home_module_unavailable:%s:%s", module, type(exc).__name__)
+        return {}
+
+
+def _optional_rows(conn, module: str, statement: str, params: dict | None = None) -> list[dict]:
+    try:
+        with conn.begin_nested():
+            return _rows(conn, statement, params)
+    except Exception as exc:
+        logger.warning("dashboard_home_module_unavailable:%s:%s", module, type(exc).__name__)
+        return []
+
+
 def _available_tables(conn) -> set[str]:
     rows = conn.execute(
         text("select tablename from pg_catalog.pg_tables where schemaname = 'public'")
@@ -65,33 +84,37 @@ def _module_counts(conn, org_id: str, tables: set[str]) -> dict[str, dict]:
     counts: dict[str, dict] = {}
 
     if "clients" in tables:
-        data = _row(conn, "select count(*)::int total from clients where org_id = :org_id", {"org_id": org_id})
-        counts["clients"] = {"count": data.get("total", 0), "label": "client(s) enregistré(s)"}
+        data = _optional_row(conn, "clients", "select count(*)::int total from clients where org_id = :org_id", {"org_id": org_id})
+        if data:
+            counts["clients"] = {"count": data.get("total", 0), "label": "client(s) enregistré(s)"}
 
     if "dossiers" in tables:
-        data = _row(conn, """
+        data = _optional_row(conn, "dossiers", """
             select count(*)::int total,
                    count(*) filter (where upper(coalesce(status_global, '')) = any(:active))::int active
             from dossiers where org_id = :org_id
         """, {"org_id": org_id, "active": list(ACTIVE_DOSSIER_STATUSES)})
-        counts["dossiers"] = {"count": data.get("total", 0), "label": f"{data.get('active', 0)} en cours"}
+        if data:
+            counts["dossiers"] = {"count": data.get("total", 0), "label": f"{data.get('active', 0)} en cours"}
 
     if "shipments" in tables:
-        data = _row(conn, """
+        data = _optional_row(conn, "shipments", """
             select count(*)::int total,
-                   count(*) filter (where upper(coalesce(current_status, status, '')) = any(:transit))::int transit,
-                   count(*) filter (where upper(coalesce(current_status, status, '')) in ('BLOCKED', 'ISSUE'))::int exceptions
-            from shipments where org_id = :org_id
+                   count(*) filter (where upper(coalesce(to_jsonb(s)->>'current_status', status, '')) = any(:transit))::int transit,
+                   count(*) filter (where upper(coalesce(to_jsonb(s)->>'current_status', status, '')) in ('BLOCKED', 'ISSUE'))::int exceptions
+            from shipments s where org_id = :org_id
         """, {"org_id": org_id, "transit": list(TRANSIT_STATUSES)})
-        total, transit = data.get("total", 0), data.get("transit", 0)
-        counts["packages"] = {"count": total, "label": f"{transit} en transit"}
-        counts["shipments"] = {"count": total, "label": f"{transit} en transit"}
-        counts["tracking"] = {"count": total, "label": "colis traçable(s)"}
-        counts["reports"] = {"count": total, "label": "opérations analysables"}
+        if data:
+            total, transit = data.get("total", 0), data.get("transit", 0)
+            counts["packages"] = {"count": total, "label": f"{transit} en transit"}
+            counts["shipments"] = {"count": total, "label": f"{transit} en transit"}
+            counts["tracking"] = {"count": total, "label": "colis traçable(s)"}
+            counts["reports"] = {"count": total, "label": "opérations analysables"}
 
     if "messages_raw" in tables:
-        data = _row(conn, "select count(*)::int total from messages_raw where org_id = :org_id", {"org_id": org_id})
-        counts["inbox"] = {"count": data.get("total", 0), "label": "message(s) reçu(s)"}
+        data = _optional_row(conn, "inbox", "select count(*)::int total from messages_raw where org_id = :org_id", {"org_id": org_id})
+        if data:
+            counts["inbox"] = {"count": data.get("total", 0), "label": "message(s) reçu(s)"}
 
     simple_counts = {
         "broadcasts": ("broadcasts", "broadcast(s)"),
@@ -103,23 +126,26 @@ def _module_counts(conn, org_id: str, tables: set[str]) -> dict[str, dict]:
     }
     for key, (table_name, label) in simple_counts.items():
         if table_name in tables:
-            data = _row(conn, f"select count(*)::int total from {table_name} where org_id = :org_id", {"org_id": org_id})
-            counts[key] = {"count": data.get("total", 0), "label": label}
+            data = _optional_row(conn, key, f"select count(*)::int total from {table_name} where org_id = :org_id", {"org_id": org_id})
+            if data:
+                counts[key] = {"count": data.get("total", 0), "label": label}
 
     if "accounting_entries" in tables:
-        data = _row(conn, """
+        data = _optional_row(conn, "expenses", """
             select count(*) filter (where upper(coalesce(entry_type, '')) = 'EXPENSE')::int total
             from accounting_entries where org_id = :org_id
         """, {"org_id": org_id})
-        counts["expenses"] = {"count": data.get("total", 0), "label": "dépense(s)"}
+        if data:
+            counts["expenses"] = {"count": data.get("total", 0), "label": "dépense(s)"}
 
     if "user_organizations" in tables:
         counts["workspaces"] = {"count": 1, "label": "workspace actif"}
-        data = _row(conn, """
+        data = _optional_row(conn, "team", """
             select count(*)::int total from user_organizations
             where org_id = :org_id and coalesce(membership_status, 'ACTIVE') = 'ACTIVE'
         """, {"org_id": org_id})
-        counts["team"] = {"count": data.get("total", 0), "label": "membre(s)"}
+        if data:
+            counts["team"] = {"count": data.get("total", 0), "label": "membre(s)"}
 
     return counts
 
@@ -127,17 +153,17 @@ def _module_counts(conn, org_id: str, tables: set[str]) -> dict[str, dict]:
 def _attention_items(conn, org_id: str, tables: set[str]) -> list[dict]:
     items: list[dict] = []
     if "shipments" in tables:
-        rows = _rows(conn, """
+        rows = _optional_rows(conn, "attention_shipments", """
             select id::text, coalesce(tracking_id, id::text) title,
-                   coalesce(current_status, status, 'ISSUE') status,
+                   coalesce(to_jsonb(s)->>'current_status', status, 'ISSUE') status,
                    coalesce(updated_at, created_at) created_at
-            from shipments where org_id = :org_id
-              and upper(coalesce(current_status, status, '')) in ('BLOCKED', 'ISSUE')
+            from shipments s where org_id = :org_id
+              and upper(coalesce(to_jsonb(s)->>'current_status', status, '')) in ('BLOCKED', 'ISSUE')
             order by coalesce(updated_at, created_at) desc limit 3
         """, {"org_id": org_id})
         items.extend(dict(item, kind="shipment", message="Colis nécessitant une intervention", href="/app/shipments", priority="HIGH") for item in rows)
     if "followup_tasks" in tables:
-        rows = _rows(conn, """
+        rows = _optional_rows(conn, "attention_followups", """
             select id::text, coalesce(followup_type, 'Relance') title, status,
                    due_at created_at from followup_tasks
             where org_id = :org_id and status = 'PENDING' and due_at <= now()
@@ -145,7 +171,7 @@ def _attention_items(conn, org_id: str, tables: set[str]) -> list[dict]:
         """, {"org_id": org_id})
         items.extend(dict(item, kind="followup", message="Relance arrivée à échéance", href="/app/followups", priority="NORMAL") for item in rows)
     if "payment_requests" in tables:
-        rows = _rows(conn, """
+        rows = _optional_rows(conn, "attention_payments", """
             select id::text, coalesce(external_reference, 'Paiement en attente') title, status,
                    created_at from payment_requests
             where org_id = :org_id and status = 'PENDING'
@@ -171,10 +197,10 @@ def get_home(org_id: str | None, user_id: str, organization_name: str | None, ma
     with engine.connect() as conn:
         tables = _available_tables(conn)
         workspace = _row(conn, """
-            select id, coalesce(organization_name, name, id) name, country, city
+            select id, coalesce(name, id) name, country, city
             from organizations where id = :org_id
         """, {"org_id": org_id}) if "organizations" in tables else {}
-        preferences = _rows(conn, """
+        preferences = _optional_rows(conn, "preferences", """
             select resource_key, is_starred, last_opened_at
             from dashboard_home_preferences where org_id = :org_id and user_id = :user_id
         """, {"org_id": org_id, "user_id": user_id}) if "dashboard_home_preferences" in tables else []
@@ -190,12 +216,12 @@ def get_home(org_id: str | None, user_id: str, organization_name: str | None, ma
             item["state"] = "unavailable" if metric is None else ("empty" if metric["count"] == 0 else "ready")
             resources.append(item)
 
-        notifications = _rows(conn, """
+        notifications = _optional_rows(conn, "notifications", """
             select id::text, title, message, event_type, priority, is_read, created_at,
                    coalesce(shipment_id::text, dossier_id::text, client_id::text) resource_id
             from manager_events where org_id = :org_id order by created_at desc limit 40
         """, {"org_id": org_id}) if "manager_events" in tables else []
-        whatsapp = _row(conn, """
+        whatsapp = _optional_row(conn, "whatsapp", """
             select true configured, connection_status status, display_phone_number phone
             from organization_whatsapp_numbers where org_id = :org_id and is_active = true
             order by is_default desc, updated_at desc limit 1

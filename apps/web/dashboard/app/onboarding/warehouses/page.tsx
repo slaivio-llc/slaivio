@@ -6,7 +6,7 @@ export default function WarehousesOnboardingStep() {
       eyebrow="Warehouses"
       title="Ajoutez au moins un warehouse réel."
       description="Un warehouse est nécessaire pour recevoir, stocker, tracer et préparer les colis."
-      primaryHref="/settings"
+      primaryHref="/app"
       primaryLabel="Configurer warehouses"
       completeStepKey="WAREHOUSES"
       nextHref="/onboarding/routes"

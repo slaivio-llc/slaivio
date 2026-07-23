@@ -6,7 +6,7 @@ export default function WhatsappOnboardingStep() {
       eyebrow="WhatsApp"
       title="Connectez WhatsApp Business officiel."
       description="Cette étape active les conversations client, webhooks, routage multi-numéro et opérations WhatsApp."
-      primaryHref="/whatsapp-settings"
+      primaryHref="/app"
       primaryLabel="Connecter WhatsApp"
       completeStepKey="WHATSAPP"
       nextHref="/onboarding/review"

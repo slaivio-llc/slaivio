@@ -6,7 +6,7 @@ export default function NotificationsOnboardingStep() {
       eyebrow="Notifications"
       title="Préparez les notifications client."
       description="Les notifications contrôlent les messages d’arrivée colis, paiement, livraison et relance."
-      primaryHref="/settings"
+      primaryHref="/app"
       primaryLabel="Configurer notifications"
       completeStepKey="NOTIFICATIONS"
       nextHref="/onboarding/team"

@@ -6,7 +6,7 @@ export default function RoutesOnboardingStep() {
       eyebrow="Routes"
       title="Définissez vos routes cargo principales."
       description="Les routes clarifient les pays d’origine, destinations, modes de transport et délais."
-      primaryHref="/settings"
+      primaryHref="/app"
       primaryLabel="Configurer routes"
       completeStepKey="ROUTES"
       nextHref="/onboarding/shipping-services"

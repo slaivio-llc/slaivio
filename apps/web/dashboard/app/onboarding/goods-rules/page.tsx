@@ -6,7 +6,7 @@ export default function GoodsRulesOnboardingStep() {
       eyebrow="Goods Rules"
       title="Définissez les règles marchandises."
       description="Batteries, liquides, parfums, documents requis, restrictions et validations manuelles."
-      primaryHref="/settings"
+      primaryHref="/app"
       primaryLabel="Configurer règles"
       completeStepKey="GOODS_RULES"
       nextHref="/onboarding/notifications"

@@ -10,25 +10,7 @@ const intlMiddleware = createIntlMiddleware(routing);
 
 const protectedPrefixes = [
   "/app",
-  "/broadcasts",
-  "/commercial",
-  "/customs",
-  "/delivery",
-  "/dossiers",
-  "/escalations",
-  "/financial",
-  "/inbox",
-  "/knowledge",
-  "/manifests",
   "/onboarding",
-  "/operations",
-  "/settings",
-  "/shipment-batches",
-  "/shipments",
-  "/test-api",
-  "/warehouse",
-  "/whatsapp",
-  "/whatsapp-settings",
 ];
 
 const clerkProtection = clerkMiddleware(async (auth) => {

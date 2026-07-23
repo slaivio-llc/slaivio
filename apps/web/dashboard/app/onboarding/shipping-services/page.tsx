@@ -6,7 +6,7 @@ export default function ShippingServicesOnboardingStep() {
       eyebrow="Shipping Services"
       title="Créez vos services d’expédition."
       description="Exemple: Air Express Chine vers Kinshasa, Maritime Chine vers Matadi, local delivery."
-      primaryHref="/settings"
+      primaryHref="/app"
       primaryLabel="Configurer services"
       completeStepKey="SHIPPING_SERVICES"
       nextHref="/onboarding/pricing"

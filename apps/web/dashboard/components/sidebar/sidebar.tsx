@@ -6,9 +6,7 @@ import { useClerk } from "@clerk/nextjs";
 import type { ComponentType } from "react";
 import {
   Home,
-  KeyRound,
   LogOut,
-  MessageCircle,
 } from "lucide-react";
 
 type SidebarItem = {
@@ -27,30 +25,13 @@ type SidebarGroup = {
 
 const groups: SidebarGroup[] = [
   {
-    label: "Launch Build",
+    label: "Dashboard",
     items: [
       {
-        label: "Home",
-        description: "Current build sequence",
+        label: "Accueil",
+        description: "Espace vierge",
         href: "/app",
         icon: Home,
-      },
-      {
-        label: "Auth & Access",
-        description: "Clerk, users, tenant, roles",
-        href: "/settings",
-        icon: KeyRound,
-      },
-    ],
-  },
-  {
-    label: "Next Block",
-    items: [
-      {
-        label: "Onboarding",
-        description: "Agency setup and WhatsApp",
-        href: "/whatsapp/connect",
-        icon: MessageCircle,
       },
     ],
   },
@@ -127,16 +108,9 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.035] p-3">
-        <div className="rounded-2xl border border-emerald-400/10 bg-emerald-400/10 p-3 text-xs text-emerald-100">
-          <div className="font-bold">Build Discipline</div>
-          <div className="mt-1 leading-5 text-slate-400">
-            Auth first. Then onboarding. Then one module at a time.
-          </div>
-        </div>
-
         <button
           onClick={logout}
-          className="mt-3 flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-red-200 transition hover:bg-red-500/10"
+          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-red-200 transition hover:bg-red-500/10"
         >
           <LogOut size={18} />
           Déconnexion

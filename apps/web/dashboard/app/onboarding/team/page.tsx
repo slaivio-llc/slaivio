@@ -6,7 +6,7 @@ export default function TeamOnboardingStep() {
       eyebrow="Team"
       title="Préparez votre équipe."
       description="Invitez les responsables qui vont gérer inbox, warehouse, finance, douane et livraison."
-      primaryHref="/settings"
+      primaryHref="/app"
       primaryLabel="Gérer l’équipe"
       completeStepKey="TEAM"
       nextHref="/onboarding/whatsapp"

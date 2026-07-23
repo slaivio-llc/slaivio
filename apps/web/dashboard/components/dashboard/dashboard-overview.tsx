@@ -1,6 +1,6 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import {
   Bell, BriefcaseBusiness, Building2, ChevronDown, ChevronLeft,
   CircleHelp, CreditCard, FileText, Folder, Home, LayoutDashboard, Map,
@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
+
+import { getDashboardHome } from "@/services/dashboard";
 
 type NavEntry = readonly [string, ComponentType<{ size?: number }>, string];
 type NavGroup = {
@@ -69,9 +71,38 @@ const navGroups: readonly NavGroup[] = [
 ];
 
 export function DashboardOverviewPage() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [compact, setCompact] = useState(false);
   const [activeGroup, setActiveGroup] = useState<string | null>("Opérations");
+  const [agencyName, setAgencyName] = useState<string | null>(null);
+  const [agencyState, setAgencyState] = useState<"loading" | "ready" | "none" | "error">("loading");
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setAgencyState("error");
+      return;
+    }
+
+    let active = true;
+    getToken()
+      .then((token) => getDashboardHome(token))
+      .then((home) => {
+        if (!active) return;
+        if (home.status === "no_workspace" || !home.workspace.org_id) {
+          setAgencyState("none");
+          return;
+        }
+        setAgencyName(home.workspace.name);
+        setAgencyState("ready");
+      })
+      .catch(() => {
+        if (active) setAgencyState("error");
+      });
+
+    return () => { active = false; };
+  }, [getToken, isLoaded, isSignedIn]);
 
   function selectGroup(label: string) {
     if (compact) {
@@ -97,6 +128,12 @@ export function DashboardOverviewPage() {
         <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1240px] px-6 py-8 sm:px-10 lg:px-12">
             <h1 className="text-[28px] font-semibold tracking-[-0.035em]">Accueil</h1>
+            <p className={`mt-3 text-sm ${agencyState === "error" ? "text-red-600" : "text-slate-500"}`}>
+              {agencyState === "loading" && "Chargement de votre agence…"}
+              {agencyState === "ready" && <>Agence : <span className="font-semibold text-slate-900">{agencyName}</span></>}
+              {agencyState === "none" && "Aucune agence associée à ce compte."}
+              {agencyState === "error" && "Impossible de récupérer l’agence depuis Slaivio."}
+            </p>
           </div>
         </main>
       </div>

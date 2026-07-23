@@ -53,8 +53,10 @@ export type HomeSearchResult = {
   href: string;
 };
 
-export async function getDashboardHome() {
-  return (await api.get<DashboardHome>("/dashboard/home")).data;
+export async function getDashboardHome(token?: string | null) {
+  return (await api.get<DashboardHome>("/dashboard/home", token ? {
+    headers: { Authorization: `Bearer ${token}` },
+  } : undefined)).data;
 }
 
 export async function updateHomeResource(key: string, body: { is_starred?: boolean; opened?: boolean }) {

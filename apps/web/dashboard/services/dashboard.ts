@@ -1,64 +1,54 @@
 import { api } from "@/services/api";
 
-export type DashboardMetric = {
-  value: number;
-  delta?: number;
-  currency?: string;
+export type HomeResource = {
+  key: string;
+  name: string;
+  description: string;
+  href: string;
+  tone: string;
+  is_starred: boolean;
+  last_opened_at?: string | null;
 };
 
-export type DashboardOverview = {
+export type HomeNotification = {
+  id: string;
+  title: string;
+  message: string;
+  event_type: string;
+  priority: string;
+  is_read: boolean;
+  created_at: string;
+};
+
+export type DashboardHome = {
   status: "ok";
-  workspace: {
-    org_id?: string | null;
-    name: string;
-    country?: string | null;
-  };
-  manager: {
-    name: string;
-    initials: string;
-  };
-  stats: {
-    active_clients: DashboardMetric;
-    transit_packages: DashboardMetric;
-    active_shipments: DashboardMetric;
-    monthly_revenue: DashboardMetric;
-  };
-  shipment_trends: Array<{
-    label: string;
-    shipments: number;
-    deliveries: number;
-  }>;
-  status_breakdown: Array<{
-    status: string;
-    value: number;
-  }>;
-  recent_shipments: Array<{
-    reference: string;
-    client_name: string;
-    origin?: string | null;
-    destination?: string | null;
-    status: string;
-    updated_at?: string | null;
-  }>;
-  whatsapp_preview: {
-    unread_count: number;
-    conversations: Array<{
-      name: string;
-      preview: string;
-      phone?: string | null;
-      created_at?: string | null;
-    }>;
-  };
-  notifications: Array<{
-    title: string;
-    message: string;
-    status?: string | null;
-    created_at?: string | null;
-  }>;
-  empty: boolean;
+  workspace: { org_id?: string | null; name: string };
+  manager: { name: string; email: string; initials: string };
+  resources: HomeResource[];
+  notifications: HomeNotification[];
+  unread_count: number;
 };
 
-export async function getDashboardOverview() {
-  const { data } = await api.get<DashboardOverview>("/dashboard/overview");
-  return data;
+export type HomeSearchResult = {
+  kind: "client" | "shipment" | "dossier";
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+};
+
+export async function getDashboardHome() {
+  return (await api.get<DashboardHome>("/dashboard/home")).data;
+}
+
+export async function updateHomeResource(key: string, body: { is_starred?: boolean; opened?: boolean }) {
+  return (await api.patch(`/dashboard/home/resources/${key}`, body)).data;
+}
+
+export async function searchDashboardHome(query: string, signal?: AbortSignal) {
+  return (await api.get<{ results: HomeSearchResult[] }>("/dashboard/home/search", { params: { q: query }, signal })).data.results;
+}
+
+export async function markHomeNotificationRead(id: string) {
+  return (await api.patch(`/manager/events/${id}/read`)).data;
 }

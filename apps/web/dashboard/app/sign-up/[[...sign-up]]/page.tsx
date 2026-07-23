@@ -1,7 +1,5 @@
-import { SignUp } from "@clerk/nextjs";
-
+import { ClerkAuthPanel } from "@/components/auth/clerk-auth-panel";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { clerkAppearance } from "@/components/auth/clerk-appearance";
 
 export default function Page() {
   return (
@@ -9,14 +7,7 @@ export default function Page() {
       title="Créer un compte"
       description="Créez l’accès de votre agence et préparez votre environnement cargo international."
     >
-      <SignUp
-        appearance={clerkAppearance}
-        routing="path"
-        path="/sign-up"
-        signInUrl="/sign-in"
-        fallbackRedirectUrl="/onboarding"
-        forceRedirectUrl="/onboarding"
-      />
+      <ClerkAuthPanel mode="sign-up" />
     </AuthShell>
   );
 }

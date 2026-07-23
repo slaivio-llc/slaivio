@@ -1,6 +1,7 @@
 "use client";
 
 import { UserButton, useAuth } from "@clerk/nextjs";
+import axios from "axios";
 import {
   Bell, BriefcaseBusiness, Building2, ChevronDown, ChevronLeft,
   CircleHelp, CreditCard, FileText, Folder, Home, LayoutDashboard, Map,
@@ -77,6 +78,7 @@ export function DashboardOverviewPage() {
   const [activeGroup, setActiveGroup] = useState<string | null>("Opérations");
   const [agencyName, setAgencyName] = useState<string | null>(null);
   const [agencyState, setAgencyState] = useState<"loading" | "ready" | "none" | "error">("loading");
+  const [agencyError, setAgencyError] = useState("");
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -97,8 +99,23 @@ export function DashboardOverviewPage() {
         setAgencyName(home.workspace.name);
         setAgencyState("ready");
       })
-      .catch(() => {
-        if (active) setAgencyState("error");
+      .catch((error: unknown) => {
+        if (!active) return;
+        setAgencyState("error");
+        if (!axios.isAxiosError(error) || !error.response) {
+          setAgencyError("API Slaivio injoignable. Vérifiez NEXT_PUBLIC_API_URL et le service backend Render.");
+          return;
+        }
+        const status = error.response.status;
+        if (status === 401) {
+          setAgencyError("Authentification refusée (401). Vérifiez CLERK_JWKS_URL et que le frontend et le backend utilisent la même instance Clerk.");
+        } else if (status === 403 || status === 409) {
+          setAgencyError(`Agence non provisionnée (${status}). Vérifiez le webhook Clerk et le membership.`);
+        } else if (status >= 500) {
+          setAgencyError(`Erreur backend/Supabase (${status}). Consultez les logs du backend Render.`);
+        } else {
+          setAgencyError(`L’API a répondu avec le statut ${status}.`);
+        }
       });
 
     return () => { active = false; };
@@ -132,7 +149,7 @@ export function DashboardOverviewPage() {
               {agencyState === "loading" && "Chargement de votre agence…"}
               {agencyState === "ready" && <>Agence : <span className="font-semibold text-slate-900">{agencyName}</span></>}
               {agencyState === "none" && "Aucune agence associée à ce compte."}
-              {agencyState === "error" && "Impossible de récupérer l’agence depuis Slaivio."}
+              {agencyState === "error" && agencyError}
             </p>
           </div>
         </main>

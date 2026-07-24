@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, type ComponentType } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 
 import { getDashboardHome, type DashboardHome } from "@/services/dashboard";
 
@@ -73,9 +74,6 @@ const navGroups: readonly NavGroup[] = [
 
 export function DashboardOverviewPage() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [compact, setCompact] = useState(false);
-  const [activeGroup, setActiveGroup] = useState<string | null>("Opérations");
   const [homeData, setHomeData] = useState<DashboardHome | null>(null);
   const [agencyState, setAgencyState] = useState<"loading" | "ready" | "none" | "error">("loading");
   const [agencyError, setAgencyError] = useState("");
@@ -121,6 +119,28 @@ export function DashboardOverviewPage() {
     return () => { active = false; };
   }, [getToken, isLoaded, isSignedIn]);
 
+  return (
+    <DashboardFrame>
+      <div className="mx-auto max-w-[1240px] px-6 py-8 sm:px-10 lg:px-12">
+        <h1 className="text-[28px] font-semibold tracking-[-0.035em]">Accueil</h1>
+        <p className={`mt-3 text-sm ${agencyState === "error" ? "text-red-600" : "text-slate-500"}`}>
+          {agencyState === "loading" && "Chargement de votre agence…"}
+          {agencyState === "ready" && <>Votre espace Slaivio est connecté aux données de votre agence.</>}
+          {agencyState === "none" && "Aucune agence associée à ce compte."}
+          {agencyState === "error" && agencyError}
+        </p>
+        <ConnectedAccountCard home={homeData} state={agencyState} />
+      </div>
+    </DashboardFrame>
+  );
+}
+
+export function DashboardFrame({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const [activeGroup, setActiveGroup] = useState<string | null>("Opérations");
+
   function selectGroup(label: string) {
     if (compact) {
       setCompact(false);
@@ -141,18 +161,10 @@ export function DashboardOverviewPage() {
           closeMobile={() => setMobileOpen(false)}
           selectGroup={selectGroup}
           toggleCompact={() => setCompact((value) => !value)}
+          pathname={pathname}
         />
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[1240px] px-6 py-8 sm:px-10 lg:px-12">
-            <h1 className="text-[28px] font-semibold tracking-[-0.035em]">Accueil</h1>
-            <p className={`mt-3 text-sm ${agencyState === "error" ? "text-red-600" : "text-slate-500"}`}>
-              {agencyState === "loading" && "Chargement de votre agence…"}
-              {agencyState === "ready" && <>Votre espace Slaivio est connecté aux données de votre agence.</>}
-              {agencyState === "none" && "Aucune agence associée à ce compte."}
-              {agencyState === "error" && agencyError}
-            </p>
-            <ConnectedAccountCard home={homeData} state={agencyState} />
-          </div>
+          {children}
         </main>
       </div>
     </div>
@@ -241,20 +253,21 @@ function GlobalHeader({ openMobile }: { openMobile: () => void }) {
   );
 }
 
-function Sidebar({ mobileOpen, compact, activeGroup, closeMobile, selectGroup, toggleCompact }: {
+function Sidebar({ mobileOpen, compact, activeGroup, closeMobile, selectGroup, toggleCompact, pathname }: {
   mobileOpen: boolean;
   compact: boolean;
   activeGroup: string | null;
   closeMobile: () => void;
   selectGroup: (label: string) => void;
   toggleCompact: () => void;
+  pathname: string;
 }) {
   return (
     <>
       <button aria-label="Fermer le menu" onClick={closeMobile} className={`fixed inset-0 z-40 bg-slate-950/25 lg:hidden ${mobileOpen ? "block" : "hidden"}`} />
       <aside className={`fixed bottom-0 left-0 top-[58px] z-50 flex flex-col overflow-hidden border-r border-[#d9dce1] bg-white transition-[width,transform] lg:relative lg:top-0 lg:z-auto ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${compact ? "w-[56px]" : "w-[250px]"}`}>
         <div className="flex items-center gap-1 p-2">
-          <Link href="/app" title="Accueil" className={`flex min-h-10 flex-1 items-center rounded-md bg-[#eef0f4] text-sm font-semibold ${compact ? "justify-center" : "gap-3 px-3"}`}>
+          <Link href="/app" title="Accueil" className={`flex min-h-10 flex-1 items-center rounded-md text-sm font-semibold ${pathname === "/app" ? "bg-[#eef0f4] text-slate-950" : "text-slate-700 hover:bg-slate-100"} ${compact ? "justify-center" : "gap-3 px-3"}`}>
             <Home size={19} />
             {!compact && <span>Accueil</span>}
           </Link>
@@ -280,7 +293,7 @@ function Sidebar({ mobileOpen, compact, activeGroup, closeMobile, selectGroup, t
                 {expanded && (
                   <div className="ml-[21px] mt-1 space-y-0.5 border-l border-slate-200 pl-3">
                     {group.items.map(([label, Icon, href]) => (
-                      <Link key={href} href={href} className="flex min-h-9 items-center gap-3 rounded-md px-3 text-sm text-slate-600 hover:bg-[#f3f4f6] hover:text-slate-950">
+                      <Link key={href} href={href} className={`flex min-h-9 items-center gap-3 rounded-md px-3 text-sm transition ${pathname === href ? "bg-[#eef0f4] font-semibold text-slate-950" : "text-slate-600 hover:bg-[#f3f4f6] hover:text-slate-950"}`}>
                         <Icon size={16} />
                         <span>{label}</span>
                       </Link>

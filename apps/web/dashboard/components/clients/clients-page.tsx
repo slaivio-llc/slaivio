@@ -183,7 +183,7 @@ export function ClientsPage() {
   ], [stats]);
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] px-5 py-6 text-[#07111f] md:px-8 lg:px-10">
+    <div className="min-h-full bg-[#f7f8fa] px-5 py-6 text-[#07111f] md:px-8 lg:px-10">
       <div className="mx-auto max-w-[1480px]">
         <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-start lg:justify-between">
           <div>

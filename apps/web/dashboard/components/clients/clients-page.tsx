@@ -4,11 +4,8 @@ import axios from "axios";
 import {
   AlertCircle,
   Building2,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleSlash,
-  Clock3,
   Filter,
   Mail,
   MapPin,
@@ -17,7 +14,6 @@ import {
   Plus,
   Search,
   User,
-  Users,
   X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -175,29 +171,34 @@ export function ClientsPage() {
   }
 
   const statCards = useMemo(() => [
-    { label: "Clients total", value: stats.total, icon: Users, tone: "emerald" },
-    { label: "Actifs", value: stats.active, icon: CheckCircle2, tone: "emerald" },
-    { label: "Leads", value: stats.leads, icon: User, tone: "blue" },
-    { label: "En attente", value: stats.pending, icon: Clock3, tone: "amber" },
-    { label: "Inactifs", value: stats.inactive, icon: CircleSlash, tone: "slate" },
+    { label: "Clients total", value: stats.total, tone: "blue" },
+    { label: "Clients actifs", value: stats.active, tone: "blue" },
+    { label: "Leads", value: stats.leads, tone: "blue" },
+    { label: "En attente", value: stats.pending, tone: "amber" },
+    { label: "Inactifs", value: stats.inactive, tone: "neutral" },
   ], [stats]);
 
   return (
-    <div className="min-h-full bg-[#f7f8fa] px-5 py-6 text-[#07111f] md:px-8 lg:px-10">
-      <div className="mx-auto max-w-[1480px]">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-start lg:justify-between">
+    <div className="min-h-full bg-[#f7f8fa] px-5 py-5 text-[#1f2328] md:px-8 lg:px-10">
+      <div className="mx-auto max-w-[1480px] rounded-xl border border-[#d7dbe0] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.10)]">
+        <header className="flex flex-col gap-5 border-b border-[#dfe3e8] px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-[32px] font-semibold tracking-[-0.04em]">Clients</h1>
-            <p className="mt-2 text-sm text-slate-500">Répertoire réel des leads, clients et partenaires de votre agence active.</p>
+            <div className="flex items-center gap-2 text-sm text-[#6b7280]">
+              <span>Operations</span>
+              <span>›</span>
+              <span className="font-medium text-[#1f2328]">Clients</span>
+            </div>
+            <h1 className="mt-5 text-[34px] font-semibold tracking-[-0.035em]">Clients</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6b7280]">Répertoire réel des leads, clients et partenaires de votre agence active. Les données viennent uniquement du module Clients et de l’organisation connectée.</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold shadow-sm transition hover:bg-slate-50">
+            <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#d7dbe0] bg-white px-3 text-sm font-medium shadow-sm transition hover:bg-[#f7f8fa]">
               <Filter size={17} />
               Filtres
             </button>
             <button
               onClick={() => setModalOpen(true)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#12c76f] px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(18,199,111,0.22)] transition hover:bg-[#0fb966]"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#12c76f] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0fb966]"
             >
               <Plus size={18} />
               Nouveau client
@@ -205,44 +206,42 @@ export function ClientsPage() {
           </div>
         </header>
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="grid gap-3 px-6 py-5 sm:grid-cols-2 xl:grid-cols-5">
           {statCards.map((card) => (
-            <div key={card.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-              <div className="flex items-center gap-3">
-                <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${toneClass(card.tone)}`}>
-                  <card.icon size={20} />
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold tracking-[-0.03em]">{card.value}</p>
-                  <p className="text-sm text-slate-500">{card.label}</p>
-                </div>
+            <div key={card.label} className={`min-h-[112px] rounded-md border p-5 ${metricCardClass(card.tone)}`}>
+              <div className="flex items-start justify-between gap-4">
+                <p className="max-w-[160px] text-[15px] font-medium leading-5">{card.label}</p>
+                <span className="flex h-8 w-8 items-center justify-center rounded-md border border-black/10 bg-white/80 text-lg leading-none text-[#4b5563] shadow-sm">↗</span>
               </div>
+              <p className="mt-3 text-[38px] font-normal leading-none tracking-[-0.04em]">{card.value.toLocaleString("fr-FR")}</p>
             </div>
           ))}
         </section>
 
-        <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center">
-              <label className="flex h-11 min-w-0 flex-1 items-center rounded-lg border border-slate-200 bg-white px-3 focus-within:border-slate-400">
-                <Search size={18} className="text-slate-400" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Rechercher un client, téléphone ou email..."
-                  className="ml-3 min-w-0 flex-1 bg-transparent text-sm outline-none"
-                />
-              </label>
+        <section className="grid gap-0 border-t border-[#dfe3e8] xl:grid-cols-[minmax(0,1fr)_330px]">
+          <div className="min-w-0 overflow-hidden border-r border-[#dfe3e8] bg-white">
+            <div className="flex flex-col gap-2 border-b border-[#dfe3e8] px-6 py-3 lg:flex-row lg:items-center">
+              <button className="h-8 rounded-md border border-[#d7dbe0] bg-white px-3 text-sm font-medium shadow-sm hover:bg-[#f7f8fa]">Type</button>
+              <button className="h-8 rounded-md border border-[#d7dbe0] bg-white px-3 text-sm font-medium shadow-sm hover:bg-[#f7f8fa]">Pays</button>
               <select
                 value={status}
                 onChange={(event) => setStatus(event.target.value as ClientLifecycleStatus | "")}
-                className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none"
+                className="h-8 rounded-md border border-[#d7dbe0] bg-white px-3 text-sm font-medium outline-none"
               >
-                <option value="">Tous les statuts</option>
+                <option value="">Statut</option>
                 {Object.entries(statusLabels).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
+              <label className="ml-auto flex h-8 min-w-0 items-center rounded-md border border-[#d7dbe0] bg-[#f7f8fa] px-2 focus-within:border-[#2563eb] lg:w-[300px]">
+                <Search size={18} className="text-slate-400" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Rechercher..."
+                  className="ml-2 min-w-0 flex-1 bg-transparent text-sm outline-none"
+                />
+              </label>
             </div>
 
             {error && (
@@ -309,10 +308,7 @@ function ClientsTable({ clients, loading, selectedId, onSelect }: {
   if (clients.length === 0) {
     return (
       <div className="flex min-h-[360px] flex-col items-center justify-center px-6 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-          <Users size={22} />
-        </div>
-        <h2 className="mt-4 text-lg font-semibold">Aucun client trouvé</h2>
+        <h2 className="text-lg font-semibold">Aucun client trouvé</h2>
         <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
           Créez votre premier client ou ajustez la recherche. Cette liste affichera uniquement les clients réels de l’organisation active.
         </p>
@@ -322,8 +318,8 @@ function ClientsTable({ clients, loading, selectedId, onSelect }: {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[920px] w-full text-left text-sm">
-        <thead className="border-b border-slate-200 text-xs font-semibold uppercase tracking-[0.04em] text-slate-400">
+      <table className="min-w-[920px] w-full border-collapse text-left text-sm">
+        <thead className="border-b border-[#dfe3e8] bg-[#fafbfc] text-xs font-medium text-[#6b7280]">
           <tr>
             <th className="px-5 py-4">Client</th>
             <th className="px-5 py-4">Téléphone</th>
@@ -335,20 +331,17 @@ function ClientsTable({ clients, loading, selectedId, onSelect }: {
             <th className="px-5 py-4">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-[#edf0f2]">
           {clients.map((client) => (
             <tr
               key={client.id}
               onClick={() => onSelect(client)}
-              className={`cursor-pointer transition hover:bg-slate-50 ${selectedId === client.id ? "bg-emerald-50/55" : ""}`}
+              className={`cursor-pointer transition hover:bg-[#f7f8fa] ${selectedId === client.id ? "bg-[#eef2f7]" : ""}`}
             >
               <td className="px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <Initials name={client.display_name || client.name || client.phone || client.email || "Client"} />
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-950">{client.display_name || client.name || "Sans nom"}</p>
-                    <p className="truncate text-xs text-slate-500">{client.email || client.company_name || "Email non renseigné"}</p>
-                  </div>
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-[#1f2328]">{client.display_name || client.name || "Sans nom"}</p>
+                  <p className="truncate text-xs text-[#6b7280]">{client.email || client.company_name || "Email non renseigné"}</p>
                 </div>
               </td>
               <td className="px-5 py-4 text-slate-700">{client.phone || client.whatsapp_phone || "Non renseigné"}</td>
@@ -522,11 +515,10 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function toneClass(tone: string) {
-  if (tone === "blue") return "bg-blue-50 text-blue-600";
-  if (tone === "amber") return "bg-amber-50 text-amber-600";
-  if (tone === "slate") return "bg-slate-100 text-slate-600";
-  return "bg-emerald-50 text-emerald-600";
+function metricCardClass(tone: string) {
+  if (tone === "amber") return "border-[#e8d29a] bg-[#fff4d7] text-[#b76100]";
+  if (tone === "neutral") return "border-[#d7dbe0] bg-[#f7f8fa] text-[#1f2328]";
+  return "border-[#c8d2e5] bg-[#f1f5fb] text-[#0752b8]";
 }
 
 function apiErrorMessage(error: unknown) {
@@ -536,6 +528,7 @@ function apiErrorMessage(error: unknown) {
     if (detail === "name_company_phone_or_email_required") return "Ajoutez au moins un nom, une entreprise, un téléphone ou un email.";
     if (error.response?.status === 401) return "Session expirée. Reconnectez-vous.";
     if (error.response?.status === 403) return "Vous n’avez pas accès à cette organisation.";
+    if (!error.response) return "API injoignable. Vérifiez que NEXT_PUBLIC_API_URL/NEXT_PUBLIC_API_BASE_URL pointe vers le backend déployé et que le service API est en ligne.";
     return detail || `Erreur API (${error.response?.status || "réseau"}).`;
   }
   return "Une erreur inattendue est survenue.";

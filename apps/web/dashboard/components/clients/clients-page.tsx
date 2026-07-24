@@ -28,6 +28,7 @@ import {
   type ClientRecord,
   type ClientStats,
 } from "@/services/clients";
+import { API_BASE_URL } from "@/services/api";
 
 const statusLabels: Record<ClientLifecycleStatus, string> = {
   lead: "Lead",
@@ -546,12 +547,14 @@ function metricCardClass(tone: string) {
 function apiErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
+    const target = `${API_BASE_URL || "API_BASE_URL non configurée"}${error.config?.url || ""}`;
     if (detail === "duplicate_client") return "Un client avec ce téléphone ou cet email existe déjà dans cette agence.";
     if (detail === "name_company_phone_or_email_required") return "Ajoutez au moins un nom, une entreprise, un téléphone ou un email.";
     if (error.response?.status === 401) return "Session expirée. Reconnectez-vous.";
     if (error.response?.status === 403) return "Vous n’avez pas accès à cette organisation.";
-    if (!error.response) return "API injoignable. Vérifiez que NEXT_PUBLIC_API_URL/NEXT_PUBLIC_API_BASE_URL pointe vers le backend déployé et que le service API est en ligne.";
-    return detail || `Erreur API (${error.response?.status || "réseau"}).`;
+    if (!error.response) return `API injoignable vers ${target}. Vérifiez NEXT_PUBLIC_API_BASE_URL côté frontend et redéployez Render.`;
+    if (error.response.status === 404) return `Route API introuvable (${target}). Le frontend atteint le backend, mais ce backend ne sert pas cette route. Vérifiez que Render appelle bien le backend Railway et que Railway a le dernier code.`;
+    return detail || `Erreur API (${error.response?.status || "réseau"}) sur ${target}.`;
   }
   return "Une erreur inattendue est survenue.";
 }

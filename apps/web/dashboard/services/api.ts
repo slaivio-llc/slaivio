@@ -3,14 +3,25 @@ import axios from "axios";
 type AccessTokenProvider = () => Promise<string | null>;
 let accessTokenProvider: AccessTokenProvider | null = null;
 
+function normalizeApiBaseUrl(value?: string) {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return withProtocol.replace(/\/+$/, "");
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL,
+);
+
 export function setAccessTokenProvider(provider: AccessTokenProvider | null) {
   accessTokenProvider = provider;
 }
 
 export const api = axios.create({
-  baseURL:
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL,
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

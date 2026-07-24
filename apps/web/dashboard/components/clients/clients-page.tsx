@@ -13,7 +13,6 @@ import {
   Phone,
   Plus,
   Search,
-  User,
   X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -113,10 +112,8 @@ export function ClientsPage() {
       });
       setClients(response.items);
       setPagination(response.pagination);
-      if (response.items.length === 0) {
+      if (response.items.length === 0 || (selected && !response.items.some((item) => item.id === selected.id))) {
         setSelected(null);
-      } else if (!selected || !response.items.some((item) => item.id === selected.id)) {
-        setSelected(response.items[0]);
       }
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -218,8 +215,8 @@ export function ClientsPage() {
           ))}
         </section>
 
-        <section className="grid gap-0 border-t border-[#dfe3e8] xl:grid-cols-[minmax(0,1fr)_330px]">
-          <div className="min-w-0 overflow-hidden border-r border-[#dfe3e8] bg-white">
+        <section className="border-t border-[#dfe3e8]">
+          <div className="min-w-0 overflow-hidden bg-white">
             <div className="flex flex-col gap-2 border-b border-[#dfe3e8] px-6 py-3 lg:flex-row lg:items-center">
               <button className="h-8 rounded-md border border-[#d7dbe0] bg-white px-3 text-sm font-medium shadow-sm hover:bg-[#f7f8fa]">Type</button>
               <button className="h-8 rounded-md border border-[#d7dbe0] bg-white px-3 text-sm font-medium shadow-sm hover:bg-[#f7f8fa]">Pays</button>
@@ -275,9 +272,12 @@ export function ClientsPage() {
             </div>
           </div>
 
-          <ClientDetails client={selected} loading={detailLoading} />
         </section>
       </div>
+
+      {selected && (
+        <ClientDetails client={selected} loading={detailLoading} onClose={() => setSelected(null)} />
+      )}
 
       {modalOpen && (
         <CreateClientModal
@@ -359,54 +359,76 @@ function ClientsTable({ clients, loading, selectedId, onSelect }: {
   );
 }
 
-function ClientDetails({ client, loading }: { client: ClientRecord | null; loading: boolean }) {
-  if (!client) {
-    return (
-      <aside className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-          <User size={22} />
-        </div>
-        <h2 className="mt-4 text-base font-semibold">Aucun client sélectionné</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-500">Sélectionnez un client réel dans la liste pour afficher sa fiche.</p>
-      </aside>
-    );
+function ClientDetails({ client, loading, onClose }: { client: ClientRecord; loading: boolean; onClose: () => void }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [client.id]);
+
+  function close() {
+    setVisible(false);
+    window.setTimeout(onClose, 180);
   }
 
   return (
-    <aside className="rounded-xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="border-b border-slate-200 p-6">
-        <div className="flex items-start gap-4">
-          <Initials name={client.display_name || client.name || "Client"} large />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-lg font-semibold">{client.display_name || client.name || "Sans nom"}</h2>
-              <StatusBadge status={client.lifecycle_status} />
+    <div className="fixed inset-0 z-50">
+      <button
+        aria-label="Fermer la fiche client"
+        onClick={close}
+        className={`absolute inset-0 bg-slate-950/20 transition-opacity duration-200 ${visible ? "opacity-100" : "opacity-0"}`}
+      />
+      <aside className={`absolute right-0 top-0 h-full w-full max-w-[430px] border-l border-[#d7dbe0] bg-white shadow-[-20px_0_50px_rgba(15,23,42,0.16)] transition-transform duration-200 ease-out ${visible ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between border-b border-[#dfe3e8] px-5 py-4">
+            <div>
+              <p className="text-xs font-medium text-[#6b7280]">Fiche client</p>
+              <h2 className="mt-1 max-w-[300px] truncate text-lg font-semibold">{client.display_name || client.name || "Sans nom"}</h2>
             </div>
-            <p className="mt-1 text-sm text-slate-500">{typeLabels[client.customer_type]} · Source {client.source}</p>
+            <button onClick={close} className="rounded-md p-2 text-slate-500 hover:bg-[#f1f3f5]">
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="border-b border-[#dfe3e8] p-5">
+            <div className="flex items-start gap-4">
+              <Initials name={client.display_name || client.name || "Client"} large />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-base font-semibold">{client.display_name || client.name || "Sans nom"}</p>
+                  <StatusBadge status={client.lifecycle_status} />
+                </div>
+                <p className="mt-1 text-sm text-slate-500">{typeLabels[client.customer_type]} · Source {client.source}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`flex-1 overflow-y-auto p-5 ${loading ? "opacity-60" : ""}`}>
+            <div className="space-y-5">
+              <DetailRow icon={Phone} label="Téléphone" value={client.phone || "Non renseigné"} />
+              <DetailRow icon={Mail} label="Email" value={client.email || "Non renseigné"} />
+              <DetailRow icon={MapPin} label="Localisation" value={[client.city, client.country].filter(Boolean).join(", ") || "Non renseigné"} />
+              <DetailRow icon={Building2} label="Entreprise" value={client.company_name || "Non renseigné"} />
+              <div className="rounded-lg border border-slate-200 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Résumé opérationnel</p>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <Metric label="Dossiers" value={client.dossiers_count} />
+                  <Metric label="Colis" value={client.shipments_count} />
+                  <Metric label="Solde" value={formatMoney(client.current_balance, client.preferred_currency)} />
+                  <Metric label="Total dépensé" value={formatMoney(client.total_spent, client.preferred_currency)} />
+                </div>
+              </div>
+              {client.notes && (
+                <div className="rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                  {client.notes}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <div className={`space-y-5 p-6 ${loading ? "opacity-60" : ""}`}>
-        <DetailRow icon={Phone} label="Téléphone" value={client.phone || "Non renseigné"} />
-        <DetailRow icon={Mail} label="Email" value={client.email || "Non renseigné"} />
-        <DetailRow icon={MapPin} label="Localisation" value={[client.city, client.country].filter(Boolean).join(", ") || "Non renseigné"} />
-        <DetailRow icon={Building2} label="Entreprise" value={client.company_name || "Non renseigné"} />
-        <div className="rounded-lg border border-slate-200 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Résumé opérationnel</p>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <Metric label="Dossiers" value={client.dossiers_count} />
-            <Metric label="Colis" value={client.shipments_count} />
-            <Metric label="Solde" value={formatMoney(client.current_balance, client.preferred_currency)} />
-            <Metric label="Total dépensé" value={formatMoney(client.total_spent, client.preferred_currency)} />
-          </div>
-        </div>
-        {client.notes && (
-          <div className="rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            {client.notes}
-          </div>
-        )}
-      </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
 

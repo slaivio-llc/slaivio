@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Check, LifeBuoy } from "lucide-react";
+import { Check, Clock3, LifeBuoy } from "lucide-react";
 
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
 import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
@@ -14,6 +14,23 @@ const routes: Record<string, string> = {
   AI_KNOWLEDGE: "/onboarding/ai-knowledge",
   REVIEW: "/onboarding/review",
 };
+
+const journeyLabels = {
+  VEHICLE_IMPORT: {
+    AGENCY_PROFILE: "Entreprise",
+    OPERATIONS: "Bureau principal",
+    WHATSAPP: "WhatsApp",
+    AI_KNOWLEDGE: "Réponses dossiers",
+    REVIEW: "Vérification",
+  },
+  PARCEL_FREIGHT: {
+    AGENCY_PROFILE: "Entreprise",
+    OPERATIONS: "Dépôt principal",
+    WHATSAPP: "WhatsApp",
+    AI_KNOWLEDGE: "Réponses colis",
+    REVIEW: "Vérification",
+  },
+} as const;
 
 export function OnboardingShell({ children, state, currentStep }: {
   children: ReactNode;
@@ -34,10 +51,12 @@ export function OnboardingShell({ children, state, currentStep }: {
         <ol className="flex min-w-[720px] items-center justify-center pb-4 pt-3">
           {steps.map((step, index) => {
             if (!step) return null;
-            const complete = step.status === "COMPLETED" || index < currentIndex;
+            const skipped = step.status === "SKIPPED";
+            const complete = step.status === "COMPLETED" || skipped || index < currentIndex;
             const selected = step.step_key === active;
             const canOpen = complete || selected;
-            const content = <><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-semibold ${complete ? "border-[#19a463] bg-[#19a463] text-white" : selected ? "border-[#4f46e5] bg-[#4f46e5] text-white" : "border-[#d9dee2] bg-[#f6f7f8] text-[#68737c]"}`}>{complete ? <Check size={14}/> : index + 1}</span><span className={`ml-2 whitespace-nowrap text-[13px] font-medium ${selected ? "text-[#4338ca]" : complete ? "text-[#34414a]" : "text-[#7b858e]"}`}>{step.step_name}</span></>;
+            const label = journeyLabels[state.business_type]?.[step.step_key as keyof typeof journeyLabels.VEHICLE_IMPORT] || step.step_name;
+            const content = <><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-semibold ${skipped ? "border-[#cbd2d7] bg-[#f4f6f7] text-[#69747c]" : complete ? "border-[#19a463] bg-[#19a463] text-white" : selected ? "border-[#4f46e5] bg-[#4f46e5] text-white" : "border-[#d9dee2] bg-[#f6f7f8] text-[#68737c]"}`}>{skipped ? <Clock3 size={13}/> : complete ? <Check size={14}/> : index + 1}</span><span className={`ml-2 whitespace-nowrap text-[13px] font-medium ${selected ? "text-[#4338ca]" : complete ? "text-[#34414a]" : "text-[#7b858e]"}`}>{label}</span></>;
             return <li key={step.step_key} className="flex items-center">
               {canOpen ? <Link href={routes[step.step_key]} className="flex items-center rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-[#4f46e5]/20">{content}</Link> : <span className="flex items-center px-1 py-1">{content}</span>}
               {index < steps.length - 1 && (
@@ -70,3 +89,4 @@ export function OnboardingError({ message, retry }: { message: string; retry: ()
 
 export const onboardingInputClass = "h-11 w-full rounded-[7px] border border-[#d7dde1] bg-white px-3 text-[14px] text-[#26323a] outline-none transition placeholder:text-[#a0a8ae] focus:border-[#635bdf] focus:ring-2 focus:ring-[#635bdf]/10";
 export const onboardingPrimaryButtonClass = "inline-flex h-10 items-center justify-center rounded-[7px] bg-[#5548e7] px-5 text-[13px] font-semibold text-white transition hover:bg-[#493dd4] disabled:cursor-not-allowed disabled:opacity-50";
+export const onboardingSkipButtonClass = "inline-flex h-10 items-center justify-center rounded-[7px] px-4 text-[13px] font-semibold text-[#68737c] transition hover:bg-[#f3f5f6] hover:text-[#303b43] disabled:cursor-not-allowed disabled:opacity-50";

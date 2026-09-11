@@ -2,6 +2,7 @@ from fastapi import HTTPException
 
 from app.onboarding_experience.repositories.onboarding_experience_repository import (
     complete_journey,
+    get_business_type,
     get_or_create_journey,
     list_steps,
     record_step_event,
@@ -14,13 +15,15 @@ def get_experience_state(org_id: str, user_id: str | None):
     steps = list_steps(org_id, journey["id"])
 
     total = len(steps)
-    completed = [step for step in steps if step["status"] == "COMPLETED"]
+    terminal = [
+        step for step in steps if step["status"] in ["COMPLETED", "SKIPPED"]
+    ]
     required_steps = [step for step in steps if step["required"]]
     completed_required = [
         step for step in required_steps if step["status"] == "COMPLETED"
     ]
 
-    progress = int((len(completed) / total) * 100) if total else 0
+    progress = int((len(terminal) / total) * 100) if total else 0
     readiness = (
         int((len(completed_required) / len(required_steps)) * 100)
         if required_steps
@@ -37,6 +40,7 @@ def get_experience_state(org_id: str, user_id: str | None):
 
     return {
         "journey": journey,
+        "business_type": get_business_type(org_id),
         "steps": steps,
         "progress": progress,
         "readiness_score": readiness,
@@ -69,7 +73,41 @@ def complete_step(
         payload={"step_key": step_key, "step_id": step["id"] if step else None},
     )
 
+    _advance_journey(org_id, journey["id"])
+
+    return get_experience_state(org_id, user_id)
+
+
+def skip_step(org_id: str, user_id: str | None, step_key: str):
+    journey = get_or_create_journey(org_id)
     steps = list_steps(org_id, journey["id"])
+    current = next((item for item in steps if item["step_key"] == step_key), None)
+
+    if not current:
+        raise HTTPException(status_code=404, detail="onboarding_step_not_found")
+    if current["required"]:
+        raise HTTPException(status_code=409, detail="onboarding_step_required")
+
+    step = update_step_status(
+        org_id=org_id,
+        journey_id=journey["id"],
+        step_key=step_key,
+        status="SKIPPED",
+    )
+    record_step_event(
+        org_id=org_id,
+        journey_id=journey["id"],
+        step_key=step_key,
+        user_id=user_id,
+        event_name="onboarding_step_skipped",
+        payload={"step_key": step_key, "step_id": step["id"]},
+    )
+    _advance_journey(org_id, journey["id"])
+    return get_experience_state(org_id, user_id)
+
+
+def _advance_journey(org_id: str, journey_id: str):
+    steps = list_steps(org_id, journey_id)
     active_step = next(
         (item for item in steps if item["status"] == "IN_PROGRESS"),
         None,
@@ -84,14 +122,12 @@ def complete_step(
     if not active_step and next_step:
         update_step_status(
             org_id=org_id,
-            journey_id=journey["id"],
+            journey_id=journey_id,
             step_key=next_step["step_key"],
             status="IN_PROGRESS",
         )
     elif not active_step:
-        complete_journey(org_id, journey["id"])
-
-    return get_experience_state(org_id, user_id)
+        complete_journey(org_id, journey_id)
 
 
 def track_event(

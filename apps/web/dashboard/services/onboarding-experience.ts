@@ -6,7 +6,7 @@ export type OnboardingStep = {
   step_name: string;
   step_order: number;
   required: boolean;
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "SKIPPED";
 };
 
 export type OnboardingWarning = {
@@ -18,6 +18,7 @@ export type OnboardingWarning = {
 
 export type OnboardingExperienceState = {
   journey: Record<string, unknown>;
+  business_type: "VEHICLE_IMPORT" | "PARCEL_FREIGHT";
   steps: OnboardingStep[];
   progress: number;
   readiness_score: number;
@@ -35,6 +36,13 @@ export async function completeOnboardingStep(stepKey: string): Promise<Onboardin
     step_key: stepKey,
   });
 
+  return response.data.data;
+}
+
+export async function skipOnboardingStep(stepKey: string): Promise<OnboardingExperienceState> {
+  const response = await api.post("/api/onboarding-experience/skip-step", {
+    step_key: stepKey,
+  });
   return response.data.data;
 }
 

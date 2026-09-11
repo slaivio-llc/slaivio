@@ -16,7 +16,10 @@ ALLOWED_COUNT_TABLES = {
 
 
 def _json(value):
-    return json.dumps(value)
+    # Rows returned by PostgreSQL contain native UUID/datetime values. Audit
+    # payloads are JSONB, so serialize those standard database values without
+    # letting a successful onboarding write fail during event recording.
+    return json.dumps(value, default=str)
 
 
 def fetch_one(query: str, params: dict):

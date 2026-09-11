@@ -8,6 +8,7 @@ import { OnboardingError, OnboardingFooter, OnboardingHeading, OnboardingLoading
 import { useOnboardingState } from "@/components/onboarding/use-onboarding-state";
 import { completeOnboardingStep } from "@/services/onboarding-experience";
 import { getOnboardingStatus, saveAgencyProfile, type AgencyProfilePayload } from "@/services/onboarding";
+import { apiErrorDetail } from "@/services/api";
 
 const empty: AgencyProfilePayload = { legal_name:"", brand_name:"", country:"", city:"", address:"", phone:"", email:"", website:"", default_language:"fr", default_currency:"USD", business_type:"VEHICLE_IMPORT" };
 
@@ -22,7 +23,7 @@ export default function AgencyProfilePage() {
   async function submit(event:FormEvent) {
     event.preventDefault(); setSaving(true); setError("");
     try { await saveAgencyProfile(form); await completeOnboardingStep("WELCOME"); await completeOnboardingStep("AGENCY_PROFILE"); router.push("/onboarding/operations"); }
-    catch { setError("Vérifiez les informations obligatoires puis réessayez."); setSaving(false); }
+    catch (cause) { setError(apiErrorDetail(cause) || "L’enregistrement du profil de l’agence a échoué. Réessayez dans un instant."); setSaving(false); }
   }
   if (!state) return stateError?<OnboardingError message={stateError} retry={()=>void reload()}/>:<OnboardingLoading/>;
   return <OnboardingShell state={state} currentStep="AGENCY_PROFILE"><form onSubmit={submit}>

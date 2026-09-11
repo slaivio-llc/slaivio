@@ -168,7 +168,11 @@ api.interceptors.response.use(
     }
     if (typeof window !== "undefined" && axios.isAxiosError(error)) {
       const method = String(error.config?.method || "get").toUpperCase();
-      if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const requestUrl = String(error.config?.url || "").split("?")[0];
+      // Onboarding forms render an error beside the field group. A second
+      // global toast would duplicate it and obscure the mobile submit button.
+      const hasLocalOnboardingFeedback = requestUrl.startsWith("/api/onboarding/");
+      if (!["GET", "HEAD", "OPTIONS"].includes(method) && !hasLocalOnboardingFeedback) {
         const detail = error.response?.data?.detail;
         const raw = Array.isArray(detail)
           ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")

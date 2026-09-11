@@ -1,7 +1,6 @@
-import json
-
 from sqlalchemy import text
 
+from app.core.json_utils import json_dumps
 from app.db.database import engine
 
 
@@ -16,10 +15,7 @@ ALLOWED_COUNT_TABLES = {
 
 
 def _json(value):
-    # Rows returned by PostgreSQL contain native UUID/datetime values. Audit
-    # payloads are JSONB, so serialize those standard database values without
-    # letting a successful onboarding write fail during event recording.
-    return json.dumps(value, default=str)
+    return json_dumps(value)
 
 
 def fetch_one(query: str, params: dict):

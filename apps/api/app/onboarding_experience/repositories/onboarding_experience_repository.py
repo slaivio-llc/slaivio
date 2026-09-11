@@ -1,7 +1,6 @@
-import json
-
 from sqlalchemy import text
 
+from app.core.json_utils import json_dumps
 from app.db.database import engine
 
 
@@ -17,7 +16,7 @@ ONBOARDING_STEPS = [
 
 
 def _json(value):
-    return json.dumps(value)
+    return json_dumps(value)
 
 
 def fetch_one(query: str, params: dict):

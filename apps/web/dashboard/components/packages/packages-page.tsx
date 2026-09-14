@@ -44,6 +44,7 @@ import {
   OperationToolbar,
 } from "@/components/ui/operation-primitives";
 import { EmptyState as SharedEmptyState, TableSkeleton } from "@/components/ui/page-state";
+import { FormGeographyFields } from "@/components/ui/geography-fields";
 import {
   OperationPageHeader,
   OperationTabs,
@@ -204,6 +205,27 @@ const sourceLabels: Record<PackageSource, string> = {
   warehouse: "Entrepôt",
   api: "API",
   legacy: "Historique",
+};
+
+const currencyLabels: Record<string, string> = {
+  USD: "USD — Dollar américain",
+  EUR: "EUR — Euro",
+  CDF: "CDF — Franc congolais",
+  GBP: "GBP — Livre sterling",
+  CNY: "CNY — Yuan chinois",
+  AED: "AED — Dirham des Émirats",
+  XAF: "XAF — Franc CFA",
+  GHS: "GHS — Cedi ghanéen",
+  KES: "KES — Shilling kényan",
+};
+
+const shippingModeLabels: Record<string, string> = {
+  AIR: "Avion",
+  SEA: "Bateau",
+  EXPRESS: "Express",
+  ROAD: "Route",
+  RAIL: "Rail",
+  MULTIMODAL: "Multimodal",
 };
 
 const emptyStats: PackageStats = {
@@ -3001,31 +3023,29 @@ function PackageFormModal({
 
             {mode === "edit" && (
               <FormSection title="Informations héritées du dossier">
-                <TextInput
-                  name="origin_country"
-                  label="Pays origine"
-                  defaultValue={item?.origin_country || ""}
+                <FormGeographyFields
+                  initialCountry={item?.origin_country || ""}
+                  initialCity={item?.origin_city || ""}
+                  countryName="origin_country"
+                  cityName="origin_city"
+                  countryLabel="Pays origine"
+                  cityLabel="Ville origine"
+                  className={inputClass}
                 />
-                <TextInput
-                  name="origin_city"
-                  label="Ville origine"
-                  defaultValue={item?.origin_city || ""}
+                <FormGeographyFields
+                  initialCountry={item?.destination_country || ""}
+                  initialCity={item?.destination_city || ""}
+                  countryName="destination_country"
+                  cityName="destination_city"
+                  countryLabel="Pays destination"
+                  cityLabel="Ville destination"
+                  className={inputClass}
                 />
-                <TextInput
-                  name="destination_country"
-                  label="Pays destination"
-                  defaultValue={item?.destination_country || ""}
-                />
-                <TextInput
-                  name="destination_city"
-                  label="Ville destination"
-                  defaultValue={item?.destination_city || ""}
-                />
-                <TextInput
+                <SelectInput
                   name="shipping_mode"
                   label="Mode d’expédition"
-                  defaultValue={item?.shipping_mode || ""}
-                  placeholder="Air Cargo, Sea Freight..."
+                  defaultValue={item?.shipping_mode || "AIR"}
+                  options={shippingModeLabels}
                 />
                 <TextInput
                   name="shipment_reference"
@@ -3119,10 +3139,11 @@ function PackageFormModal({
                 type="number"
                 step="0.01"
               />
-              <TextInput
+              <SelectInput
                 name="declared_currency"
                 label="Devise valeur"
-                defaultValue={item?.declared_currency || item?.currency || ""}
+                defaultValue={item?.declared_currency || item?.currency || "USD"}
+                options={currencyLabels}
               />
               <TextInput
                 name="last_scan_location"
@@ -3223,7 +3244,7 @@ function PackageFormModal({
                   <TextInput name="height_cm" label="Hauteur (cm)" type="number" step="0.01" />
                   <TextInput name="supplier_name" label="Fournisseur" />
                   <TextInput name="declared_value" label="Valeur déclarée" type="number" step="0.01" />
-                  <TextInput name="declared_currency" label="Devise" placeholder="Ex. USD" />
+                  <SelectInput name="declared_currency" label="Devise" defaultValue="USD" options={currencyLabels} />
                   <label>
                     <FormLabel>Priorité</FormLabel>
                     <select name="priority" defaultValue="NORMAL" className={inputClass}>
@@ -3454,7 +3475,7 @@ function PackageEditDrawer({
             <TextInput name="volume_cbm" label="Volume (m³)" defaultValue={valueOrEmpty(item.volume_cbm)} type="number" step="0.001" />
             <TextInput name="pieces_count" label="Nombre de pièces" defaultValue={valueOrEmpty(item.pieces_count || 1)} type="number" step="1" />
             <TextInput name="declared_value" label="Valeur déclarée" defaultValue={valueOrEmpty(item.declared_value)} type="number" step="0.01" />
-            <TextInput name="declared_currency" label="Devise déclarée" defaultValue={item.declared_currency || item.currency || ""} />
+            <SelectInput name="declared_currency" label="Devise déclarée" defaultValue={item.declared_currency || item.currency || "USD"} options={currencyLabels} />
             <label className="flex min-h-10 items-center gap-2 self-end pb-2 text-[13px] font-[540] text-[#3f4953]">
               <input name="is_fragile" type="checkbox" defaultChecked={item.is_fragile} className="h-4 w-4 rounded border-[#c9d0d8]" />
               Colis fragile
@@ -3480,7 +3501,7 @@ function PackageEditDrawer({
           <div className="grid gap-4 sm:grid-cols-2">
             <TextInput name="fees_total" label="Montant facturé" defaultValue={valueOrEmpty(item.fees_total)} type="number" step="0.01" />
             <TextInput name="fees_paid" label="Montant payé" defaultValue={valueOrEmpty(item.fees_paid)} type="number" step="0.01" />
-            <TextInput name="currency" label="Devise" defaultValue={item.currency || ""} />
+            <SelectInput name="currency" label="Devise" defaultValue={item.currency || "USD"} options={currencyLabels} />
             <TextInput name="barcode" label="Code-barres interne" defaultValue={item.barcode || ""} />
             <TextInput name="qr_code_value" label="QR code interne" defaultValue={item.qr_code_value || ""} />
             <label className="flex min-h-10 items-center gap-2 self-end pb-2 text-[13px] font-[540] text-[#3f4953]">
@@ -3829,6 +3850,9 @@ function SelectInput({
     <label className="block">
       <FormLabel>{label}</FormLabel>
       <select name={name} defaultValue={defaultValue} className={inputClass}>
+        {defaultValue && !Object.hasOwn(options, defaultValue) && (
+          <option value={defaultValue}>{defaultValue}</option>
+        )}
         {Object.entries(options).map(([value, labelText]) => (
           <option key={value} value={value}>
             {labelText}

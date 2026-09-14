@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
+import { FormGeographyFields, GeographyFields } from "@/components/ui/geography-fields";
 import { OperationDrawer, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
 import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
@@ -632,18 +633,30 @@ function Engine() {
     <main className="grid gap-4 p-4 xl:grid-cols-[380px_1fr]">
       <form onSubmit={submit} className="grid gap-3 border bg-white p-4">
         <h2 className="font-semibold">Simulateur de route</h2>
+        <FormGeographyFields
+          countryName="origin_country"
+          cityName="origin_city"
+          countryLabel="Pays d’origine"
+          cityLabel="Ville d’origine"
+          className={input}
+          fieldClassName="grid gap-1 text-[12px] font-medium text-[#4d5761]"
+        />
+        <FormGeographyFields
+          required
+          countryName="destination_country"
+          cityName="destination_city"
+          countryLabel="Pays de destination"
+          cityLabel="Ville de destination"
+          className={input}
+          fieldClassName="grid gap-1 text-[12px] font-medium text-[#4d5761]"
+        />
         {[
-          ["origin_country", "Pays origine"],
-          ["origin_city", "Ville origine"],
-          ["destination_country", "Pays destination"],
-          ["destination_city", "Ville destination"],
           ["goods_category", "Marchandise"],
           ["weight_kg", "Poids kg"],
           ["volume_cbm", "CBM"],
         ].map(([n, p]) => (
           <input
             key={n}
-            required={n === "destination_country"}
             className={input}
             name={n}
             placeholder={p}
@@ -713,6 +726,10 @@ function Analytics() {
 function CreateRoute({ done }: { done: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [originCountry, setOriginCountry] = useState("");
+  const [originCity, setOriginCity] = useState("");
+  const [destinationCountry, setDestinationCountry] = useState("");
+  const [destinationCity, setDestinationCity] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -763,36 +780,8 @@ function CreateRoute({ done }: { done: () => Promise<void> }) {
         </RouteFormField>
       </section>
       <section className="grid gap-4 border-t border-[#eceef1] pt-5 md:grid-cols-2">
-        <RouteFormField label="Pays de départ">
-          <input
-            required
-            className={input}
-            name="origin_country"
-            placeholder="Choisir ou saisir le pays"
-          />
-        </RouteFormField>
-        <RouteFormField label="Ville de départ">
-          <input
-            className={input}
-            name="origin_city"
-            placeholder="Ville d’origine"
-          />
-        </RouteFormField>
-        <RouteFormField label="Pays de destination">
-          <input
-            required
-            className={input}
-            name="destination_country"
-            placeholder="Choisir ou saisir le pays"
-          />
-        </RouteFormField>
-        <RouteFormField label="Ville de destination">
-          <input
-            className={input}
-            name="destination_city"
-            placeholder="Ville de destination"
-          />
-        </RouteFormField>
+        <GeographyFields required country={originCountry} city={originCity} onCountryChange={setOriginCountry} onCityChange={setOriginCity} countryName="origin_country" cityName="origin_city" countryLabel="Pays de départ" cityLabel="Ville de départ" className={input} fieldClassName="grid gap-2 text-[12px] font-medium text-[#4d5761]"/>
+        <GeographyFields required country={destinationCountry} city={destinationCity} onCountryChange={setDestinationCountry} onCityChange={setDestinationCity} countryName="destination_country" cityName="destination_city" countryLabel="Pays de destination" cityLabel="Ville de destination" className={input} fieldClassName="grid gap-2 text-[12px] font-medium text-[#4d5761]"/>
       </section>
       <section className="grid gap-4 border-t border-[#eceef1] pt-5 md:grid-cols-3">
         <RouteFormField label="Mode de transport">

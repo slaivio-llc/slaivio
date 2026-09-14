@@ -45,6 +45,8 @@ import {
 import { EmptyState as SharedEmptyState, TableSkeleton } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { GeographyFields } from "@/components/ui/geography-fields";
+import { getTenantContext } from "@/services/tenant";
 import {
   createClient,
   deleteClient,
@@ -102,6 +104,18 @@ const sourceLabels: Record<ClientSource, string> = {
   referral: "Référence",
   import: "Import",
   api: "API",
+};
+
+const currencyLabels = {
+  USD: "USD — Dollar américain",
+  EUR: "EUR — Euro",
+  CDF: "CDF — Franc congolais",
+  GBP: "GBP — Livre sterling",
+  CNY: "CNY — Yuan renminbi",
+  AED: "AED — Dirham des Émirats",
+  XAF: "XAF — Franc CFA",
+  GHS: "GHS — Cedi ghanéen",
+  KES: "KES — Shilling kényan",
 };
 
 const emptyStats: ClientStats = {
@@ -204,6 +218,7 @@ export function ClientsPage() {
   const [clientAction, setClientAction] = useState<
     "archive" | "restore" | null
   >(null);
+  const [parcelFreight, setParcelFreight] = useState(true);
   const listRequestId = useRef(0);
 
   const currentView = views.find((view) => view.key === activeView) || views[0];
@@ -220,6 +235,9 @@ export function ClientsPage() {
 
   useEffect(() => {
     loadStats();
+    getTenantContext()
+      .then((context) => setParcelFreight(context.active_tenant?.organization_type === "PARCEL_FREIGHT"))
+      .catch(() => setParcelFreight(true));
   }, []);
 
   useEffect(() => {
@@ -411,12 +429,12 @@ export function ClientsPage() {
     setSaving(true);
     const form = new FormData(event.currentTarget);
     const payload: ClientPayload = {
-      display_name: clean(form.get("display_name")),
+      display_name: clean(form.get("display_name")) || (parcelFreight ? clean(form.get("name")) : undefined),
       name: clean(form.get("name")),
       company_name: clean(form.get("company_name")),
       tax_id: clean(form.get("tax_id")),
       phone: clean(form.get("phone")),
-      whatsapp_phone: clean(form.get("whatsapp_phone")),
+      whatsapp_phone: clean(form.get("whatsapp_phone")) || (parcelFreight ? clean(form.get("phone")) : undefined),
       email: clean(form.get("email")),
       country: clean(form.get("country")),
       city: clean(form.get("city")),
@@ -736,6 +754,7 @@ export function ClientsPage() {
           client={formClient}
           saving={saving}
           error={formError}
+          parcelFreight={parcelFreight}
           onClose={() => {
             if (saving) return;
             setFormOpen(false);
@@ -1273,6 +1292,7 @@ function ClientFormModal({
   client,
   saving,
   error,
+  parcelFreight,
   onClose,
   onSubmit,
 }: {
@@ -1280,10 +1300,14 @@ function ClientFormModal({
   client: ClientRecord | null;
   saving: boolean;
   error: string;
+  parcelFreight: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const title = mode === "edit" ? "Modifier le client" : "Nouveau client";
+  const [country, setCountry] = useState(client?.country || "");
+  const [city, setCity] = useState(client?.city || "");
+  const [creditEnabled, setCreditEnabled] = useState(Boolean(client?.credit_enabled));
   return (
     <OperationDrawer
       open
@@ -1298,7 +1322,23 @@ function ClientFormModal({
               {error}
             </div>
           )}
-          <div className="grid gap-4 md:grid-cols-3">
+          {parcelFreight ? <div className="grid gap-4 md:grid-cols-2">
+            <Input label="Nom complet" name="name" required defaultValue={client?.name || client?.display_name || ""}/>
+            <Input label="Numéro de téléphone" name="phone" required type="tel" defaultValue={client?.phone || client?.whatsapp_phone || ""}/>
+            <GeographyFields required country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} className={inputClass} fieldClassName="grid gap-1 text-[13px] font-medium text-[#334155]"/>
+            <SelectInput label="Type de client" name="customer_type" defaultValue={client?.customer_type || "individual"} options={typeLabels}/>
+            <label className="flex items-center gap-2 rounded-md border border-[#e1e5e9] bg-[#fafbfc] px-3 py-3 text-[13px] font-medium text-[#334155] md:col-span-2">
+              <input name="credit_enabled" type="checkbox" checked={creditEnabled} onChange={event=>setCreditEnabled(event.target.checked)} className="rounded border-[#c9d0d8]"/>
+              Autoriser un crédit à ce client
+            </label>
+            <fieldset disabled={!creditEnabled} className="contents disabled:opacity-45">
+              <Input label="Limite de crédit" name="credit_limit" type="number" min="0" defaultValue={String(client?.credit_limit || 0)}/>
+              <SelectInput label="Devise du crédit" name="preferred_currency" defaultValue={client?.preferred_currency || "USD"} options={currencyLabels}/>
+            </fieldset>
+            <input type="hidden" name="lifecycle_status" value={client?.lifecycle_status || "lead"}/>
+            <input type="hidden" name="source" value={client?.source || "manual"}/>
+            <input type="hidden" name="preferred_language" value={client?.preferred_language || "FR"}/>
+          </div> : <><div className="grid gap-4 md:grid-cols-3">
             <Input
               label="Nom affiché"
               name="display_name"
@@ -1402,6 +1442,7 @@ function ClientFormModal({
               className="mt-1 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[13px] outline-none focus:border-[#2f7df6]"
             />
           </label>
+          </>}
           <div className="flex justify-end gap-2 border-t border-[#eef0f3] pt-4">
             <OperationButton
               type="button"
@@ -1573,12 +1614,16 @@ function Input({
   defaultValue = "",
   placeholder = "",
   type = "text",
+  required = false,
+  min,
 }: {
   label: string;
   name: string;
   defaultValue?: string;
   placeholder?: string;
   type?: string;
+  required?: boolean;
+  min?: string;
 }) {
   return (
     <label className="block text-[13px] font-medium text-[#334155]">
@@ -1586,6 +1631,8 @@ function Input({
       <input
         name={name}
         type={type}
+        required={required}
+        min={min}
         defaultValue={defaultValue}
         placeholder={placeholder}
         className="mt-1 h-9 w-full rounded-md border border-[#cfd5dd] px-3 text-[13px] outline-none focus:border-[#2f7df6]"

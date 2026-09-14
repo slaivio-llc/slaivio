@@ -40,6 +40,7 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { FormSection, OperationButton, OperationField } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { FormGeographyFields } from "@/components/ui/geography-fields";
 import {
   getNotificationPreferences,
   saveNotificationPreference,
@@ -411,13 +412,18 @@ function Organization({
     >
       <PermissionGuard permission="organization.manage" fallback={<ReadOnly />}>
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
+          <FormGeographyFields
+            key={`organization-geo-${String(o.row_version)}`}
+            initialCountry={String(o.country || "")}
+            initialCity={String(o.city || "")}
+            className={`${input} mt-1`}
+            fieldClassName="text-[12px] text-[#555d68]"
+          />
           {[
             ["name", "Nom commercial", "organization_name"],
             ["legal", "Raison sociale", "legal_name"],
             ["registration", "Numéro d’enregistrement", "registration_number"],
             ["tax", "Identifiant fiscal", "tax_number"],
-            ["country", "Pays", "country"],
-            ["city", "Ville", "city"],
             ["phone", "Téléphone", "phone"],
             ["email", "Email", "email"],
             ["website", "Site web", "website"],
@@ -784,7 +790,7 @@ function Preferences({
           <SettingSelect label="Langue de l’interface" name="language" value={String(s.language_code || "fr")} options={[["fr","Français"],["en","English"]]} />
           <SettingSelect label="Fuseau horaire" name="timezone" value={String(s.timezone || "UTC")} options={[["Africa/Kinshasa","Kinshasa"],["Africa/Douala","Douala"],["Africa/Abidjan","Abidjan"],["Asia/Shanghai","Chine"],["Asia/Dubai","Dubaï"],["UTC","Temps universel (UTC)"]]} />
           <SettingSelect label="Devise comptable principale" name="currency" value={String(s.currency_code || "USD")} options={["USD","CDF","EUR","CNY","AED","XAF","GHS","KES"].map(x=>[x,x])} />
-          <label>Pays principal<input name="country" className={`${input} mt-1`} defaultValue={String(s.country_code || data.organization.country || "")} placeholder="Pays de l’espace actif" /></label>
+          <FormGeographyFields initialCountry={String(s.country_code || data.organization.country || "")} countryValueMode="isoCode" showCity={false} className={`${input} mt-1`} fieldClassName="grid gap-1 text-[13px]" countryLabel="Pays principal" />
           <SettingSelect label="Format de date" name="date" value={String(s.date_format || "DD/MM/YYYY")} options={[["DD/MM/YYYY","31/12/2026"],["MM/DD/YYYY","12/31/2026"],["YYYY-MM-DD","2026-12-31"]]} />
           <SettingSelect label="Format de l’heure" name="time" value={String(s.time_format || "24H")} options={[["24H","24 heures"],["12H","12 heures (AM/PM)"]]} />
           <SettingSelect label="Poids" name="weight" value={String(s.weight_unit || "kg")} options={[["kg","Kilogrammes (kg)"],["lb","Livres (lb)"]]} />
@@ -892,13 +898,9 @@ function Workspaces({
             placeholder="Workspace RDC"
           />
           <input required name="code" className={input} placeholder="RDC" />
-          <input name="country" className={input} placeholder="CD" />
-          <input name="currency" className={input} placeholder="USD" />
-          <input
-            name="timezone"
-            className={input}
-            placeholder="Africa/Kinshasa"
-          />
+          <FormGeographyFields countryValueMode="isoCode" showCity={false} className={input} fieldClassName="grid gap-1 text-[12px] text-[#555d68]" countryLabel="Pays du workspace" />
+          <select name="currency" className={input} defaultValue="USD"><option>USD</option><option>EUR</option><option>CDF</option><option>GBP</option><option>CNY</option><option>AED</option><option>XAF</option><option>GHS</option><option>KES</option></select>
+          <select name="timezone" className={input} defaultValue="UTC"><option value="Africa/Kinshasa">Kinshasa</option><option value="Africa/Douala">Douala</option><option value="Africa/Abidjan">Abidjan</option><option value="Europe/Brussels">Bruxelles</option><option value="Europe/Paris">Paris</option><option value="Asia/Shanghai">Shanghai</option><option value="Asia/Dubai">Dubaï</option><option value="UTC">Temps universel (UTC)</option></select>
           <select name="language" className={input}>
             <option value="fr">Français</option>
             <option value="en">English</option>
@@ -957,15 +959,6 @@ function Locations({
   useEffect(() => {
     listAgencyWhatsappNumbers().then(setWhatsappNumbers).catch(() => setWhatsappNumbers([]));
   }, []);
-  const countries = Array.from(new Set([
-    String(data.organization.country || ""),
-    ...data.workspaces.map((item) => String(item.country_code || "")),
-    ...data.locations.map((item) => String(item.country || "")),
-  ].filter(Boolean)));
-  const cities = Array.from(new Set([
-    String(data.organization.city || ""),
-    ...data.locations.map((item) => String(item.city || "")),
-  ].filter(Boolean)));
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -1021,14 +1014,13 @@ function Locations({
               </option>
             ))}
           </select>
-          <label>Pays<select required name="country" className={`${input} mt-1`}><option value="">Choisir un pays configuré</option>{countries.map((value)=><option key={value}>{value}</option>)}</select></label>
-          <label>Ville<select required name="city" className={`${input} mt-1`}><option value="">Choisir une ville configurée</option>{cities.map((value)=><option key={value}>{value}</option>)}</select></label>
+          <FormGeographyFields required className={`${input} mt-1`} fieldClassName="grid gap-1 text-[13px]" />
           <label>Adresse complète<input name="address" className={`${input} mt-1`} placeholder="Rue, numéro et repère utile" /></label>
           <label>Téléphone de l’établissement<input name="phone" className={`${input} mt-1`} placeholder="Numéro d’appel" /></label>
           <label>Numéro WhatsApp Business<select name="whatsapp" className={`${input} mt-1`}><option value="">Aucun numéro affecté</option>{whatsappNumbers.map((number)=><option key={number.id} value={number.display_phone_number || number.id}>{number.display_phone_number || "Numéro Meta"}{number.verified_name ? ` · ${number.verified_name}` : ""}</option>)}</select><small className="mt-1 block text-[11px] text-[#74808c]">Seuls les numéros connectés au portefeuille Business apparaissent ici.</small></label>
           <label>Email professionnel<input name="email" type="email" className={`${input} mt-1`} placeholder="bureau@agence.com" /></label>
           <label>Responsable<input name="manager" className={`${input} mt-1`} placeholder="Nom du responsable" /></label>
-          <label>Fuseau horaire<input name="timezone" className={`${input} mt-1`} placeholder="Africa/Kinshasa" /></label>
+          <label>Fuseau horaire<select name="timezone" className={`${input} mt-1`} defaultValue="UTC"><option value="Africa/Kinshasa">Kinshasa</option><option value="Africa/Douala">Douala</option><option value="Africa/Abidjan">Abidjan</option><option value="Europe/Brussels">Bruxelles</option><option value="Europe/Paris">Paris</option><option value="Asia/Shanghai">Shanghai</option><option value="Asia/Dubai">Dubaï</option><option value="UTC">Temps universel (UTC)</option></select></label>
           <label>Horaires d’ouverture<input name="hours" className={`${input} mt-1`} placeholder="Lun–Sam, 08:00–17:00" /></label>
           <label>Services disponibles<input name="services" className={`${input} mt-1`} placeholder="Séparez les services par une virgule" /></label>
           <button className={primary}>Enregistrer</button>

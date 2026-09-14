@@ -25,6 +25,7 @@ import { OperationMetrics, OperationSearch, OperationToolbar } from "@/component
 import { OperationActionMenu, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
+import { FormGeographyFields } from "@/components/ui/geography-fields";
 import {
   createShipment,
   exportShipments,
@@ -119,6 +120,8 @@ const primaryButtonClass =
   "inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#12c76f] px-4 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#0fb966]";
 const pagerButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-md border border-[#cfd5dd] bg-white text-[#334155] shadow-sm disabled:opacity-40";
+const formInputClass =
+  "h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[14px] outline-none focus:border-[#12c76f]";
 
 type Pagination = {
   page: number;
@@ -656,31 +659,13 @@ export function ShipmentsPage() {
                 defaultValue="LOW"
               />
               <Field name="currency" label="Devise" defaultValue="USD" />
-              <Field
-                name="origin_country"
-                label="Pays départ"
-                placeholder="Chine"
-              />
-              <Field
-                name="origin_city"
-                label="Ville départ"
-                placeholder="Guangzhou"
-              />
+              <FormGeographyFields required countryName="origin_country" cityName="origin_city" countryLabel="Pays de départ" cityLabel="Ville de départ" className={formInputClass} fieldClassName="grid gap-1 text-[13px] font-medium text-[#334155]"/>
               <Field
                 name="origin_warehouse"
                 label="Entrepôt départ"
                 placeholder="Entrepôt Guangzhou"
               />
-              <Field
-                name="destination_country"
-                label="Pays arrivée"
-                placeholder="RDC"
-              />
-              <Field
-                name="destination_city"
-                label="Ville arrivée"
-                placeholder="Kinshasa"
-              />
+              <FormGeographyFields required countryName="destination_country" cityName="destination_city" countryLabel="Pays d’arrivée" cityLabel="Ville d’arrivée" className={formInputClass} fieldClassName="grid gap-1 text-[13px] font-medium text-[#334155]"/>
               <Field
                 name="destination_warehouse"
                 label="Entrepôt arrivée"

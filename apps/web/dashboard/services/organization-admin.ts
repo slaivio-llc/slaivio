@@ -43,7 +43,17 @@ export async function getPilotWhatsappQRStatus(){return(await api.get<{connectio
 export async function disconnectPilotWhatsappQR(connection_id:string){return(await api.post(`/organization/admin/pilot/whatsapp-qr/${connection_id}/disconnect`)).data}
 export async function savePilotKnowledgeDefaults(payload:{default_language:"FR"|"EN";default_review_days:number;expected_version:number}){return(await api.patch('/organization/admin/pilot/knowledge',payload)).data}
 export async function savePilotAIPrompt(payload:{system_prompt:string;user_prompt_template:string;communication_style:string;expected_version:number}){return(await api.patch('/inbox/ai/prompt',payload)).data}
-export async function testPilotAIPrompt(message:string){return(await api.post<{answer:string;prompt_score:number}>('/inbox/ai/prompt/test',{message})).data}
+export type PilotAIPromptTestResult={
+  answer:string;
+  prompt_score:number;
+  decision:"ANSWERED"|"REVIEW_REQUIRED"|"NO_KNOWLEDGE";
+  grounded:boolean;
+  reason?:string|null;
+  sources:Array<{id:string;title:string;updated_at?:string|null;score:number}>;
+};
+export async function testPilotAIPrompt(payload:{message:string;system_prompt:string;user_prompt_template:string;communication_style:string}){
+  return(await api.post<PilotAIPromptTestResult>('/inbox/ai/prompt/test',payload)).data
+}
 
 export type PilotReadinessCheck={key:string;label:string;status:"READY"|"WARNING"|"ACTION_REQUIRED";description:string;action_label:string;href:string};
 export type PilotReadiness={status:"READY"|"ACTION_REQUIRED";score:number;ready_count:number;total_count:number;action_required_count:number;warning_count:number;checks:PilotReadinessCheck[]};

@@ -12,11 +12,14 @@ def get_pilot_ai_settings(org_id: str) -> dict:
     with engine.begin() as conn:
         conn.execute(text("insert into ai_settings(org_id) values(:org_id) on conflict(org_id) do nothing"), {"org_id": org_id})
         row = conn.execute(text("""
-          select enabled, provider, model_name, temperature, max_tokens,
+          select settings.enabled, settings.provider, settings.model_name, settings.temperature, settings.max_tokens,
                  auto_reply_min_confidence, pilot_response_mode,system_prompt,
                  user_prompt_template,communication_style,prompt_row_version,
-                 pilot_require_published_knowledge, updated_at
-          from ai_settings where org_id=:org_id
+                 pilot_require_published_knowledge, settings.updated_at,
+                 organization.name organization_name
+          from ai_settings settings
+          join organizations organization on organization.id=settings.org_id
+          where settings.org_id=:org_id
         """), {"org_id": org_id}).mappings().one()
         return dict(row)
 

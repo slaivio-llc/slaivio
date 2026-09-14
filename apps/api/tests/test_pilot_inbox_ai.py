@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
+from app.ai.services import pilot_inbox_ai_service as ai_service
 from app.ai.services.pilot_inbox_ai_service import _classify, _grounding_check
 from app.api import ai_drafts
 from app.knowledge.repository import _search_terms
@@ -59,6 +60,74 @@ def test_pilot_ai_uses_only_published_client_knowledge_and_provider_abstraction(
     assert "cargo_packages" in read("apps/api/app/ai/repositories/pilot_inbox_ai_repository.py")
 
 
+def test_prompt_preview_uses_the_real_whatsapp_knowledge_pipeline(monkeypatch):
+    captured = {}
+    source = {
+        "id": "f4ac8e09-4b6e-4d8e-91ba-dc13ca18af3a",
+        "title": "Tarif maritime",
+        "content": "Le transport maritime coûte 1 200 euros par conteneur.",
+        "matched_content": "Le transport maritime coûte 1 200 euros par conteneur.",
+        "updated_at": None,
+        "rank": 0.92,
+    }
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {
+        "provider": "MOCK", "model_name": "support", "temperature": 0.1,
+        "max_tokens": 800, "system_prompt": "", "user_prompt_template": "",
+        "communication_style": "PROFESSIONAL", "organization_name": "Agence Test",
+    })
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda *args, **kwargs: [source])
+
+    def fake_provider(_settings, system_prompt, user_message, **_kwargs):
+        captured.update(system_prompt=system_prompt, user_message=user_message)
+        return {"success": True, "content": "**Le transport maritime coûte 1 200 euros par conteneur.**"}
+
+    monkeypatch.setattr(ai_service, "_provider_response", fake_provider)
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Quel est le tarif maritime ?")
+
+    assert source["matched_content"] in captured["system_prompt"]
+    assert "Quel est le tarif maritime ?" in captured["user_message"]
+    assert result["answer"] == "Le transport maritime coûte 1 200 euros par conteneur."
+    assert result["decision"] == "ANSWERED"
+    assert result["sources"][0]["title"] == "Tarif maritime"
+
+
+def test_prompt_preview_does_not_invent_when_no_published_knowledge_exists(monkeypatch):
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {})
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda *args, **kwargs: [])
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: pytest.fail("provider must not be called"))
+
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Quel est le prix ?")
+
+    assert result["decision"] == "NO_KNOWLEDGE"
+    assert result["grounded"] is False
+    assert result["sources"] == []
+
+
+def test_prompt_test_uses_unsaved_editor_values(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(ai_drafts, "get_pilot_ai_settings", lambda _org_id: {
+        "system_prompt": "ancienne consigne", "user_prompt_template": "ancien cadre",
+    })
+
+    def fake_preview(**values):
+        captured.update(values)
+        return {"answer": "Réponse", "decision": "ANSWERED", "grounded": True, "reason": None, "sources": []}
+
+    monkeypatch.setattr(ai_drafts, "preview_pilot_response", fake_preview)
+    body = ai_drafts.TestPilotPrompt(
+        message="Question client",
+        system_prompt="Nouvelle consigne suffisamment longue qui cite les connaissances et le responsable humain.",
+        user_prompt_template="Réponds au message : {message}",
+        communication_style="WARM",
+    )
+    result = ai_drafts.test_pilot_prompt(body, tenant={"org_id": "agency-a"})
+
+    assert captured["system_prompt"] == body.system_prompt
+    assert captured["user_prompt_template"] == body.user_prompt_template
+    assert captured["communication_style"] == "WARM"
+    assert result["answer"] == "Réponse"
+
+
 def test_settings_endpoint_uses_active_tenant_and_validated_mode(monkeypatch):
     captured = {}
 
@@ -101,6 +170,23 @@ def test_inbox_exposes_human_labels_and_automatic_ai_actions():
     assert "updateInboxAIMode" in service
     assert "MISTRAL" not in page
     assert "UUID" not in page
+
+
+def test_ai_settings_preview_is_bounded_and_exposes_used_sources():
+    page = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
+    assert "h-[600px] min-h-0" in page
+    assert "overflow-y-auto" in page
+    assert "Connaissances utilisées" in page
+    assert "Utiliser le modèle recommandé" in page
+    assert "system_prompt:systemPrompt" in page
+    assert "Aucune connaissance publiée et communicable" in page
+
+
+def test_ai_prompt_defaults_preserve_existing_custom_prompts():
+    sql = read("infra/sql/119_pilot_ai_customer_support_prompts.sql")
+    assert "where btrim(system_prompt) = ''" in sql
+    assert "where btrim(user_prompt_template) = ''" in sql
+    assert "{message}" in sql
 
 
 def test_legacy_cargo_mutations_stop_before_pilot_ai_policy():

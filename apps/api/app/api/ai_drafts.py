@@ -10,9 +10,8 @@ from app.ai.repositories.pilot_inbox_ai_repository import (
     update_pilot_ai_settings,
 )
 from app.ai.services.pilot_inbox_ai_service import (
-    _provider_response,
     prepare_pilot_suggestion,
-    render_user_prompt,
+    preview_pilot_response,
     summarize_pilot_conversation,
 )
 from app.core.permissions import require_permission
@@ -39,6 +38,9 @@ class UpdatePilotPrompt(BaseModel):
 
 class TestPilotPrompt(BaseModel):
     message: str
+    system_prompt: str | None = None
+    user_prompt_template: str | None = None
+    communication_style: Literal["PROFESSIONAL", "CONCISE", "FORMAL", "WARM"] | None = None
 
 
 @router.get("/inbox/ai/settings", dependencies=[Depends(require_permission("inbox.read"))])
@@ -89,15 +91,24 @@ def change_pilot_prompt(body: UpdatePilotPrompt, tenant=Depends(get_current_tena
 
 @router.post("/inbox/ai/prompt/test", dependencies=[Depends(require_permission("inbox.ai.use"))])
 def test_pilot_prompt(body: TestPilotPrompt, tenant=Depends(get_current_tenant)):
-    settings=get_pilot_ai_settings(tenant["org_id"])
-    if not body.message.strip(): raise HTTPException(422,"pilot_ai_test_message_required")
-    system=settings.get("system_prompt") or "Réponds comme le service client de l’entreprise. N’invente aucune information."
-    style=settings.get("communication_style") or "PROFESSIONAL"
+    if not body.message.strip():
+        raise HTTPException(422, "pilot_ai_test_message_required")
+    if len((body.system_prompt or "").strip()) > 8000 or len((body.user_prompt_template or "").strip()) > 4000:
+        raise HTTPException(422, "pilot_ai_prompt_too_long")
+    settings = get_pilot_ai_settings(tenant["org_id"])
+    system = body.system_prompt if body.system_prompt is not None else settings.get("system_prompt") or ""
+    user_prompt = body.user_prompt_template if body.user_prompt_template is not None else settings.get("user_prompt_template") or ""
     try:
-        result=_provider_response(settings,f"{system}\nStyle de communication: {style}.",render_user_prompt(settings.get("user_prompt_template"),body.message.strip()))
-    except Exception as exc: raise HTTPException(503,"ai_provider_unavailable") from exc
-    if not result.get("success") or not result.get("content"): raise HTTPException(503,"ai_provider_unavailable")
-    return {"status":"ok","answer":result["content"],"prompt_score":_prompt_score(system,settings.get("user_prompt_template") or "")}
+        result = preview_pilot_response(
+            org_id=tenant["org_id"],
+            message=body.message.strip(),
+            system_prompt=system,
+            user_prompt_template=user_prompt,
+            communication_style=body.communication_style,
+        )
+    except Exception as exc:
+        raise HTTPException(503, "ai_provider_unavailable") from exc
+    return {"status": "ok", **result, "prompt_score": _prompt_score(system, user_prompt)}
 
 
 @router.post("/inbox/conversations/{phone}/ai-draft", dependencies=[Depends(require_permission("inbox.ai.use"))])

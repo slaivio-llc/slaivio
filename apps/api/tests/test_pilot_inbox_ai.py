@@ -32,6 +32,8 @@ def test_sensitive_and_business_actions_can_never_be_classified_safe():
     assert _classify("Je conteste ce paiement et je veux un remboursement")["risk"] == "SENSITIVE"
     assert _classify("Pouvez-vous modifier mon dossier ?")["risk"] == "REVIEW"
     assert _classify("Bonjour")["risk"] == "SAFE"
+    assert _classify("Merci beaucoup")["intent"] == "THANKS"
+    assert _classify("Bonjour, quels sont vos tarifs ?")["intent"] == "INFORMATION_REQUEST"
 
 
 def test_automatic_reply_rejects_unsupported_numbers_and_promises():
@@ -103,6 +105,19 @@ def test_prompt_preview_does_not_invent_when_no_published_knowledge_exists(monke
     assert result["sources"] == []
 
 
+def test_prompt_preview_answers_a_greeting_naturally_without_false_knowledge_warning(monkeypatch):
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {"organization_name": "Lexman"})
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda *_args, **_kwargs: pytest.fail("a greeting needs no business lookup"))
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: pytest.fail("a greeting needs no provider"))
+
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Bonjour")
+
+    assert result["decision"] == "ANSWERED"
+    assert result["requires_knowledge"] is False
+    assert "Lexman" in result["answer"]
+    assert result["sources"] == []
+
+
 def test_prompt_test_uses_unsaved_editor_values(monkeypatch):
     captured = {}
     monkeypatch.setattr(ai_drafts, "get_pilot_ai_settings", lambda _org_id: {
@@ -111,7 +126,7 @@ def test_prompt_test_uses_unsaved_editor_values(monkeypatch):
 
     def fake_preview(**values):
         captured.update(values)
-        return {"answer": "Réponse", "decision": "ANSWERED", "grounded": True, "reason": None, "sources": []}
+        return {"answer": "Réponse", "decision": "ANSWERED", "grounded": True, "requires_knowledge": False, "reason": None, "sources": []}
 
     monkeypatch.setattr(ai_drafts, "preview_pilot_response", fake_preview)
     body = ai_drafts.TestPilotPrompt(
@@ -180,6 +195,7 @@ def test_ai_settings_preview_is_bounded_and_exposes_used_sources():
     assert "Utiliser le modèle recommandé" in page
     assert "system_prompt:systemPrompt" in page
     assert "Aucune connaissance publiée et communicable" in page
+    assert "Réponse conversationnelle" in page
 
 
 def test_ai_prompt_defaults_preserve_existing_custom_prompts():

@@ -30,7 +30,14 @@ ACTION_PATTERNS = (
     r"\b(crée|créer|supprime|supprimer|annule|annuler|modifie|modifier)\b",
     r"\b(payer|rembourser|valider le paiement|changer le dossier)\b",
 )
-GREETING_PATTERNS = (r"^(bonjour|bonsoir|salut|hello|coucou)[ !?.]*$", r"^vous êtes là[ !?.]*$")
+GREETING_PATTERNS = (
+    r"^(bonjour|bonsoir|salut|hello|coucou)(,?\s+(comment allez-vous|comment vas-tu|ça va|comment ça va))?[ !?.]*$",
+    r"^vous êtes là[ !?.]*$",
+)
+THANKS_PATTERNS = (r"^(merci|merci beaucoup|super merci|parfait merci|c['’]est gentil)[ !?.]*$",)
+GOODBYE_PATTERNS = (r"^(au revoir|à bientôt|bonne journée|bonne soirée|bonne nuit)[ !?.]*$",)
+ACKNOWLEDGEMENT_PATTERNS = (r"^(ok|okay|d['’]accord|compris|parfait|très bien|entendu)[ !?.]*$",)
+CONVERSATIONAL_INTENTS = {"GREETING", "THANKS", "GOODBYE", "ACKNOWLEDGEMENT"}
 OPERATIONAL_PATTERNS = (
     r"\b(colis|tracking|suivi|statut|position|arriv[ée]|livr[ée]|expédi[ée]|départ|destination|eta)\b",
     r"\b(solde|paiement|pay[ée]|reste à payer|facture|montant)\b",
@@ -54,11 +61,27 @@ def _classify(message: str) -> dict:
     value = " ".join((message or "").strip().split())
     if _matches(GREETING_PATTERNS, value):
         return {"intent": "GREETING", "risk": "SAFE", "reason": "salutation", "confidence": 1.0}
+    if _matches(THANKS_PATTERNS, value):
+        return {"intent": "THANKS", "risk": "SAFE", "reason": "remerciement", "confidence": 1.0}
+    if _matches(GOODBYE_PATTERNS, value):
+        return {"intent": "GOODBYE", "risk": "SAFE", "reason": "fin_de_conversation", "confidence": 1.0}
+    if _matches(ACKNOWLEDGEMENT_PATTERNS, value):
+        return {"intent": "ACKNOWLEDGEMENT", "risk": "SAFE", "reason": "accuse_reception", "confidence": 1.0}
     if _matches(SENSITIVE_PATTERNS, value):
         return {"intent": "SENSITIVE_REQUEST", "risk": "SENSITIVE", "reason": "sujet_sensible", "confidence": 1.0}
     if _matches(ACTION_PATTERNS, value):
         return {"intent": "BUSINESS_ACTION", "risk": "REVIEW", "reason": "action_metier_a_confirmer", "confidence": 0.9}
     return {"intent": "INFORMATION_REQUEST", "risk": "REVIEW", "reason": "source_requise", "confidence": 0.75}
+
+
+def _conversational_response(intent: str, organization_name: str) -> str:
+    if intent == "GREETING":
+        return f"Bonjour ! Bienvenue chez {organization_name}. Comment puis-je vous aider aujourd’hui ?"
+    if intent == "THANKS":
+        return "Avec plaisir ! Je reste disponible si vous avez une autre question."
+    if intent == "GOODBYE":
+        return f"Merci d’avoir contacté {organization_name}. Excellente journée et à bientôt !"
+    return "Parfait, c’est bien noté. Je reste disponible si vous avez besoin d’aide."
 
 
 def _provider_response(settings: dict, system_prompt: str, user_message: str, *, max_tokens: int = 240) -> dict:
@@ -113,6 +136,17 @@ def _compact_customer_reply(value: str, max_chars: int = 650) -> str:
     return shortened[:max_chars].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
 
 
+def _source_excerpt(item: dict, max_chars: int = 2400) -> str:
+    value = item.get("matched_content") or item.get("content") or ""
+    value = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", value)
+    value = re.sub(r"<img\b[^>]*>", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"[ \t]+", " ", value)
+    value = re.sub(r"\n{3,}", "\n\n", value).strip()
+    if len(value) <= max_chars:
+        return value
+    return value[:max_chars].rsplit(" ", 1)[0].rstrip() + "…"
+
+
 def _safe_context_snapshot(context: dict) -> dict:
     return {
         "client_id": str(context["client_id"]) if context.get("client_id") else None,
@@ -147,6 +181,18 @@ def preview_pilot_response(
 ) -> dict:
     """Preview the same published, customer-visible knowledge used by WhatsApp."""
     settings = get_pilot_ai_settings(org_id)
+    classification = _classify(message)
+    if classification["intent"] in CONVERSATIONAL_INTENTS:
+        return {
+            "answer": _conversational_response(
+                classification["intent"], settings.get("organization_name") or "notre entreprise",
+            ),
+            "decision": "ANSWERED",
+            "grounded": True,
+            "requires_knowledge": False,
+            "reason": classification["reason"],
+            "sources": [],
+        }
     knowledge = search_knowledge(org_id, message, "WHATSAPP", language="FR", limit=5)
     if not knowledge:
         knowledge = search_knowledge(org_id, message, "WHATSAPP", language="EN", limit=5)
@@ -155,12 +201,13 @@ def preview_pilot_response(
             "answer": "Je n’ai trouvé aucune connaissance publiée et visible par les clients pour répondre à cette question.",
             "decision": "NO_KNOWLEDGE",
             "grounded": False,
+            "requires_knowledge": True,
             "reason": "aucune_connaissance_publiee",
             "sources": [],
         }
 
     source_text = "\n\n".join(
-        f"SOURCE {index + 1} — {item['title']}\n{item.get('matched_content') or item['content']}"
+        f"SOURCE {index + 1} — {item['title']}\n{_source_excerpt(item)}"
         for index, item in enumerate(knowledge)
     )
     company_rules = system_prompt if system_prompt is not None else settings.get("system_prompt")
@@ -184,6 +231,7 @@ def preview_pilot_response(
         "answer": answer,
         "decision": "ANSWERED" if grounded else "REVIEW_REQUIRED",
         "grounded": grounded,
+        "requires_knowledge": True,
         "reason": reason,
         "sources": [
             {
@@ -242,8 +290,8 @@ def prepare_pilot_suggestion(
     # unrelated generated answer eligible for automatic sending.
     operational_context = "\n".join(operational_lines) if _matches(OPERATIONAL_PATTERNS, message) else ""
 
-    if classification["intent"] == "GREETING":
-        response_text = f"Bonjour ! Bienvenue chez {context['organization_name']}. Comment pouvons-nous vous aider ?"
+    if classification["intent"] in CONVERSATIONAL_INTENTS:
+        response_text = _conversational_response(classification["intent"], context["organization_name"])
     elif classification["risk"] == "SENSITIVE":
         response_text = "Merci pour votre message. Votre demande nécessite une vérification par notre responsable avant que nous puissions vous répondre précisément."
         confidence = 1.0
@@ -255,7 +303,7 @@ def prepare_pilot_suggestion(
             knowledge = search_knowledge(org_id, message, "WHATSAPP", language="FR", limit=5)
         if knowledge or operational_context:
             knowledge_sources = "\n\n".join(
-                f"SOURCE {index + 1} — {item['title']}\n{item.get('matched_content') or item['content']}"
+                f"SOURCE {index + 1} — {item['title']}\n{_source_excerpt(item)}"
                 for index, item in enumerate(knowledge)
             )
             sources = "\n\n".join(filter(None, [
@@ -299,7 +347,7 @@ def prepare_pilot_suggestion(
     eligible_for_auto = (
         classification["risk"] == "SAFE"
         and confidence >= float(settings.get("auto_reply_min_confidence") or 0.75)
-        and (classification["intent"] == "GREETING" or bool(source_ids) or bool(operational_context))
+        and (classification["intent"] in CONVERSATIONAL_INTENTS or bool(source_ids) or bool(operational_context))
     )
     review_reason = None if eligible_for_auto else reason
     # Automatic mode is autonomous: a high-confidence answer is sent, while

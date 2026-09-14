@@ -48,6 +48,7 @@ export type PilotAIPromptTestResult={
   prompt_score:number;
   decision:"ANSWERED"|"REVIEW_REQUIRED"|"NO_KNOWLEDGE";
   grounded:boolean;
+  requires_knowledge:boolean;
   reason?:string|null;
   sources:Array<{id:string;title:string;updated_at?:string|null;score:number}>;
 };

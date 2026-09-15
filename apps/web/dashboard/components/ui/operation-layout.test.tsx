@@ -26,8 +26,7 @@ describe("Pilot visual foundation", () => {
 
     const pageHeader = screen.getByRole("heading", { name: "Dossiers" }).closest("header");
     expect(pageHeader).toHaveAttribute("data-ui", "operation-page-header");
-    expect(pageHeader?.firstElementChild).toHaveClass("w-full", "p-6", "sm:p-10", "lg:p-12");
-    expect(pageHeader?.firstElementChild).not.toHaveClass("mx-auto", "max-w-[1200px]");
+    expect(pageHeader?.firstElementChild).toHaveClass("mx-auto", "w-full", "max-w-[1200px]", "px-6", "sm:px-8", "lg:py-12");
     expect(screen.getByRole("navigation", { name: "Vues du module" })).toHaveAttribute("data-ui", "operation-tabs");
     expect(screen.getByText("Actifs").closest("section")).toHaveAttribute("data-ui", "operation-metrics");
     expect(screen.getByText("Actifs").closest("section")?.firstElementChild).toHaveClass("mx-auto", "max-w-[1200px]", "px-6", "sm:px-8", "py-3");

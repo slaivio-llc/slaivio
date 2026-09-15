@@ -724,7 +724,7 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
 .slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
   min-height: 0;
-  padding: 48px;
+  padding-block: 48px;
 }
 
 .slaivio-pilot [data-ui="operation-page-header"] h1 {
@@ -856,14 +856,14 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
 @media (min-width: 641px) and (max-width: 1023px) {
   .slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
-    padding: 40px;
+    padding-block: 40px;
   }
 }
 
 @media (max-width: 640px) {
   .slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
     min-height: 0;
-    padding: 24px;
+    padding-block: 24px;
   }
 
   .slaivio-pilot [data-ui="operation-toolbar"] {

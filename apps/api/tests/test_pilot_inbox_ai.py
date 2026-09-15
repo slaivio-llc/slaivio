@@ -31,9 +31,8 @@ def test_migration_defines_three_explicit_modes_and_tenant_audit():
 def test_sensitive_and_business_actions_can_never_be_classified_safe():
     assert _classify("Je conteste ce paiement et je veux un remboursement")["risk"] == "SENSITIVE"
     assert _classify("Pouvez-vous modifier mon dossier ?")["risk"] == "REVIEW"
-    assert _classify("Bonjour")["risk"] == "SAFE"
-    assert _classify("Merci beaucoup")["intent"] == "THANKS"
-    assert _classify("Bonjour, quels sont vos tarifs ?")["intent"] == "INFORMATION_REQUEST"
+    assert _classify("Bonjour")["risk"] == "REVIEW"
+    assert _classify("Merci beaucoup")["intent"] == "INFORMATION_REQUEST"
 
 
 def test_automatic_reply_rejects_unsupported_numbers_and_promises():
@@ -51,7 +50,7 @@ def test_knowledge_search_keeps_useful_words_from_a_natural_question():
 def test_pilot_ai_uses_only_published_client_knowledge_and_provider_abstraction():
     service = read("apps/api/app/ai/services/pilot_inbox_ai_service.py")
     knowledge = read("apps/api/app/knowledge/repository.py")
-    assert 'search_knowledge(org_id, message, "WHATSAPP"' in service
+    assert 'search_knowledge(org_id, knowledge_query, "WHATSAPP"' in service
     assert "get_provider(settings[\"provider\"])" in service
     assert "e.status='PUBLISHED'" in knowledge
     assert "e.sensitive=false" in knowledge
@@ -96,7 +95,7 @@ def test_prompt_preview_uses_the_real_whatsapp_knowledge_pipeline(monkeypatch):
 def test_prompt_preview_does_not_invent_when_no_published_knowledge_exists(monkeypatch):
     monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {})
     monkeypatch.setattr(ai_service, "search_knowledge", lambda *args, **kwargs: [])
-    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: pytest.fail("provider must not be called"))
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: {"success": True, "content": "KNOWLEDGE_QUERY|prix"})
 
     result = ai_service.preview_pilot_response(org_id="agency-a", message="Quel est le prix ?")
 
@@ -107,15 +106,33 @@ def test_prompt_preview_does_not_invent_when_no_published_knowledge_exists(monke
 
 def test_prompt_preview_answers_a_greeting_naturally_without_false_knowledge_warning(monkeypatch):
     monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {"organization_name": "Lexman"})
-    monkeypatch.setattr(ai_service, "search_knowledge", lambda *_args, **_kwargs: pytest.fail("a greeting needs no business lookup"))
-    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: pytest.fail("a greeting needs no provider"))
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: {
+        "success": True,
+        "content": "SOCIAL_RESPONSE|Bonjour ! Bienvenue chez Lexman. Comment puis-je vous aider ?",
+    })
 
-    result = ai_service.preview_pilot_response(org_id="agency-a", message="Bonjour")
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Bonjour l’agence, vous êtes là ?")
 
     assert result["decision"] == "ANSWERED"
     assert result["requires_knowledge"] is False
     assert "Lexman" in result["answer"]
     assert result["sources"] == []
+
+
+def test_adaptive_router_never_treats_a_business_question_as_source_free(monkeypatch):
+    queries = []
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {"organization_name": "Lexman"})
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda _org_id, query, *_args, **_kwargs: queries.append(query) or [])
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: {
+        "success": True, "content": "KNOWLEDGE_QUERY|tarif livraison Kinshasa",
+    })
+
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Salut l’agence, ça coûte combien pour Kinshasa ?")
+
+    assert result["decision"] == "NO_KNOWLEDGE"
+    assert result["requires_knowledge"] is True
+    assert queries == ["tarif livraison Kinshasa", "tarif livraison Kinshasa"]
 
 
 def test_prompt_test_uses_unsaved_editor_values(monkeypatch):

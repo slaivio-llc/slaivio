@@ -24,9 +24,13 @@ describe("Pilot visual foundation", () => {
       </main>,
     );
 
-    expect(screen.getByRole("heading", { name: "Dossiers" }).closest("header")).toHaveAttribute("data-ui", "operation-page-header");
+    const pageHeader = screen.getByRole("heading", { name: "Dossiers" }).closest("header");
+    expect(pageHeader).toHaveAttribute("data-ui", "operation-page-header");
+    expect(pageHeader?.firstElementChild).toHaveClass("px-6", "sm:px-8", "lg:px-10", "py-5");
     expect(screen.getByRole("navigation", { name: "Vues du module" })).toHaveAttribute("data-ui", "operation-tabs");
     expect(screen.getByText("Actifs").closest("section")).toHaveAttribute("data-ui", "operation-metrics");
+    expect(screen.getByText("Actifs").closest("section")).toHaveClass("px-6", "sm:px-8", "lg:px-10", "py-3");
+    expect(screen.getByText("12")).toHaveClass("text-[21px]", "mt-0.5");
     expect(screen.getByText("DOS-001").closest("section")).toHaveAttribute("data-ui", "operation-table");
 
     fireEvent.change(screen.getByRole("textbox", { name: "Rechercher un dossier" }), { target: { value: "DOS" } });

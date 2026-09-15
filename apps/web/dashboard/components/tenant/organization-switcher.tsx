@@ -13,6 +13,12 @@ type Tenant = {
   role_code?: string | null;
 };
 
+export function formatOrganizationDisplayName(value?: string | null) {
+  const normalized = value?.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!normalized) return "organisation";
+  return normalized.endsWith("'s org") ? normalized : `${normalized}'s org`;
+}
+
 export function OrganizationSwitcher({ collapsed = false, menuPlacement = "up", header = false }: { collapsed?: boolean; menuPlacement?: "up" | "down"; header?: boolean }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -24,7 +30,6 @@ export function OrganizationSwitcher({ collapsed = false, menuPlacement = "up", 
   const [organizationName, setOrganizationName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const displayName = (value?: string | null) => value?.trim().toLocaleLowerCase() || "organisation";
 
   const load = useCallback(async () => {
     try {
@@ -93,13 +98,13 @@ export function OrganizationSwitcher({ collapsed = false, menuPlacement = "up", 
         onClick={() => setOpen((value) => !value)}
         disabled={loading || switching}
         aria-expanded={open}
-        title={collapsed ? activeTenant?.organization_name || "Organisation" : undefined}
+        title={collapsed ? formatOrganizationDisplayName(activeTenant?.organization_name) : undefined}
         className={`flex w-full items-center rounded-[6px] border border-[#d8dadd] bg-white text-left shadow-[0_1px_1px_rgba(15,23,42,.03)] hover:border-[#c7cbcf] hover:bg-[#f7f7f6] disabled:opacity-60 ${header ? "min-h-9 gap-2 px-3" : "min-h-11"} ${collapsed ? "lg:justify-center lg:px-1" : header ? "" : "gap-2 px-3"}`}
       >
         {(collapsed || header) && <Building2 size={16} className={`${collapsed ? "hidden lg:block" : ""} shrink-0 text-[#16855f]`} />}
         <span className={`min-w-0 flex-1 ${collapsed ? "lg:hidden" : ""}`}>
           <span className="block truncate text-[13px] font-medium text-[#25292e]">
-            {loading ? "Chargement..." : activeTenant ? displayName(activeTenant.organization_name) : "aucune organisation"}
+            {loading ? "Chargement..." : activeTenant ? formatOrganizationDisplayName(activeTenant.organization_name) : "aucune organisation"}
           </span>
         </span>
         <ChevronDown size={15} className={`shrink-0 text-[#73777c] transition ${collapsed ? "lg:hidden" : ""} ${open ? "rotate-180" : ""}`} />
@@ -123,7 +128,7 @@ export function OrganizationSwitcher({ collapsed = false, menuPlacement = "up", 
               >
                 <Building2 size={15} className="text-[#686e75]" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px] font-medium">{displayName(tenant.organization_name)}</span>
+                  <span className="block truncate text-[13px] font-medium">{formatOrganizationDisplayName(tenant.organization_name)}</span>
                 </span>
                 {tenant.org_id === activeTenant?.org_id && <Check size={15} className="text-[#16855f]" />}
               </button>

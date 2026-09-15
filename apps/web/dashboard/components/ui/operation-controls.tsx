@@ -296,7 +296,7 @@ export function OperationMetricGrid({
   children: ReactNode;
   className?: string;
 }) {
-  return <div data-ui="metric-grid" className={`grid grid-cols-2 divide-x divide-y divide-[#eceff2] overflow-hidden rounded-[8px] border border-[#e2e6e9] bg-white md:grid-cols-4 md:divide-y-0 ${className}`}>{children}</div>;
+  return <div data-ui="metric-grid" className={`grid grid-cols-2 divide-x divide-y divide-[#eceff2] overflow-hidden rounded-[7px] border border-[#e2e6e9] bg-white md:grid-cols-4 md:divide-y-0 ${className}`}>{children}</div>;
 }
 
 export function OperationMetric({
@@ -319,10 +319,10 @@ export function OperationMetric({
     danger: "text-[#b42318]",
   };
   return (
-    <div className={`min-w-0 px-4 py-3.5 ${className}`} {...props}>
-      <p data-ui="metric-label" className="truncate text-[12px] font-medium text-[#6a737d]">{label}</p>
-      <p data-ui="metric-value" className={`mt-1 truncate text-[24px] font-semibold tracking-[-0.035em] ${colors[tone]}`}>{value}</p>
-      {detail && <p data-ui="metric-detail" className="mt-1 truncate text-[12px] text-[#7a838d]">{detail}</p>}
+    <div className={`min-w-0 px-3.5 py-2.5 ${className}`} {...props}>
+      <p data-ui="metric-label" className="truncate text-[11px] font-medium text-[#6a737d]">{label}</p>
+      <p data-ui="metric-value" className={`mt-0.5 truncate text-[21px] font-semibold tracking-[-0.035em] ${colors[tone]}`}>{value}</p>
+      {detail && <p data-ui="metric-detail" className="mt-0.5 truncate text-[11px] text-[#7a838d]">{detail}</p>}
     </div>
   );
 }

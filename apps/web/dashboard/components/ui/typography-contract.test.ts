@@ -41,8 +41,8 @@ describe("Slaivio typography contract", () => {
     expect(globalStyles).toContain("--sl-control-height: 40px");
     expect(globalStyles).toContain("--sl-radius-card: 12px");
     expect(globalStyles).toContain('.slaivio-pilot [data-ui="operation-page-header"]');
-    expect(globalStyles).toContain("padding-block: 32px");
-    expect(globalStyles).toContain("padding-block: 24px");
+    expect(globalStyles).toContain("padding: 48px");
+    expect(globalStyles).toContain("padding: 24px");
     expect(globalStyles).toContain('.slaivio-pilot [data-ui="operation-table"]');
     expect(globalStyles).toContain('.slaivio-pilot [data-ui="operation-button"]');
     expect(shell).toContain('pilot ? "slaivio-pilot" : ""');

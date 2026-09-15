@@ -13,7 +13,7 @@ export function OperationPageHeader({
 }) {
   return (
     <header data-ui="operation-page-header" className="operation-page-header border-b border-[#dfe1e3] bg-white">
-      <div className="flex min-h-[88px] flex-col gap-4 px-6 py-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-10 lg:py-6">
+      <div className="mx-auto flex min-h-[76px] w-full max-w-[1200px] flex-col gap-3 px-6 py-4 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
           <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">
@@ -35,7 +35,7 @@ export function OperationTabs({ children, className = "" }: { children: ReactNod
   return (
     <nav
       data-ui="operation-tabs"
-      className={`operation-tabs flex min-h-[45px] items-end gap-1 overflow-x-auto border-b border-[#d8dce2] bg-white px-6 sm:px-8 lg:px-10 ${className}`}
+      className={`operation-tabs mx-auto flex min-h-[45px] w-full max-w-[1200px] items-end gap-1 overflow-x-auto bg-white px-6 sm:px-8 ${className}`}
       aria-label="Vues du module"
     >
       {children}

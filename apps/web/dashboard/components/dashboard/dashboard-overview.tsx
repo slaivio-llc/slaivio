@@ -74,7 +74,7 @@ export function DashboardOverviewPage() {
       actions={<OperationButton onClick={() => load(true)} disabled={loading} aria-label="Actualiser l’accueil" title="Actualiser" className="w-9 px-0"><RefreshCcw size={15} className={loading ? "animate-spin" : ""} /></OperationButton>}
     />
 
-    <main className="grid gap-5 px-6 py-6 sm:px-8 lg:px-10">
+    <main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8">
       {error && <div className="flex items-center gap-3 rounded-[7px] border border-[#f1c7c3] bg-[#fff5f4] px-4 py-3 text-[12px] text-[#a52a22]"><span>{error} Les dernières données connues restent affichées.</span><button type="button" onClick={() => load(true)} className="ml-auto font-semibold">Réessayer</button></div>}
 
       <section aria-labelledby="dashboard-kpis">
@@ -106,7 +106,7 @@ function ParcelFreightDashboard({ data, loading, error, reload }: { data: Dashbo
       description={`Suivez les colis et les départs de ${data.workspace.name}.`}
       actions={<OperationButton onClick={reload} disabled={loading} aria-label="Actualiser l’accueil" title="Actualiser" className="w-9 px-0"><RefreshCcw size={15} className={loading ? "animate-spin" : ""} /></OperationButton>}
     />
-    <main className="mx-auto grid w-full max-w-[1320px] gap-5 px-6 py-6 sm:px-8 lg:px-10">
+    <main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8">
       {error && <div className="flex items-center gap-3 rounded-[7px] border border-[#f1c7c3] bg-[#fff5f4] px-4 py-3 text-[12px] text-[#a52a22]"><span>{error} Les dernières données connues restent affichées.</span><button type="button" onClick={reload} className="ml-auto font-semibold">Réessayer</button></div>}
       <section aria-label="État des colis">
         <OperationMetricGrid className="lg:grid-cols-5">
@@ -153,7 +153,7 @@ function PilotDashboard({ data, loading, error, reload }: { data: DashboardHome;
         <Link href="/app/dossiers?create=1" className="inline-flex h-9 items-center justify-center gap-2 rounded-[6px] bg-[#12c76f] px-3 text-[13px] font-semibold text-white hover:bg-[#0fb766]"><Plus size={15} />Nouveau dossier</Link>
       </>}
     />
-    <main className="mx-auto grid w-full max-w-[1320px] gap-5 px-6 py-6 sm:px-8 lg:px-10">
+    <main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8">
       {error && <div className="flex items-center gap-3 rounded-[7px] border border-[#f1c7c3] bg-[#fff5f4] px-4 py-3 text-[12px] text-[#a52a22]"><span>{error} Les dernières données connues restent affichées.</span><button type="button" onClick={reload} className="ml-auto font-semibold">Réessayer</button></div>}
 
       <PilotReadinessPanel />
@@ -222,7 +222,7 @@ function NoWorkspace() {
 }
 
 function DashboardSkeleton() {
-  return <div className="min-h-full bg-[#f5f6f6]" role="status" aria-label="Chargement de l’accueil"><div className="min-h-[88px] border-b border-[#dfe3e7] bg-white px-6 py-5 sm:px-8 lg:px-10 lg:py-6"><Skeleton className="h-5 w-64" /><Skeleton className="mt-2 h-3 w-[420px] max-w-full" /></div><main className="grid gap-5 px-6 py-6 sm:px-8 lg:px-10"><div><Skeleton className="mb-2 h-3 w-36" /><div className="grid grid-cols-2 overflow-hidden rounded-[7px] border border-[#e2e6e9] bg-white lg:grid-cols-6">{Array.from({ length: 6 }, (_, index) => <div key={index} className="border-r border-[#eceff2] px-3.5 py-2.5"><Skeleton className="h-2.5 w-20" /><Skeleton className="mt-2 h-5 w-14" /></div>)}</div></div><div className="grid gap-5 xl:grid-cols-[1.6fr_.8fr]"><Skeleton className="h-72 bg-white" /><Skeleton className="h-72 bg-white" /></div></main></div>;
+  return <div className="min-h-full bg-[#f5f6f6]" role="status" aria-label="Chargement de l’accueil"><div className="border-b border-[#dfe3e7] bg-white"><div className="mx-auto min-h-[76px] w-full max-w-[1200px] px-6 py-4 sm:px-8"><Skeleton className="h-5 w-64" /><Skeleton className="mt-2 h-3 w-[420px] max-w-full" /></div></div><main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8"><div><Skeleton className="mb-2 h-3 w-36" /><div className="grid grid-cols-2 overflow-hidden rounded-[7px] border border-[#e2e6e9] bg-white lg:grid-cols-6">{Array.from({ length: 6 }, (_, index) => <div key={index} className="border-r border-[#eceff2] px-3.5 py-2.5"><Skeleton className="h-2.5 w-20" /><Skeleton className="mt-2 h-5 w-14" /></div>)}</div></div><div className="grid gap-5 xl:grid-cols-[1.6fr_.8fr]"><Skeleton className="h-72 bg-white" /><Skeleton className="h-72 bg-white" /></div></main></div>;
 }
 
 function Skeleton({ className = "" }: { className?: string }) { return <div className={`animate-pulse rounded-[6px] bg-[#e9ecee] ${className}`} />; }

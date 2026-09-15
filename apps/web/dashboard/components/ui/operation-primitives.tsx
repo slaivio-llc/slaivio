@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function OperationMetrics({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section data-ui="operation-metrics" className={`operation-metrics border-b border-[#dfe3e7] bg-white px-6 py-3 sm:px-8 lg:px-10 ${className}`}>{children}</section>;
+  return <section data-ui="operation-metrics" className="operation-metrics border-b border-[#dfe3e7] bg-white"><div className={`mx-auto w-full max-w-[1200px] px-6 py-3 sm:px-8 ${className}`}>{children}</div></section>;
 }
 
 export function OperationToolbar({
@@ -17,10 +17,12 @@ export function OperationToolbar({
   className?: string;
 }) {
   return (
-    <div data-ui="operation-toolbar" className={`operation-toolbar flex min-h-[54px] flex-col gap-2 border-b border-[#e1e5e9] bg-white px-6 py-2 sm:px-8 lg:flex-row lg:items-center lg:px-10 ${className}`}>
-      <div className="min-w-0 flex-1">{search}</div>
-      {filters && <div className="flex shrink-0 flex-wrap items-center gap-2">{filters}</div>}
-      {children}
+    <div data-ui="operation-toolbar" className="operation-toolbar border-b border-[#e1e5e9] bg-white">
+      <div className={`mx-auto flex min-h-[54px] w-full max-w-[1200px] flex-col gap-2 px-6 py-2 sm:px-8 lg:flex-row lg:items-center ${className}`}>
+        <div className="min-w-0 flex-1">{search}</div>
+        {filters && <div className="flex shrink-0 flex-wrap items-center gap-2">{filters}</div>}
+        {children}
+      </div>
     </div>
   );
 }
@@ -50,7 +52,7 @@ export function OperationSearch({
 
 export function ActiveFilterBar({ children }: { children?: ReactNode }) {
   if (!children) return null;
-  return <div data-ui="active-filter-bar" className="operation-filter-bar flex min-h-10 flex-wrap items-center gap-2 border-b border-[#e5e8eb] bg-[#fafbfb] px-6 py-2 sm:px-8 lg:px-10">{children}</div>;
+  return <div data-ui="active-filter-bar" className="operation-filter-bar border-b border-[#e5e8eb] bg-[#fafbfb]"><div className="mx-auto flex min-h-10 w-full max-w-[1200px] flex-wrap items-center gap-2 px-6 py-2 sm:px-8">{children}</div></div>;
 }
 
 export function OperationTable({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -62,5 +64,5 @@ export function OperationTable({ children, className = "" }: { children: ReactNo
 }
 
 export function OperationContent({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div data-ui="operation-content" className={`operation-content min-w-0 px-6 py-6 sm:px-8 lg:px-10 ${className}`}>{children}</div>;
+  return <div data-ui="operation-content" className={`operation-content mx-auto min-w-0 w-full max-w-[1200px] px-6 py-6 sm:px-8 ${className}`}>{children}</div>;
 }

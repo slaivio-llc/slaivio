@@ -44,7 +44,6 @@ export function WarehousesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [allMetrics, setAllMetrics] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,12 +101,9 @@ export function WarehousesPage() {
     />
     <main>
       <OperationMetrics>
-        <OperationMetricGrid className={allMetrics ? "lg:grid-cols-6" : "lg:grid-cols-4"}>
-          {metrics.slice(0, allMetrics ? 6 : 4).map((metric) => <OperationMetric key={metric.label} {...metric} />)}
+        <OperationMetricGrid className="lg:grid-cols-6">
+          {metrics.map((metric) => <OperationMetric key={metric.label} {...metric} />)}
         </OperationMetricGrid>
-        <button type="button" onClick={() => setAllMetrics((current) => !current)} className="mt-3 text-[11px] font-medium text-[#087a46]">
-          {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
-        </button>
       </OperationMetrics>
       <OperationToolbar
         search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher un entrepôt, une ville…" />}

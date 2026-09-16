@@ -55,11 +55,11 @@ export function BroadcastsPage() {
   const [items, setItems] = useState<Campaign[]>([]),
     [stats, setStats] = useState<Record<string, number>>({}),
     [status, setStatus] = useState(""),
+    [activeMetric, setActiveMetric] = useState<string | null>(null),
     [channel, setChannel] = useState(""),
     [q, setQ] = useState(""),
     [selected, setSelected] = useState<Campaign | null>(null),
     [modal, setModal] = useState<"campaign" | "audience" | null>(null),
-    [allMetrics, setAllMetrics] = useState(false),
     [loading, setLoading] = useState(true),
     [resources, setResources] = useState<Record<string, unknown>>({}),
     [error, setError] = useState("");
@@ -130,18 +130,12 @@ export function BroadcastsPage() {
         }
       />
       <OperationMetrics>
-        <OperationMetricGrid className={allMetrics ? "lg:grid-cols-8" : "lg:grid-cols-4"}>
-          {cards.slice(0, allMetrics ? 8 : 4).map(([l, v], index) => {
+        <OperationMetricGrid className="lg:grid-cols-4">
+          {cards.map(([l, v], index) => {
             const target = index === 1 ? "SCHEDULED" : index >= 2 ? "COMPLETED" : "";
-            return <OperationMetric key={String(l)} label={String(l)} value={v || 0} active={status === target} onClick={() => setStatus(target)} />;
+            return <OperationMetric key={String(l)} label={String(l)} value={v || 0} active={activeMetric === String(l)} onClick={() => { setActiveMetric(String(l)); setStatus(target); }} />;
           })}
         </OperationMetricGrid>
-        <button
-          onClick={() => setAllMetrics((current) => !current)}
-          className="mt-3 text-[11px] font-medium text-[#087a46]"
-        >
-          {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
-        </button>
       </OperationMetrics>
       <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une campagne…" />} filters={<OperationFilterPopover activeCount={(channel ? 1 : 0) + (status ? 1 : 0)} onReset={() => { setStatus(""); setChannel(""); }} title="Filtrer les campagnes"><OperationField label="Vue"><select className={`${field} w-full`} value={status} onChange={(event) => setStatus(event.target.value)}>{tabs.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></OperationField><OperationField label="Canal d’envoi"><select className={`${field} w-full`} value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">Tous les canaux</option>{Array.from(new Set(items.flatMap((item) => item.channels || []))).map((value) => <option key={value} value={value}>{channelLabels[value] || value}</option>)}</select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
       {error && <ErrorState title="Campagnes indisponibles" description={error} retry={load} />}

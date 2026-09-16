@@ -103,7 +103,6 @@ export function BatchCenterPage() {
     [q, setQ] = useState(""),
     [status, setStatus] = useState(""),
     [loading, setLoading] = useState(true),
-    [allMetrics, setAllMetrics] = useState(false),
     [error, setError] = useState("");
   const load = useCallback(async () => {
     setLoading(true);
@@ -193,19 +192,10 @@ export function BatchCenterPage() {
               ["Complets", stats.full],
               ["Bloqués", stats.blocked],
               ["Colis non groupés", stats.unassigned_packages],
-            ]
-              .slice(0, allMetrics ? 6 : 4)
-              .map(([l, v]) => (
+            ].map(([l, v]) => (
               <OperationMetric key={String(l)} label={String(l)} value={n(v)} />
               ))}
           </OperationMetricGrid>
-          <button
-            type="button"
-            className="mt-3 text-[11px] font-medium text-[#087a46] xl:hidden"
-            onClick={() => setAllMetrics((value) => !value)}
-          >
-            {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
-          </button>
         </OperationMetrics>
         <section className="bg-white">
           <OperationToolbar

@@ -141,6 +141,7 @@ export function ShipmentsPage() {
     total_pages: 0,
   });
   const [activeView, setActiveView] = useState("all");
+  const [activeMetric, setActiveMetric] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ExpeditionStatus | "">("");
   const [mode, setMode] = useState<ExpeditionMode | "">("");
@@ -152,7 +153,6 @@ export function ShipmentsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [allMetrics, setAllMetrics] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [analytics, setAnalytics] = useState<ShipmentAnalytics | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -327,19 +327,11 @@ export function ShipmentsPage() {
         />
 
         <OperationMetrics>
-          <OperationMetricGrid className={allMetrics ? "lg:grid-cols-6" : "lg:grid-cols-4"}>
-            {kpis.slice(0, allMetrics ? 6 : 4).map((item) => (
-              <OperationMetric key={item.label} label={item.label} value={item.value} tone={activeView === item.view ? "success" : item.warm ? "warning" : "default"} active={activeView === item.view} onClick={() => { setActiveView(item.view); setStatus(""); }} />
+          <OperationMetricGrid className="lg:grid-cols-6">
+            {kpis.map((item) => (
+              <OperationMetric key={item.label} label={item.label} value={item.value} tone={activeMetric === item.label ? "success" : item.warm ? "warning" : "default"} active={activeMetric === item.label} onClick={() => { setActiveMetric(item.label); setActiveView(item.view); setStatus(""); }} />
             ))}
           </OperationMetricGrid>
-          <button
-            onClick={() => setAllMetrics((value) => !value)}
-            className="mt-3 text-[11px] font-medium text-[#087a46]"
-          >
-            {allMetrics
-              ? "Réduire les indicateurs"
-              : "Voir tous les indicateurs"}
-          </button>
         </OperationMetrics>
 
         {analyticsOpen ? (
@@ -353,11 +345,11 @@ export function ShipmentsPage() {
                   open={filtersOpen}
                   onOpenChange={setFiltersOpen}
                   activeCount={[status, mode, risk].filter(Boolean).length + (sort !== "updated_desc" ? 1 : 0) + (activeView !== "all" ? 1 : 0)}
-                  onReset={() => { setActiveView("all"); setStatus(""); setMode(""); setRisk(""); setSort("updated_desc"); }}
+                  onReset={() => { setActiveMetric(null); setActiveView("all"); setStatus(""); setMode(""); setRisk(""); setSort("updated_desc"); }}
                   title="Filtrer les expéditions"
                 >
                   <OperationField label="Vue">
-                    <select className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]" value={activeView} onChange={(event) => { setActiveView(event.target.value); setStatus(""); }}>
+                    <select className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none" value={activeView} onChange={(event) => { setActiveMetric(null); setActiveView(event.target.value); setStatus(""); }}>
                       {views.map((view) => <option key={view.key} value={view.key}>{view.label}</option>)}
                     </select>
                   </OperationField>

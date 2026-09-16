@@ -98,10 +98,10 @@ export function ServiceCatalogCenter() {
     [stats, setStats] = useState<Record<string, number>>({}),
     [catalog, setCatalog] = useState<Catalog | null>(null),
     [view, setView] = useState<View>("ALL"),
+    [activeMetric, setActiveMetric] = useState<string | null>(null),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<Detail | null>(null),
     [createOpen, setCreateOpen] = useState(false),
-    [allMetrics, setAllMetrics] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -173,15 +173,9 @@ export function ServiceCatalogCenter() {
         }
       />
       <OperationMetrics>
-        <OperationMetricGrid className={allMetrics ? "lg:grid-cols-8" : "lg:grid-cols-4"}>
-          {cards.slice(0, allMetrics ? 8 : 4).map(([l, v]) => { const label=String(l).toLowerCase(); const target=label.includes("actif")?"ACTIVE":label.includes("suspend")?"SUSPENDED":label.includes("limit")?"LIMITED":"ALL"; return <OperationMetric key={String(l)} label={String(l)} value={v} active={view===target} onClick={()=>setView(target)} />; })}
+        <OperationMetricGrid className="lg:grid-cols-4">
+          {cards.map(([l, v]) => { const metricLabel=String(l); const label=metricLabel.toLowerCase(); const target=label.includes("actif")?"ACTIVE":label.includes("suspend")?"SUSPENDED":label.includes("limit")?"LIMITED":"ALL"; return <OperationMetric key={metricLabel} label={metricLabel} value={v} active={activeMetric===metricLabel} onClick={()=>{setActiveMetric(metricLabel);setView(target)}} />; })}
         </OperationMetricGrid>
-        <button
-          onClick={() => setAllMetrics((current) => !current)}
-          className="mt-3 text-[11px] font-medium text-[#087a46]"
-        >
-          {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
-        </button>
       </OperationMetrics>
       <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Service, type, route, pays, responsable…" />} filters={<OperationFilterPopover activeCount={view === "ALL" ? 0 : 1} onReset={() => setView("ALL")} title="Filtrer les services"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="ALL">Tous</option><option value="TRANSPORT">Transport</option><option value="COMPLEMENTARY">Complémentaires</option><option value="ACTIVE">Actifs</option><option value="LIMITED">Capacité limitée</option><option value="SUSPENDED">Suspendus</option><option value="ARCHIVED">Archivés</option><option value="BUNDLES">Bundles</option><option value="COMPARE">Comparateur</option><option value="RECOMMEND">Recommandation</option><option value="ANALYTICS">Analytics</option><option value="SETTINGS">Paramètres</option></select></OperationField></OperationFilterPopover>}><button className={`${btn} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={14} aria-hidden="true" /></button></OperationToolbar>
       {error && <ErrorState title="Services indisponibles" description={error} retry={load} />}

@@ -787,8 +787,8 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 }
 
 .slaivio-pilot [data-ui="operation-search"]:focus-within {
-  border-color: var(--pilot-primary);
-  box-shadow: 0 0 0 3px rgba(8, 122, 70, 0.1);
+  border-color: #9fa8b1;
+  box-shadow: none;
 }
 
 .slaivio-pilot [data-ui="operation-table"] table thead {
@@ -808,9 +808,21 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   border-color: var(--pilot-border-subtle);
 }
 
-.slaivio-pilot :is(button, a, input, select, textarea, summary):focus-visible {
+.slaivio-pilot :is(button, a, summary):focus-visible {
   outline: 2px solid var(--sl-color-focus);
   outline-offset: 2px;
+}
+
+.slaivio-pilot :is(input, select, textarea):focus-visible {
+  outline: none;
+}
+
+.slaivio-operations :is(input, select, textarea):focus,
+.slaivio-operations :is(input, select, textarea):focus-visible,
+.slaivio-operations [data-ui="operation-search"]:focus-within {
+  outline: none !important;
+  border-color: #9fa8b1 !important;
+  box-shadow: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1303,8 +1315,23 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
 .slaivio-operations form :is(input, select, textarea):focus,
 .operation-form-surface :is(input, select, textarea):focus {
-  border-color: var(--form-control-focus) !important;
-  box-shadow: 0 0 0 3px rgba(18, 168, 101, 0.12);
+  border-color: var(--form-control-border-hover) !important;
+  box-shadow: none;
+}
+
+/* Standalone data surfaces follow the same 1200px content rail as titles,
+   KPI separators and toolbars. Tables already inside OperationContent keep
+   the width supplied by their parent and are not padded twice. */
+.slaivio-operations [data-ui="operation-table"]:not([data-ui="operation-content"] [data-ui="operation-table"]) {
+  width: calc(100% - 3rem);
+  max-width: 1136px;
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .slaivio-operations [data-ui="operation-table"]:not([data-ui="operation-content"] [data-ui="operation-table"]) {
+    width: calc(100% - 4rem);
+  }
 }
 
 .slaivio-operations form :is(input, textarea)::placeholder,

@@ -34,9 +34,9 @@ export function ReportsAnalyticsPage() {
     [end, setEnd] = useState(today),
     [data, setData] = useState<Analytics | null>(null),
     [tab, setTab] = useState("overview"),
+    [activeMetric, setActiveMetric] = useState<string | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
-    [allMetrics, setAllMetrics] = useState(false),
     [report, setReport] = useState("packages"),
     [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const load = useCallback(async () => {
@@ -116,25 +116,16 @@ export function ReportsAnalyticsPage() {
         <OperationMetricGrid>
           {(loading
             ? Array.from({ length: 4 }, (_, index) => [String(index), ""])
-            : metricCards.slice(0, allMetrics ? metricCards.length : 4)
+            : metricCards
           ).map(([label, value]) => loading ? (
             <div key={String(label)} className="min-h-[72px] px-4 py-3.5">
               <div className="h-3 w-24 animate-pulse rounded bg-[#e8ecea]" />
               <div className="mt-3 h-7 w-16 animate-pulse rounded bg-[#e8ecea]" />
             </div>
           ) : (
-            <OperationMetric key={String(label)} label={String(label)} value={value} active={tab === (String(label).includes("Colis") || String(label).includes("Expéditions") ? "operations" : "overview")} onClick={() => setTab(String(label).includes("Colis") || String(label).includes("Expéditions") ? "operations" : "overview")} />
+            <OperationMetric key={String(label)} label={String(label)} value={value} active={activeMetric === String(label)} onClick={() => { setActiveMetric(String(label)); setTab(String(label).includes("Colis") || String(label).includes("Expéditions") ? "operations" : "overview"); }} />
           ))}
         </OperationMetricGrid>
-        {!loading && metricCards.length > 4 && (
-          <button
-            type="button"
-            onClick={() => setAllMetrics((current) => !current)}
-            className="mt-3 text-[11px] font-medium text-[#087a46]"
-          >
-            {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
-          </button>
-        )}
       </OperationMetrics>
       <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
       <main className="p-5 sm:p-6">

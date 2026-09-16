@@ -76,7 +76,6 @@ export function PickupsPage() {
     [createOpen, setCreateOpen] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(false),
     [analyticsOpen, setAnalyticsOpen] = useState(false),
-    [allMetrics, setAllMetrics] = useState(false),
     [selected, setSelected] = useState<PickupDetail | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
@@ -170,7 +169,7 @@ export function PickupsPage() {
       />
       <main>
         <OperationMetrics>
-          <OperationMetricGrid className={allMetrics ? "lg:grid-cols-6" : "lg:grid-cols-4"}>
+          <OperationMetricGrid className="lg:grid-cols-6">
             {[
               ["En attente", stats.waiting],
               ["Au guichet", stats.at_counter],
@@ -178,18 +177,8 @@ export function PickupsPage() {
               ["Remis aujourd’hui", stats.released_today],
               ["Non retirés > 7 j", stats.overdue],
               ["Frais de garde", money(stats.storage_fees_due, "USD")],
-            ]
-              .slice(0, allMetrics ? 6 : 4)
-              .map(([l, v]) => <OperationMetric key={String(l)} label={String(l)} value={v} />)}
+            ].map(([l, v]) => <OperationMetric key={String(l)} label={String(l)} value={v} />)}
           </OperationMetricGrid>
-          <button
-            onClick={() => setAllMetrics((current) => !current)}
-            className="mt-3 text-[11px] font-medium text-[#087a46]"
-          >
-            {allMetrics
-              ? "Réduire les indicateurs"
-              : "Voir tous les indicateurs"}
-          </button>
         </OperationMetrics>
         <section className="overflow-hidden bg-white">
           <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Téléphone, nom, colis ou tracking…" />} filters={<><OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer les retraits"><OperationField label="Étape du retrait"><select value={status} onChange={(e) => setStatus(e.target.value)} className={`${input} w-full`}><option value="">Toutes les étapes</option>{Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load}>

@@ -42,7 +42,7 @@ export function OperationSearch({
   placeholder?: string;
 }) {
   return (
-    <label data-ui="operation-search" className="flex h-9 w-full max-w-[360px] items-center gap-2 rounded-[6px] border border-[#d4d9df] bg-white px-3 focus-within:border-[#12a865] focus-within:ring-2 focus-within:ring-[#12c76f]/10">
+    <label data-ui="operation-search" className="flex h-9 w-full max-w-[360px] items-center gap-2 rounded-[6px] border border-[#d4d9df] bg-white px-3 focus-within:border-[#9fa8b1]">
       <Search size={15} className="shrink-0 text-[#69727c]" />
       <input
         aria-label={placeholder}

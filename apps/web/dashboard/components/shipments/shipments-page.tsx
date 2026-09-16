@@ -19,10 +19,10 @@ import type { ReactNode } from "react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { API_BASE_URL } from "@/services/api";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationActionMenu, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
+import { OperationActionMenu, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { FormGeographyFields } from "@/components/ui/geography-fields";
@@ -282,19 +282,19 @@ export function ShipmentsPage() {
 
   const kpis = useMemo(
     () => [
-      { label: "Expéditions actives", value: stats.active, icon: Plane },
-      { label: "Aujourd'hui", value: stats.today, icon: CalendarClock },
-      { label: "En transit", value: stats.in_transit, icon: Truck },
+      { label: "Expéditions actives", value: stats.active, icon: Plane, view: "all" },
+      { label: "Aujourd'hui", value: stats.today, icon: CalendarClock, view: "all" },
+      { label: "En transit", value: stats.in_transit, icon: Truck, view: "transit" },
       {
         label: "Arrivées aujourd'hui",
         value: stats.arrivals_today,
-        icon: Ship,
+        icon: Ship, view: "arrived",
       },
-      { label: "Retards", value: stats.delayed, icon: AlertCircle, warm: true },
+      { label: "Retards", value: stats.delayed, icon: AlertCircle, warm: true, view: "blocked" },
       {
         label: "Taux livraison",
         value: `${stats.delivery_rate || 0}%`,
-        icon: ArrowRight,
+        icon: ArrowRight, view: "delivered",
       },
     ],
     [stats],
@@ -329,7 +329,7 @@ export function ShipmentsPage() {
         <OperationMetrics>
           <OperationMetricGrid className={allMetrics ? "lg:grid-cols-6" : "lg:grid-cols-4"}>
             {kpis.slice(0, allMetrics ? 6 : 4).map((item) => (
-              <OperationMetric key={item.label} label={item.label} value={item.value} tone={item.warm ? "warning" : "default"} />
+              <OperationMetric key={item.label} label={item.label} value={item.value} tone={activeView === item.view ? "success" : item.warm ? "warning" : "default"} active={activeView === item.view} onClick={() => { setActiveView(item.view); setStatus(""); }} />
             ))}
           </OperationMetricGrid>
           <button
@@ -346,41 +346,21 @@ export function ShipmentsPage() {
           <ShipmentAnalyticsView data={analytics} />
         ) : (
           <>
-            <OperationTabs>
-              <div className="flex flex-wrap items-end gap-1">
-                {views.slice(0, 4).map((view) => (
-                  <OperationTab
-                    active={activeView === view.key}
-                    key={view.key}
-                    onClick={() => {
-                      setActiveView(view.key);
-                      setStatus("");
-                    }}
-                  >
-                    {view.label}
-                  </OperationTab>
-                ))}
-                <OperationTabMenu
-                  items={views.slice(4).map((view) => [view.key, view.label] as const)}
-                  value={views.slice(4).some((view) => view.key === activeView) ? activeView : ""}
-                  onChange={(next) => {
-                    setActiveView(next);
-                    setStatus("");
-                  }}
-                />
-              </div>
-            </OperationTabs>
-
             <OperationToolbar
               search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher une expédition…" />}
               filters={
                 <OperationFilterPopover
                   open={filtersOpen}
                   onOpenChange={setFiltersOpen}
-                  activeCount={[status, mode, risk].filter(Boolean).length + (sort !== "updated_desc" ? 1 : 0)}
-                  onReset={() => { setStatus(""); setMode(""); setRisk(""); setSort("updated_desc"); }}
+                  activeCount={[status, mode, risk].filter(Boolean).length + (sort !== "updated_desc" ? 1 : 0) + (activeView !== "all" ? 1 : 0)}
+                  onReset={() => { setActiveView("all"); setStatus(""); setMode(""); setRisk(""); setSort("updated_desc"); }}
                   title="Filtrer les expéditions"
                 >
+                  <OperationField label="Vue">
+                    <select className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]" value={activeView} onChange={(event) => { setActiveView(event.target.value); setStatus(""); }}>
+                      {views.map((view) => <option key={view.key} value={view.key}>{view.label}</option>)}
+                    </select>
+                  </OperationField>
                   <OperationField label="Étape de l’expédition">
                   <select
                     className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]"

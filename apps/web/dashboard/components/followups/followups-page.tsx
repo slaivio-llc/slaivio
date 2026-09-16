@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Check, ChevronRight, MessageSquareText, Plus, Send, Users } from "lucide-react";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationContent, OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationButton, OperationMetric, OperationMetricGrid, OperationStatus, OperationTab } from "@/components/ui/operation-controls";
+import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationStatus } from "@/components/ui/operation-controls";
 import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { usePilotOffline } from "@/components/offline/pilot-offline-provider";
@@ -26,9 +26,8 @@ export function FollowupsPage(){
   async function open(item:PilotFollowupBatch){try{setSelected(await getPilotFollowup(item.id));}catch{setError("Ce message ne peut pas être ouvert.");}}
   return <div className="min-h-full bg-white">
     <OperationPageHeader title={dashboardLabel(locale,"Annonces et relances")} description={dashboardLabel(locale,"Informez un client, plusieurs clients ou tous les clients d’un dossier, puis suivez la remise du message.")} actions={<OperationButton variant="primary" onClick={()=>setCreateOpen(true)}><Plus size={15}/>{dashboardLabel(locale,"Nouveau message")}</OperationButton>}/>
-    <OperationMetrics><OperationMetricGrid><OperationMetric label="Brouillons" value={stats.drafts||0}/><OperationMetric label="À envoyer" value={stats.to_confirm||0}/><OperationMetric label="En cours d’envoi" value={stats.pending||0}/><OperationMetric label="Avec erreur" value={stats.failed||0}/></OperationMetricGrid></OperationMetrics>
-    <OperationTabs>{views.map(([key,label])=><OperationTab key={key} active={view===key} onClick={()=>setView(key)}>{label}</OperationTab>)}</OperationTabs>
-    <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une annonce ou une relance"/>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
+    <OperationMetrics><OperationMetricGrid><OperationMetric label="Brouillons" value={stats.drafts||0} active={view==='drafts'} onClick={()=>setView('drafts')}/><OperationMetric label="À envoyer" value={stats.to_confirm||0} active={view==='confirm'} onClick={()=>setView('confirm')}/><OperationMetric label="En cours d’envoi" value={stats.pending||0} active={view==='pending'} onClick={()=>setView('pending')}/><OperationMetric label="Avec erreur" value={stats.failed||0} active={view==='failed'} onClick={()=>setView('failed')}/></OperationMetricGrid></OperationMetrics>
+    <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une annonce ou une relance"/>} filters={<OperationFilterPopover activeCount={view==='all'?0:1} onReset={()=>setView('all')} title="Filtrer les messages"><OperationField label="Vue"><select className={fieldClass} value={view} onChange={event=>setView(event.target.value)}>{views.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
     {error&&<ErrorState title="Annonces et relances indisponibles" description={error} retry={load}/>}
     <OperationContent className="pt-4">{loading?<TableSkeleton rows={6} columns={6} label="Chargement des messages…"/>:items.length?<FollowupTable items={items} open={open}/>:<EmptyState title="Aucun message dans cette vue" description="Créez une annonce ou une relance pour contacter un client, plusieurs clients ou tous les clients d’un dossier." action={<OperationButton variant="primary" onClick={()=>setCreateOpen(true)}>Nouveau message</OperationButton>}/>}</OperationContent>
     <CreateDrawer open={createOpen} close={()=>setCreateOpen(false)} done={()=>{setCreateOpen(false);load();}}/>

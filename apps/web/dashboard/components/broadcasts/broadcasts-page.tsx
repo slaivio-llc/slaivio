@@ -1,13 +1,10 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus } from "lucide-react";
-import {
-  OperationPageHeader,
-  OperationTabs,
-} from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationActionMenu, OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
+import { OperationActionMenu, OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients } from "@/services/clients";
 import {
@@ -134,9 +131,10 @@ export function BroadcastsPage() {
       />
       <OperationMetrics>
         <OperationMetricGrid className={allMetrics ? "lg:grid-cols-8" : "lg:grid-cols-4"}>
-          {cards.slice(0, allMetrics ? 8 : 4).map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v || 0} />
-          ))}
+          {cards.slice(0, allMetrics ? 8 : 4).map(([l, v], index) => {
+            const target = index === 1 ? "SCHEDULED" : index >= 2 ? "COMPLETED" : "";
+            return <OperationMetric key={String(l)} label={String(l)} value={v || 0} active={status === target} onClick={() => setStatus(target)} />;
+          })}
         </OperationMetricGrid>
         <button
           onClick={() => setAllMetrics((current) => !current)}
@@ -145,23 +143,7 @@ export function BroadcastsPage() {
           {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
         </button>
       </OperationMetrics>
-      <OperationTabs>
-            {tabs.slice(0, 4).map(([v, l]) => (
-              <OperationTab
-                key={v}
-                onClick={() => setStatus(v)}
-                active={status === v}
-              >
-                {l}
-              </OperationTab>
-            ))}
-            <OperationTabMenu
-              items={tabs.slice(4).map(([key, label]) => [key, label] as const)}
-              value={tabs.slice(4).some(([v]) => v === status) ? status : ""}
-              onChange={setStatus}
-            />
-      </OperationTabs>
-      <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une campagne…" />} filters={<OperationFilterPopover activeCount={channel ? 1 : 0} onReset={() => setChannel("")} title="Filtrer les campagnes"><OperationField label="Canal d’envoi"><select className={`${field} w-full`} value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">Tous les canaux</option>{Array.from(new Set(items.flatMap((item) => item.channels || []))).map((value) => <option key={value} value={value}>{channelLabels[value] || value}</option>)}</select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
+      <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une campagne…" />} filters={<OperationFilterPopover activeCount={(channel ? 1 : 0) + (status ? 1 : 0)} onReset={() => { setStatus(""); setChannel(""); }} title="Filtrer les campagnes"><OperationField label="Vue"><select className={`${field} w-full`} value={status} onChange={(event) => setStatus(event.target.value)}>{tabs.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></OperationField><OperationField label="Canal d’envoi"><select className={`${field} w-full`} value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">Tous les canaux</option>{Array.from(new Set(items.flatMap((item) => item.channels || []))).map((value) => <option key={value} value={value}>{channelLabels[value] || value}</option>)}</select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
       {error && <ErrorState title="Campagnes indisponibles" description={error} retry={load} />}
       {loading ? <TableSkeleton rows={7} columns={7} label="Chargement des campagnes…" /> : items.length ? <OperationTable className="min-h-[460px]">
         <table className="w-full min-w-[980px] border-collapse bg-white text-left text-[13px]">

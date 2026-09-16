@@ -7,9 +7,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationButton, OperationMetric, OperationMetricGrid, OperationStatus, OperationTab } from "@/components/ui/operation-controls";
-import { OperationContent, OperationMetrics, OperationSearch, OperationTable } from "@/components/ui/operation-primitives";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationStatus } from "@/components/ui/operation-controls";
+import { OperationContent, OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { EmptyState, TableSkeleton } from "@/components/ui/page-state";
 import { usePilotOffline } from "@/components/offline/pilot-offline-provider";
 import {
@@ -211,13 +211,13 @@ export function DossiersPage() {
     />
 
     <OperationMetrics><OperationMetricGrid>
-      <OperationMetric label="Dossiers actifs" value={stats.active.toLocaleString("fr-FR")} />
+      <OperationMetric label="Dossiers actifs" value={stats.active.toLocaleString("fr-FR")} active={view === "active"} onClick={() => setView("active")} />
       <OperationMetric label="Clients rattachés" value={stats.client_memberships.toLocaleString("fr-FR")} />
       <OperationMetric label="Dossiers à traiter" value={stats.dossiers_requiring_attention.toLocaleString("fr-FR")} tone={stats.dossiers_requiring_attention ? "warning" : "default"} />
       <OperationMetric label="Clients à suivre" value={stats.clients_requiring_attention.toLocaleString("fr-FR")} tone={stats.clients_requiring_attention ? "warning" : "default"} />
     </OperationMetricGrid></OperationMetrics>
 
-    <OperationTabs>{tabs.map((tab) => <OperationTab key={tab.key} active={view === tab.key} count={tab.count} onClick={() => setView(tab.key)}>{tab.label}</OperationTab>)}</OperationTabs>
+    <OperationToolbar filters={<OperationFilterPopover activeCount={view === "active" ? 0 : 1} onReset={() => setView("active")} title="Filtrer les dossiers"><OperationField label="Vue"><select className={fieldClass} value={view} onChange={(event) => setView(event.target.value as PilotView)}>{tabs.map((tab) => <option key={tab.key} value={tab.key}>{tab.label}{typeof tab.count === "number" ? ` · ${tab.count}` : ""}</option>)}</select></OperationField></OperationFilterPopover>} />
 
     {error && <div className="mx-5 mt-5 flex items-start gap-3 rounded-[8px] border border-[#efcaca] bg-[#fff5f5] p-4 text-[13px] text-[#a62b25] sm:mx-6">
       <AlertCircle size={17} className="mt-0.5 shrink-0" /><div><p className="font-semibold">Impossible d’afficher les dossiers</p><p className="mt-0.5">{error}</p></div>

@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, ChevronDown, ListFilter, Menu, X } from "lucide-react";
+import { Check, ChevronDown, ListFilter, Menu, RefreshCcw, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
+  Children,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactNode,
@@ -24,16 +25,22 @@ export function OperationButton({
   variant = "secondary",
   className = "",
   type,
+  children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+  const childList = Children.toArray(children);
+  const refresh = childList.some((child) => typeof child === "string" && child.trim() === "Actualiser");
+  const visibleChildren = childList.filter((child) => typeof child !== "string" || child.trim() !== "Actualiser");
   return (
     <button
+      {...props}
       type={type || (props.onClick ? "button" : "submit")}
       data-ui="operation-button"
       data-variant={variant}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-[6px] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${className}`}
-      {...props}
-    />
+      aria-label={refresh ? props["aria-label"] || "Actualiser" : props["aria-label"]}
+      title={refresh ? props.title || "Actualiser" : props.title}
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-[6px] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
+    >{refresh ? (visibleChildren.length > 0 ? visibleChildren : <RefreshCcw size={14} aria-hidden="true" />) : children}</button>
   );
 }
 
@@ -300,13 +307,17 @@ export function OperationMetric({
   value,
   detail,
   tone = "default",
+  active = false,
+  onClick,
   className = "",
   ...props
-}: HTMLAttributes<HTMLDivElement> & {
+}: Omit<HTMLAttributes<HTMLDivElement>, "onClick"> & {
   label: string;
   value: ReactNode;
   detail?: ReactNode;
   tone?: "default" | "success" | "warning" | "danger";
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const colors = {
     default: "text-[#25292e]",
@@ -314,13 +325,13 @@ export function OperationMetric({
     warning: "text-[#a15c00]",
     danger: "text-[#b42318]",
   };
-  return (
-    <div className={`min-w-0 px-3.5 py-2.5 ${className}`} {...props}>
+  const content = <>
       <p data-ui="metric-label" className="truncate text-[11px] font-medium text-[#6a737d]">{label}</p>
       <p data-ui="metric-value" className={`mt-0.5 truncate text-[21px] font-semibold tracking-[-0.035em] ${colors[tone]}`}>{value}</p>
       {detail && <p data-ui="metric-detail" className="mt-0.5 truncate text-[11px] text-[#7a838d]">{detail}</p>}
-    </div>
-  );
+  </>;
+  if (onClick) return <button type="button" aria-pressed={active} onClick={onClick} className={`min-w-0 px-3.5 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#12a865] ${active ? "bg-[#edf8f2] shadow-[inset_0_3px_0_#12a865]" : "hover:bg-[#f7faf8]"} ${className}`}>{content}</button>;
+  return <div className={`min-w-0 px-3.5 py-2.5 ${className}`} {...props}>{content}</div>;
 }
 
 export function OperationStatus({

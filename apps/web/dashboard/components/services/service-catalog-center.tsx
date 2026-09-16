@@ -9,10 +9,10 @@ import {
   RefreshCcw,
   Sparkles,
 } from "lucide-react";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
+import { OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { businessLabel } from "@/components/ui/business-labels";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -174,9 +174,7 @@ export function ServiceCatalogCenter() {
       />
       <OperationMetrics>
         <OperationMetricGrid className={allMetrics ? "lg:grid-cols-8" : "lg:grid-cols-4"}>
-          {cards.slice(0, allMetrics ? 8 : 4).map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v} />
-          ))}
+          {cards.slice(0, allMetrics ? 8 : 4).map(([l, v]) => { const label=String(l).toLowerCase(); const target=label.includes("actif")?"ACTIVE":label.includes("suspend")?"SUSPENDED":label.includes("limit")?"LIMITED":"ALL"; return <OperationMetric key={String(l)} label={String(l)} value={v} active={view===target} onClick={()=>setView(target)} />; })}
         </OperationMetricGrid>
         <button
           onClick={() => setAllMetrics((current) => !current)}
@@ -185,40 +183,7 @@ export function ServiceCatalogCenter() {
           {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
         </button>
       </OperationMetrics>
-      <OperationTabs>
-          <>
-            {(
-              [
-                ["ALL", "Tous"],
-                ["TRANSPORT", "Transport"],
-                ["COMPLEMENTARY", "Complémentaires"],
-                ["ACTIVE", "Actifs"],
-              ] as const
-            ).map(([k, l]) => (
-              <OperationTab
-                key={k}
-                onClick={() => setView(k)}
-                active={view === k}
-              >
-                {l}
-              </OperationTab>
-            ))}
-            <OperationTabMenu
-              items={[
-                ["LIMITED", "Capacité limitée"],
-                ["SUSPENDED", "Suspendus"],
-                ["ARCHIVED", "Archivés"],
-                ["BUNDLES", "Bundles"],
-                ["COMPARE", "Comparateur"],
-                ["RECOMMEND", "Recommandation"],
-                ["ANALYTICS", "Analytics"],
-                ["SETTINGS", "Paramètres"],
-              ]}
-              value={["LIMITED", "SUSPENDED", "ARCHIVED", "BUNDLES", "COMPARE", "RECOMMEND", "ANALYTICS", "SETTINGS"].includes(view) ? view : ""}
-              onChange={setView}
-            />
-          </>
-      </OperationTabs>
+      <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Service, type, route, pays, responsable…" />} filters={<OperationFilterPopover activeCount={view === "ALL" ? 0 : 1} onReset={() => setView("ALL")} title="Filtrer les services"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="ALL">Tous</option><option value="TRANSPORT">Transport</option><option value="COMPLEMENTARY">Complémentaires</option><option value="ACTIVE">Actifs</option><option value="LIMITED">Capacité limitée</option><option value="SUSPENDED">Suspendus</option><option value="ARCHIVED">Archivés</option><option value="BUNDLES">Bundles</option><option value="COMPARE">Comparateur</option><option value="RECOMMEND">Recommandation</option><option value="ANALYTICS">Analytics</option><option value="SETTINGS">Paramètres</option></select></OperationField></OperationFilterPopover>}><button className={`${btn} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={14} aria-hidden="true" /></button></OperationToolbar>
       {error && <ErrorState title="Services indisponibles" description={error} retry={load} />}
       {view === "RECOMMEND" ? (
         <Recommendation />
@@ -230,12 +195,6 @@ export function ServiceCatalogCenter() {
         <Settings />
       ) : (
         <>
-          <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Service, type, route, pays, responsable…" />}>
-            <button className={btn} onClick={load}>
-              <RefreshCcw size={14} />
-              Actualiser
-            </button>
-          </OperationToolbar>
           {loading ? (
             <TableSkeleton rows={7} columns={10} label="Chargement des services…" />
           ) : filtered.length ? (

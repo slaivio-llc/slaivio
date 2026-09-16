@@ -1054,6 +1054,21 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   justify-content: space-between;
 }
 
+/* Refresh is a universal compact action in operational surfaces. */
+.slaivio-operations button:has(svg.lucide-refresh-ccw),
+.slaivio-operations button:has(svg.lucide-rotate-cw) {
+  width: 36px;
+  min-width: 36px;
+  padding-inline: 0;
+  font-size: 0 !important;
+  gap: 0;
+}
+
+.slaivio-operations button:has(svg.lucide-refresh-ccw) svg,
+.slaivio-operations button:has(svg.lucide-rotate-cw) svg {
+  margin: 0 !important;
+}
+
 .operation-actions > button,
 .operation-actions > a,
 .operation-actions > details > summary {

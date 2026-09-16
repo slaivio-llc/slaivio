@@ -10,12 +10,9 @@ import {
   type Analytics,
 } from "@/services/reports";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import {
-  OperationPageHeader,
-  OperationTabs,
-} from "@/components/ui/operation-page-header";
-import { OperationMetrics } from "@/components/ui/operation-primitives";
-import { OperationButton, OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
+import { OperationMetrics, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 const button =
     "inline-flex h-9 items-center gap-2 rounded-[5px] border border-[#d8dddf] bg-white px-3 text-[13px] font-medium text-[#30363a] hover:bg-[#f5f7f6]",
@@ -70,24 +67,6 @@ export function ReportsAnalyticsPage() {
     a.click();
     URL.revokeObjectURL(url);
   }
-  const tabs = (
-    <>
-      {[
-        ["overview", "Vue exécutive"],
-        ["operations", "Opérations"],
-        ["finance", "Finance"],
-        ["routes", "Routes"],
-      ].map(([id, label]) => (
-        <OperationTab
-          key={id}
-          onClick={() => setTab(id)}
-          active={tab === id}
-        >
-          {label}
-        </OperationTab>
-      ))}
-    </>
-  );
   const metricCards = data
     ? [
         ["Nouveaux clients", data.kpis.clients],
@@ -144,7 +123,7 @@ export function ReportsAnalyticsPage() {
               <div className="mt-3 h-7 w-16 animate-pulse rounded bg-[#e8ecea]" />
             </div>
           ) : (
-            <OperationMetric key={String(label)} label={String(label)} value={value} />
+            <OperationMetric key={String(label)} label={String(label)} value={value} active={tab === (String(label).includes("Colis") || String(label).includes("Expéditions") ? "operations" : "overview")} onClick={() => setTab(String(label).includes("Colis") || String(label).includes("Expéditions") ? "operations" : "overview")} />
           ))}
         </OperationMetricGrid>
         {!loading && metricCards.length > 4 && (
@@ -157,14 +136,7 @@ export function ReportsAnalyticsPage() {
           </button>
         )}
       </OperationMetrics>
-      <OperationTabs>
-        {tabs}
-        <OperationTabMenu
-          items={[["warehouses", "Entrepôts"], ["reports", "Rapports exportables"]]}
-          value={["warehouses", "reports"].includes(tab) ? tab : ""}
-          onChange={setTab}
-        />
-      </OperationTabs>
+      <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
       <main className="p-5 sm:p-6">
         {error && data ? (
           <div className="mb-4 border border-[#e7c98d] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#75530b]" role="alert">

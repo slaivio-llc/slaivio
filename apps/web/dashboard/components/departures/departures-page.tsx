@@ -8,10 +8,7 @@ import {
   RefreshCcw,
   Ship,
 } from "lucide-react";
-import {
-  OperationPageHeader,
-  OperationTabs,
-} from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { businessLabel } from "@/components/ui/business-labels";
 import {
   OperationMetrics,
@@ -25,7 +22,6 @@ import {
   OperationFilterPopover,
   OperationMetric,
   OperationMetricGrid,
-  OperationTab,
 } from "@/components/ui/operation-controls";
 import { ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { getReferenceCatalog, type ReferenceItem } from "@/services/references";
@@ -144,16 +140,16 @@ export function DeparturesPage() {
     }
   }
   const cards = [
-    ["Aujourd’hui", stats?.today || 0],
-    ["Cette semaine", stats?.this_week || 0],
-    ["Confirmés", stats?.confirmed || 0],
-    ["À confirmer", stats?.pending || 0],
-    ["Retardés", stats?.delayed || 0],
-    ["Complets", stats?.full || 0],
-    ["Colis planifiés", stats?.packages || 0],
+    ["Aujourd’hui", stats?.today || 0, "calendar"],
+    ["Cette semaine", stats?.this_week || 0, "calendar"],
+    ["Confirmés", stats?.confirmed || 0, "list"],
+    ["À confirmer", stats?.pending || 0, "list"],
+    ["Retardés", stats?.delayed || 0, "delays"],
+    ["Complets", stats?.full || 0, "capacity"],
+    ["Colis planifiés", stats?.packages || 0, "list"],
     [
       "Poids prévu",
-      `${Number(stats?.weight_kg || 0).toLocaleString("fr-FR")} kg`,
+      `${Number(stats?.weight_kg || 0).toLocaleString("fr-FR")} kg`, "capacity",
     ],
   ];
   return (
@@ -179,8 +175,8 @@ export function DeparturesPage() {
       <main>
         <OperationMetrics>
           <OperationMetricGrid>
-            {cards.slice(0, allMetrics ? cards.length : 4).map(([l, v]) => (
-              <OperationMetric key={l} label={String(l)} value={v} />
+            {cards.slice(0, allMetrics ? cards.length : 4).map(([l, v, target]) => (
+              <OperationMetric key={l} label={String(l)} value={v} active={view === target} onClick={() => setView(target as typeof view)} />
             ))}
           </OperationMetricGrid>
           <button
@@ -191,26 +187,6 @@ export function DeparturesPage() {
             {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
           </button>
         </OperationMetrics>
-        <OperationTabs>
-          {(
-            [
-              ["calendar", "Calendrier"],
-              ["list", "Liste"],
-              ["routes", "Routes"],
-              ["capacity", "Capacité"],
-              ["delays", "Retards"],
-              ["history", "Historique"],
-            ] as const
-          ).map(([k, l]) => (
-            <OperationTab
-              key={k}
-              onClick={() => setView(k)}
-              active={view === k}
-            >
-              {l}
-            </OperationTab>
-          ))}
-        </OperationTabs>
         <OperationToolbar
           search={
             <OperationSearch
@@ -219,8 +195,8 @@ export function DeparturesPage() {
               placeholder="Rechercher un départ, une route..."
             />
           }
-          filters={<OperationFilterPopover activeCount={mode ? 1 : 0} onReset={() => setMode("")} title="Filtrer les départs"><OperationField label="Mode proposé par l’agence"><select className={`${input} w-full`} value={mode} onChange={(e) => setMode(e.target.value)}><option value="">Tous les modes</option>{Array.from(new Set(services.map((service) => service.shipping_mode).filter(Boolean))).map((serviceMode) => <option key={serviceMode} value={serviceMode}>{({AIR:"Avion",SEA:"Bateau",EXPRESS:"Express",ROAD:"Route",RAIL:"Rail",MULTIMODAL:"Plusieurs modes"} as Record<string,string>)[serviceMode] || serviceMode}</option>)}</select></OperationField></OperationFilterPopover>}
-        ><OperationButton onClick={load}><RefreshCcw size={14} />Actualiser</OperationButton></OperationToolbar>
+          filters={<OperationFilterPopover activeCount={(mode ? 1 : 0) + (view !== "calendar" ? 1 : 0)} onReset={() => { setMode(""); setView("calendar"); }} title="Filtrer les départs"><OperationField label="Vue"><select className={`${input} w-full`} value={view} onChange={(event) => setView(event.target.value as typeof view)}><option value="calendar">Calendrier</option><option value="list">Liste</option><option value="routes">Routes</option><option value="capacity">Capacité</option><option value="delays">Retards</option><option value="history">Historique</option></select></OperationField><OperationField label="Mode proposé par l’agence"><select className={`${input} w-full`} value={mode} onChange={(e) => setMode(e.target.value)}><option value="">Tous les modes</option>{Array.from(new Set(services.map((service) => service.shipping_mode).filter(Boolean))).map((serviceMode) => <option key={serviceMode} value={serviceMode}>{({AIR:"Avion",SEA:"Bateau",EXPRESS:"Express",ROAD:"Route",RAIL:"Rail",MULTIMODAL:"Plusieurs modes"} as Record<string,string>)[serviceMode] || serviceMode}</option>)}</select></OperationField></OperationFilterPopover>}
+        ><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0"><RefreshCcw size={14} /></OperationButton></OperationToolbar>
         {error && <ErrorState title="Calendrier indisponible" description={error} retry={load} />}
         {loading ? (
           <TableSkeleton rows={7} columns={6} label="Préparation du calendrier des départs…" />

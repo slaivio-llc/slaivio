@@ -5,10 +5,10 @@ import {AlertTriangle,ChevronRight,Download,RefreshCcw,Save,Send} from "lucide-r
 import Link from "next/link";
 import {FormEvent,useCallback,useEffect,useState} from "react";
 import {PermissionGuard} from "@/components/permissions/permission-guard";
-import {OperationPageHeader,OperationTabs} from "@/components/ui/operation-page-header";
+import {OperationPageHeader} from "@/components/ui/operation-page-header";
 import {OperationDrawer} from "@/components/ui/operation-drawer";
 import {OperationMetrics,OperationTable,OperationToolbar,OperationSearch} from "@/components/ui/operation-primitives";
-import {OperationActionMenu,OperationButton,OperationField,OperationFilterPopover,OperationMetric,OperationMetricGrid,OperationTab} from "@/components/ui/operation-controls";
+import {OperationActionMenu,OperationButton,OperationField,OperationFilterPopover,OperationMetric,OperationMetricGrid} from "@/components/ui/operation-controls";
 import {ErrorState,TableSkeleton} from "@/components/ui/page-state";
 import {businessLabel} from "@/components/ui/business-labels";
 import {detectTrackingAlerts,exportTracking,getGlobalTrackingTimeline,getTrackingAnalytics,getTrackingStats,listTracking,listTrackingAlerts,listTrackingViews,notifyTrackingBulk,saveTrackingView,type TrackingAlert,type TrackingAnalytics,type TrackingEvent,type TrackingFilters,type TrackingItem,type TrackingSavedView,type TrackingStats} from "@/services/tracking";
@@ -31,11 +31,10 @@ export function TrackingPage(){
  async function detect(){try{await detectTrackingAlerts();await load()}catch(e){setError(message(e))}}
  return <div className="min-h-full bg-[#f7f7f6] text-[#1f2328]">
   <OperationPageHeader title="Tracking" description="Supervisez en temps réel tous les colis, expéditions et mouvements logistiques." actions={<><OperationActionMenu><PermissionGuard permission="tracking.update"><button onClick={saveView}><Save size={14}/>Enregistrer la vue</button></PermissionGuard></OperationActionMenu><PermissionGuard permission="tracking.export"><OperationButton onClick={download}><Download size={14}/>Exporter CSV</OperationButton></PermissionGuard></>}/>
-  <OperationMetrics><OperationMetricGrid className={allMetrics?'lg:grid-cols-6':'lg:grid-cols-4'}>{cards.slice(0,allMetrics?6:4).map(([label,value])=><OperationMetric key={String(label)} label={String(label)} value={value}/>)}</OperationMetricGrid><button onClick={()=>setAllMetrics(value=>!value)} className="mt-3 text-[11px] font-medium text-[#087a46]">{allMetrics?'Réduire les indicateurs':'Voir tous les indicateurs'}</button></OperationMetrics>
-  <OperationTabs>{([['control','Suivis'],['map','Carte'],['timeline','Timeline'],['alerts',`Alertes ${stats.incidents_open?`· ${stats.incidents_open}`:''}`],['analytics','Analytics']] as const).map(([key,label])=><OperationTab key={key} onClick={()=>setView(key)} active={view===key}>{label}</OperationTab>)}</OperationTabs>
+  <OperationMetrics><OperationMetricGrid className={allMetrics?'lg:grid-cols-6':'lg:grid-cols-4'}>{cards.slice(0,allMetrics?6:4).map(([label,value])=>{const target=String(label).toLowerCase().includes('alerte')?'alerts':'control';return <OperationMetric key={String(label)} label={String(label)} value={value} active={view===target} onClick={()=>setView(target)}/>})}</OperationMetricGrid><button onClick={()=>setAllMetrics(value=>!value)} className="mt-3 text-[11px] font-medium text-[#087a46]">{allMetrics?'Réduire les indicateurs':'Voir tous les indicateurs'}</button></OperationMetrics>
   {error&&<ErrorState title="Tracking indisponible" description={error} retry={()=>load()}/>}
+  <Filters filters={filters} setFilters={setFilters} view={view} setView={setView} stats={stats} savedViews={savedViews} saveView={saveView} open={filtersOpen} setOpen={setFiltersOpen} refresh={()=>load()}/>
   {view==='control'&&<>
-   <Filters filters={filters} setFilters={setFilters} savedViews={savedViews} saveView={saveView} open={filtersOpen} setOpen={setFiltersOpen} refresh={()=>load()}/>
    <TrackingTable items={items} loading={loading} selected={selected} setSelected={setSelected}/>
    <footer className="flex items-center justify-between bg-white px-4 py-3"><span className="text-[12px] text-[#66717e]">{selected.length} sélection(s)</span><div className="flex gap-2">{selected.length>0&&<PermissionGuard permission="tracking.notify"><button className={primary} onClick={()=>setNotifyOpen(true)}><Send size={14}/>Notifier</button></PermissionGuard>}<button disabled={page<=1} onClick={()=>load(page-1)} className={button}>Précédent</button><span className="px-3 py-2 text-[13px]">{page}/{Math.max(pages,1)}</span><button disabled={page>=pages} onClick={()=>load(page+1)} className={button}>Suivant</button></div></footer>
   </>}
@@ -44,10 +43,11 @@ export function TrackingPage(){
  </div>
 }
 
-function Filters({filters,setFilters,savedViews,saveView,open,setOpen,refresh}:{filters:TrackingFilters;setFilters:(value:TrackingFilters)=>void;savedViews:TrackingSavedView[];saveView:()=>void;open:boolean;setOpen:(value:boolean)=>void;refresh:()=>void}){
+function Filters({filters,setFilters,view,setView,stats,savedViews,saveView,open,setOpen,refresh}:{filters:TrackingFilters;setFilters:(value:TrackingFilters)=>void;view:View;setView:(value:View)=>void;stats:TrackingStats;savedViews:TrackingSavedView[];saveView:()=>void;open:boolean;setOpen:(value:boolean)=>void;refresh:()=>void}){
  const set=(key:keyof TrackingFilters,value:string|boolean|undefined)=>setFilters({...filters,[key]:value||undefined});
- const active=Object.entries(filters).filter(([key,value])=>key!=="q"&&value!==undefined&&value!=="").length;
- return <OperationToolbar search={<OperationSearch value={filters.q||''} onChange={value=>set('q',value)} placeholder="Rechercher un colis, une expédition ou un client…"/>} filters={<><OperationFilterPopover open={open} onOpenChange={setOpen} activeCount={active} onReset={()=>setFilters(filters.q?{q:filters.q}:{})} title="Filtrer les suivis">
+ const active=Object.entries(filters).filter(([key,value])=>key!=="q"&&value!==undefined&&value!=="").length+(view==='control'?0:1);
+ return <OperationToolbar search={<OperationSearch value={filters.q||''} onChange={value=>set('q',value)} placeholder="Rechercher un colis, une expédition ou un client…"/>} filters={<><OperationFilterPopover open={open} onOpenChange={setOpen} activeCount={active} onReset={()=>{setFilters(filters.q?{q:filters.q}:{});setView('control')}} title="Filtrer les suivis">
+  <OperationField label="Vue"><select className={`${input} w-full`} value={view} onChange={e=>setView(e.target.value as View)}><option value="control">Suivis</option><option value="map">Carte</option><option value="timeline">Timeline</option><option value="alerts">Alertes{stats.incidents_open?` · ${stats.incidents_open}`:''}</option><option value="analytics">Analytics</option></select></OperationField>
   <OperationField label="Étape du transport"><select className={`${input} w-full`} value={filters.status||''} onChange={e=>set('status',e.target.value)}><option value="">Toutes les étapes</option>{[['PREPARING','Préparation'],['LOADING','Chargement'],['DISPATCHED','Expédié'],['IN_TRANSIT','En transit'],['CUSTOMS_CLEARANCE','Dédouanement'],['DELIVERED','Livré'],['BLOCKED','Bloqué']].map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></OperationField>
   <OperationField label="Niveau de risque"><select className={`${input} w-full`} value={filters.risk_level||''} onChange={e=>set('risk_level',e.target.value)}><option value="">Tous les niveaux</option>{[['LOW','Faible'],['MEDIUM','Moyen'],['HIGH','Élevé'],['CRITICAL','Critique']].map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></OperationField>
   <label className="flex items-center gap-3 rounded-md bg-[#f6f8fa] px-3 py-3 text-[13px] font-medium text-[#344054]"><input type="checkbox" checked={Boolean(filters.incident)} onChange={e=>set('incident',e.target.checked||undefined)}/>Uniquement les suivis avec incident</label>

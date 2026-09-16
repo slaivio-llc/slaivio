@@ -29,10 +29,11 @@ describe("Pilot visual foundation", () => {
     expect(pageHeader?.firstElementChild).toHaveClass("mx-auto", "w-full", "max-w-[1200px]", "px-6", "sm:px-8", "lg:pt-12");
     expect(pageHeader?.firstElementChild?.firstElementChild).toHaveClass("border-b", "pb-6", "sm:pb-8");
     expect(screen.queryByRole("menu", { name: "Vues du module" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Vue" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choisir une vue" }));
     expect(screen.getByRole("menu", { name: "Vues du module" })).toBeInTheDocument();
     expect(screen.getByText("Actifs").closest("section")).toHaveAttribute("data-ui", "operation-metrics");
-    expect(screen.getByText("Actifs").closest("section")?.firstElementChild).toHaveClass("mx-auto", "max-w-[1200px]", "border-b", "px-6", "sm:px-8", "py-3");
+    expect(screen.getByText("Actifs").closest("section")?.firstElementChild).toHaveClass("mx-auto", "max-w-[1200px]", "px-6", "sm:px-8");
+    expect(screen.getByText("Actifs").closest("section")?.firstElementChild?.firstElementChild).toHaveClass("border-b", "py-3");
     expect(screen.getByText("12")).toHaveClass("text-[21px]", "mt-0.5");
     expect(screen.getByText("DOS-001").closest("section")).toHaveAttribute("data-ui", "operation-table");
 

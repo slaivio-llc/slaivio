@@ -35,8 +35,6 @@ import {
   OperationFilterPopover,
   OperationMetric,
   OperationMetricGrid,
-  OperationTab,
-  OperationTabMenu,
 } from "@/components/ui/operation-controls";
 import {
   OperationMetrics,
@@ -45,10 +43,7 @@ import {
 } from "@/components/ui/operation-primitives";
 import { EmptyState as SharedEmptyState, TableSkeleton } from "@/components/ui/page-state";
 import { FormGeographyFields } from "@/components/ui/geography-fields";
-import {
-  OperationPageHeader,
-  OperationTabs,
-} from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { listDossiers, type DossierRecord } from "@/services/dossiers";
 import { getReferenceCatalog, type ReferenceItem } from "@/services/references";
 import {
@@ -385,9 +380,10 @@ export function PackagesPage() {
   }, []);
 
   const activeFilterCount = [status, warehouseFilter, payment, priorityFilter]
-    .filter(Boolean).length + (fragileOnly ? 1 : 0) + (sort !== "updated_desc" ? 1 : 0);
+    .filter(Boolean).length + (fragileOnly ? 1 : 0) + (sort !== "updated_desc" ? 1 : 0) + (activeView !== "all" ? 1 : 0);
 
   function resetFilters() {
+    setActiveView("all");
     setStatus("");
     setCondition("");
     setInventory("");
@@ -684,19 +680,19 @@ export function PackagesPage() {
 
   const statCards = useMemo(
     () => [
-      { label: "Reçus aujourd’hui", value: stats.received_today, tone: "blue" },
-      { label: "En attente", value: stats.waiting, tone: "amber" },
+      { label: "Reçus aujourd’hui", value: stats.received_today, tone: "blue", view: "received" },
+      { label: "En attente", value: stats.waiting, tone: "amber", view: "expected" },
       {
         label: "Prêts à expédier",
         value: stats.ready_for_dispatch,
-        tone: "blue",
+        tone: "blue", view: "ready",
       },
-      { label: "En transit", value: stats.in_transit, tone: "blue" },
-      { label: "Livrés", value: stats.delivered, tone: "blue" },
+      { label: "En transit", value: stats.in_transit, tone: "blue", view: "transit" },
+      { label: "Livrés", value: stats.delivered, tone: "blue", view: "delivered" },
       {
         label: "Poids total",
         value: `${Number(stats.total_weight_kg || 0).toLocaleString("fr-FR")} kg`,
-        tone: "neutral",
+        tone: "neutral", view: "all",
       },
     ],
     [stats],
@@ -763,28 +759,13 @@ export function PackagesPage() {
                 key={card.label}
                 label={card.label}
                 value={typeof card.value === "number" ? card.value.toLocaleString("fr-FR") : card.value}
-                tone={card.tone === "amber" ? "warning" : "default"}
+                tone={activeView === card.view ? "success" : card.tone === "amber" ? "warning" : "default"}
+                active={activeView === card.view}
+                onClick={() => setActiveView(card.view)}
               />
             ))}
           </OperationMetricGrid>
         </OperationMetrics>
-
-        <OperationTabs>
-          {views.slice(0, 5).map((view) => (
-            <OperationTab
-              key={view.key}
-              onClick={() => setActiveView(view.key)}
-              active={activeView === view.key}
-            >
-              {view.label}
-            </OperationTab>
-          ))}
-          <OperationTabMenu
-            items={views.slice(5).map((view) => [view.key, view.label] as const)}
-            value={views.slice(5).some((view) => view.key === activeView) ? activeView : ""}
-            onChange={setActiveView}
-          />
-        </OperationTabs>
 
         <section className={selected ? "xl:pr-[380px]" : ""}>
           <OperationToolbar
@@ -797,6 +778,11 @@ export function PackagesPage() {
                 onReset={resetFilters}
                 title="Filtrer les colis"
               >
+                <OperationField label="Vue">
+                  <select value={activeView} onChange={(event) => setActiveView(event.target.value)} className={inputClass}>
+                    {views.map((view) => <option key={view.key} value={view.key}>{view.label}</option>)}
+                  </select>
+                </OperationField>
                 <OperationField label="Étape du colis">
                   <select value={status} onChange={(event) => setStatus(event.target.value as PackageStatus | "")} className={inputClass}>
                     <option value="">Toutes les étapes</option>

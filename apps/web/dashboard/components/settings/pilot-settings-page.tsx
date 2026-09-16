@@ -7,8 +7,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
-import { OperationButton, OperationStatus } from "@/components/ui/operation-controls";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
+import { OperationButton, OperationField, OperationFilterPopover, OperationStatus } from "@/components/ui/operation-controls";
+import { OperationToolbar } from "@/components/ui/operation-primitives";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { FormGeographyFields } from "@/components/ui/geography-fields";
 import { dashboardLabel, useDashboardLocale } from "@/components/i18n/dashboard-language";
@@ -107,9 +108,7 @@ export function PilotSettingsPage() {
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")} actions={<OperationButton onClick={load}><RefreshCcw size={14}/>{dashboardLabel(locale, "Actualiser")}</OperationButton>}/>
-    <OperationTabs>
-      {sections.map(([key, label]) => <button data-ui="operation-tab" aria-current={section === key ? "page" : undefined} key={key} type="button" onClick={() => choose(key)} className={`h-12 shrink-0 border-b-2 px-3 text-[13px] font-medium transition ${section === key ? "border-[#16855f] text-[#126347]" : "border-transparent text-[#68727c] hover:text-[#252c32]"}`}>{dashboardLabel(locale, label)}</button>)}
-    </OperationTabs>
+    <OperationToolbar filters={<OperationFilterPopover activeCount={section === "company" ? 0 : 1} onReset={() => choose("company")} title={dashboardLabel(locale, "Choisir une section")}><OperationField label={dashboardLabel(locale, "Section")}><select className={inputClass} value={section} onChange={(event) => choose(event.target.value as Section)}>{sections.map(([key, label]) => <option key={key} value={key}>{dashboardLabel(locale, label)}</option>)}</select></OperationField></OperationFilterPopover>} />
       <main className="min-w-0 px-5 py-8 sm:px-7 lg:px-10">
         <div className="pilot-settings-content mx-auto max-w-[1280px]">
           {notice && <div data-ui="settings-notice" className="mb-5 rounded-[8px] border border-[#bfe6d2] bg-[#f0faf5] px-4 py-3 text-[13px] text-[#176142]">{notice}</div>}

@@ -7,14 +7,11 @@ import {FormEvent,ReactNode,useEffect,useMemo,useState} from "react";
 import {useRouter,useSearchParams} from "next/navigation";
 import {PermissionGuard} from "@/components/permissions/permission-guard";
 import {LoadingState} from "@/components/ui/page-state";
-import {OperationTabMenu} from "@/components/ui/operation-controls";
 import {businessLabel} from "@/components/ui/business-labels";
 import type {ExpeditionDetail} from "@/services/shipments";
 import {addTrackingNote,archiveTracking,assignTracking,createTrackingAlert,createTrackingEvent,createTrackingNotification,disablePublicTrackingToken,generatePublicTrackingToken,getTracking,getTrackingDocumentUrl,updateTrackingAlert,updateTrackingEta,uploadTrackingDocument} from "@/services/tracking";
 
 const tabs=["Overview","Tracking Timeline","Map","Shipments","Parcels","Events","Alerts","Documents","Notes","Settings"] as const;
-const primaryTabs=["Overview","Tracking Timeline","Parcels","Alerts","Documents"] as const;
-const secondaryTabs=["Map","Shipments","Events","Notes","Settings"] as const;
 type Tab=typeof tabs[number];
 const button="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] font-medium hover:bg-[#f7f8fa] disabled:opacity-50";
 const primary="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#16855f] px-3 text-[13px] font-semibold text-white hover:bg-[#126f50] disabled:opacity-50";
@@ -34,7 +31,7 @@ export function TrackingDetailPage({trackingId}:{trackingId:string}){
  return <div className="min-h-full bg-[#f7f7f6] text-[#20242a]">
   <header className="border-b bg-white px-6 py-5"><div className="mb-4 flex justify-between"><Link href="/app/tracking" className={button}><ArrowLeft size={15}/>Tracking</Link><button onClick={load} className={button}><RefreshCcw size={15}/>Actualiser</button></div><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-[12px] text-[#687584]">Tracking › {item.expedition_reference}</p><h1 className="mt-1 text-[21px] font-semibold">{item.expedition_reference}</h1><p className="mt-1 text-[13px] text-[#59636e]">{item.origin_city||item.origin_country||'Origine'} → {item.destination_city||item.destination_country||'Destination'} · {businessLabel(item.status)}</p></div><div className="grid grid-cols-3 gap-6"><Head label="ETA" value={date(item.eta_at)}/><Head label="Dernière position" value={item.last_location||'Inconnue'}/><Head label="Progression" value={`${progress}%`}/></div></div></header>
   {error&&<p className="m-4 rounded border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
-  <nav className="flex min-h-12 items-center gap-1 border-b border-[#eceef1] bg-white px-5">{primaryTabs.map(value=><button key={value} onClick={()=>setTab(value)} className={`h-12 shrink-0 border-b-2 px-3 text-[13px] font-medium ${tab===value?'border-[#16855f] text-[#145f49]':'border-transparent text-[#65717e]'}`}>{value}</button>)}<OperationTabMenu items={secondaryTabs.map(value=>[value,value] as const)} value={secondaryTabs.includes(tab as typeof secondaryTabs[number])?tab:""} onChange={setTab}/></nav>
+   <div className="border-b border-[#eceef1] bg-white px-5 py-2"><select aria-label="Vue du suivi" className={`${input} max-w-[260px]`} value={tab} onChange={event=>setTab(event.target.value as Tab)}>{tabs.map(value=><option key={value} value={value}>{value}</option>)}</select></div>
   <main className="p-5">
    {tab==='Overview'&&<Overview item={item} progress={progress} setTab={setTab}/>} {tab==='Tracking Timeline'&&<TrackingTimeline item={item}/>} {tab==='Map'&&<TrackingMap item={item}/>} {tab==='Shipments'&&<Shipments item={item}/>} {tab==='Parcels'&&<Parcels item={item}/>} {tab==='Events'&&<Events item={item} saving={saving} mutate={mutate}/>} {tab==='Alerts'&&<Alerts item={item} saving={saving} mutate={mutate}/>} {tab==='Documents'&&<Documents item={item} saving={saving} mutate={mutate}/>} {tab==='Notes'&&<Notes item={item} saving={saving} mutate={mutate}/>} {tab==='Settings'&&<TrackingSettings item={item} saving={saving} mutate={mutate} archived={()=>router.push('/app/tracking')}/>} 
   </main>

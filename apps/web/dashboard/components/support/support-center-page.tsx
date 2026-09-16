@@ -1,12 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { BookOpen, ChevronRight, Download, LifeBuoy, MessageSquare, Paperclip, Plus, RefreshCcw } from "lucide-react";
+import { ChevronRight, Download, MessageSquare, Paperclip, Plus, RefreshCcw } from "lucide-react";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { FormSection, OperationButton, OperationField, OperationFilterPopover, OperationStatus, OperationTab } from "@/components/ui/operation-controls";
+import { FormSection, OperationButton, OperationField, OperationFilterPopover, OperationStatus } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationContent, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
 import { EmptyState, ErrorState } from "@/components/ui/page-state";
 import {
@@ -79,14 +79,10 @@ export function SupportCenterPage() {
           </PermissionGuard>
         }
       />
-      <OperationTabs>
-        <Tab active={tab === "help"} onClick={() => setTab("help")} icon={<BookOpen size={16} />} label="Centre d’aide" />
-        <Tab active={tab === "tickets"} onClick={() => setTab("tickets")} icon={<LifeBuoy size={16} />} label={`Tickets (${tickets.length})`} />
-      </OperationTabs>
       <OperationToolbar
         search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher un article ou un ticket" />}
         filters={
-          tab === "tickets" ? <OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer les tickets"><OperationField label="État du ticket"><select className={input} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Tous les états</option>{["OPEN", "IN_PROGRESS", "WAITING_CUSTOMER", "RESOLVED", "CLOSED", "REOPENED"].map((item) => <option key={item} value={item}>{ticketStatusLabel(item)}</option>)}</select></OperationField></OperationFilterPopover> : undefined
+          <OperationFilterPopover activeCount={(tab === "help" ? 0 : 1) + (status ? 1 : 0)} onReset={() => { setTab("help"); setStatus(""); }} title="Filtrer le support"><OperationField label="Vue"><select className={input} value={tab} onChange={(event) => setTab(event.target.value as "help" | "tickets")}><option value="help">Centre d’aide</option><option value="tickets">Tickets ({tickets.length})</option></select></OperationField>{tab === "tickets" && <OperationField label="État du ticket"><select className={input} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Tous les états</option>{["OPEN", "IN_PROGRESS", "WAITING_CUSTOMER", "RESOLVED", "CLOSED", "REOPENED"].map((item) => <option key={item} value={item}>{ticketStatusLabel(item)}</option>)}</select></OperationField>}</OperationFilterPopover>
         }
       >
         <OperationButton onClick={load}><RefreshCcw size={15} />Actualiser</OperationButton>
@@ -105,15 +101,6 @@ export function SupportCenterPage() {
         </Panel>
       )}
     </div>
-  );
-}
-
-function Tab({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return (
-    <OperationTab active={active} onClick={onClick} className="flex h-[42px] items-center gap-2">
-      {icon}
-      {label}
-    </OperationTab>
   );
 }
 

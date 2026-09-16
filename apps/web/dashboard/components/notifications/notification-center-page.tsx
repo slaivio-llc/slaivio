@@ -4,9 +4,9 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Archive, CheckCheck, Clock3, RotateCcw, Settings2 } from "lucide-react";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { OperationButton, OperationField, OperationFilterPopover, OperationTab } from "@/components/ui/operation-controls";
+import { OperationButton, OperationField, OperationFilterPopover } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationContent, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import {
@@ -80,14 +80,9 @@ export function NotificationCenterPage() {
           </>
         }
       />
-      <OperationTabs>
-        <NotificationTab active={filters.status === "UNREAD"} onClick={() => setFilters({ ...filters, status: "UNREAD" })}>Non lues</NotificationTab>
-        <NotificationTab active={filters.status === "READ"} onClick={() => setFilters({ ...filters, status: "READ" })}>Lues</NotificationTab>
-        <NotificationTab active={!filters.status} onClick={() => setFilters({ ...filters, status: "" })}>Toutes</NotificationTab>
-      </OperationTabs>
       <OperationToolbar
         search={<OperationSearch value={filters.q} onChange={(q) => setFilters({ ...filters, q })} placeholder="Rechercher une notification" />}
-        filters={<OperationFilterPopover activeCount={[filters.source, filters.priority].filter(Boolean).length} onReset={() => setFilters({ ...filters, source: "", priority: "" })} title="Filtrer les notifications"><OperationField label="Origine"><select className={`${input} w-full`} value={filters.source} onChange={(event) => setFilters({ ...filters, source: event.target.value })}><option value="">Toutes les origines</option><option value="IN_APP">Dans l’application</option><option value="DELIVERY">Canal externe</option></select></OperationField><OperationField label="Priorité"><select className={`${input} w-full`} value={filters.priority} onChange={(event) => setFilters({ ...filters, priority: event.target.value })}><option value="">Toutes les priorités</option><option value="NORMAL">Normale</option><option value="HIGH">Haute</option><option value="CRITICAL">Critique</option></select></OperationField></OperationFilterPopover>}
+        filters={<OperationFilterPopover activeCount={[filters.status, filters.source, filters.priority].filter(Boolean).length} onReset={() => setFilters({ ...filters, status: "", source: "", priority: "" })} title="Filtrer les notifications"><OperationField label="Vue"><select className={`${input} w-full`} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">Toutes</option><option value="UNREAD">Non lues</option><option value="READ">Lues</option></select></OperationField><OperationField label="Origine"><select className={`${input} w-full`} value={filters.source} onChange={(event) => setFilters({ ...filters, source: event.target.value })}><option value="">Toutes les origines</option><option value="IN_APP">Dans l’application</option><option value="DELIVERY">Canal externe</option></select></OperationField><OperationField label="Priorité"><select className={`${input} w-full`} value={filters.priority} onChange={(event) => setFilters({ ...filters, priority: event.target.value })}><option value="">Toutes les priorités</option><option value="NORMAL">Normale</option><option value="HIGH">Haute</option><option value="CRITICAL">Critique</option></select></OperationField></OperationFilterPopover>}
       />
 
       <OperationContent>
@@ -112,10 +107,6 @@ export function NotificationCenterPage() {
       {settings && <Preferences close={() => setSettings(false)} />}
     </div>
   );
-}
-
-function NotificationTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <OperationTab active={active} onClick={onClick} className="h-[42px]">{children}</OperationTab>;
 }
 
 function NotificationRow({

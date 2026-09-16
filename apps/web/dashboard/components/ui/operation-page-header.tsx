@@ -1,7 +1,8 @@
 "use client";
 
 import { ListFilter } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 export function OperationPageHeader({
   title,
@@ -38,7 +39,14 @@ export function OperationPageHeader({
 
 export function OperationTabs({ children, className = "" }: { children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(false);
+  const [toolbarTarget, setToolbarTarget] = useState<HTMLElement | null | undefined>(undefined);
   const root = useRef<HTMLDivElement>(null);
+  const placeholder = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const page = placeholder.current?.parentElement;
+    setToolbarTarget(page?.querySelector<HTMLElement>('[data-ui="operation-toolbar-views"]') || null);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -50,34 +58,40 @@ export function OperationTabs({ children, className = "" }: { children: ReactNod
     return () => window.removeEventListener("mousedown", close);
   }, [open]);
 
-  return (
+  const selector = (
     <div
       ref={root}
-      data-ui="operation-tabs"
-      className={`operation-view-filter mx-auto flex w-full max-w-[1200px] justify-end bg-white px-6 py-2 sm:px-8 ${className}`}
+      data-ui="operation-view-selector"
+      className={`relative ${className}`}
     >
-      <div className="relative">
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          className={`inline-flex h-9 items-center gap-2 rounded-[6px] border px-3 text-[13px] font-medium shadow-[0_1px_1px_rgba(15,23,42,.03)] ${open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : "border-[#d8dadd] bg-white text-[#3f4851] hover:bg-[#f7f7f6]"}`}
+      <button
+        type="button"
+        aria-label="Choisir une vue"
+        title="Choisir une vue"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={`inline-grid h-9 w-9 place-items-center rounded-[6px] border shadow-[0_1px_1px_rgba(15,23,42,.03)] ${open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : "border-[#d8dadd] bg-white text-[#3f4851] hover:bg-[#f7f7f6]"}`}
+      >
+        <ListFilter size={15} aria-hidden="true" />
+      </button>
+      {open && (
+        <nav
+          aria-label="Vues du module"
+          role="menu"
+          onClick={(event) => { if ((event.target as HTMLElement).closest('[data-ui="operation-tab"]')) setOpen(false); }}
+          className="operation-view-options absolute right-0 top-11 z-40 grid min-w-[240px] gap-1 rounded-[8px] border border-[#d9dde1] bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,.14)]"
         >
-          <ListFilter size={15} aria-hidden="true" />
-          Vue
-        </button>
-        {open && (
-          <nav
-            aria-label="Vues du module"
-            role="menu"
-            onClick={(event) => { if ((event.target as HTMLElement).closest('[data-ui="operation-tab"]')) setOpen(false); }}
-            className="operation-view-options absolute right-0 top-11 z-40 grid min-w-[240px] gap-1 rounded-[8px] border border-[#d9dde1] bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,.14)]"
-          >
-            {children}
-          </nav>
-        )}
-      </div>
+          {children}
+        </nav>
+      )}
     </div>
   );
+
+  return <>
+    <span ref={placeholder} data-ui="operation-tabs" hidden />
+    {toolbarTarget ? createPortal(selector, toolbarTarget) : toolbarTarget === null ? (
+      <div className="mx-auto flex w-full max-w-[1200px] justify-end bg-white px-6 py-2 sm:px-8">{selector}</div>
+    ) : null}
+  </>;
 }

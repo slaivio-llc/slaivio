@@ -3,9 +3,9 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationTab } from "@/components/ui/operation-controls";
+import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients, type ClientRecord } from "@/services/clients";
 import {
@@ -139,27 +139,11 @@ export function FinancePage() {
             ["En retard", stats.overdue],
             ["Facturé", cash(stats.invoiced)],
           ].map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v} />
+            <OperationMetric key={String(l)} label={String(l)} value={v} active={(l === "Factures" && kind === "INVOICE") || (l === "Brouillons" && status === "DRAFT") || (l === "En retard" && status === "OVERDUE") || (l === "Facturé" && !kind && !status)} onClick={() => { if (l === "Factures") { setKind("INVOICE"); setStatus(""); } else if (l === "Brouillons") { setKind(""); setStatus("DRAFT"); } else if (l === "En retard") { setKind(""); setStatus("OVERDUE"); } else { setKind(""); setStatus(""); } }} />
           ))}
         </OperationMetricGrid>
         </OperationMetrics>
-        <OperationTabs>
-          {[
-            ["", "Tous"],
-            ["QUOTE", "Devis"],
-            ["INVOICE", "Factures"],
-            ["CREDIT_NOTE", "Avoirs"],
-          ].map(([value, label]) => (
-            <OperationTab
-              key={value || "all"}
-              onClick={() => setKind(value)}
-              active={kind === value}
-            >
-              {label}
-            </OperationTab>
-          ))}
-        </OperationTabs>
-        <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Numéro, client, téléphone…" />} filters={<><OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer la facturation"><OperationField label="État du document"><select className={`${input} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous les états</option>{["DRAFT","ISSUED","PARTIALLY_PAID","PAID","OVERDUE","VOID"].map((x) => <option key={x} value={x}>{labels[x]}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load}>
+        <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Numéro, client, téléphone…" />} filters={<><OperationFilterPopover activeCount={(status ? 1 : 0) + (kind ? 1 : 0)} onReset={() => { setKind(""); setStatus(""); }} title="Filtrer la facturation"><OperationField label="Type de document"><select className={`${input} w-full`} value={kind} onChange={(event) => setKind(event.target.value)}><option value="">Tous les documents</option><option value="QUOTE">Devis</option><option value="INVOICE">Factures</option><option value="CREDIT_NOTE">Avoirs</option></select></OperationField><OperationField label="État du document"><select className={`${input} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous les états</option>{["DRAFT","ISSUED","PARTIALLY_PAID","PAID","OVERDUE","VOID"].map((x) => <option key={x} value={x}>{labels[x]}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load}>
               <RefreshCcw size={14} />
               Actualiser
             </OperationButton></>} />

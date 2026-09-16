@@ -8,10 +8,10 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
+import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { businessLabel } from "@/components/ui/business-labels";
 import {
@@ -139,12 +139,10 @@ export function PricingEnginePage() {
       />
       <OperationMetrics>
       <OperationMetricGrid>
-        {cards.slice(0, 4).map(([l, v]) => (
-          <OperationMetric key={String(l)} label={String(l)} value={v} />
-        ))}
+        {cards.slice(0, 4).map(([l, v], index) => { const target:View=(["GRIDS","ROUTES","SERVICES","FEES"] as View[])[index]; return <OperationMetric key={String(l)} label={String(l)} value={v} active={view===target} onClick={()=>setView(target)} />; })}
       </OperationMetricGrid>
       </OperationMetrics>
-      <PricingTabs view={view} setView={setView} />
+       <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Grille, route, service, catégorie…" />} filters={<OperationFilterPopover activeCount={view === "OVERVIEW" ? 0 : 1} onReset={() => setView("OVERVIEW")} title="Filtrer la tarification"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="OVERVIEW">Vue d’ensemble</option><option value="GRIDS">Grilles</option><option value="ROUTES">Par route</option><option value="SERVICES">Par service</option><option value="CATEGORIES">Catégories</option><option value="TIERS">Paliers</option><option value="FEES">Frais</option><option value="DISCOUNTS">Remises</option><option value="PROMOTIONS">Promotions</option><option value="CLIENTS">Tarifs clients</option><option value="COSTS">Coûts et marges</option><option value="SIMULATOR">Simulateur</option><option value="HISTORY">Historique</option><option value="ANALYTICS">Analytics</option><option value="SETTINGS">Paramètres</option></select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}><RefreshCcw size={14} />Actualiser</OperationButton></OperationToolbar>
       {error && <ErrorState title="Tarification indisponible" description={error} retry={load} />}
       {view === "SIMULATOR" ? (
         <Simulator catalog={catalog} />
@@ -154,12 +152,6 @@ export function PricingEnginePage() {
         <Settings data={data} />
       ) : (
         <>
-          <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Grille, route, service, catégorie…" />}>
-            <button className={btn} onClick={load}>
-              <RefreshCcw size={14} />
-              Actualiser
-            </button>
-          </OperationToolbar>
           {loading ? (
             <TableSkeleton rows={7} columns={9} label="Chargement des tarifs…" />
           ) : grids.length ? (
@@ -480,17 +472,6 @@ function GridDrawer({
   );
 }
 
-function PricingTabs({ view, setView }: { view: View; setView: (next: View) => void }) {
-  const primaryViews: Array<[View, string]> = [["OVERVIEW", "Vue d’ensemble"], ["GRIDS", "Grilles"], ["ROUTES", "Par route"], ["SERVICES", "Par service"]];
-  const moreViews: Array<[View, string]> = [["CATEGORIES", "Catégories"], ["TIERS", "Paliers"], ["FEES", "Frais"], ["DISCOUNTS", "Remises"], ["PROMOTIONS", "Promotions"], ["CLIENTS", "Tarifs clients"], ["COSTS", "Coûts et marges"], ["SIMULATOR", "Simulateur"], ["HISTORY", "Historique"], ["ANALYTICS", "Analytics"], ["SETTINGS", "Paramètres"]];
-  const moreSelected = moreViews.some(([key]) => key === view);
-  return (
-    <OperationTabs>
-      {primaryViews.map(([key, label]) => <OperationTab key={key} onClick={() => setView(key)} active={view === key}>{label}</OperationTab>)}
-      <OperationTabMenu items={moreViews} value={moreSelected ? view : ""} onChange={setView} />
-    </OperationTabs>
-  );
-}
 function AddRule({
   grid,
   changed,

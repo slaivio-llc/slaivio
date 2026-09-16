@@ -24,7 +24,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { listPackages, type PackageRecord } from "@/services/packages";
 import {PermissionGuard} from "@/components/permissions/permission-guard";
 import {LoadingState} from "@/components/ui/page-state";
-import {OperationTabMenu} from "@/components/ui/operation-controls";
 import {businessLabel} from "@/components/ui/business-labels";
 import {
   archiveShipment,
@@ -160,7 +159,7 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <Link className={buttonClass} href="/app/shipments"><ArrowLeft size={16} /> Expéditions</Link>
             <div className="flex items-center gap-2">
-              <button className={buttonClass} onClick={load}><RefreshCcw size={16} /> Actualiser</button>
+              <button className={`${buttonClass} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={16} /></button>
               <PermissionGuard permission="shipments.update"><button className={primaryButtonClass} onClick={() => setActiveTab("Colis")}><Plus size={16} /> Ajouter colis</button></PermissionGuard>
             </div>
           </div>
@@ -182,14 +181,7 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
 
         {error ? <div className="m-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">{error}</div> : null}
 
-        <div className="flex overflow-x-auto border-b border-[#d8dce2] px-4">
-          {primaryTabs.map((tab) => (
-            <button key={tab} className={`px-3 py-3 text-[13px] font-medium ${activeTab === tab ? "border-b-2 border-[#12c76f] text-[#067a45]" : "text-[#526071] hover:text-[#1f2328]"}`} onClick={() => setActiveTab(tab)}>
-              {tab}
-            </button>
-          ))}
-          <OperationTabMenu items={secondaryTabs.map(tab=>[tab,tab] as const)} value={secondaryTabs.includes(activeTab as typeof secondaryTabs[number])?activeTab:""} onChange={setActiveTab}/>
-        </div>
+        <div className="border-b border-[#d8dce2] px-4 py-2"><select aria-label="Vue de l’expédition" className="h-9 w-full max-w-[260px] rounded-[6px] border border-[#d5dade] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]" value={activeTab} onChange={(event) => setActiveTab(event.target.value as Tab)}>{[...primaryTabs, ...secondaryTabs].map((tab) => <option key={tab} value={tab}>{tab}</option>)}</select></div>
 
         <div className="p-5">
           {activeTab === "Overview" ? <Overview shipment={shipment} progress={progress} setTab={setActiveTab} /> : null}

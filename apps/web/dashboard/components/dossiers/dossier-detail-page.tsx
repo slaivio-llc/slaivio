@@ -9,9 +9,9 @@ import { useRouter } from "next/navigation";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { OperationConfirmDialog } from "@/components/ui/operation-confirm-dialog";
-import { OperationButton, OperationStatus, OperationTab } from "@/components/ui/operation-controls";
-import { OperationContent } from "@/components/ui/operation-primitives";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationButton, OperationField, OperationFilterPopover, OperationStatus } from "@/components/ui/operation-controls";
+import { OperationContent, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/page-state";
 import { usePilotOffline } from "@/components/offline/pilot-offline-provider";
 import { newOfflineKey } from "@/services/pilot-offline";
@@ -240,11 +240,7 @@ export function DossierDetailPage({ dossierId }: { dossierId: string }) {
         <PermissionGuard permission="dossiers.archive"><OperationButton variant={dossier.archived_at ? "secondary" : "danger"} onClick={toggleArchive}>{dossier.archived_at ? "Restaurer" : "Archiver"}</OperationButton></PermissionGuard>
       </>}
     />
-    <OperationTabs>
-      <OperationTab active={tab === "overview"} onClick={() => setTab("overview")}>Vue d’ensemble</OperationTab>
-      <OperationTab active={tab === "clients"} count={dossier.clients?.length || 0} onClick={() => setTab("clients")}>Clients</OperationTab>
-      <OperationTab active={tab === "activity"} onClick={() => setTab("activity")}>Communications et suivi</OperationTab>
-    </OperationTabs>
+    <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer le dossier"><OperationField label="Vue"><select className={fieldClass} value={tab} onChange={(event) => setTab(event.target.value as typeof tab)}><option value="overview">Vue d’ensemble</option><option value="clients">Clients ({dossier.clients?.length || 0})</option><option value="activity">Communications et suivi</option></select></OperationField></OperationFilterPopover>} />
     <OperationContent className="mx-auto w-full max-w-[1180px]">
       {error && <div className="mb-4 flex items-center justify-between rounded-[8px] border border-[#efcaca] bg-[#fff5f5] px-4 py-3 text-[13px] text-[#a62b25]"><span>{error}</span><button onClick={load}><RotateCw size={15} /></button></div>}
       {tab === "overview" ? <Overview dossier={dossier} syncGroup={syncWhatsappGroup} syncing={groupSyncing} addParticipant={() => { setTab("clients"); openAddClient(); }} /> : tab === "clients" ? <Clients dossier={dossier} view={openClient} add={openAddClient} query={query} setQuery={setQuery} searching={searching} matches={matches} attach={attachExisting} saving={saving} error={clientSearchError} /> : <Activity dossier={dossier} />}

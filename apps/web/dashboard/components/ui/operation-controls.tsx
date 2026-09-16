@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Ellipsis, Menu, SlidersHorizontal, X } from "lucide-react";
+import { Check, Ellipsis, ListFilter, Menu, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import {
   useCallback,
@@ -244,12 +244,14 @@ export function OperationFilterPopover({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : ""}
+        aria-label={activeCount > 0 ? `Filtres, ${activeCount} actifs` : "Filtres"}
+        title="Filtres"
+        className={`relative w-9 px-0 ${open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : ""}`}
       >
-        <SlidersHorizontal size={15} />
-        Filtres
+        <ListFilter size={16} aria-hidden="true" />
+        <span className="sr-only">Filtres</span>
         {activeCount > 0 && (
-          <span className="rounded-full bg-[#d9f3e5] px-1.5 py-0.5 text-[12px] font-bold text-[#087a46]">
+          <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#087a46] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {activeCount}
           </span>
         )}

@@ -81,7 +81,7 @@ describe("operational design primitives", () => {
       </OperationFilterPopover>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Filtres 2/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Filtres.*2/i }));
     expect(screen.getByRole("dialog", { name: "Filtrer les colis" })).toBeInTheDocument();
     expect(screen.getByText("2 critères actifs")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Réinitialiser" }));

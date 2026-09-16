@@ -722,11 +722,6 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   font-weight: var(--sl-weight-semibold);
 }
 
-.slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
-  min-height: 0;
-  padding-block: 48px;
-}
-
 .slaivio-pilot [data-ui="operation-page-header"] h1 {
   color: var(--pilot-text);
   font-size: var(--sl-text-page-title) !important;
@@ -854,18 +849,7 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   background: var(--pilot-surface);
 }
 
-@media (min-width: 641px) and (max-width: 1023px) {
-  .slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
-    padding-block: 40px;
-  }
-}
-
 @media (max-width: 640px) {
-  .slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
-    min-height: 0;
-    padding-block: 24px;
-  }
-
   .slaivio-pilot [data-ui="operation-toolbar"] {
     padding-block: 10px;
   }

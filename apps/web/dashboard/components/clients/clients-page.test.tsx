@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ClientsPage } from "./clients-page";
 import * as clientService from "@/services/clients";
+import * as tenantService from "@/services/tenant";
 
 let grantedPermissions: string[] = [];
 
@@ -16,6 +17,10 @@ vi.mock("@/components/permissions/permission-guard", () => ({
   PermissionGuard: ({ permission, children, fallback = null }: {
     permission: string; children: ReactNode; fallback?: ReactNode;
   }) => grantedPermissions.includes(permission) ? children : fallback,
+}));
+
+vi.mock("@/services/tenant", () => ({
+  getTenantContext: vi.fn(),
 }));
 
 vi.mock("@/services/clients", async (importOriginal) => {
@@ -76,6 +81,10 @@ beforeEach(() => {
     "clients.import", "clients.export", "clients.merge",
   ];
   vi.mocked(clientService.listClients).mockResolvedValue(listResponse);
+  vi.mocked(tenantService.getTenantContext).mockResolvedValue({
+    active_tenant: { organization_type: "PARCEL_FREIGHT" },
+    tenants: [],
+  });
   vi.mocked(clientService.listArchivedClients).mockResolvedValue({ ...listResponse, items: [] });
   vi.mocked(clientService.getClientStats).mockResolvedValue({
     total: 1, leads: 0, active: 1, pending: 0, inactive: 0, blocked: 0, new_this_month: 1,
@@ -95,9 +104,33 @@ describe("ClientsPage production interactions", () => {
     grantedPermissions = ["clients.read"];
     render(<ClientsPage />);
 
-    const archived = await screen.findByRole("button", { name: /Archivés · verrouillé/i });
+    await userEvent.click(await screen.findByRole("button", { name: "Filtres" }));
+    const archived = await screen.findByRole("option", { name: /Clients archivés · accès requis/i });
     expect(archived).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Exporter" })).not.toBeInTheDocument();
+  });
+
+  it("uses the KPI cards as the client view navigation", async () => {
+    render(<ClientsPage />);
+
+    const activeClients = await screen.findByRole("button", { name: /Clients avec colis/i });
+    await userEvent.click(activeClients);
+
+    expect(activeClients).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(clientService.listClients).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: "active" }),
+    ));
+    expect(screen.queryByRole("navigation", { name: "Vues du module" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Autres" })).not.toBeInTheDocument();
+  });
+
+  it("uses the shared client form without a currency field", async () => {
+    render(<ClientsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: /Nouveau client/i }));
+
+    expect(await screen.findByRole("dialog", { name: "Nouveau client" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Nom complet/).closest("label")).toHaveAttribute("data-ui", "operation-field");
+    expect(screen.queryByLabelText(/Devise/i)).not.toBeInTheDocument();
   });
 
   it("recovers after a temporary list failure", async () => {

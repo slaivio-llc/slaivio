@@ -12,19 +12,21 @@ export function OperationPageHeader({
   tabs?: ReactNode;
 }) {
   return (
-    <header data-ui="operation-page-header" className="operation-page-header border-b border-[#dfe1e3] bg-white">
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-3 px-6 py-6 sm:px-8 sm:py-10 lg:flex-row lg:items-center lg:justify-between lg:py-12">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
-          <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">
-            {description}
-          </p>
-        </div>
-        {actions && (
-          <div className="operation-actions flex shrink-0 flex-wrap items-center gap-2 [&>details]:order-first">
-            {actions}
+    <header data-ui="operation-page-header" className="operation-page-header bg-white">
+      <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-10 lg:pt-12">
+        <div className="flex flex-col gap-3 border-b border-[#dfe1e3] pb-6 sm:pb-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
+            <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">
+              {description}
+            </p>
           </div>
-        )}
+          {actions && (
+            <div className="operation-actions flex shrink-0 flex-wrap items-center gap-2 [&>details]:order-first">
+              {actions}
+            </div>
+          )}
+        </div>
       </div>
       {tabs && <OperationTabs>{tabs}</OperationTabs>}
     </header>

@@ -1025,6 +1025,35 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   gap: 0.25rem;
 }
 
+/* Page views use one compact selector instead of permanent tab rows. */
+.operation-view-options > [data-ui="operation-tab"] {
+  min-height: 36px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  font-size: 13px;
+}
+
+.operation-view-options > [data-ui="operation-tab"][aria-current="page"] {
+  background: #edf8f2;
+  color: #087a46;
+}
+
+.operation-view-options > [data-ui="operation-tab"]:not([aria-current="page"]):hover {
+  background: #f3f5f5;
+}
+
+.operation-view-options > div {
+  width: 100%;
+}
+
+.operation-view-options > div > button {
+  width: 100%;
+  justify-content: space-between;
+}
+
 .operation-actions > button,
 .operation-actions > a,
 .operation-actions > details > summary {

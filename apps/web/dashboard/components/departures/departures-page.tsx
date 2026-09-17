@@ -751,6 +751,7 @@ function Create({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [routeId, setRouteId] = useState(""),
+    [serviceId, setServiceId] = useState(""),
     [offices, setOffices] = useState<ReferenceItem[]>([]);
   useEffect(() => {
     getReferenceCatalog()
@@ -765,6 +766,7 @@ function Create({
       ]),
     ).values(),
   );
+  const selectedService=services.find(service=>service.id===serviceId);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -804,7 +806,7 @@ function Create({
             <select
               required
               value={routeId}
-              onChange={(event) => setRouteId(event.target.value)}
+              onChange={(event) => {setRouteId(event.target.value);setServiceId("");}}
               className={input}
             >
               <option value="">Choisir une route</option>
@@ -820,6 +822,8 @@ function Create({
             <select
               required
               name="shipping_service_id"
+              value={serviceId}
+              onChange={event=>setServiceId(event.target.value)}
               disabled={!routeId}
               className={input}
             >
@@ -850,12 +854,7 @@ function Create({
             type="datetime-local"
           />
           <input type="hidden" name="timezone" value="UTC" />
-          <Field
-            name="capacity_weight_kg"
-            label="Capacité poids kg"
-            type="number"
-          />
-          <Field name="capacity_cbm" label="Capacité CBM" type="number" />
+          {selectedService?.shipping_mode==="SEA"?<Field name="capacity_cbm" label="Capacité maritime (CBM)" type="number" required/>:<Field name="capacity_weight_kg" label="Capacité transport (kg)" type="number" required/>}
           <Field
             name="capacity_packages"
             label="Nombre maximal de colis"

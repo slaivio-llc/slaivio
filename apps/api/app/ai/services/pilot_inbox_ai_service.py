@@ -1,3 +1,4 @@
+import json
 import re
 import uuid
 from datetime import datetime, timezone
@@ -9,6 +10,12 @@ from app.ai.repositories.pilot_inbox_ai_repository import (
     get_ai_run,
     get_pilot_ai_settings,
     log_ai_run,
+    parcel_operational_knowledge,
+)
+from app.ai.repositories.parcel_customer_journey_repository import (
+    convert_journey,
+    is_parcel_organization,
+    upsert_journey,
 )
 from app.db.outbound_message_repository import (
     create_outbound_message,
@@ -76,6 +83,63 @@ def render_user_prompt(template: str | None, message: str) -> str:
     if "{message}" in value:
         return value.replace("{message}", message)
     return f"{value}\n\n{message}"
+
+
+def _parcel_qualification(settings: dict, context: dict, phone: str) -> dict | None:
+    """Advance a parcel prospect using semantic extraction, never phrase matching.
+
+    The linked WhatsApp sender is the trusted phone field. The model is only
+    allowed to extract information explicitly supplied by the customer and to
+    decide whether the person is merely browsing or is ready to register.
+    """
+    if context.get("client_id") or not is_parcel_organization(context["org_id"]):
+        return None
+    transcript = "\n".join(
+        f"{'CLIENT' if item['direction'] == 'inbound' else 'AGENCE'}: {item.get('text_body') or '[pièce jointe]'}"
+        for item in (context.get("recent_messages") or [])[-10:]
+    )
+    prompt = """Analyse une conversation WhatsApp d'une agence de colis et fret.
+Retourne exclusivement un objet JSON valide, sans Markdown, avec ces clés:
+stage, intent, full_name, country, city, customer_type, service_interest,
+route_interest, transport_mode, confidence.
+stage vaut DISCOVERY si la personne échange seulement, INTERESTED si elle demande les services,
+QUALIFYING uniquement si elle veut réellement envoyer, obtenir un devis concret ou être enregistrée,
+QUALIFIED si elle veut avancer et a fourni nom complet, pays, ville et type de client,
+NOT_INTERESTED uniquement si elle refuse clairement de poursuivre, HUMAN_REVIEW en cas d'ambiguïté sensible.
+customer_type vaut individual ou company. Mets null pour toute information non explicitement donnée.
+N'invente rien et ne déduis jamais le numéro: il est déjà fourni par WhatsApp et ne doit jamais être demandé.
+Comprends les formulations naturelles, fautes, abréviations et langues variées."""
+    try:
+        generated = _provider_response(settings, prompt, transcript, max_tokens=220)
+        raw = (generated.get("content") or "").strip().strip("`").strip()
+        if raw.lower().startswith("json"):
+            raw = raw[4:].strip()
+        start, end = raw.find("{"), raw.rfind("}")
+        if start < 0 or end < start:
+            return None
+        extracted = json.loads(raw[start:end + 1])
+        if not isinstance(extracted, dict):
+            return None
+    except Exception:
+        return None
+    journey = upsert_journey(context["org_id"], phone, extracted, inbound_at=context.get("source_message_at"))
+    missing = list(journey.get("missing_fields") or [])
+    labels = {
+        "full_name": "Quel est votre nom complet ?",
+        "country": "Dans quel pays vous trouvez-vous ?",
+        "city": "Dans quelle ville vous trouvez-vous ?",
+        "customer_type": "Vous inscrivez-vous comme particulier ou comme entreprise ?",
+    }
+    reply = None
+    created = None
+    if journey.get("stage") in {"QUALIFYING", "QUALIFIED"}:
+        if missing:
+            reply = labels[missing[0]]
+        else:
+            created = convert_journey(context["org_id"], phone)
+            if created:
+                reply = f"Merci {journey.get('full_name')}. Votre fiche client est créée; nous pouvons maintenant préparer votre envoi."
+    return {"journey": journey, "reply": reply, "client": created}
 
 
 def _customer_support_prompt(*, organization_name: str, company_rules: str, style: str, sources: str) -> str:
@@ -212,6 +276,7 @@ def preview_pilot_response(
     knowledge = search_knowledge(org_id, knowledge_query, "WHATSAPP", language="FR", limit=5)
     if not knowledge:
         knowledge = search_knowledge(org_id, knowledge_query, "WHATSAPP", language="EN", limit=5)
+    knowledge = [*knowledge, *parcel_operational_knowledge(org_id)]
     if not knowledge:
         return {
             "answer": "Je n’ai trouvé aucune connaissance publiée et visible par les clients pour répondre à cette question.",
@@ -274,6 +339,8 @@ def prepare_pilot_suggestion(
         return {"status": "skipped", "reason": "inbound_message_not_found", "mode": mode}
 
     message = context["source_message"]
+    qualification = _parcel_qualification(settings, context, client_phone)
+    qualification_reply = qualification.get("reply") if qualification else None
     classification = _classify(message)
     language = (context.get("preferred_language") or "FR").upper()
     knowledge = []
@@ -328,6 +395,7 @@ def prepare_pilot_suggestion(
             knowledge = search_knowledge(org_id, knowledge_query, "WHATSAPP", language=language, limit=5)
             if not knowledge and language != "FR":
                 knowledge = search_knowledge(org_id, knowledge_query, "WHATSAPP", language="FR", limit=5)
+            knowledge = [*knowledge, *parcel_operational_knowledge(org_id)]
         if not response_text and (knowledge or operational_context):
             knowledge_sources = "\n\n".join(
                 f"SOURCE {index + 1} — {item['title']}\n{_source_excerpt(item)}"
@@ -366,14 +434,22 @@ def prepare_pilot_suggestion(
         elif not response_text:
             reason = "aucune_connaissance_publiee"
 
+    if qualification_reply:
+        response_text = _compact_customer_reply(
+            f"{response_text}\n\n{qualification_reply}" if response_text else qualification_reply
+        )
+        classification["risk"] = "SAFE"
+        classification["intent"] = "CUSTOMER_QUALIFICATION"
+        confidence = max(confidence, 0.9)
+        reason = "parcours_client_whatsapp"
     if not response_text:
         response_text = "Je n’ai pas encore assez d’informations fiables pour vous répondre. Pouvez-vous préciser votre demande ?"
 
-    source_ids = [str(item["id"]) for item in knowledge]
+    source_ids = [str(item["id"]) for item in knowledge if item.get("source_kind") != "OPERATIONAL"]
     eligible_for_auto = (
         classification["risk"] == "SAFE"
         and confidence >= float(settings.get("auto_reply_min_confidence") or 0.75)
-        and (classification["intent"] == CONVERSATIONAL_INTENT or bool(source_ids) or bool(operational_context))
+        and (classification["intent"] in {CONVERSATIONAL_INTENT, "CUSTOMER_QUALIFICATION"} or bool(source_ids) or bool(operational_context) or bool(knowledge))
     )
     review_reason = None if eligible_for_auto else reason
     # Automatic mode is autonomous: a high-confidence answer is sent, while
@@ -410,7 +486,8 @@ def prepare_pilot_suggestion(
         client_id=context.get("client_id"), dossier_id=context.get("dossier_id"),
         source_message_id=context.get("source_message_id"), intent=classification["intent"],
         confidence=confidence, risk_level=classification["risk"], reason=reason,
-        source_ids=source_ids, draft_id=draft["id"] if draft else None, metadata={"eligible_for_auto": eligible_for_auto},
+        source_ids=source_ids, draft_id=draft["id"] if draft else None,
+        metadata={"eligible_for_auto": eligible_for_auto, "journey_id": str(qualification["journey"]["id"]) if qualification else None},
     )
     return result
 

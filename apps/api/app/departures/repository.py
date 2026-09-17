@@ -24,7 +24,9 @@ def update(o,d,a,n,p):
  with engine.begin() as c:
   row=c.execute(text(f'update cargo_departures set {sets},row_version=row_version+1,updated_at=now() where org_id=:o and id=:d and row_version=:v returning *'),{'o':o,'d':d,'v':version,**changes}).mappings().first()
   if not row:raise HTTPException(409,'departure_version_conflict')
-  ev(c,o,d,'UPDATED',a,n,changes);return dict(row)
+  result=dict(row);ev(c,o,d,'UPDATED',a,n,changes)
+  result['_queued_notification_ids']=_queue_published_departure(c,o,result) if changes.get('published') is True else []
+  return result
 def checklist(o,d,a,n,p):
  if p['key'] not in {'packages','weight','documents','manifest','payments','carrier','final_approval'}:raise HTTPException(422,'invalid_checklist_key')
  with engine.begin() as c:
@@ -88,7 +90,54 @@ def create(o,a,n,p):
   if not c.execute(text('select 1 from shipping_services where id=:s and org_id=:o and active'),{'s':p['shipping_service_id'],'o':o}).first():raise HTTPException(422,'service_not_found')
   p['departure_code']=p.get('departure_code') or f"DEP-{uuid4().hex[:8].upper()}";existing=c.execute(text("select * from cargo_departures where org_id=:o and departure_code=:code"),{'o':o,'code':p['departure_code']}).mappings().first()
   if existing:return dict(existing)
-  row=dict(c.execute(text("insert into cargo_departures(org_id,shipping_service_id,departure_code,scheduled_at,cutoff_at,estimated_arrival_at,status,capacity_weight_kg,capacity_cbm,capacity_packages,carrier_name,transport_reference,timezone,responsible_name,warehouse_id,destination_office,published,notes,created_by) values(:o,:shipping_service_id,:departure_code,:scheduled_at,:cutoff_at,:estimated_arrival_at,'PLANNED',:capacity_weight_kg,:capacity_cbm,:capacity_packages,:carrier_name,:transport_reference,:timezone,:responsible_name,cast(:warehouse_id as uuid),:destination_office,:published,:notes,:a) returning *"),{'o':o,'a':a,**p}).mappings().one());ev(c,o,str(row['id']),'CREATED',a,n);return row
+  row=dict(c.execute(text("insert into cargo_departures(org_id,shipping_service_id,departure_code,scheduled_at,cutoff_at,estimated_arrival_at,status,capacity_weight_kg,capacity_cbm,capacity_packages,carrier_name,transport_reference,timezone,responsible_name,warehouse_id,destination_office,published,notes,created_by) values(:o,:shipping_service_id,:departure_code,:scheduled_at,:cutoff_at,:estimated_arrival_at,'PLANNED',:capacity_weight_kg,:capacity_cbm,:capacity_packages,:carrier_name,:transport_reference,:timezone,:responsible_name,cast(:warehouse_id as uuid),:destination_office,:published,:notes,:a) returning *"),{'o':o,'a':a,**p}).mappings().one());ev(c,o,str(row['id']),'CREATED',a,n)
+  row['_queued_notification_ids']=_queue_published_departure(c,o,row) if row.get('published') else []
+  return row
+
+def _queue_published_departure(c,o,dep):
+ enabled=c.execute(text("select coalesce(notify_next_departure,true) from parcel_operation_settings where org_id=:o"),{'o':o}).scalar()
+ if enabled is False:return []
+ service=c.execute(text("""select s.service_name,s.shipping_mode,r.route_name,r.origin_country,r.origin_city,r.destination_country,r.destination_city
+   from shipping_services s left join shipping_routes r on r.id=s.route_id and r.org_id=s.org_id
+   where s.org_id=:o and s.id=:s"""),{'o':o,'s':dep['shipping_service_id']}).mappings().first() or {}
+ recipients=rows(c.execute(text("""
+   select distinct on(normalized_phone) client_id,dossier_id,normalized_phone,display_name
+   from (
+     select client.id client_id,package.dossier_id,
+       regexp_replace(coalesce(client.whatsapp_phone,client.phone,''),'[^0-9]','','g') normalized_phone,
+       coalesce(client.display_name,client.name,'Client') display_name,1 priority
+     from cargo_packages package
+     join clients client on client.org_id=package.org_id and client.id=package.client_id and client.deleted_at is null
+     where package.org_id=:o and package.deleted_at is null
+       and package.status not in('DELIVERED','CANCELLED','RETURNED')
+       and (package.shipping_service_id=:service_id
+         or (package.shipping_service_id is null and (:destination_country is null or package.destination_country is null or lower(package.destination_country)=lower(:destination_country))))
+     union all
+     select journey.client_id,null::uuid,
+       regexp_replace(journey.conversation_phone,'[^0-9]','','g'),
+       coalesce(journey.full_name,'Prospect WhatsApp'),2
+     from parcel_customer_journeys journey
+     where journey.org_id=:o and journey.stage not in('NOT_INTERESTED','CLOSED')
+       and (journey.transport_mode is null or :shipping_mode is null or lower(journey.transport_mode)=lower(:shipping_mode))
+       and (journey.route_interest is null or :route_name is null or journey.route_interest ilike '%'||:route_name||'%'
+         or :destination_country is null or journey.route_interest ilike '%'||:destination_country||'%')
+   ) audience
+   where normalized_phone<>''
+   order by normalized_phone,priority
+ """),{'o':o,'service_id':dep['shipping_service_id'],'shipping_mode':service.get('shipping_mode'),'route_name':service.get('route_name'),'destination_country':service.get('destination_country')}))
+ route=service.get('route_name') or f"{service.get('origin_city') or service.get('origin_country') or 'Origine'} → {service.get('destination_city') or service.get('destination_country') or 'Destination'}"
+ scheduled=dep.get('scheduled_at')
+ message=f"Prochain départ {route} prévu le {scheduled:%d/%m/%Y à %H:%M} ({service.get('service_name') or 'service fret'}). Répondez à ce message si vous souhaitez préparer un envoi."
+ queued=[]
+ for recipient in recipients:
+  notification_type=f"NEXT_DEPARTURE:{dep['id']}:{recipient['normalized_phone']}"
+  item=c.execute(text("""insert into notification_outbox(org_id,client_id,dossier_id,channel,recipient_phone,notification_type,message)
+    select :o,:client_id,:dossier_id,'whatsapp',:phone,:notification_type,:message
+    where not exists(select 1 from notification_outbox where org_id=:o and notification_type=:notification_type)
+    returning id::text"""),{'o':o,'client_id':recipient.get('client_id'),'dossier_id':recipient.get('dossier_id'),'phone':recipient['normalized_phone'],'notification_type':notification_type,'message':message}).first()
+  if item:queued.append(str(item[0]))
+ ev(c,o,str(dep['id']),'ANNOUNCEMENT_QUEUED','automation','Slaivio',{'recipients':len(queued)})
+ return queued
 def allocate(o,d,a,n,p):
  with engine.begin() as c:
   old=c.execute(text('select * from departure_allocations where org_id=:o and idempotency_key=:k'),{'o':o,'k':p['idempotency_key']}).mappings().first()
@@ -126,13 +175,14 @@ def _sync_operations(c,o,dep,a,n,status,reason,queued_notification_ids):
  exp_status={'CONFIRMED':'PREPARING','DELAYED':'PREPARING','DEPARTED':'DISPATCHED','ARRIVED':'ARRIVED_DESTINATION','CANCELLED':'CANCELLED'}[status]
  c.execute(text('update cargo_expeditions set status=:s,is_delayed=:delayed,delay_reason=coalesce(:reason,delay_reason),departed_at=case when :s=\'DISPATCHED\' then coalesce(departed_at,now()) else departed_at end,arrived_at=case when :s=\'ARRIVED_DESTINATION\' then coalesce(arrived_at,now()) else arrived_at end,updated_by=:a,updated_at=now() where org_id=:o and id=:id'),{'s':exp_status,'delayed':status=='DELAYED','reason':reason,'a':a,'o':o,'id':exp['id']})
  c.execute(text("insert into expedition_events(org_id,expedition_id,event_type,title,description,new_status,metadata,actor_id,actor_name,idempotency_key) values(:o,:id,:event,:title,:description,:status,cast(:meta as jsonb),:a,:n,:key) on conflict(idempotency_key) do nothing"),{'o':o,'id':exp['id'],'event':f'DEPARTURE_{status}','title':f'Départ {status.lower()}','description':reason,'status':exp_status,'meta':json.dumps({'departure_id':str(dep['id']),'departure_code':dep['departure_code']}),'a':a,'n':n,'key':f"departure:{dep['id']}:{status}:{dep['row_version']}"})
+ milestones_enabled=c.execute(text("select coalesce(notify_package_milestones,true) from parcel_operation_settings where org_id=:o"),{'o':o}).scalar()
  packages=rows(c.execute(text("select p.*,cl.phone client_phone,cl.whatsapp_phone client_whatsapp_phone from departure_package_allocations da join cargo_packages p on p.id=da.package_id and p.org_id=da.org_id left join clients cl on cl.id=p.client_id and cl.org_id=p.org_id where da.org_id=:o and da.departure_id=:d and da.status<>'REMOVED' and p.deleted_at is null"),{'o':o,'d':dep['id']}))
  for pkg in packages:
   c.execute(text("insert into expedition_packages(org_id,expedition_id,package_id,added_by) values(:o,:e,:p,:a) on conflict(org_id,expedition_id,package_id) where removed_at is null do nothing"),{'o':o,'e':exp['id'],'p':pkg['id'],'a':a})
   package_status={'CONFIRMED':'READY_FOR_DISPATCH','DELAYED':'READY_FOR_DISPATCH','DEPARTED':'IN_TRANSIT','ARRIVED':'ARRIVED_DESTINATION','CANCELLED':'READY_FOR_DISPATCH'}[status]
   c.execute(text('update cargo_packages set shipment_id=:e,status=:s,current_status=:s,updated_at=now() where org_id=:o and id=:p'),{'e':exp['id'] if status!='CANCELLED' else None,'s':package_status,'o':o,'p':pkg['id']})
   c.execute(text("insert into package_events(org_id,package_id,event_type,title,description,new_status,metadata,actor_id) values(:o,:p,:event,:title,:description,:status,cast(:meta as jsonb),:a)"),{'o':o,'p':pkg['id'],'event':f'DEPARTURE_{status}','title':f'Départ {status.lower()}','description':reason,'status':package_status,'meta':json.dumps({'departure_id':str(dep['id']),'expedition_id':exp['id']}),'a':a})
-  if status in {'DELAYED','DEPARTED','ARRIVED','CANCELLED'} and pkg.get('client_id') and pkg.get('dossier_id') and (pkg.get('client_phone') or pkg.get('client_whatsapp_phone')):
+  if milestones_enabled is not False and status in {'DELAYED','DEPARTED','ARRIVED','CANCELLED'} and pkg.get('client_id') and (pkg.get('client_phone') or pkg.get('client_whatsapp_phone')):
    when=dep.get('scheduled_at')
    message=(f"Votre départ {dep['departure_code']} a été retardé. Nouvelle date prévue : {when}. Motif : {reason}." if status=='DELAYED' else f"Votre colis {pkg.get('package_reference')} a quitté l'origine. Suivi : {pkg.get('tracking_id') or pkg.get('package_reference')}." if status=='DEPARTED' else f"Votre colis {pkg.get('package_reference')} est arrivé à destination." if status=='ARRIVED' else f"Le départ {dep['departure_code']} a été annulé. Votre colis sera réaffecté au prochain départ compatible.")
    notification_type=f"DEPARTURE_{status}:{dep['id']}:{pkg['id']}"

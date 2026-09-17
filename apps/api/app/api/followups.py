@@ -23,7 +23,9 @@ class BulkMutation(BaseModel):ids:list[str]=Field(min_length=1,max_length=500);a
 class PilotAudience(BaseModel):
  client_ids:list[str]=Field(default_factory=list,max_length=500)
  dossier_ids:list[str]=Field(default_factory=list,max_length=100)
+ journey_ids:list[str]=Field(default_factory=list,max_length=500)
  excluded_client_ids:list[str]=Field(default_factory=list,max_length=500)
+ excluded_journey_ids:list[str]=Field(default_factory=list,max_length=500)
 class PilotDraftCreate(PilotAudience):
  title:str=Field(min_length=2,max_length=160)
  message:str=Field(min_length=2,max_length=2000)
@@ -70,7 +72,7 @@ def pilot_options(q:str|None=Query(default=None,max_length=120),tenant=Depends(g
  return {'status':'ok',**pilot_repo.options(tenant['org_id'],q=q)}
 @router.post('/pilot/preview',dependencies=[Depends(require_permission('pilot.followups.manage'))])
 def pilot_preview(body:PilotAudience,tenant=Depends(get_current_tenant)):
- return {'status':'ok',**pilot_repo.preview(tenant['org_id'],body.client_ids,body.dossier_ids,body.excluded_client_ids)}
+ return {'status':'ok',**pilot_repo.preview(tenant['org_id'],body.client_ids,body.dossier_ids,body.journey_ids,body.excluded_client_ids,body.excluded_journey_ids)}
 @router.post('/pilot/drafts',status_code=201,dependencies=[Depends(require_permission('pilot.followups.manage'))])
 def pilot_draft_create(body:PilotDraftCreate,tenant=Depends(get_current_tenant)):
  batch,replayed=pilot_repo.save_draft(tenant['org_id'],actor(tenant),body.model_dump())

@@ -45,6 +45,8 @@ import { EmptyState as SharedEmptyState, TableSkeleton } from "@/components/ui/p
 import { FormGeographyFields } from "@/components/ui/geography-fields";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { listDossiers, type DossierRecord } from "@/services/dossiers";
+import { listClients, type ClientRecord } from "@/services/clients";
+import { catalog as getRouteCatalog, type Route, type Service } from "@/services/route-catalog";
 import { getReferenceCatalog, type ReferenceItem } from "@/services/references";
 import {
   addShipmentPackage,
@@ -509,7 +511,9 @@ export function PackagesPage() {
   }
   async function transitionPackage(id: string, status: PackageStatus) {
     try {
-      await updatePackage(id, { status });
+      const item = packages.find((candidate) => candidate.id === id);
+      if (!item) throw new Error("package_not_found");
+      await transitionPackageState(id, status, item.row_version || 1);
       await Promise.all([loadStats(), loadPackages(page)]);
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -549,7 +553,8 @@ export function PackagesPage() {
     const payload: PackagePayload = {
       dossier_id: String(
         form.get("dossier_id") || formPackage?.dossier_id || "",
-      ),
+      ) || null,
+      client_id: clean(form.get("client_id")) || formPackage?.client_id || null,
       tracking_id: clean(form.get("tracking_id")),
       status: String(form.get("status") || "RECEIVED_AT_ORIGIN") as PackageStatus,
       package_condition: String(
@@ -608,10 +613,12 @@ export function PackagesPage() {
         "LOW" | "NORMAL" | "HIGH" | "URGENT",
       assigned_to: clean(form.get("assigned_to")),
       supplier_name: clean(form.get("supplier_name")),
+      route_id: clean(form.get("route_id")),
+      shipping_service_id: clean(form.get("shipping_service_id")),
     };
-    if (!payload.dossier_id) {
+    if (!payload.dossier_id && !payload.client_id) {
       setSaving(false);
-      setFormError("Sélectionnez un dossier réel avant de créer le colis.");
+      setFormError("Sélectionnez le client auquel ce colis appartient.");
       return;
     }
     try {
@@ -2879,6 +2886,10 @@ function PackageFormModal({
     );
   }
 
+  if (String(mode) === "create") {
+    return <ParcelPackageCreateDrawer warehouses={warehouses} saving={saving} error={error} onClose={onClose} onSubmit={onSubmit}/>;
+  }
+
   return (
     <OperationDrawer
       open
@@ -3316,6 +3327,66 @@ function PackageFormModal({
         </form>
     </OperationDrawer>
   );
+}
+
+function ParcelPackageCreateDrawer({
+  warehouses,
+  saving,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  warehouses: ReferenceItem[];
+  saving: boolean;
+  error: string;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const [clients,setClients]=useState<ClientRecord[]>([]);
+  const [routes,setRoutes]=useState<Route[]>([]);
+  const [services,setServices]=useState<Service[]>([]);
+  const [country,setCountry]=useState("");
+  const [city,setCity]=useState("");
+  const [serviceId,setServiceId]=useState("");
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    let active=true;
+    Promise.all([listClients({page_size:200,sort:"name_asc"}),getRouteCatalog()])
+      .then(([clientResponse,catalog])=>{if(active){setClients(clientResponse.items);setRoutes(catalog.routes.filter(route=>route.active!==false));setServices(catalog.services);}})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
+  },[]);
+  const countries=useMemo(()=>Array.from(new Set(routes.map(route=>route.destination_country).filter(Boolean))).sort(),[routes]);
+  const cities=useMemo(()=>Array.from(new Set(routes.filter(route=>route.destination_country===country).map(route=>route.destination_city).filter((value):value is string=>Boolean(value)))).sort(),[routes,country]);
+  const eligibleRoutes=useMemo(()=>routes.filter(route=>route.destination_country===country&&(!city||route.destination_city===city)),[routes,country,city]);
+  const routeIds=useMemo(()=>new Set(eligibleRoutes.map(route=>route.id)),[eligibleRoutes]);
+  const eligibleServices=useMemo(()=>services.filter(service=>routeIds.has(service.route_id)),[services,routeIds]);
+  const selectedService=services.find(service=>service.id===serviceId);
+  const selectedRoute=routes.find(route=>route.id===selectedService?.route_id);
+  useEffect(()=>{setCity("");setServiceId("");},[country]);
+  useEffect(()=>{setServiceId("");},[city]);
+  return <OperationDrawer open close={onClose} title="Nouveau colis" description="Enregistrez le colis reçu. SLAIVIO génère automatiquement son identifiant de suivi." width="max-w-[620px]">
+    <form onSubmit={onSubmit} className="grid gap-5">
+      <FormSection title="Client et marchandise" description="Le client peut avoir été créé automatiquement depuis WhatsApp ou manuellement à l’agence.">
+        <label><FormLabel>Client associé</FormLabel><select name="client_id" required className={inputClass} disabled={loading}><option value="">{loading?"Chargement…":"Sélectionner un client"}</option>{clients.map(client=><option key={client.id} value={client.id}>{client.display_name||client.name||client.phone} · {client.phone||client.whatsapp_phone||"Sans téléphone"}</option>)}</select></label>
+        <SelectInput name="package_type" label="Type de colis" defaultValue="carton" options={packageTypeLabels}/>
+        <TextInput name="weight_kg" label="Poids du colis (kg)" type="number" step="0.01" required/>
+      </FormSection>
+      <FormSection title="Destination et transport" description="Les choix proviennent exclusivement des routes et services actifs configurés par l’agence.">
+        <label><FormLabel>Pays de destination</FormLabel><select name="destination_country" required value={country} onChange={event=>setCountry(event.target.value)} className={inputClass}><option value="">Sélectionner un pays</option>{countries.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
+        <label><FormLabel>Ville de destination</FormLabel><select name="destination_city" required value={city} onChange={event=>setCity(event.target.value)} disabled={!country} className={inputClass}><option value="">Sélectionner une ville</option>{cities.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
+        <label><FormLabel>Mode et service de transport</FormLabel><select name="shipping_service_id" required value={serviceId} onChange={event=>setServiceId(event.target.value)} disabled={!city} className={inputClass}><option value="">Sélectionner un service</option>{eligibleServices.map(service=><option key={service.id} value={service.id}>{service.service_name} · {service.shipping_mode} · {service.eta_min_days}–{service.eta_max_days} jours</option>)}</select></label>
+        <input type="hidden" name="route_id" value={selectedRoute?.id||""}/><input type="hidden" name="shipping_mode" value={selectedService?.shipping_mode||""}/>
+      </FormSection>
+      <FormSection title="Réception à l’entrepôt">
+        <label><FormLabel>Entrepôt de réception</FormLabel><select name="warehouse_name" className={inputClass}><option value="">Entrepôt principal</option>{warehouses.map(warehouse=><option key={warehouse.id} value={warehouse.label}>{warehouse.label}</option>)}</select></label>
+        <input type="hidden" name="status" value="RECEIVED_AT_ORIGIN"/><input type="hidden" name="source" value="manual"/>
+        <p className="rounded-[8px] bg-[#f3f7f5] px-3 py-2.5 text-[12px] leading-5 text-[#53645c]">L’identifiant public de suivi sera généré selon le format défini par l’agence. Le client recevra les notifications des étapes validées.</p>
+      </FormSection>
+      {error&&<div role="alert" className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
+      <div className="flex justify-end gap-2 border-t border-[#e1e5e8] pt-4"><OperationButton type="button" onClick={onClose}>Annuler</OperationButton><OperationButton type="submit" variant="primary" disabled={saving||loading}>{saving?"Enregistrement…":"Créer le colis"}</OperationButton></div>
+    </form>
+  </OperationDrawer>;
 }
 
 function PackageEditDrawer({
@@ -3798,6 +3869,7 @@ function TextInput({
   placeholder,
   type = "text",
   step,
+  required = false,
 }: {
   name: string;
   label: string;
@@ -3805,6 +3877,7 @@ function TextInput({
   placeholder?: string;
   type?: string;
   step?: string;
+  required?: boolean;
 }) {
   return (
     <label className="block">
@@ -3815,6 +3888,7 @@ function TextInput({
         placeholder={placeholder}
         type={type}
         step={step}
+        required={required}
         className={inputClass}
       />
     </label>

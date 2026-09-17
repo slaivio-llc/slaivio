@@ -102,6 +102,18 @@ const sourceLabels: Record<ClientSource, string> = {
   api: "API",
 };
 
+const currencyLabels = {
+  USD: "USD — Dollar américain",
+  EUR: "EUR — Euro",
+  CDF: "CDF — Franc congolais",
+  XAF: "XAF — Franc CFA",
+  GBP: "GBP — Livre sterling",
+  CNY: "CNY — Yuan chinois",
+  AED: "AED — Dirham des Émirats",
+  GHS: "GHS — Cedi ghanéen",
+  KES: "KES — Shilling kényan",
+} as const;
+
 const emptyStats: ClientStats = {
   total: 0,
   leads: 0,
@@ -434,6 +446,9 @@ export function ClientsPage() {
       notes: clean(form.get("notes")),
       credit_enabled: form.get("credit_enabled") === "on",
       credit_limit: Number(form.get("credit_limit") || 0),
+      payment_amount_due: parcelFreight ? undefined : Number(form.get("payment_amount_due") || 0),
+      payment_amount_paid: parcelFreight ? undefined : Number(form.get("payment_amount_paid") || 0),
+      payment_currency: parcelFreight ? undefined : clean(form.get("payment_currency")) || "USD",
       row_version: formClient?.row_version,
     };
 
@@ -778,6 +793,7 @@ function ClientsTable({
             <th className="px-3 py-2">Téléphone</th>
             <th className="px-3 py-2">Pays / ville</th>
             <th className="px-3 py-2">Statut</th>
+            <th className="px-3 py-2">Colis</th>
             <th className="px-3 py-2">Activité</th>
             <th className="w-10 px-3 py-2" />
           </tr>
@@ -822,6 +838,7 @@ function ClientsTable({
               <td className="px-3 py-2">
                 <StatusBadge status={client.lifecycle_status} />
               </td>
+              <td className="px-3 py-2 font-medium text-[#334155]">{client.packages_count||0}</td>
               <td className="px-3 py-2 text-[#687584]">
                 {formatDate(client.last_activity_at || client.updated_at)}
               </td>
@@ -1025,6 +1042,28 @@ function SummaryTab({ client }: { client: ClientRecord }) {
           />
         </div>
       </Section>
+      {client.payment_amount_due > 0 && (
+        <Section title="Paiement du client">
+          <div className="grid grid-cols-2 gap-3">
+            <SmallMetric
+              label="Montant attendu"
+              value={formatMoney(client.payment_amount_due, client.payment_currency)}
+            />
+            <SmallMetric
+              label="Montant payé"
+              value={formatMoney(client.payment_amount_paid, client.payment_currency)}
+            />
+          </div>
+          <Field label="État du paiement" value={humanStatus(client.payment_status)} />
+          <Field
+            label="Reste à payer"
+            value={formatMoney(
+              Math.max(0, client.payment_amount_due - client.payment_amount_paid),
+              client.payment_currency,
+            )}
+          />
+        </Section>
+      )}
     </div>
   );
 }
@@ -1368,6 +1407,26 @@ function ClientFormModal({
               label="Langue"
               name="preferred_language"
               defaultValue={client?.preferred_language || "FR"}
+            />
+            <Input
+              label="Montant attendu"
+              name="payment_amount_due"
+              type="number"
+              min="0"
+              defaultValue={String(client?.payment_amount_due || 0)}
+            />
+            <Input
+              label="Montant payé"
+              name="payment_amount_paid"
+              type="number"
+              min="0"
+              defaultValue={String(client?.payment_amount_paid || 0)}
+            />
+            <SelectInput
+              label="Devise du paiement"
+              name="payment_currency"
+              defaultValue={(client?.payment_currency || "USD") as keyof typeof currencyLabels}
+              options={currencyLabels}
             />
           </div>
           <Input
@@ -1747,7 +1806,8 @@ function humanStatus(value: string | null | undefined) {
     READY_FOR_PICKUP: "Prêt au retrait", DELIVERED: "Livré",
     PENDING: "En attente", SENT: "Envoyé", DELIVERED_MESSAGE: "Remis",
     DRAFT: "Brouillon", ISSUED: "Émis", PARTIALLY_PAID: "Partiellement payé",
-    PAID: "Payé", OVERDUE: "En retard", VOID: "Annulé", CONFIRMED: "Confirmé",
+    PAID: "Payé", UNPAID: "Non payé", PARTIAL: "Avance reçue", NOT_SET: "Non renseigné",
+    OVERDUE: "En retard", VOID: "Annulé", CONFIRMED: "Confirmé",
   };
   return labels[value] || value.toLowerCase().replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase());
 }

@@ -65,6 +65,9 @@ class ClientPayload(BaseModel):
     credit_limit: float | None = 0
     current_balance: float | None = 0
     total_spent: float | None = 0
+    payment_amount_due: float | None = 0
+    payment_amount_paid: float | None = 0
+    payment_currency: str | None = Field(default=None, min_length=3, max_length=3)
 
     @model_validator(mode="after")
     def validate_client(self):
@@ -76,6 +79,10 @@ class ClientPayload(BaseModel):
             raise ValueError("invalid_lifecycle_status")
         if self.source not in CLIENT_SOURCES:
             raise ValueError("invalid_source")
+        if (self.payment_amount_due or 0) < 0 or (self.payment_amount_paid or 0) < 0:
+            raise ValueError("invalid_payment_amount")
+        if self.payment_currency:
+            self.payment_currency = self.payment_currency.upper()
         return self
 
 
@@ -101,6 +108,9 @@ class ClientPatchPayload(BaseModel):
     credit_limit: float | None = None
     current_balance: float | None = None
     total_spent: float | None = None
+    payment_amount_due: float | None = None
+    payment_amount_paid: float | None = None
+    payment_currency: str | None = Field(default=None, min_length=3, max_length=3)
 
     @model_validator(mode="after")
     def validate_patch(self):
@@ -110,6 +120,12 @@ class ClientPatchPayload(BaseModel):
             raise ValueError("invalid_lifecycle_status")
         if self.source is not None and self.source not in CLIENT_SOURCES:
             raise ValueError("invalid_source")
+        if self.payment_amount_due is not None and self.payment_amount_due < 0:
+            raise ValueError("invalid_payment_amount")
+        if self.payment_amount_paid is not None and self.payment_amount_paid < 0:
+            raise ValueError("invalid_payment_amount")
+        if self.payment_currency:
+            self.payment_currency = self.payment_currency.upper()
         return self
 
 
@@ -305,6 +321,9 @@ def clients_export(
         "credit_limit",
         "current_balance",
         "total_spent",
+        "payment_amount_due",
+        "payment_amount_paid",
+        "payment_currency",
         "notes",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)

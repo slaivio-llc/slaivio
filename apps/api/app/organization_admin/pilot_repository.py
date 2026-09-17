@@ -26,7 +26,7 @@ def overview(org_id: str) -> dict:
             {"org_id": org_id},
         )
         organization = _dict(conn.execute(text("""
-          select id,coalesce(organization_name,name) organization_name,legal_name,
+          select id,coalesce(organization_name,name) organization_name,legal_name,organization_type,
                  country,city,address,phone,email,website,logo_url,row_version,
                  whatsapp_group_on_dossier_create
           from organizations where id=:org_id
@@ -53,9 +53,15 @@ def overview(org_id: str) -> dict:
         numbering = [dict(row._mapping) for row in conn.execute(text("""
           select document_type,prefix_format,next_number,row_version,updated_at
           from document_numbering_settings
-          where org_id=:org_id and document_type in('CLIENT','DOSSIER')
-          order by case document_type when 'CLIENT' then 0 else 1 end
-        """), {"org_id": org_id}).fetchall()]
+          where org_id=:org_id and document_type in(
+            'CLIENT','DOSSIER',
+            case when :organization_type='PARCEL_FREIGHT' then 'PACKAGE' else 'DOSSIER' end
+          )
+          order by case document_type when 'CLIENT' then 0 when 'DOSSIER' then 1 else 2 end
+        """), {
+            "org_id": org_id,
+            "organization_type": organization.get("organization_type"),
+        }).fetchall()]
         numbers = [dict(row._mapping) for row in conn.execute(text("""
           select id::text,provider,phone_number_id,display_phone_number,verified_name,connection_status,
                  quality_rating,is_default,last_sync_at,auto_mark_read,group_replies_enabled
@@ -82,6 +88,16 @@ def overview(org_id: str) -> dict:
           where settings.org_id=:org_id
           group by settings.id
         """), {"org_id": org_id}).fetchone())
+        parcel_operations = None
+        if organization and organization.get("organization_type") == "PARCEL_FREIGHT":
+            parcel_operations = _dict(conn.execute(text("""
+              insert into parcel_operation_settings(org_id) values(:org_id)
+              on conflict(org_id) do update set org_id=excluded.org_id
+              returning package_number_pattern,prospect_followup_delay_hours,
+                incomplete_profile_followup_hours,notify_next_departure,
+                notify_package_milestones,require_payment_clearance,
+                required_profile_fields,row_version,updated_at
+            """), {"org_id": org_id}).fetchone())
     if not organization:
         raise HTTPException(404, "pilot_organization_not_found")
     return {
@@ -101,7 +117,31 @@ def overview(org_id: str) -> dict:
         },
         "ai": ai,
         "knowledge": knowledge,
+        "parcel_operations": parcel_operations,
     }
+
+
+def save_parcel_operation_settings(org_id: str, actor_id: str, data: dict, expected_version: int) -> dict | None:
+    with engine.begin() as conn:
+        is_parcel = conn.execute(text("""
+          select organization_type='PARCEL_FREIGHT' from organizations where id=:org_id
+        """), {"org_id": org_id}).scalar()
+        if not is_parcel:
+            raise HTTPException(422, "parcel_operations_not_available")
+        row = conn.execute(text("""
+          update parcel_operation_settings set
+            package_number_pattern=:package_number_pattern,
+            prospect_followup_delay_hours=:prospect_followup_delay_hours,
+            incomplete_profile_followup_hours=:incomplete_profile_followup_hours,
+            notify_next_departure=:notify_next_departure,
+            notify_package_milestones=:notify_package_milestones,
+            require_payment_clearance=:require_payment_clearance,
+            updated_by=:actor_id,updated_at=now(),row_version=row_version+1
+          where org_id=:org_id and row_version=:expected_version
+          returning *
+        """), {"org_id": org_id, "actor_id": actor_id,
+                 "expected_version": expected_version, **data}).mappings().first()
+        return dict(row) if row else None
 
 
 def _readiness_check(key: str, label: str, ready: bool, ready_text: str, missing_text: str, href: str) -> dict:
@@ -133,9 +173,11 @@ def readiness(org_id: str) -> dict:
               where membership.org_id=:org_id and membership.status='ACTIVE'
                 and membership.role_code in ('OWNER','MANAGER')
             ) responsible_ready,
-            (select count(distinct numbering.document_type)=2
+            (select count(distinct numbering.document_type)=
+                      case when (select organization_type from organizations where id=:org_id)='PARCEL_FREIGHT'
+                           then 3 else 2 end
              from document_numbering_settings numbering
-             where numbering.org_id=:org_id and numbering.document_type in ('CLIENT','DOSSIER')
+             where numbering.org_id=:org_id and numbering.document_type in ('CLIENT','DOSSIER','PACKAGE')
                and nullif(btrim(numbering.prefix_format), '') is not null) identifiers_ready,
             exists(
               select 1 from organization_whatsapp_numbers number
@@ -172,13 +214,13 @@ def readiness(org_id: str) -> dict:
                          "Le nom, le pays et un moyen de contact sont renseignés.",
                          "Complétez le nom, le pays et au moins un moyen de contact.",
                          "/app/settings?section=company"),
-        _readiness_check("responsible", "Responsable du Pilot", bool(state["responsible_ready"]),
-                         "Un responsable actif peut administrer le Pilot.",
-                         "Désignez un responsable actif avant la mise en service.",
-                         "/app/settings?section=responsible"),
-        _readiness_check("identifiers", "Identifiants clients et dossiers", bool(state["identifiers_ready"]),
+        _readiness_check("responsible", "Administration de l’agence", bool(state["responsible_ready"]),
+                         "Un propriétaire ou responsable actif administre l’agence.",
+                         "Ajoutez un propriétaire ou responsable actif avant la mise en service.",
+                         "/app/settings?section=company"),
+        _readiness_check("identifiers", "Identifiants automatiques", bool(state["identifiers_ready"]),
                          "Les références seront générées automatiquement.",
-                         "Choisissez le format des identifiants clients et dossiers.",
+                         "Choisissez le format des identifiants de votre activité.",
                          "/app/settings?section=identifiers"),
         _readiness_check("whatsapp", "Numéro WhatsApp principal", bool(state["whatsapp_ready"]),
                          "Le numéro principal est connecté et sélectionné.",

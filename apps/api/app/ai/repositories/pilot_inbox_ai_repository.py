@@ -57,7 +57,7 @@ def update_pilot_ai_settings(org_id: str, mode: str, actor_id: str) -> dict:
 def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
     with engine.connect() as conn:
         row = conn.execute(text("""
-          select assignment.client_id, assignment.dossier_id,
+          select assignment.org_id, assignment.client_id, assignment.dossier_id,
                  coalesce(client.display_name, client.name) client_name,
                  client.preferred_language,
                  client.client_reference,
@@ -142,6 +142,86 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
               where org_id=:org_id and client_id=:client_id
             """), {"org_id": org_id, "client_id": context["client_id"]}).mappings().one())
         return context
+
+
+def parcel_operational_knowledge(org_id: str) -> list[dict]:
+    """Expose active parcel configuration as customer-safe grounding sources.
+
+    These records are maintained by the agency and are authoritative in the
+    same way as published knowledge, without copying them into free-text
+    knowledge entries that could become stale.
+    """
+    with engine.connect() as conn:
+        is_parcel = conn.execute(text("""
+          select organization_type='PARCEL_FREIGHT'
+          from organizations where id=:org_id
+        """), {"org_id": org_id}).scalar()
+        if not is_parcel:
+            return []
+        sources: list[dict] = []
+        locations = conn.execute(text("""
+          select id::text,name,location_type,country,city,address,
+                 coalesce(nullif(whatsapp,''),nullif(phone,'')) contact,
+                 opening_hours,services,updated_at
+          from organization_locations
+          where org_id=:org_id and status='ACTIVE'
+          order by name limit 40
+        """), {"org_id": org_id}).mappings().all()
+        for item in locations:
+            content = "; ".join(filter(None, [
+                f"Bureau ou site: {item['name']}",
+                f"Type: {str(item['location_type']).replace('_', ' ').lower()}",
+                f"Adresse: {item.get('address')}" if item.get('address') else None,
+                f"Ville: {item.get('city')}" if item.get('city') else None,
+                f"Pays: {item.get('country')}" if item.get('country') else None,
+                f"Contact: {item.get('contact')}" if item.get('contact') else None,
+                f"Services: {', '.join(item.get('services') or [])}" if item.get('services') else None,
+            ]))
+            sources.append({"id": f"location:{item['id']}", "title": item["name"], "content": content,
+                            "matched_content": content, "updated_at": item.get("updated_at"), "rank": 1.0,
+                            "source_kind": "OPERATIONAL"})
+        services = conn.execute(text("""
+          select service.id::text,service.service_name,service.shipping_mode,
+                 service.service_type,service.eta_min_days,service.eta_max_days,
+                 service.currency_code,route.route_name,route.origin_country,
+                 route.origin_city,route.destination_country,route.destination_city,
+                 rate.goods_label,rate.goods_category,rate.billing_unit,
+                 rate.amount_minor,rate.currency_code rate_currency,rate.express,
+                 greatest(service.updated_at,rate.updated_at) updated_at
+          from shipping_services service
+          join shipping_routes route on route.id=service.route_id and route.org_id=service.org_id
+          left join service_goods_rates rate on rate.shipping_service_id=service.id
+            and rate.org_id=service.org_id and rate.active and rate.effective_from<=now()
+            and (rate.effective_until is null or rate.effective_until>now())
+          where service.org_id=:org_id and service.active and route.archived_at is null
+            and route.active and coalesce(route.public_visible,true)
+          order by route.route_name,service.priority,rate.goods_label
+          limit 200
+        """), {"org_id": org_id}).mappings().all()
+        grouped: dict[str, dict] = {}
+        for item in services:
+            source = grouped.setdefault(item["id"], {
+                "id": f"service:{item['id']}", "title": item["service_name"], "lines": [],
+                "updated_at": item.get("updated_at"), "rank": 1.0, "source_kind": "OPERATIONAL",
+            })
+            if not source["lines"]:
+                origin = ", ".join(filter(None, [item.get("origin_city"), item.get("origin_country")]))
+                destination = ", ".join(filter(None, [item.get("destination_city"), item.get("destination_country")]))
+                source["lines"].append(
+                    f"Service: {item['service_name']}; route: {origin} vers {destination}; "
+                    f"voie: {item['shipping_mode']}; délai annoncé: {item['eta_min_days']} à {item['eta_max_days']} jours."
+                )
+            if item.get("goods_label"):
+                amount = float(item["amount_minor"] or 0) / 100
+                source["lines"].append(
+                    f"{item['goods_label']}: {amount:g} {item.get('rate_currency') or item.get('currency_code')} "
+                    f"par {str(item['billing_unit']).lower()}{'; express' if item.get('express') else ''}."
+                )
+        for source in grouped.values():
+            content = "\n".join(source.pop("lines"))
+            source.update(content=content, matched_content=content)
+            sources.append(source)
+        return sources
 
 
 def log_ai_run(

@@ -211,7 +211,7 @@ def followup_dashboard(org_id,*,q=None,status=None,followup_type=None,channel=No
     base=f"""from followup_tasks f left join clients c on c.id=f.client_id and c.org_id=f.org_id left join dossiers d on d.id=f.dossier_id and d.org_id=f.org_id where {where}"""
     with engine.connect() as conn:
         total=conn.execute(text('select count(*) '+base),params).scalar_one()
-        items=_rows(conn.execute(text("""select f.*,coalesce(c.display_name,c.name,c.company_name,c.phone,c.email) client_name,c.phone client_phone,d.tracking_id dossier_reference,
+        items=_rows(conn.execute(text("""select f.*,coalesce(c.display_name,c.name,c.company_name,f.subject_reference,f.conversation_phone,'Prospect WhatsApp') client_name,coalesce(c.phone,f.conversation_phone) client_phone,d.tracking_id dossier_reference,
           (select count(*) from followup_attempts a where a.followup_id=f.id)::int attempts_total from followup_tasks f left join clients c on c.id=f.client_id and c.org_id=f.org_id left join dossiers d on d.id=f.dossier_id and d.org_id=f.org_id where """+' and '.join(filters)+" order by case f.priority when 'URGENT' then 0 when 'HIGH' then 1 else 2 end,f.due_at limit :limit offset :offset"),params))
         stats=dict(conn.execute(text("""select count(*) filter(where due_at::date=current_date and status in('SCHEDULED','DUE','FAILED'))::int due_today,count(*) filter(where due_at<now() and status in('SCHEDULED','DUE','FAILED'))::int overdue,
           count(*) filter(where status='WAITING_RESPONSE')::int waiting_response,count(*) filter(where status='RESPONDED')::int responded,count(*) filter(where status='ESCALATED')::int escalated,count(*) filter(where status='FAILED')::int failed,
@@ -233,10 +233,11 @@ def detect_all_organizations():
 def create_manual_followup(org_id,actor,data):
     reference=f"FUP-{__import__('datetime').datetime.now():%Y}-{uuid4().hex[:8].upper()}";idem=data.pop('idempotency_key',None) or f'manual:{uuid4()}'
     with engine.begin() as c:
-        row=c.execute(text("""insert into followup_tasks(org_id,workspace_id,client_id,dossier_id,followup_type,reference,subject_type,subject_id,subject_reference,reason,channel,message,due_at,priority,responsible_id,responsible_name,amount_context,currency,consent_type,status,idempotency_key,condition_snapshot)
-         values(:o,cast(:workspace_id as uuid),cast(:client_id as uuid),cast(:dossier_id as uuid),:followup_type,:reference,:subject_type,cast(:subject_id as uuid),:subject_reference,:reason,:channel,:message,:due_at,:priority,:responsible_id,:responsible_name,:amount_context,:currency,:consent_type,'SCHEDULED',:idem,cast(:snapshot as jsonb))
+        values={"o":org_id,"reference":reference,"idem":idem,"snapshot":json.dumps(data.get('condition_snapshot') or {}),"conversation_phone":data.get("conversation_phone"),"journey_id":data.get("journey_id"),**data}
+        row=c.execute(text("""insert into followup_tasks(org_id,workspace_id,client_id,dossier_id,followup_type,reference,subject_type,subject_id,subject_reference,reason,channel,message,due_at,priority,responsible_id,responsible_name,amount_context,currency,consent_type,status,idempotency_key,condition_snapshot,conversation_phone,journey_id)
+         values(:o,cast(:workspace_id as uuid),cast(:client_id as uuid),cast(:dossier_id as uuid),:followup_type,:reference,:subject_type,cast(:subject_id as uuid),:subject_reference,:reason,:channel,:message,:due_at,:priority,:responsible_id,:responsible_name,:amount_context,:currency,:consent_type,'SCHEDULED',:idem,cast(:snapshot as jsonb),:conversation_phone,cast(:journey_id as uuid))
          on conflict(org_id,idempotency_key) where idempotency_key is not null
-         do update set idempotency_key=excluded.idempotency_key returning *"""),{"o":org_id,"reference":reference,"idem":idem,"snapshot":json.dumps(data.get('condition_snapshot') or {}),**data}).mappings().one();_event(c,org_id,row['id'],'CREATED',actor,dict(row));return dict(row)
+         do update set idempotency_key=excluded.idempotency_key returning *"""),values).mappings().one();_event(c,org_id,row['id'],'CREATED',actor,dict(row));return dict(row)
 
 def mutate_followup(org_id,item_id,actor,action,version,due_at=None,reason=None,responsible_id=None,responsible_name=None):
     transitions={'PAUSE':'PAUSED','RESUME':'SCHEDULED','CANCEL':'CANCELLED','COMPLETE':'COMPLETED','ESCALATE':'ESCALATED','RESPOND':'RESPONDED'}
@@ -265,6 +266,8 @@ def save_rule(org_id,actor,data):
 
 def _condition_still_true(conn,item):
     kind=(item.get('followup_type') or '').upper();subject=item.get('subject_id')
+    if kind=='CLIENT_PAYMENT_DUE' and subject:
+        return bool(conn.execute(text("select 1 from clients where org_id=:o and id=:id and deleted_at is null and payment_amount_due>payment_amount_paid"),{'o':item['org_id'],'id':subject}).first())
     if kind.startswith('PAYMENT') and subject:
         return bool(conn.execute(text("select 1 from finance_documents where org_id=:o and id=:id and balance_due>0 and status in('ISSUED','PARTIALLY_PAID','OVERDUE')"),{'o':item['org_id'],'id':subject}).first())
     if kind.startswith('PICKUP') and subject:
@@ -279,7 +282,7 @@ def _condition_still_true(conn,item):
 
 def queue_followup(org_id,item_id,actor):
     with engine.begin() as c:
-        item=c.execute(text("select f.*,coalesce(c.whatsapp_phone,c.phone) client_phone,c.email client_email,s.fallback_enabled,s.quiet_hours_start,s.quiet_hours_end,s.min_interval_minutes from followup_tasks f left join clients c on c.id=f.client_id and c.org_id=f.org_id left join followup_settings s on s.org_id=f.org_id where f.org_id=:o and f.id=:id for update of f"),{'o':org_id,'id':item_id}).mappings().first()
+        item=c.execute(text("select f.*,coalesce(c.whatsapp_phone,c.phone,f.conversation_phone) client_phone,c.email client_email,s.fallback_enabled,s.quiet_hours_start,s.quiet_hours_end,s.min_interval_minutes from followup_tasks f left join clients c on c.id=f.client_id and c.org_id=f.org_id left join followup_settings s on s.org_id=f.org_id where f.org_id=:o and f.id=:id for update of f"),{'o':org_id,'id':item_id}).mappings().first()
         if not item:return 'missing'
         if item['status'] not in ('SCHEDULED','DUE','FAILED'):return 'closed'
         if not _condition_still_true(c,item):
@@ -293,6 +296,20 @@ def queue_followup(org_id,item_id,actor):
         row=c.execute(text("""insert into followup_attempts(org_id,followup_id,step_number,channel,idempotency_key,status,recipient,message)
           values(:o,:id,:step,:channel,:idem,'QUEUED',:recipient,:message) on conflict(org_id,idempotency_key) do update set idempotency_key=excluded.idempotency_key returning *"""),{'o':org_id,'id':item_id,'step':item.get('current_step') or 1,'channel':channel,'idem':idem,'recipient':recipient,'message':item['message']}).mappings().one()
         c.execute(text("update followup_tasks set status='WAITING_RESPONSE',attempt_count=:attempt,row_version=row_version+1,updated_at=now() where id=:id"),{'attempt':attempt,'id':item_id});_event(c,org_id,item_id,'QUEUED',actor,{'attempt_id':str(row['id']),'idempotency_key':idem});return dict(row)
+
+def queue_due_tasks(limit=200):
+    """Queue due one-off tasks, including WhatsApp prospects without a client row."""
+    with engine.connect() as c:
+        tasks=_rows(c.execute(text("""select id::text,org_id from followup_tasks
+          where status in('PENDING','SCHEDULED','DUE','FAILED') and due_at<=now()
+            and sequence_id is null and archived_at is null
+          order by due_at limit :limit"""),{'limit':limit}))
+    queued=failed=0
+    for task in tasks:
+        result=queue_followup(task['org_id'],task['id'],'followup-cron')
+        if isinstance(result,dict) or result in ('closed','resolved'):queued+=1
+        else:failed+=1
+    return {'candidates':len(tasks),'queued':queued,'failed':failed}
 
 def record_response(org_id,item_id,actor,body,channel='WHATSAPP',message_id=None,classification=None,confidence=None,requires_review=False):
     with engine.begin() as c:
@@ -343,6 +360,17 @@ def detect_candidates(org_id):
         candidates+=_rows(c.execute(text("""select f.client_id,f.dossier_id,f.id subject_id,f.document_number subject_reference,'PAYMENT_DUE' followup_type,'INVOICE' subject_type,
           'Solde de facture arrivé à échéance' reason,f.balance_due amount_context,f.currency,coalesce(cl.display_name,cl.name,'Client') client_name
           from finance_documents f join clients cl on cl.id=f.client_id and cl.org_id=f.org_id where f.org_id=:o and f.document_type='INVOICE' and f.balance_due>0 and f.due_date<=current_date and f.status in('ISSUED','PARTIALLY_PAID','OVERDUE')"""),{'o':org_id}))
+        candidates+=_rows(c.execute(text("""select cl.id client_id,null::uuid dossier_id,cl.id subject_id,
+          coalesce(cl.client_reference,cl.phone,cl.id::text) subject_reference,
+          'CLIENT_PAYMENT_DUE' followup_type,'CLIENT' subject_type,
+          case when cl.payment_amount_paid>0 then 'Avance reçue, solde client restant' else 'Paiement client en attente' end reason,
+          greatest(cl.payment_amount_due-cl.payment_amount_paid,0) amount_context,
+          coalesce(cl.payment_currency,cl.preferred_currency,'USD') currency,
+          coalesce(cl.display_name,cl.name,'Client') client_name
+          from clients cl join organizations org on org.id=cl.org_id
+          where cl.org_id=:o and cl.deleted_at is null
+            and org.organization_type in('VEHICLE_IMPORT','AGENCY')
+            and cl.payment_amount_due>cl.payment_amount_paid"""),{'o':org_id}))
         candidates+=_rows(c.execute(text("""select p.client_id,(select cp.dossier_id from pickup_order_items pi join cargo_packages cp on cp.id=pi.package_id where pi.pickup_id=p.id limit 1) dossier_id,p.id subject_id,p.pickup_reference subject_reference,'PICKUP_REMINDER' followup_type,'PICKUP' subject_type,
           'Colis disponible non retiré' reason,null amount_context,null currency,coalesce(cl.display_name,cl.name,'Client') client_name
           from pickup_orders p join clients cl on cl.id=p.client_id and cl.org_id=p.org_id where p.org_id=:o and p.status in('READY','NOTIFIED') and p.ready_at<now()-interval '2 days'"""),{'o':org_id}))

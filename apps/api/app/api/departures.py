@@ -23,7 +23,10 @@ def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission('depar
 @router.get('/{departure_id}')
 def detail(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.read'))):return repo.detail(tenant['org_id'],departure_id)
 @router.patch('/{departure_id}')
-def patch(departure_id:str,body:Patch,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):return repo.update(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump(exclude_none=True))
+def patch(departure_id:str,body:Patch,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):
+ result=repo.update(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump(exclude_none=True))
+ for notification_id in result.pop('_queued_notification_ids',[]):background_tasks.add_task(send_notification,tenant['org_id'],notification_id)
+ return result
 @router.patch('/{departure_id}/checklist')
 def checklist(departure_id:str,body:Checklist,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.checklist'))):return repo.checklist(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
 @router.get('/{departure_id}/compatible-packages')
@@ -45,7 +48,10 @@ def recurrences(tenant=Depends(get_current_tenant),_=Depends(require_permission(
 @router.post('/configuration/recurrences')
 def create_recurrence(body:Recurrence,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.templates'))):return repo.create_recurrence(tenant['org_id'],aid(tenant),body.model_dump())
 @router.post('')
-def create(body:Create,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):return repo.create(tenant['org_id'],aid(tenant),aname(tenant),body.model_dump())
+def create(body:Create,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):
+ result=repo.create(tenant['org_id'],aid(tenant),aname(tenant),body.model_dump())
+ for notification_id in result.pop('_queued_notification_ids',[]):background_tasks.add_task(send_notification,tenant['org_id'],notification_id)
+ return result
 @router.post('/{departure_id}/allocations')
 def allocate(departure_id:str,body:Allocate,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.allocate'))):return repo.allocate(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
 @router.post('/{departure_id}/transition')

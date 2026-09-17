@@ -227,6 +227,27 @@ export type ExpeditionDetail = ExpeditionRecord & {
   events: ExpeditionEvent[];
 };
 
+export type ShipmentPackageEligibility = {
+  id: string;
+  package_reference: string | null;
+  tracking_id: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  status: string;
+  inventory_status: string;
+  validation_status: string;
+  payment_status: string;
+  destination_country: string | null;
+  destination_city: string | null;
+  weight_kg: number | null;
+  volume_cbm: number | null;
+  eligible: boolean;
+  reason_codes: string[];
+  reasons: string[];
+  warning_codes: string[];
+  warnings: string[];
+};
+
 export type ExpeditionPayload = Partial<{
   expected_version:number;
   expedition_reference: string;
@@ -337,6 +358,10 @@ export async function exportShipments(params: {
 
 export async function addShipmentPackage(id: string, packageId: string) {
   return (await api.post<{ status: "ok"; shipment: ExpeditionDetail }>(`/shipments/${id}/packages`, { package_id: packageId })).data.shipment;
+}
+
+export async function getShipmentPackageEligibility(id: string) {
+  return (await api.get<{ status: "ok"; items: ShipmentPackageEligibility[] }>(`/shipments/${id}/package-eligibility`)).data.items;
 }
 
 export async function removeShipmentPackage(id: string, packageId: string, reason?: string) {

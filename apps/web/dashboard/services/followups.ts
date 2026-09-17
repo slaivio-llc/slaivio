@@ -21,18 +21,18 @@ export async function updateFollowupSettings(payload:Record<string,unknown>){ret
 export type PilotFollowupStatus="DRAFT"|"CONFIRMED"|"QUEUED"|"COMPLETED"|"PARTIAL_FAILED"|"CANCELLED";
 export type PilotFollowupBatch={
  id:string;title:string;message:string;status:PilotFollowupStatus;row_version:number;
- selected_client_ids:string[];selected_dossier_ids:string[];excluded_client_ids:string[];
+ selected_client_ids:string[];selected_dossier_ids:string[];selected_journey_ids:string[];excluded_client_ids:string[];excluded_journey_ids:string[];
  recipient_count:number;sent_count:number;failed_count:number;response_count:number;
  created_at:string;updated_at:string;confirmed_at?:string|null;queued_at?:string|null;
  recipients?:PilotFollowupRecipient[];events?:Array<Record<string,unknown>>;
 };
-export type PilotFollowupRecipient={id:string;client_id:string;dossier_id?:string|null;client_name_snapshot:string;client_reference_snapshot?:string|null;dossier_reference_snapshot?:string|null;phone_snapshot:string;rendered_message:string;delivery_status:string;error_message?:string|null};
-export type PilotFollowupOption={id:string;display_name?:string;client_reference?:string;phone?:string;title?:string;reference?:string;client_count?:number;reachable_count?:number};
+export type PilotFollowupRecipient={id:string;client_id:string|null;journey_id?:string|null;dossier_id?:string|null;client_name_snapshot:string;client_reference_snapshot?:string|null;dossier_reference_snapshot?:string|null;phone_snapshot:string;rendered_message:string;delivery_status:string;error_message?:string|null};
+export type PilotFollowupOption={id:string;journey_id?:string;display_name?:string;client_reference?:string;phone?:string;title?:string;reference?:string;client_count?:number;reachable_count?:number;stage?:string;service_interest?:string;route_interest?:string;missing_fields?:string[]};
 export type PilotFollowupPreview={recipient_count:number;skipped_count:number;recipients:Array<Record<string,string>>;skipped:Array<Record<string,string>>};
 export type PilotSavedMessage={id:string;name:string;body:string};
 export async function listPilotFollowups(params:Record<string,unknown>={}){return(await api.get<{items:PilotFollowupBatch[];stats:Record<string,number>;templates:PilotSavedMessage[]}>('/followups/pilot',{params})).data}
-export async function pilotFollowupOptions(q?:string){return(await api.get<{clients:PilotFollowupOption[];dossiers:PilotFollowupOption[]}>('/followups/pilot/options',{params:{q:q||undefined}})).data}
-export async function previewPilotFollowup(payload:{client_ids:string[];dossier_ids:string[];excluded_client_ids:string[]}){return(await api.post<PilotFollowupPreview>('/followups/pilot/preview',payload)).data}
+export async function pilotFollowupOptions(q?:string){return(await api.get<{clients:PilotFollowupOption[];dossiers:PilotFollowupOption[];prospects:PilotFollowupOption[]}>('/followups/pilot/options',{params:{q:q||undefined}})).data}
+export async function previewPilotFollowup(payload:{client_ids:string[];dossier_ids:string[];journey_ids:string[];excluded_client_ids:string[];excluded_journey_ids:string[]}){return(await api.post<PilotFollowupPreview>('/followups/pilot/preview',payload)).data}
 export async function createPilotFollowup(payload:Record<string,unknown>){return(await api.post<{batch:PilotFollowupBatch}>('/followups/pilot/drafts',payload)).data.batch}
 export async function confirmPilotFollowup(id:string,expected_version:number){return(await api.post<{batch:PilotFollowupBatch}>(`/followups/pilot/${id}/confirm`,{expected_version})).data.batch}
 export async function sendPilotFollowup(id:string){return(await api.post<{result:{queued:number;failed:number}}>(`/followups/pilot/${id}/send`)).data.result}

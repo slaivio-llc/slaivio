@@ -5,11 +5,40 @@ from sqlalchemy import text
 from app.db.database import engine
 def rows(r):return [dict(x) for x in r.mappings().all()]
 def event(c,o,t,a,n,route=None,service=None,p=None):c.execute(text("insert into route_service_events(org_id,route_id,shipping_service_id,event_type,actor_id,actor_name,payload) values(:o,cast(:r as uuid),cast(:s as uuid),:t,:a,:n,cast(:p as jsonb))"),{"o":o,"r":route,"s":service,"t":t,"a":a,"n":n,"p":json.dumps(p or {},default=str)})
+def _network_organization(c,source_org_id,destination_org_id):
+ if not destination_org_id:return None
+ return c.execute(text("""select destination.id,destination.organization_name,destination.name,destination.country,destination.city
+   from organizations source join organizations destination on destination.id=:destination
+   where source.id=:source and destination.status='ACTIVE' and (
+     source.id=destination.id
+     or (source.group_id is not null and source.group_id=destination.group_id)
+     or destination.parent_org_id=source.id or source.parent_org_id=destination.id
+     or (source.parent_org_id is not null and source.parent_org_id=destination.parent_org_id)
+   )"""),{"source":source_org_id,"destination":destination_org_id}).mappings().first()
 def list_all(o):
  with engine.connect() as c:return {"routes":rows(c.execute(text("select r.*,(select count(*) from shipping_services s where s.route_id=r.id and s.org_id=r.org_id and s.active)::int service_count from shipping_routes r where r.org_id=:o and r.archived_at is null order by r.active desc,r.created_at desc"),{"o":o})),"services":rows(c.execute(text("select s.*,r.route_name,r.route_code,(select count(*) from pricing_components p where p.shipping_service_id=s.id and p.org_id=s.org_id and p.active and p.effective_from<=now() and (p.effective_until is null or p.effective_until>now()))::int pricing_count from shipping_services s left join shipping_routes r on r.id=s.route_id and r.org_id=s.org_id where s.org_id=:o order by s.active desc,s.priority"),{"o":o}))}
+def network_offices(o):
+ with engine.connect() as c:
+  return rows(c.execute(text("""select destination.id org_id,(destination.id=source.id) is_current,
+    coalesce(destination.organization_name,destination.name,destination.id) organization_name,
+    location.id::text location_id,location.name location_name,location.location_type,
+    location.country,location.city,location.address
+   from organizations source join organizations destination on destination.status='ACTIVE' and (
+     source.id=destination.id
+     or (source.group_id is not null and source.group_id=destination.group_id)
+     or destination.parent_org_id=source.id or source.parent_org_id=destination.id
+     or (source.parent_org_id is not null and source.parent_org_id=destination.parent_org_id)
+   ) left join organization_locations location on location.org_id=destination.id and location.status='ACTIVE'
+   where source.id=:o order by organization_name,location.name"""),{"o":o}))
 def create_route(o,a,n,p):
  with engine.begin() as c:
-  row=dict(c.execute(text("insert into shipping_routes(org_id,route_code,route_name,origin_country,origin_city,destination_country,destination_city,transport_mode,eta_min_days,eta_max_days,expected_duration_days,timezone,metadata) values(:o,:route_code,:route_name,:origin_country,:origin_city,:destination_country,:destination_city,:transport_mode,:eta_min_days,:eta_max_days,:eta_max_days,:timezone,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one());event(c,o,'ROUTE_CREATED',a,n,str(row['id']),p={"code":p['route_code']});return row
+  destination_org_id=p.get('destination_org_id') or o
+  if not _network_organization(c,o,destination_org_id):raise HTTPException(422,'destination_office_outside_organization_network')
+  location_owners={'origin_location_id':o,'destination_location_id':destination_org_id}
+  for key,owner in location_owners.items():
+   if p.get(key) and not c.execute(text("select 1 from organization_locations where org_id=:o and id=cast(:id as uuid) and status='ACTIVE'"),{'o':owner,'id':p[key]}).first():raise HTTPException(422,'location_not_found')
+  p={**p,'destination_org_id':destination_org_id}
+  row=dict(c.execute(text("insert into shipping_routes(org_id,route_code,route_name,origin_location_id,destination_location_id,destination_org_id,origin_country,origin_city,destination_country,destination_city,transport_mode,eta_min_days,eta_max_days,expected_duration_days,timezone,metadata) values(:o,:route_code,:route_name,cast(:origin_location_id as uuid),cast(:destination_location_id as uuid),:destination_org_id,:origin_country,:origin_city,:destination_country,:destination_city,:transport_mode,:eta_min_days,:eta_max_days,:eta_max_days,:timezone,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one());event(c,o,'ROUTE_CREATED',a,n,str(row['id']),p={"code":p['route_code'],"destination_org_id":destination_org_id});return row
 def create_service(o,a,n,p):
  with engine.begin() as c:
   if not c.execute(text("select 1 from shipping_routes where id=cast(:r as uuid) and org_id=:o and archived_at is null"),{"r":p['route_id'],"o":o}).first():raise HTTPException(422,'route_not_found')
@@ -19,7 +48,39 @@ def add_component(o,a,n,service,p):
   if not c.execute(text("select 1 from shipping_services where id=cast(:s as uuid) and org_id=:o"),{"s":service,"o":o}).first():raise HTTPException(422,'service_not_found')
   c.execute(text("update pricing_components set effective_until=coalesce(effective_until,now()),active=false where org_id=:o and shipping_service_id=:s and component_code=:code and active"),{"o":o,"s":service,"code":p['component_code']});version=c.execute(text("select coalesce(max(version_number),0)+1 from pricing_components where org_id=:o and shipping_service_id=:s and component_code=:code"),{"o":o,"s":service,"code":p['component_code']}).scalar_one();row=dict(c.execute(text("insert into pricing_components(org_id,shipping_service_id,component_code,component_name,calculation_type,amount_minor,percentage,currency_code,priority,min_quantity,max_quantity,effective_from,effective_until,version_number,metadata) values(:o,cast(:s as uuid),:component_code,:component_name,:calculation_type,:amount_minor,:percentage,:currency_code,:priority,:min_quantity,:max_quantity,:effective_from,:effective_until,:version,cast(:metadata as jsonb)) returning *"),{"o":o,"s":service,"version":version,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one());event(c,o,'PRICE_VERSION_CREATED',a,n,service=service,p={"component":p['component_code'],"version":version});return row
 def service_configuration(o,service):
- with engine.connect() as c:return {"stops":rows(c.execute(text("select rs.* from route_stops rs join shipping_services s on s.route_id=rs.route_id and s.org_id=rs.org_id where s.id=:s and s.org_id=:o order by rs.position"),{"s":service,"o":o})),"departures":rows(c.execute(text("select * from service_departure_rules where shipping_service_id=:s and org_id=:o order by weekday"),{"s":service,"o":o})),"policies":rows(c.execute(text("select * from service_goods_policies where shipping_service_id=:s and org_id=:o"),{"s":service,"o":o})),"adjustments":rows(c.execute(text("select * from service_price_adjustments where shipping_service_id=:s and org_id=:o order by priority"),{"s":service,"o":o}))}
+ with engine.connect() as c:return {"stops":rows(c.execute(text("select rs.* from route_stops rs join shipping_services s on s.route_id=rs.route_id and s.org_id=rs.org_id where s.id=:s and s.org_id=:o order by rs.position"),{"s":service,"o":o})),"departures":rows(c.execute(text("select * from service_departure_rules where shipping_service_id=:s and org_id=:o order by weekday"),{"s":service,"o":o})),"policies":rows(c.execute(text("select * from service_goods_policies where shipping_service_id=:s and org_id=:o"),{"s":service,"o":o})),"adjustments":rows(c.execute(text("select * from service_price_adjustments where shipping_service_id=:s and org_id=:o order by priority"),{"s":service,"o":o})),"goods_rates":rows(c.execute(text("select * from service_goods_rates where shipping_service_id=:s and org_id=:o and active and effective_from<=now() and (effective_until is null or effective_until>now()) order by express,goods_label"),{"s":service,"o":o}))}
+
+def save_goods_rate(o,a,n,service,p):
+ with engine.begin() as c:
+  s=c.execute(text("select id,route_id,shipping_mode from shipping_services where id=cast(:s as uuid) and org_id=:o and active"),{"s":service,"o":o}).mappings().first()
+  if not s:raise HTTPException(404,'service_not_found')
+  expected_unit={'AIR':'KG','SEA':'CBM'}.get(str(s['shipping_mode']).upper())
+  if expected_unit and p['billing_unit']!=expected_unit:raise HTTPException(422,f'billing_unit_must_be_{expected_unit.lower()}')
+  if p.get('min_quantity') is not None and p.get('max_quantity') is not None and p['max_quantity']<p['min_quantity']:raise HTTPException(422,'invalid_quantity_range')
+  row=dict(c.execute(text("""
+    insert into service_goods_rates(
+      org_id,shipping_service_id,goods_label,goods_category,billing_unit,
+      amount_minor,currency_code,express,min_quantity,max_quantity,
+      effective_from,effective_until,created_by
+    ) values(
+      :o,cast(:service_id as uuid),:goods_label,:goods_category,:billing_unit,
+      :amount_minor,:currency_code,:express,:min_quantity,:max_quantity,
+      :effective_from,:effective_until,:actor
+    ) returning *
+  """),{"o":o,"service_id":service,"actor":a,**p}).mappings().one())
+  event(c,o,'GOODS_RATE_CREATED',a,n,str(s['route_id']),service,{"rate_id":str(row['id']),"goods_label":row['goods_label'],"billing_unit":row['billing_unit']})
+  return row
+
+def archive_goods_rate(o,a,n,service,rate_id):
+ with engine.begin() as c:
+  row=c.execute(text("""
+    update service_goods_rates set active=false,effective_until=coalesce(effective_until,now()),updated_at=now()
+    where id=cast(:rate_id as uuid) and shipping_service_id=cast(:service as uuid) and org_id=:o and active
+    returning id::text,shipping_service_id::text,goods_label
+  """),{"o":o,"service":service,"rate_id":rate_id}).mappings().first()
+  if not row:raise HTTPException(404,'goods_rate_not_found')
+  event(c,o,'GOODS_RATE_ARCHIVED',a,n,service=service,p={"rate_id":rate_id})
+  return dict(row)
 def configure(o,a,n,service,kind,p):
  with engine.begin() as c:
   s=c.execute(text("select * from shipping_services where id=:s and org_id=:o"),{"s":service,"o":o}).mappings().first()
@@ -46,7 +107,7 @@ def simulate(o,service,weight,volume,declared=0,client_id=None,goods_category=No
    line=Decimal(str(x.get('amount_minor') or 0)) if x['adjustment_type']=='FIXED' else total*Decimal(str(x.get('percentage') or 0))/100;line=line.quantize(Decimal('1'));total+=line;breakdown.append({"code":x['adjustment_code'],"type":x['adjustment_type'],"line_total_minor":int(line),"adjustment":True})
   total=max(total,Decimal(str(s.get('minimum_charge_minor') or 0)));fingerprint=hashlib.sha256(json.dumps(breakdown,sort_keys=True).encode()).hexdigest();result={"service_id":service,"currency":s['currency_code'],"chargeable_weight_kg":float(chargeable),"total_minor":int(total),"breakdown":breakdown,"eta":{"min_days":s['eta_min_days'],"max_days":s['eta_max_days']},"restriction":{"decision":policy['decision'] if policy else 'ALLOWED',"required_documents":policy['required_documents'] if policy else []},"pricing_fingerprint":fingerprint};c.execute(text("insert into pricing_simulation_snapshots(org_id,shipping_service_id,client_id,input_payload,result_payload,pricing_version_fingerprint,created_by) values(:o,:s,cast(:client as uuid),cast(:input as jsonb),cast(:result as jsonb),:fp,:actor)"),{"o":o,"s":service,"client":client_id,"input":json.dumps({"weight":weight,"volume":volume,"declared":declared,"goods_category":goods_category}),"result":json.dumps(result),"fp":fingerprint,"actor":actor});return result
 
-ROUTE_EDITABLE=("route_name","description","workspace_id","owner_id","owner_name","status","direction","origin_country","origin_city","origin_warehouse_id","origin_hub","destination_country","destination_city","destination_office_id","destination_hub","transport_mode","eta_min_days","eta_max_days","announced_eta_days","processing_days","customs_days","final_delivery_days","weekly_capacity_kg","weekly_capacity_cbm","departure_capacity_kg","departure_capacity_cbm","availability","public_visible","default_route","alternative_route_id","minimum_weight_kg","maximum_weight_kg","minimum_cbm","maximum_declared_value")
+ROUTE_EDITABLE=("route_name","description","workspace_id","owner_id","owner_name","status","direction","origin_country","origin_city","origin_location_id","origin_warehouse_id","origin_hub","destination_country","destination_city","destination_location_id","destination_org_id","destination_office_id","destination_hub","transport_mode","eta_min_days","eta_max_days","announced_eta_days","processing_days","customs_days","final_delivery_days","weekly_capacity_kg","weekly_capacity_cbm","departure_capacity_kg","departure_capacity_cbm","availability","public_visible","default_route","alternative_route_id","minimum_weight_kg","maximum_weight_kg","minimum_cbm","maximum_declared_value")
 def _route(c,o,r,lock=False):
  row=c.execute(text(f"select * from shipping_routes where org_id=:o and id=cast(:r as uuid) {'for update' if lock else ''}"),{"o":o,"r":r}).mappings().first()
  if not row:raise HTTPException(404,'route_not_found')
@@ -82,7 +143,13 @@ def update_route(o,r,a,n,p):
  with engine.begin() as c:
   old=_route(c,o,r,True)
   if old['row_version']!=version:raise HTTPException(409,'route_version_conflict')
-  params={"o":o,"r":r,"v":version,**changes};sets=[f"{k}=cast(:{k} as uuid)" if k.endswith('_id') and k not in('owner_id','workspace_id') else f"{k}=:{k}" for k in changes]
+  destination_org_id=changes.get('destination_org_id',old.get('destination_org_id') or o)
+  if not _network_organization(c,o,destination_org_id):raise HTTPException(422,'destination_office_outside_organization_network')
+  origin_location_id=changes.get('origin_location_id',old.get('origin_location_id'))
+  destination_location_id=changes.get('destination_location_id',old.get('destination_location_id'))
+  if origin_location_id and not c.execute(text("select 1 from organization_locations where org_id=:o and id=cast(:id as uuid) and status='ACTIVE'"),{'o':o,'id':origin_location_id}).first():raise HTTPException(422,'location_not_found')
+  if destination_location_id and not c.execute(text("select 1 from organization_locations where org_id=:o and id=cast(:id as uuid) and status='ACTIVE'"),{'o':destination_org_id,'id':destination_location_id}).first():raise HTTPException(422,'location_not_found')
+  params={"o":o,"r":r,"v":version,**changes};sets=[f"{k}=cast(:{k} as uuid)" if k.endswith('_id') and k not in('owner_id','workspace_id','destination_org_id') else f"{k}=:{k}" for k in changes]
   row=c.execute(text(f"update shipping_routes set {','.join(sets)},active=case when coalesce(:status,status) in('ACTIVE','LIMITED') then true else false end,row_version=row_version+1,updated_at=now() where org_id=:o and id=:r and row_version=:v returning *"),{**params,"status":changes.get('status')}).mappings().first()
   if not row:raise HTTPException(409,'route_version_conflict')
   event(c,o,'ROUTE_UPDATED',a,n,r,p={"reason":reason,"changes":changes});return dict(row)

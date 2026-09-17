@@ -55,12 +55,13 @@ def _dispatch_queued_status(background_tasks: BackgroundTasks, org_id: str, pack
         return package
     notification_id = package.pop("queued_notification_id", None)
     if notification_id:
-        background_tasks.add_task(send_notification, org_id, notification_id)
+        background_tasks.add_task(send_notification, str(package.get("org_id") or org_id), notification_id)
     return package
 
 
 class PackagePayload(BaseModel):
-    dossier_id: str
+    dossier_id: str | None = None
+    client_id: str | None = None
     package_reference: str | None = Field(default=None, max_length=120)
     tracking_id: str | None = Field(default=None, max_length=120)
     source: str = "manual"
@@ -120,6 +121,10 @@ class PackagePayload(BaseModel):
     receiving_mode: str|None=Field(default=None,pattern="^(MANUAL|BARCODE|QR|OCR|IMPORT|API)$")
     route_id: str|None=None
     shipping_service_id: str|None=None
+    origin_location_id: str|None=None
+    destination_location_id: str|None=None
+    destination_org_id: str|None=None
+    created_from_conversation: str|None=Field(default=None,max_length=80)
     expected_at: str|None=None
     label_ocr_snapshot: dict = Field(default_factory=dict)
     label_source_language: str|None=Field(default=None,max_length=20)
@@ -492,8 +497,18 @@ def packages_create(body: PackagePayload, background_tasks: BackgroundTasks, ten
             raise HTTPException(status_code=422, detail="dossier_required") from exc
         if str(exc) == "dossier_not_found":
             raise HTTPException(status_code=404, detail="dossier_not_found") from exc
+        if str(exc) == "client_required":
+            raise HTTPException(status_code=422, detail="client_required") from exc
+        if str(exc) == "client_not_found":
+            raise HTTPException(status_code=404, detail="client_not_found") from exc
         if str(exc) == "supplier_tracking_already_exists":
             raise HTTPException(status_code=409, detail="supplier_tracking_already_exists") from exc
+        if str(exc) in {
+            "route_not_found", "shipping_service_not_found_for_route",
+            "destination_office_outside_organization_network",
+            "origin_location_not_found", "destination_location_not_found",
+        }:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         raise
     return {"status": "ok", "package": _dispatch_queued_status(background_tasks, tenant["org_id"], package)}
 

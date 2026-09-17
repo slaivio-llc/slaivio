@@ -24,6 +24,8 @@ def test_followup_api_is_permissioned_and_mutations_versioned():
     assert "detect_candidates" in repo and "link_whatsapp_response" in repo and "advance_sequences" in repo and "followup_stop_list" in repo
     for feature in ("record_promise", "save_template", "save_view", "bulk_action", "export_all", "QUOTE_FOLLOWUP", "DOCUMENT_MISSING", "CLIENT_INACTIVE", "CONVERSATION_ABANDONED"):
         assert feature in repo
+    assert "CLIENT_PAYMENT_DUE" in repo
+    assert "payment_amount_due>payment_amount_paid" in repo
 
 
 def test_followup_workspace_is_real():

@@ -27,8 +27,13 @@ export type ClientRecord = {
   credit_limit: number;
   current_balance: number;
   total_spent: number;
+  payment_amount_due: number;
+  payment_amount_paid: number;
+  payment_currency: string | null;
+  payment_status: "NOT_SET" | "UNPAID" | "PARTIAL" | "PAID";
   dossiers_count: number;
   shipments_count: number;
+  packages_count?: number;
   last_activity_at: string | null;
   created_at: string;
   updated_at: string;
@@ -178,6 +183,9 @@ export type ClientPayload = {
   notes?: string;
   credit_enabled?: boolean;
   credit_limit?: number;
+  payment_amount_due?: number;
+  payment_amount_paid?: number;
+  payment_currency?: string;
 };
 
 export async function listClients(params: {

@@ -61,6 +61,10 @@ const client: clientService.ClientRecord = {
   credit_limit: 0,
   current_balance: 0,
   total_spent: 0,
+  payment_amount_due: 0,
+  payment_amount_paid: 0,
+  payment_currency: "USD",
+  payment_status: "NOT_SET",
   dossiers_count: 0,
   shipments_count: 0,
   last_activity_at: null,
@@ -131,6 +135,19 @@ describe("ClientsPage production interactions", () => {
     expect(await screen.findByRole("dialog", { name: "Nouveau client" })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Nom complet/).closest("label")).toHaveAttribute("data-ui", "operation-field");
     expect(screen.queryByLabelText(/Devise/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the vehicle payment tracker only in the vehicle journey", async () => {
+    vi.mocked(tenantService.getTenantContext).mockResolvedValueOnce({
+      active_tenant: { organization_type: "VEHICLE_IMPORT" },
+      tenants: [],
+    });
+    render(<ClientsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: /Nouveau client/i }));
+
+    expect(await screen.findByLabelText("Montant attendu")).toBeInTheDocument();
+    expect(screen.getByLabelText("Montant payé")).toBeInTheDocument();
+    expect(screen.getByLabelText("Devise du paiement")).toBeInTheDocument();
   });
 
   it("recovers after a temporary list failure", async () => {

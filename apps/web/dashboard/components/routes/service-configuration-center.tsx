@@ -10,6 +10,7 @@ import {
   addDeparture,
   addPolicy,
   addStop,
+  addGoodsRate,
   catalog,
   serviceConfiguration,
   type Service,
@@ -23,15 +24,17 @@ const sections = [
   ["departure", "Départs"],
   ["policy", "Restrictions"],
   ["adjustment", "Ajustements"],
+  ["rate", "Tarifs marchandises"],
 ] as const;
 
-export function ServiceConfigurationCenter() {
+export function ServiceConfigurationCenter({inline=false}:{inline?:boolean}) {
   const [open, setOpen] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [service, setService] = useState("");
   const [kind, setKind] = useState<(typeof sections)[number][0]>("stop");
   const [summary, setSummary] = useState<Record<string, unknown[]> | null>(null);
   const [error, setError] = useState("");
+  const selectedService=services.find(item=>item.id===service);
 
   useEffect(() => {
     if (open) catalog().then((value) => setServices(value.services)).catch(() => setError("Les services sont indisponibles."));
@@ -53,6 +56,7 @@ export function ServiceConfigurationCenter() {
       if (kind === "departure") await addDeparture(service, { weekday: number("weekday"), cutoff_time: value("cutoff") || null, departure_time: value("departure") || null, capacity_weight_kg: number("weight") || null, capacity_cbm: number("cbm") || null });
       if (kind === "policy") await addPolicy(service, { goods_category: value("category"), decision: value("decision"), required_documents: value("documents").split(",").map((item) => item.trim()).filter(Boolean), handling_instructions: value("instructions") || null });
       if (kind === "adjustment") await addAdjustment(service, { adjustment_code: value("code"), adjustment_name: value("name"), adjustment_type: value("adjustment_type"), amount_minor: Math.round(number("amount") * 100) || null, percentage: number("percentage") || null, client_id: value("client_id") || null, goods_category: value("category") || null, min_weight_kg: number("min_weight") || null, effective_from: new Date().toISOString(), effective_until: null, priority: 100 });
+      if (kind === "rate") await addGoodsRate(service, {goods_label:value("goods_label"),goods_category:value("goods_category")||null,billing_unit:value("billing_unit"),amount_minor:Math.round(number("amount")*100),currency_code:value("currency"),express:form.get("express")==="on",min_quantity:null,max_quantity:null,effective_from:new Date().toISOString(),effective_until:null});
       await load(service);
       event.currentTarget.reset();
     } catch (cause) {
@@ -63,7 +67,7 @@ export function ServiceConfigurationCenter() {
   return (
     <>
       <PermissionGuard permission="services.manage">
-        <button className="fixed bottom-5 right-5 z-40 inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#167d57] px-4 text-[13px] font-semibold text-white shadow-lg hover:bg-[#116b49]" onClick={() => setOpen(true)}>
+        <button className={`${inline?"inline-flex":"fixed bottom-5 right-5 z-40 inline-flex shadow-lg"} h-9 items-center gap-2 rounded-[6px] bg-[#167d57] px-3 text-[13px] font-semibold text-white hover:bg-[#116b49]`} onClick={() => setOpen(true)}>
           <Settings2 size={15} /> Configurer un service
         </button>
       </PermissionGuard>
@@ -85,9 +89,10 @@ export function ServiceConfigurationCenter() {
             {summary && <div className="mb-5 grid grid-cols-2 border border-[#e0e3e4] bg-white sm:grid-cols-4">{Object.entries(summary).map(([key, items], index) => <div key={key} className={`p-3 ${index ? "border-l border-[#e0e3e4]" : ""}`}><b className="block text-[18px] text-[#242a2e]">{items.length}</b><span className="text-[11px] capitalize text-[#737b81]">{key}</span></div>)}</div>}
             <form onSubmit={submit} className="grid gap-3 border border-[#dfe3e4] bg-white p-4">
               {kind === "stop" && <><input required name="position" type="number" min="1" className={input} placeholder="Position" /><input required name="name" className={input} placeholder="Hub ou escale" /><FormGeographyFields className={input} fieldClassName="grid gap-1 text-[12px] text-[#555d68]"/><select name="type" className={input}><option>HUB</option><option>WAREHOUSE</option><option>OFFICE</option></select><input name="hours" type="number" className={input} placeholder="Durée prévue (heures)" /></>}
-              {kind === "departure" && <><input required name="weekday" type="number" min="1" max="7" className={input} placeholder="Jour (1 = lundi)" /><input name="cutoff" type="time" className={input} /><input name="departure" type="time" className={input} /><input name="weight" type="number" className={input} placeholder="Capacité (kg)" /><input name="cbm" type="number" step=".001" className={input} placeholder="Capacité (CBM)" /></>}
+              {kind === "departure" && <><input required name="weekday" type="number" min="1" max="7" className={input} placeholder="Jour (1 = lundi)" /><input name="cutoff" type="time" className={input} /><input name="departure" type="time" className={input} />{selectedService?.shipping_mode==="SEA"?<input name="cbm" type="number" step=".001" className={input} placeholder="Capacité (CBM)" />:<input name="weight" type="number" step=".01" className={input} placeholder="Capacité (kg)" />}</>}
               {kind === "policy" && <><input required name="category" className={input} placeholder="Catégorie de marchandise" /><select name="decision" className={input}><option>ALLOWED</option><option>REVIEW_REQUIRED</option><option>RESTRICTED</option><option>PROHIBITED</option></select><input name="documents" className={input} placeholder="Documents séparés par des virgules" /><input name="instructions" className={input} placeholder="Instructions" /></>}
               {kind === "adjustment" && <><input required name="code" className={input} placeholder="Code" /><input required name="name" className={input} placeholder="Nom" /><select name="adjustment_type" className={input}><option>FIXED</option><option>PERCENTAGE</option></select><input name="amount" type="number" step=".01" className={input} placeholder="Montant fixe" /><input name="percentage" type="number" step=".01" className={input} placeholder="Pourcentage" /><input name="client_id" className={input} placeholder="Client ID (optionnel)" /><input name="category" className={input} placeholder="Marchandise (optionnel)" /><input name="min_weight" type="number" className={input} placeholder="Poids minimum" /></>}
+              {kind === "rate" && <><input required name="goods_label" className={input} placeholder="Ex. Marchandises aériennes normales"/><input name="goods_category" className={input} placeholder="Catégorie interne (optionnelle)"/><select name="billing_unit" className={input} defaultValue={selectedService?.shipping_mode==="SEA"?"CBM":"KG"}><option value="KG">Prix par kg</option><option value="CBM">Prix par CBM</option><option value="PACKAGE">Prix par colis</option><option value="FLAT">Forfait</option></select><div className="grid grid-cols-[1fr_110px] gap-2"><input required name="amount" type="number" min="0" step=".01" className={input} placeholder="Prix"/><select name="currency" className={input} defaultValue={selectedService?.currency_code||"USD"}><option>USD</option><option>EUR</option><option>FCFA</option><option>CDF</option><option>RMB</option></select></div><label className="flex items-center gap-2 text-[12px] text-[#4d555c]"><input name="express" type="checkbox"/>Service express</label></>}
               <div className="flex justify-end border-t border-[#eceeef] pt-3"><button className={primary}>Enregistrer</button></div>
             </form>
             {error && <p className="mt-3 border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">{error}</p>}

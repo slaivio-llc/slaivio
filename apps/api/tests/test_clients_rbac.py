@@ -1,4 +1,5 @@
 from app.api.clients import (
+    ClientPayload,
     ClientPatchPayload,
     ClientMergePayload,
     MAX_CLIENT_EXPORT_ROWS,
@@ -120,6 +121,25 @@ def test_client_contact_normalization_is_deterministic():
 def test_client_patch_requires_the_current_row_version():
     payload = ClientPatchPayload(row_version=4, name="Nouveau nom")
     assert payload.row_version == 4
+
+
+def test_vehicle_payment_tracking_normalizes_currency_and_rejects_negative_amounts():
+    payload = ClientPayload(
+        name="Client véhicule",
+        payment_amount_due=1500,
+        payment_amount_paid=500,
+        payment_currency="cdf",
+    )
+    assert payload.payment_currency == "CDF"
+    assert payload.payment_amount_due - payload.payment_amount_paid == 1000
+
+
+def test_vehicle_payment_migration_keeps_payment_state_derived():
+    migration = Path(__file__).parents[3] / "infra/sql/122_vehicle_client_payment_tracking.sql"
+    sql = migration.read_text(encoding="utf-8").lower()
+    assert "payment_amount_due" in sql
+    assert "payment_amount_paid" in sql
+    assert "payment_amount_due > payment_amount_paid" in sql
 
 
 def test_client_merge_contract_is_versioned_and_idempotent():

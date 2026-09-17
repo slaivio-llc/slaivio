@@ -197,3 +197,15 @@ export function FormGeographyFields({
   const [city, setCity] = useState(initialCity);
   return <GeographyFields {...props} country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} />;
 }
+
+export function PhoneField({name="phone",defaultValue="",initialCountry="",className}:{name?:string;defaultValue?:string;initialCountry?:string;className:string}) {
+  const initial=resolveCountry(initialCountry);
+  const normalized=defaultValue.replace(/[^0-9+]/g,"");
+  const matched=[...countries].filter(country=>normalized.startsWith(`+${country.phone||""}`)).sort((left,right)=>(right.phone?.length||0)-(left.phone?.length||0))[0];
+  const [countryCode,setCountryCode]=useState(matched?.shortName||initial?.shortName||"");
+  const current=countries.find(country=>country.shortName===countryCode);
+  const initialDial=matched?.phone||initial?.phone||"";
+  const [national,setNational]=useState(normalized.replace(new RegExp(`^\\+?${initialDial}`),"").replace(/^0+/,""));
+  const phone=current?.phone&&national?`+${current.phone}${national.replace(/\D/g,"")}`:"";
+  return <div className="grid grid-cols-[132px_1fr] gap-2"><input type="hidden" name={name} value={phone}/><select aria-label="Indicatif du pays" className={className} value={countryCode} onChange={event=>{setCountryCode(event.target.value);setNational("");}}><option value="">Indicatif</option>{countries.map(country=><option key={country.shortName} value={country.shortName}>{country.emoji} +{country.phone}</option>)}</select><input aria-label="Numéro de téléphone" inputMode="tel" autoComplete="tel-national" className={className} value={national} onChange={event=>setNational(event.target.value.replace(/\D/g,""))} placeholder="Numéro sans indicatif"/></div>;
+}

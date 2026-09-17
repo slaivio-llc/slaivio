@@ -33,6 +33,9 @@ CLIENT_EXPORT_COLUMNS = [
     "credit_limit",
     "current_balance",
     "total_spent",
+    "payment_amount_due",
+    "payment_amount_paid",
+    "payment_currency",
     "notes",
 ]
 
@@ -208,13 +211,23 @@ def list_clients(
                     c.credit_limit,
                     c.current_balance,
                     c.total_spent,
+                    c.payment_amount_due,
+                    c.payment_amount_paid,
+                    c.payment_currency,
+                    case
+                      when c.payment_amount_due <= 0 then 'NOT_SET'
+                      when c.payment_amount_paid <= 0 then 'UNPAID'
+                      when c.payment_amount_paid < c.payment_amount_due then 'PARTIAL'
+                      else 'PAID'
+                    end payment_status,
                     c.last_activity_at,
                     c.created_at,
                     c.updated_at,
                     c.row_version,
                     c.deleted_at,
                     coalesce(d.dossiers_count, 0)::int dossiers_count,
-                    coalesce(s.shipments_count, 0)::int shipments_count
+                    coalesce(s.shipments_count, 0)::int shipments_count,
+                    coalesce(p.packages_count, 0)::int packages_count
                 from clients c
                 left join (
                     select client_id, count(*) dossiers_count
@@ -228,6 +241,12 @@ def list_clients(
                     where org_id = :org_id
                     group by client_id
                 ) s on s.client_id = c.id
+                left join (
+                    select client_id, count(*) packages_count
+                    from cargo_packages
+                    where org_id = :org_id and deleted_at is null
+                    group by client_id
+                ) p on p.client_id = c.id
                 where {where_clause}
                 order by {order_by}
                 limit :limit offset :offset
@@ -274,12 +293,22 @@ def get_client(org_id: str, client_id: str) -> dict | None:
                     c.credit_limit,
                     c.current_balance,
                     c.total_spent,
+                    c.payment_amount_due,
+                    c.payment_amount_paid,
+                    c.payment_currency,
+                    case
+                      when c.payment_amount_due <= 0 then 'NOT_SET'
+                      when c.payment_amount_paid <= 0 then 'UNPAID'
+                      when c.payment_amount_paid < c.payment_amount_due then 'PARTIAL'
+                      else 'PAID'
+                    end payment_status,
                     c.last_activity_at,
                     c.created_at,
                     c.updated_at,
                     c.row_version,
                     coalesce(d.dossiers_count, 0)::int dossiers_count,
-                    coalesce(s.shipments_count, 0)::int shipments_count
+                    coalesce(s.shipments_count, 0)::int shipments_count,
+                    coalesce(p.packages_count, 0)::int packages_count
                 from clients c
                 left join (
                     select client_id, count(*) dossiers_count
@@ -293,6 +322,12 @@ def get_client(org_id: str, client_id: str) -> dict | None:
                     where org_id = :org_id
                     group by client_id
                 ) s on s.client_id = c.id
+                left join (
+                    select client_id, count(*) packages_count
+                    from cargo_packages
+                    where org_id = :org_id and deleted_at is null
+                    group by client_id
+                ) p on p.client_id = c.id
                 where c.org_id = :org_id
                   and c.id = :client_id
                   and c.deleted_at is null
@@ -354,14 +389,16 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
                     org_id, name, display_name, company_name, tax_id, phone, whatsapp_phone,
                     email, normalized_phone, normalized_email, country, city, address, customer_type, lifecycle_status,
                     source, preferred_language, preferred_currency, notes, credit_enabled,
-                    credit_limit, current_balance, total_spent, last_activity_at,
+                    credit_limit, current_balance, total_spent,
+                    payment_amount_due, payment_amount_paid, payment_currency, last_activity_at,
                     created_by, updated_by
                 )
                 values (
                     :org_id, :name, :display_name, :company_name, :tax_id, :phone, :whatsapp_phone,
                     :email, :normalized_phone, :normalized_email, :country, :city, :address, :customer_type, :lifecycle_status,
                     :source, :preferred_language, :preferred_currency, :notes, :credit_enabled,
-                    :credit_limit, :current_balance, :total_spent, now(),
+                    :credit_limit, :current_balance, :total_spent,
+                    :payment_amount_due, :payment_amount_paid, :payment_currency, now(),
                     :user_id, :user_id
                 )
                 returning id::text
@@ -391,6 +428,9 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
                 "credit_limit": payload.get("credit_limit") or 0,
                 "current_balance": payload.get("current_balance") or 0,
                 "total_spent": payload.get("total_spent") or 0,
+                "payment_amount_due": payload.get("payment_amount_due") or 0,
+                "payment_amount_paid": payload.get("payment_amount_paid") or 0,
+                "payment_currency": (payload.get("payment_currency") or payload.get("preferred_currency") or "USD").upper(),
                 },
             ).fetchone()
             if row is not None:
@@ -440,6 +480,9 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
         "credit_limit": payload.get("credit_limit", existing.get("credit_limit")),
         "current_balance": payload.get("current_balance", existing.get("current_balance")),
         "total_spent": payload.get("total_spent", existing.get("total_spent")),
+        "payment_amount_due": payload.get("payment_amount_due", existing.get("payment_amount_due")),
+        "payment_amount_paid": payload.get("payment_amount_paid", existing.get("payment_amount_paid")),
+        "payment_currency": (payload.get("payment_currency", existing.get("payment_currency")) or "USD").upper(),
     }
     expected_version = int(payload["row_version"])
     if not data["display_name"]:
@@ -472,6 +515,9 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
                     credit_limit = :credit_limit,
                     current_balance = :current_balance,
                     total_spent = :total_spent,
+                    payment_amount_due = :payment_amount_due,
+                    payment_amount_paid = :payment_amount_paid,
+                    payment_currency = :payment_currency,
                     updated_by = :user_id,
                     updated_at = now(),
                     row_version = row_version + 1
@@ -1210,6 +1256,9 @@ def import_clients(org_id: str, user_id: str, rows: list[dict]) -> dict:
             "notes": row.get("notes"),
             "credit_enabled": str(row.get("credit_enabled") or "").lower() in {"true", "1", "yes", "oui"},
             "credit_limit": row.get("credit_limit") or 0,
+            "payment_amount_due": row.get("payment_amount_due") or row.get("montant_attendu") or 0,
+            "payment_amount_paid": row.get("payment_amount_paid") or row.get("montant_paye") or 0,
+            "payment_currency": row.get("payment_currency") or row.get("devise_paiement") or row.get("devise") or "USD",
         }
         if payload["customer_type"] not in CLIENT_TYPES:
             errors.append({"row": row_number, "error": "invalid_customer_type"})
@@ -1226,6 +1275,14 @@ def import_clients(org_id: str, user_id: str, rows: list[dict]) -> dict:
                 raise ValueError
         except (TypeError, ValueError):
             errors.append({"row": row_number, "error": "invalid_credit_limit"})
+            continue
+        try:
+            payload["payment_amount_due"] = float(payload["payment_amount_due"] or 0)
+            payload["payment_amount_paid"] = float(payload["payment_amount_paid"] or 0)
+            if payload["payment_amount_due"] < 0 or payload["payment_amount_paid"] < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors.append({"row": row_number, "error": "invalid_payment_amount"})
             continue
 
         try:

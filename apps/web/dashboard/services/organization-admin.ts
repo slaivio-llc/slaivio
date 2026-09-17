@@ -15,7 +15,7 @@ export async function archiveWorkspace(id:string,expected_version:number){return
 export async function saveLocation(payload:Record<string,unknown>){return(await api.post('/organization/admin/locations',payload)).data}
 export async function saveIntegration(payload:Record<string,unknown>){return(await api.post('/organization/admin/integrations',payload)).data}
 export async function saveNumbering(type:string,prefix_format:string,expected_version:number){return(await api.patch(`/organization/admin/numbering/${type}`,{prefix_format,expected_version})).data}
-export async function savePilotNumbering(type:"CLIENT"|"DOSSIER",prefix_format:string,expected_version:number){return(await api.patch(`/organization/admin/pilot/numbering/${type}`,{prefix_format,expected_version})).data}
+export async function savePilotNumbering(type:"CLIENT"|"DOSSIER"|"PACKAGE",prefix_format:string,expected_version:number){return(await api.patch(`/organization/admin/pilot/numbering/${type}`,{prefix_format,expected_version})).data}
 export async function requestDataOperation(payload:Record<string,unknown>){return(await api.post('/organization/admin/data-requests',payload)).data}
 export async function createApiKey(payload:Record<string,unknown>){return(await api.post('/organization/admin/api-keys',payload)).data}
 export async function revokeApiKey(id:string){return(await api.delete(`/organization/admin/api-keys/${id}`)).data}
@@ -23,15 +23,16 @@ export type AgencyWhatsappNumber={id:string;display_phone_number?:string;verifie
 export async function listAgencyWhatsappNumbers(){return(await api.get<{numbers:AgencyWhatsappNumber[]}>('/whatsapp/numbers')).data.numbers}
 
 export type PilotSettingsData={
- organization:{id:string;organization_name:string;legal_name?:string|null;country?:string|null;city?:string|null;address?:string|null;phone?:string|null;email?:string|null;website?:string|null;logo_url?:string|null;row_version:number;whatsapp_group_on_dossier_create:boolean};
+ organization:{id:string;organization_name:string;legal_name?:string|null;organization_type?:"VEHICLE_IMPORT"|"PARCEL_FREIGHT"|string|null;country?:string|null;city?:string|null;address?:string|null;phone?:string|null;email?:string|null;website?:string|null;logo_url?:string|null;row_version:number;whatsapp_group_on_dossier_create:boolean};
  responsible?:{id:string;member_display_name?:string|null;member_email?:string|null;role_code:string;status:string;last_seen_at?:string|null}|null;
  team:Array<{id:string;member_display_name?:string|null;member_email?:string|null;role_code:string;status:string;last_seen_at?:string|null}>;
  locations:Array<{id:string;name:string;code:string;location_type:"OFFICE"|"WAREHOUSE"|"HUB"|"PICKUP_POINT";country:string;city:string;address?:string|null;phone?:string|null;whatsapp?:string|null;email?:string|null;manager_name?:string|null;timezone:string;services:string[];status:string;row_version:number}>;
- numbering:Array<{document_type:"CLIENT"|"DOSSIER";prefix_format:string;next_number:number;row_version:number;updated_at:string}>;
+ numbering:Array<{document_type:"CLIENT"|"DOSSIER"|"PACKAGE";prefix_format:string;next_number:number;row_version:number;updated_at:string}>;
  whatsapp_numbers:Array<{id:string;provider:"META"|"WAZZAP"|"QR_LINKED_DEVICE";phone_number_id?:string|null;display_phone_number?:string|null;verified_name?:string|null;connection_status:string;quality_rating?:string|null;is_default:boolean;last_sync_at?:string|null;auto_mark_read:boolean;group_replies_enabled:boolean}>;
  whatsapp_configuration:{provider:"META"|"WAZZAP"|"QR_LINKED_DEVICE"|"MOCK";activation_available:boolean;qr_linked_device_available:boolean;suggested_phone_number?:string|null;suggested_verified_name?:string|null;webhook_url?:string|null};
  ai:{pilot_response_mode:"SUGGESTION_ONLY"|"CONTROLLED_AUTO"|"PAUSED";pilot_require_published_knowledge:boolean;system_prompt:string;user_prompt_template:string;communication_style:"PROFESSIONAL"|"CONCISE"|"FORMAL"|"WARM";prompt_row_version:number;prompt_score?:number;updated_at:string};
  knowledge:{default_language:"FR"|"EN";pilot_default_review_days:number;pilot_row_version:number;published_count:number;draft_count:number;whatsapp_ready_count:number};
+ parcel_operations?:{package_number_pattern:string;prospect_followup_delay_hours:number;incomplete_profile_followup_hours:number;notify_next_departure:boolean;notify_package_milestones:boolean;require_payment_clearance:boolean;required_profile_fields:string[];row_version:number;updated_at:string}|null;
 };
 export async function getPilotSettings(){return(await api.get<PilotSettingsData>('/organization/admin/pilot')).data}
 export async function selectPilotWhatsappNumber(number_id:string){return(await api.patch('/organization/admin/pilot/whatsapp-number',{number_id})).data}
@@ -42,6 +43,7 @@ export async function startPilotWhatsappQR(terms_accepted:boolean){return(await 
 export async function getPilotWhatsappQRStatus(){return(await api.get<{connection:PilotQRConnection|null}>('/organization/admin/pilot/whatsapp-qr/status')).data.connection}
 export async function disconnectPilotWhatsappQR(connection_id:string){return(await api.post(`/organization/admin/pilot/whatsapp-qr/${connection_id}/disconnect`)).data}
 export async function savePilotKnowledgeDefaults(payload:{default_language:"FR"|"EN";default_review_days:number;expected_version:number}){return(await api.patch('/organization/admin/pilot/knowledge',payload)).data}
+export async function saveParcelOperationSettings(payload:{package_number_pattern:string;prospect_followup_delay_hours:number;incomplete_profile_followup_hours:number;notify_next_departure:boolean;notify_package_milestones:boolean;require_payment_clearance:boolean;expected_version:number}){return(await api.patch('/organization/admin/pilot/parcel-operations',payload)).data}
 export async function savePilotAIPrompt(payload:{system_prompt:string;user_prompt_template:string;communication_style:string;expected_version:number}){return(await api.patch('/inbox/ai/prompt',payload)).data}
 export type PilotAIPromptTestResult={
   answer:string;

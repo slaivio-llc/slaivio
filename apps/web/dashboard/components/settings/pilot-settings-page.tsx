@@ -34,6 +34,7 @@ import {
 } from "@/services/organization-admin";
 import { getNotificationPreferences, saveNotificationPreference, type NotificationPreference } from "@/services/notification-center";
 import { ServiceConfigurationCenter } from "@/components/routes/service-configuration-center";
+import { KnowledgePage } from "@/components/knowledge/knowledge-page";
 
 const sections = [
   ["company", "Entreprise"],
@@ -57,6 +58,11 @@ export function PilotSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const parcelFreight = data?.organization.organization_type === "PARCEL_FREIGHT";
+  const visibleSections = useMemo(
+    () => sections.filter(([key]) => parcelFreight || key !== "network"),
+    [parcelFreight],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,8 +80,9 @@ export function PilotSettingsPage() {
   useEffect(() => {
     const requested = params.get("section") as Section | null;
     if (params.get("section") === "communication") { setSection("channels"); return; }
-    if (requested && sections.some(([key]) => key === requested)) setSection(requested);
-  }, [params]);
+    if (requested === "network" && data && !parcelFreight) { setSection("company"); return; }
+    if (requested && visibleSections.some(([key]) => key === requested)) setSection(requested);
+  }, [data, params, parcelFreight, visibleSections]);
 
   function choose(next: Section) {
     setSection(next);
@@ -106,10 +113,10 @@ export function PilotSettingsPage() {
   if (!data) return <ErrorState title="Paramètres indisponibles" description={error} retry={load} />;
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")} actions={<OperationButton onClick={load} aria-label={dashboardLabel(locale, "Actualiser")} title={dashboardLabel(locale, "Actualiser")} className="w-9 px-0"><RefreshCcw size={14}/></OperationButton>}/>
+    <OperationPageHeader divider={false} title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")} actions={<OperationButton onClick={load} aria-label={dashboardLabel(locale, "Actualiser")} title={dashboardLabel(locale, "Actualiser")} className="w-9 px-0"><RefreshCcw size={14}/></OperationButton>}/>
       <main className="mx-auto min-w-0 w-full max-w-[1200px] px-6 pb-10 sm:px-8">
         <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto border-b border-[#dfe3e7] pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {sections.map(([key, label]) => {
+          {visibleSections.map(([key, label]) => {
             const active = section === key;
             return <button
               key={key}
@@ -141,9 +148,9 @@ function SectionHeader({title, description}:{title:string;description:string}) {
   return <header className="mb-6 lg:mb-0 lg:pr-8"><h2 className="text-[17px] font-semibold tracking-[-.015em] text-[#252c32]">{dashboardLabel(locale, title)}</h2><p className="mt-1.5 max-w-[260px] text-[13px] leading-5 text-[#69747d]">{dashboardLabel(locale, description)}</p></header>;
 }
 
-function SettingsCard({title, description, children}:{title:string;description?:string;children:React.ReactNode}) {
+function SettingsCard({title, description, children, framed=false}:{title:string;description?:string;children:React.ReactNode;framed?:boolean}) {
   const locale = useDashboardLocale();
-  return <section data-ui="settings-card" className="overflow-hidden rounded-[9px] bg-white"><header className="pb-4"><h3 className="text-[15px] font-semibold text-[#30383f]">{dashboardLabel(locale, title)}</h3>{description && <p className="mt-1 text-[12px] leading-5 text-[#77818a]">{dashboardLabel(locale, description)}</p>}</header><div>{children}</div></section>;
+  return <section data-ui="settings-card" className={`overflow-hidden rounded-[10px] bg-white ${framed ? "border border-[#dfe4e6] p-5 shadow-[0_1px_2px_rgba(15,23,42,.03)]" : ""}`}><header className="pb-4"><h3 className="text-[15px] font-semibold text-[#30383f]">{dashboardLabel(locale, title)}</h3>{description && <p className="mt-1 text-[12px] leading-5 text-[#77818a]">{dashboardLabel(locale, description)}</p>}</header><div>{children}</div></section>;
 }
 
 function Field({label, hint, children}:{label:string;hint?:string;children:React.ReactNode}) {
@@ -272,11 +279,11 @@ function CommunicationSettings({data,run}:{data:PilotSettingsData;run:(action:()
   const reconnecting=qrConnection?.status==="CONNECTING"||qrConnection?.status==="DISCONNECTED";
   const displayPhone=qrConnection?.display_phone_number||linkedNumber?.display_phone_number;
   return <><SectionHeader title="Canaux de communication" description="Connectez les canaux utilisés par l’entreprise pour recevoir et envoyer ses messages."/><div className="grid gap-5">
-    <SettingsCard title="WhatsApp" description="Connectez un compte WhatsApp pour recevoir et envoyer les messages de l’entreprise depuis SLAIVIO."><div className="grid gap-4">
+    <SettingsCard framed title="WhatsApp" description="Connectez un compte WhatsApp pour recevoir et envoyer les messages de l’entreprise depuis SLAIVIO."><div className="grid gap-4">
       <div className="flex items-center gap-4"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-[10px] bg-[#e6f7ee]"><WhatsAppLogo/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="text-[15px] font-semibold text-[#29323a]">WhatsApp</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${connected?"bg-[#dff5e9] text-[#087848]":"bg-[#eef1f2] text-[#657079]"}`}>{connected?"1/1":"0/1"}</span></div><p className="mt-1 text-[12px] leading-5 text-[#6f7a83]">Le canal reste sous le contrôle de l’entreprise et centralise les échanges dans la Boîte de réception.</p></div></div>
       {!data.whatsapp_configuration.qr_linked_device_available&&<p className="rounded-[8px] border border-[#eadfbd] bg-[#fffbef] p-3 text-[12px] text-[#765d20]">Le service de liaison WhatsApp doit être configuré par l’administrateur avant la première connexion.</p>}
-      {connected&&<div className="overflow-hidden rounded-[9px] border border-[#dce3df]"><div className="flex items-center justify-between bg-[#f3faf6] px-4 py-3"><div className="flex items-center gap-2 text-[13px] font-semibold text-[#176142]"><span className="h-2 w-2 rounded-full bg-[#12a865]"/>Connecté</div><button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-[6px] px-2 text-[12px] font-medium text-[#52615a] hover:bg-white" onClick={()=>void refreshConnection()}><RefreshCcw size={13} className={qrBusy?"animate-spin":""}/>Actualiser</button></div><div className="grid gap-3 px-4 py-4 text-[12px]"><DetailRow label="Numéro de téléphone" value={displayPhone||"Numéro lié"}/><DetailRow label="ID du compte" value={linkedNumber?.phone_number_id||linkedNumber?.id||"—"} copy/></div></div>}
-      {connected&&<div className="overflow-hidden rounded-[9px] border border-[#dfe3e6]"><PreferenceRow label="Marquer les messages comme lus automatiquement" checked={autoRead} change={value=>void savePreferences({autoRead:value})}/><PreferenceRow label="Réponses dans les groupes WhatsApp" checked={groupReplies} change={value=>void savePreferences({groupReplies:value})}/><PreferenceRow label="Créer un groupe lors de la création d’un dossier" description="Disponible pour les connexions compatibles ; les participants restent validés par l’entreprise." checked={groupCreation} change={value=>void savePreferences({groupCreation:value})}/></div>}
+      {connected&&<div className="overflow-hidden border-y border-[#e2e7e4]"><div className="flex items-center justify-between bg-[#f5faf7] px-1 py-3"><div className="flex items-center gap-2 text-[13px] font-semibold text-[#176142]"><span className="h-2 w-2 rounded-full bg-[#12a865]"/>Connecté</div><button type="button" aria-label="Actualiser la connexion WhatsApp" title="Actualiser" className="grid h-8 w-8 place-items-center rounded-[6px] text-[#52615a] hover:bg-white" onClick={()=>void refreshConnection()}><RefreshCcw size={13} className={qrBusy?"animate-spin":""}/></button></div><div className="grid gap-3 py-4 text-[12px]"><DetailRow label="Numéro de téléphone" value={displayPhone||"Numéro lié"}/><DetailRow label="ID du compte" value={linkedNumber?.phone_number_id||linkedNumber?.id||"—"} copy/></div></div>}
+      {connected&&<div className="overflow-hidden border-b border-[#e2e7e4]"><PreferenceRow label="Marquer les messages comme lus automatiquement" checked={autoRead} change={value=>void savePreferences({autoRead:value})}/><PreferenceRow label="Réponses dans les groupes WhatsApp" checked={groupReplies} change={value=>void savePreferences({groupReplies:value})}/><PreferenceRow label="Créer un groupe lors de la création d’un dossier" description="Disponible pour les connexions compatibles ; les participants restent validés par l’entreprise." checked={groupCreation} change={value=>void savePreferences({groupCreation:value})}/></div>}
       {!connected&&reconnecting&&<div className="flex items-start gap-3 rounded-[9px] border border-[#eadfbd] bg-[#fffbef] p-4"><Loader2 size={17} className="mt-0.5 shrink-0 animate-spin text-[#8a6b18]"/><div><p className="text-[13px] font-semibold text-[#6d5a22]">Reconnexion automatique en cours</p><p className="mt-1 text-[12px] leading-5 text-[#796b43]">SLAIVIO tente de rétablir la session sans demander un nouveau QR code.</p></div></div>}
       <PermissionGuard permission="pilot.whatsapp_qr.connect"><OperationButton variant={connected?"secondary":"primary"} disabled={!data.whatsapp_configuration.qr_linked_device_available} onClick={()=>connected?setManageOpen(true):void openQR()}><Smartphone size={15}/>{connected?"Gérer le compte WhatsApp":"Lier un compte WhatsApp"}</OperationButton></PermissionGuard>
     </div></SettingsCard>
@@ -292,7 +299,7 @@ function FormToggle({name,label,description,defaultChecked}:{name:string;label:s
 function WhatsappManagementDialog({phone,accountId,busy,close,refresh,disconnect}:{phone?:string|null;accountId?:string|null;busy:boolean;close:()=>void;refresh:()=>void;disconnect:()=>void}){return <div className="fixed inset-0 z-[95] grid place-items-center bg-[#17212b]/45 p-4 backdrop-blur-[1px]" role="dialog" aria-modal="true" onMouseDown={event=>event.currentTarget===event.target&&close()}><section className="w-full max-w-[520px] overflow-hidden rounded-[12px] border border-[#d9dee1] bg-white shadow-2xl"><header className="flex items-start gap-3 border-b border-[#e5e8ea] px-5 py-4"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#e7f7ef]"><WhatsAppLogo/></span><div className="flex-1"><h3 className="text-[16px] font-semibold">Gérer le compte WhatsApp</h3><p className="mt-1 text-[12px] text-[#717c85]">Connexion et préférences du numéro de l’entreprise.</p></div><button type="button" className="grid h-8 w-8 place-items-center rounded-[6px] hover:bg-[#f1f3f3]" aria-label="Fermer" onClick={close}><X size={17}/></button></header><div className="grid gap-4 p-5"><div className="rounded-[9px] border border-[#dce3df]"><div className="flex items-center justify-between bg-[#f3faf6] px-4 py-3 text-[13px] font-semibold text-[#176142]"><span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#12a865]"/>Connecté</span><button type="button" className="inline-flex items-center gap-1.5" onClick={refresh}><RefreshCcw size={13} className={busy?"animate-spin":""}/>Actualiser</button></div><div className="grid gap-3 px-4 py-4 text-[12px]"><DetailRow label="Numéro de téléphone" value={phone||"Numéro lié"}/><DetailRow label="ID du compte" value={accountId||"—"} copy/></div></div><OperationButton onClick={refresh}>Gérer le numéro</OperationButton><PermissionGuard permission="pilot.whatsapp_qr.disconnect"><OperationButton variant="danger" disabled={busy} onClick={disconnect}><Trash2 size={15}/>Supprimer le compte</OperationButton></PermissionGuard></div></section></div>}
 
 function UnavailableChannel({name,description,icon}:{name:string;description:string;icon:React.ReactNode}) {
-  return <SettingsCard title={name}><div className="flex items-center gap-4"><span className="grid h-12 w-12 place-items-center rounded-[10px] bg-[#f1f3f4] text-[#65717a]">{icon}</span><div className="min-w-0 flex-1"><p className="text-[13px] leading-5 text-[#66717a]">{description}</p></div><OperationStatus label="Bientôt disponible" tone="neutral"/></div></SettingsCard>;
+  return <SettingsCard framed title={name}><div className="flex items-center gap-4"><span className="grid h-12 w-12 place-items-center rounded-[10px] bg-[#f1f3f4] text-[#65717a]">{icon}</span><div className="min-w-0 flex-1"><p className="text-[13px] leading-5 text-[#66717a]">{description}</p></div><OperationStatus label="Bientôt disponible" tone="neutral"/></div></SettingsCard>;
 }
 
 function AISettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<unknown>,message:string)=>Promise<void>}) {
@@ -399,8 +406,7 @@ function KnowledgeSettings({data,run}:{data:PilotSettingsData;run:(action:()=>Pr
   const [language,setLanguage]=useState<"FR"|"EN">(data.knowledge.default_language);
   const [days,setDays]=useState(String(data.knowledge.pilot_default_review_days));
   useEffect(()=>{setLanguage(data.knowledge.default_language);setDays(String(data.knowledge.pilot_default_review_days));},[data.knowledge]);
-  const summary=useMemo(()=>[{label:"Publiées",value:data.knowledge.published_count},{label:"Brouillons",value:data.knowledge.draft_count},{label:"Prêtes pour WhatsApp",value:data.knowledge.whatsapp_ready_count}],[data.knowledge]);
-  return <><SectionHeader title="Connaissances" description="Définissez les valeurs proposées lors de la création d’une information. La publication reste toujours une action volontaire."/><div className="grid gap-5"><div className="grid gap-3 sm:grid-cols-3">{summary.map(item=><div key={item.label} className="rounded-[9px] border border-[#dfe3e6] bg-white px-4 py-4"><p className="text-[12px] font-medium text-[#75808a]">{item.label}</p><p className="mt-2 text-[24px] font-semibold tracking-[-.03em] text-[#293139]">{item.value}</p></div>)}</div><SettingsCard title="Base de connaissances" description="Ajoutez les tarifs, adresses, modalités de paiement, délais et réponses fréquentes utilisés par l’IA."><Link href="/app/knowledge" className="inline-flex h-9 items-center justify-center rounded-[7px] bg-[#12a865] px-4 text-[13px] font-semibold text-white hover:bg-[#0f965a]">Gérer les connaissances</Link></SettingsCard><SettingsCard title="Valeurs proposées par défaut" description="Elles pourront être changées individuellement sur chaque information."><div className="grid gap-5 sm:grid-cols-2"><Field label="Langue habituelle"><select value={language} onChange={event=>setLanguage(event.target.value as "FR"|"EN")} className={inputClass}><option value="FR">Français</option><option value="EN">Anglais</option></select></Field><Field label="Prochaine vérification proposée"><select value={days} onChange={event=>setDays(event.target.value)} className={inputClass}><option value="30">Après 30 jours</option><option value="90">Après 3 mois</option><option value="180">Après 6 mois</option><option value="365">Après 1 an</option></select></Field></div><div className="mt-5 rounded-[8px] border border-[#dce8e2] bg-[#f5faf7] px-4 py-3 text-[12px] leading-5 text-[#4f665b]">Une information arrivée à sa date de vérification ne sera plus utilisée dans une réponse automatique tant qu’elle n’aura pas été confirmée.</div><PermissionGuard permission="pilot.settings.manage"><div className="mt-5 flex justify-end border-t border-[#e7eaec] pt-5"><OperationButton variant="primary" onClick={()=>run(()=>savePilotKnowledgeDefaults({default_language:language,default_review_days:Number(days),expected_version:data.knowledge.pilot_row_version}),"Les réglages de la base de connaissances ont été enregistrés.")}>Enregistrer</OperationButton></div></PermissionGuard></SettingsCard></div></>;
+  return <><SectionHeader title="Connaissances" description="Ajoutez, publiez et maintenez ici toutes les informations utilisées par l’IA."/><div className="grid min-w-0 gap-7"><KnowledgePage embedded/><SettingsCard framed title="Valeurs proposées par défaut" description="Elles pourront être changées individuellement sur chaque information."><div className="grid gap-5 sm:grid-cols-2"><Field label="Langue habituelle"><select value={language} onChange={event=>setLanguage(event.target.value as "FR"|"EN")} className={inputClass}><option value="FR">Français</option><option value="EN">Anglais</option></select></Field><Field label="Prochaine vérification proposée"><select value={days} onChange={event=>setDays(event.target.value)} className={inputClass}><option value="30">Après 30 jours</option><option value="90">Après 3 mois</option><option value="180">Après 6 mois</option><option value="365">Après 1 an</option></select></Field></div><div className="mt-5 rounded-[8px] border border-[#dce8e2] bg-[#f5faf7] px-4 py-3 text-[12px] leading-5 text-[#4f665b]">Une information arrivée à sa date de vérification ne sera plus utilisée dans une réponse automatique tant qu’elle n’aura pas été confirmée.</div><PermissionGuard permission="pilot.settings.manage"><div className="mt-5 flex justify-end border-t border-[#e7eaec] pt-5"><OperationButton variant="primary" onClick={()=>run(()=>savePilotKnowledgeDefaults({default_language:language,default_review_days:Number(days),expected_version:data.knowledge.pilot_row_version}),"Les réglages de la base de connaissances ont été enregistrés.")}>Enregistrer</OperationButton></div></PermissionGuard></SettingsCard></div></>;
 }
 
 function formatDate(value?:string|null) {

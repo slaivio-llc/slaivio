@@ -9,16 +9,18 @@ export function OperationPageHeader({
   description,
   actions,
   tabs,
+  divider = true,
 }: {
   title: string;
   description: string;
   actions?: ReactNode;
   tabs?: ReactNode;
+  divider?: boolean;
 }) {
   return (
     <header data-ui="operation-page-header" className="operation-page-header bg-white">
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-10 lg:pt-12">
-        <div className="flex flex-col gap-3 border-b border-[#dfe1e3] pb-6 sm:pb-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className={`flex flex-col gap-3 pb-6 sm:pb-8 lg:flex-row lg:items-center lg:justify-between ${divider ? "border-b border-[#dfe1e3]" : ""}`}>
           <div className="min-w-0">
             <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
             <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">

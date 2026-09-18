@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PilotSettingsPage } from "./pilot-settings-page";
 import * as adminService from "@/services/organization-admin";
+import * as knowledgeService from "@/services/knowledge";
 
 const replace = vi.fn();
 
@@ -25,6 +26,15 @@ vi.mock("@/components/ui/geography-fields", () => ({
 vi.mock("@/services/organization-admin", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/services/organization-admin")>();
   return { ...actual, getPilotSettings: vi.fn() };
+});
+
+vi.mock("@/services/knowledge", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/knowledge")>();
+  return {
+    ...actual,
+    listPilotKnowledge: vi.fn(),
+    getPilotKnowledgeStats: vi.fn(),
+  };
 });
 
 const settings: adminService.PilotSettingsData = {
@@ -80,6 +90,32 @@ const settings: adminService.PilotSettingsData = {
 beforeEach(() => {
   replace.mockReset();
   vi.mocked(adminService.getPilotSettings).mockResolvedValue(settings);
+  vi.mocked(knowledgeService.listPilotKnowledge).mockResolvedValue({
+    total: 1,
+    items: [{
+      id: "knowledge-1",
+      reference: "KN-1",
+      subject: "Tarif Kinshasa–Goma",
+      answer: "Le tarif confirmé est de 8 USD par kilogramme.",
+      kind: "CLIENT_ANSWER",
+      category: "SERVICES",
+      client_visible: true,
+      status: "PUBLISHED",
+      internal_status: "PUBLISHED",
+      language: "FR",
+      version: 1,
+      updated_at: "2026-09-18T00:00:00Z",
+    }],
+  });
+  vi.mocked(knowledgeService.getPilotKnowledgeStats).mockResolvedValue({
+    published: 1,
+    drafts: 0,
+    needs_review: 0,
+    available_to_ai: 1,
+    archived: 0,
+    default_language: "FR",
+    pilot_default_review_days: 90,
+  });
 });
 
 describe("PilotSettingsPage navigation", () => {
@@ -110,5 +146,30 @@ describe("PilotSettingsPage navigation", () => {
       expect(screen.getByRole("button", { name: "IA" })).toHaveAttribute("aria-current", "page");
     });
     expect(screen.getByRole("heading", { name: "Intelligence artificielle" })).toBeVisible();
+  });
+
+  it("hides parcel network settings from a vehicle-import agency", async () => {
+    vi.mocked(adminService.getPilotSettings).mockResolvedValue({
+      ...settings,
+      organization: { ...settings.organization, organization_type: "VEHICLE_IMPORT" },
+      parcel_operations: null,
+    });
+
+    render(<PilotSettingsPage />);
+
+    expect(await screen.findByRole("button", { name: "Entreprise" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Bureaux, routes & services" })).not.toBeInTheDocument();
+  });
+
+  it("manages knowledge directly inside settings with card-based entries", async () => {
+    const user = userEvent.setup();
+    render(<PilotSettingsPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Connaissances" }));
+
+    expect(await screen.findByRole("heading", { name: "Base de connaissances" })).toBeVisible();
+    expect(await screen.findByText("Tarif Kinshasa–Goma")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Ajouter une information" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Gérer les connaissances" })).not.toBeInTheDocument();
   });
 });

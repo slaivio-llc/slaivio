@@ -678,6 +678,7 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 .slaivio-pilot .pilot-settings-content {
   display: grid;
   min-width: 0;
+  row-gap: 28px;
 }
 
 @media (min-width: 1024px) {

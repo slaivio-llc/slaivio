@@ -8,8 +8,7 @@ import Link from "next/link";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationButton, OperationField, OperationFilterPopover, OperationStatus } from "@/components/ui/operation-controls";
-import { OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationButton, OperationStatus } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { FormGeographyFields, PhoneField } from "@/components/ui/geography-fields";
 import { dashboardLabel, useDashboardLocale } from "@/components/i18n/dashboard-language";
@@ -107,10 +106,21 @@ export function PilotSettingsPage() {
   if (!data) return <ErrorState title="Paramètres indisponibles" description={error} retry={load} />;
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")} actions={<OperationButton onClick={load}><RefreshCcw size={14}/>{dashboardLabel(locale, "Actualiser")}</OperationButton>}/>
-    <OperationToolbar filters={<OperationFilterPopover activeCount={section === "company" ? 0 : 1} onReset={() => choose("company")} title={dashboardLabel(locale, "Choisir une section")}><OperationField label={dashboardLabel(locale, "Section")}><select className={inputClass} value={section} onChange={(event) => choose(event.target.value as Section)}>{sections.map(([key, label]) => <option key={key} value={key}>{dashboardLabel(locale, label)}</option>)}</select></OperationField></OperationFilterPopover>} />
-      <main className="min-w-0 px-5 py-8 sm:px-7 lg:px-10">
-        <div className="pilot-settings-content mx-auto max-w-[1280px]">
+    <OperationPageHeader title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")} actions={<OperationButton onClick={load} aria-label={dashboardLabel(locale, "Actualiser")} title={dashboardLabel(locale, "Actualiser")} className="w-9 px-0"><RefreshCcw size={14}/></OperationButton>}/>
+      <main className="mx-auto min-w-0 w-full max-w-[1200px] px-6 pb-10 sm:px-8">
+        <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto border-b border-[#dfe3e7] pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {sections.map(([key, label]) => {
+            const active = section === key;
+            return <button
+              key={key}
+              type="button"
+              aria-current={active ? "page" : undefined}
+              onClick={() => choose(key)}
+              className={`relative shrink-0 px-3 py-3 text-[13px] transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full ${active ? "font-semibold text-[#087a46] after:bg-[#0b9a5b]" : "font-medium text-[#69747d] after:bg-transparent hover:text-[#303941]"}`}
+            >{dashboardLabel(locale, label)}</button>;
+          })}
+        </nav>
+        <div className="pilot-settings-content">
           {notice && <div data-ui="settings-notice" className="mb-5 rounded-[8px] border border-[#bfe6d2] bg-[#f0faf5] px-4 py-3 text-[13px] text-[#176142]">{notice}</div>}
           {error && <div data-ui="settings-notice" className="mb-5 rounded-[8px] border border-[#efd0cc] bg-[#fff6f5] px-4 py-3 text-[13px] text-[#9d352d]">{error}</div>}
           {section === "company" && <CompanySettings data={data} run={run}/>} 
@@ -356,9 +366,6 @@ function AISettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<u
 
 function PrivacySettings({organizationName}:{organizationName:string}){const [busy,setBusy]=useState(false);async function request(type:"EXPORT"|"DELETE_ORGANIZATION"){const confirmation=type==="DELETE_ORGANIZATION"?window.prompt(`Tapez exactement « ${organizationName} » pour confirmer la demande de suppression.`):undefined;if(type==="DELETE_ORGANIZATION"&&confirmation!==organizationName)return;setBusy(true);try{await requestDataOperation({request_type:type,scope:type==="EXPORT"?{modules:["clients","dossiers","messages","knowledge"],format:"JSON"}:{},confirmation});}finally{setBusy(false)}}return <><SectionHeader title="Confidentialité & données" description="Gérez les données personnelles, leur conservation et les demandes d’export ou de suppression."/><SettingsCard title="Contrôle des données" description="Les demandes sensibles sont auditées et ne suppriment jamais les données immédiatement."><div className="grid gap-3 text-[13px]"><p>Les données restent isolées par organisation et accessibles selon les permissions attribuées.</p><div className="flex flex-wrap gap-2"><OperationButton disabled={busy} onClick={()=>void request("EXPORT")}>Demander un export des données</OperationButton><OperationButton disabled={busy} variant="danger" onClick={()=>void request("DELETE_ORGANIZATION")}>Demander la suppression des données</OperationButton></div></div></SettingsCard></>}
 const pilotNotificationCategories=[["OPERATIONS","Activité de l’entreprise"],["SHIPMENT","Expéditions"],["PACKAGE","Colis"],["PAYMENT","Paiements"],["COMPLIANCE","Contrôles"],["SYSTEM","Compte et sécurité"]] as const;
-/* Replaced below by the readable implementation kept as the active component.
-function NotificationSettings(){const [items,setItems]=useState<NotificationPreference[]>([]),[saving,setSaving]=useState(false),[error,setError]=useState("");useEffect(()=>{getNotificationPreferences().then(setItems).catch(()=>setError("Les préférences ne peuvent pas être chargées."))},[]);const current=(category:string)=>items.find(item=>item.category===category)||{category,in_app:true,email:false,whatsapp:false,digest_frequency:"IMMEDIATE"};async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);setSaving(true);setError("");try{const saved=await Promise.all(pilotNotificationCategories.map(([category])=>saveNotificationPreference({category,in_app:form.get(`${category}.app`)==="on",email:form.get(`${category}.email`)==="on",whatsapp:form.get(`${category}.whatsapp`)==="on",digest_frequency:String(form.get(`${category}.frequency`)||"IMMEDIATE")}));setItems(saved.map(result=>result.preference||result));}catch{setError("Les préférences n’ont pas pu être enregistrées.")}finally{setSaving(false)}}return <><SectionHeader title="Notifications" description="Choisissez les événements importants et les canaux utilisés pour prévenir l’équipe."/><SettingsCard title="Préférences" description="La cloche affiche les notifications ; leur configuration reste centralisée ici."><form onSubmit={submit} className="grid gap-3">{pilotNotificationCategories.map(([category,label])=>{const preference=current(category);return <div key={category} className="grid items-center gap-3 rounded-[8px] border border-[#e3e7e9] p-3 sm:grid-cols-[minmax(180px,1fr)_auto_auto_auto_150px]"><strong className="text-[13px]">{label}</strong><ToggleLabel name={`${category}.app`} label="Slaivio" checked={preference.in_app}/><ToggleLabel name={`${category}.email`} label="Email" checked={preference.email}/><ToggleLabel name={`${category}.whatsapp`} label="WhatsApp" checked={preference.whatsapp}/><select name={`${category}.frequency`} defaultValue={preference.digest_frequency} className={inputClass}><option value="IMMEDIATE">Immédiatement</option><option value="DAILY">Chaque jour</option><option value="WEEKLY">Chaque semaine</option><option value="OFF">Désactivé</option></select></div>})}{error&&<p className="text-[12px] text-red-600">{error}</p>}<div className="flex justify-end"><OperationButton variant="primary" disabled={saving}>{saving?"Enregistrement…":"Enregistrer"}</OperationButton></div></form></SettingsCard></>}
-*/
 function NotificationSettings(){
   const [items,setItems]=useState<NotificationPreference[]>([]);
   const [saving,setSaving]=useState(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bell, Building2, CheckCircle2, Clock3, FolderOpen, MapPin, MessageCircle, Package, Plus, RefreshCcw, Truck, Users } from "lucide-react";
+import { ArrowRight, Bell, Building2, CheckCircle2, Clock3, FolderOpen, MapPin, MessageCircle, Package, RefreshCcw, Truck, Users } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
@@ -9,7 +9,6 @@ import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { ErrorState } from "@/components/ui/page-state";
 import { getOrganizationProductProfile, getProductProfile, isPilotVisiblePath, PRODUCT_PROFILES } from "@/config/product-profile";
 import { getDashboardHome, type DashboardHome, type HomeAttentionItem, type PilotActivity, type PilotDossierSummary } from "@/services/dashboard";
-import { PilotReadinessPanel } from "@/components/dashboard/pilot-readiness";
 import { getTenantContext } from "@/services/tenant";
 
 const dashboardCacheKey = "slaivio:dashboard-home";
@@ -67,7 +66,7 @@ export function DashboardOverviewPage() {
   const resources = (data?.resources || []).filter((resource) => !pilot || isPilotVisiblePath(resource.href));
   const attentionItems = (data?.attention_items || []).filter((item) => !pilot || isPilotVisiblePath(item.href));
 
-  return <div className="min-h-full bg-[#f5f6f6]">
+  return <div className="min-h-full bg-white">
     <OperationPageHeader
       title={data?.workspace.name ? `Vue d’ensemble · ${data.workspace.name}` : "Vue d’ensemble de l’agence"}
       description={pilot ? "Les dossiers, conversations et relances à suivre aujourd’hui." : "Les priorités opérationnelles et les données réelles de votre agence, au même endroit."}
@@ -143,20 +142,14 @@ function ParcelShortcut({ href, icon, label, description }: { href: string; icon
 function PilotDashboard({ data, loading, error, reload }: { data: DashboardHome; loading: boolean; error: string; reload: () => void }) {
   const pilot = data.pilot || { stats: {}, attention_dossiers: [], recent_dossiers: [], recent_clients: [], recent_activity: [] };
   const stats = pilot.stats || {};
-  return <div className="min-h-full bg-[#f6f7f7] text-[#25292e]">
+  return <div className="min-h-full bg-white text-[#25292e]">
     <OperationPageHeader
       title="Accueil"
       description={`Suivez les dossiers et les communications de ${data.workspace.name}.`}
-      actions={<>
-        <OperationButton onClick={reload} disabled={loading} aria-label="Actualiser l’accueil" title="Actualiser" className="w-9 px-0"><RefreshCcw size={15} className={loading ? "animate-spin" : ""} /></OperationButton>
-        <Link href="/app/inbox" className="inline-flex h-9 items-center justify-center gap-2 rounded-[6px] border border-[#d4d9df] bg-white px-3 text-[13px] font-semibold text-[#30363d] hover:bg-[#f6f7f7]"><MessageCircle size={15} />Boîte de réception</Link>
-        <Link href="/app/dossiers?create=1" className="inline-flex h-9 items-center justify-center gap-2 rounded-[6px] bg-[#12c76f] px-3 text-[13px] font-semibold text-white hover:bg-[#0fb766]"><Plus size={15} />Nouveau dossier</Link>
-      </>}
+      actions={<OperationButton onClick={reload} disabled={loading} aria-label="Actualiser l’accueil" title="Actualiser" className="w-9 px-0"><RefreshCcw size={15} className={loading ? "animate-spin" : ""} /></OperationButton>}
     />
     <main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8">
       {error && <div className="flex items-center gap-3 rounded-[7px] border border-[#f1c7c3] bg-[#fff5f4] px-4 py-3 text-[12px] text-[#a52a22]"><span>{error} Les dernières données connues restent affichées.</span><button type="button" onClick={reload} className="ml-auto font-semibold">Réessayer</button></div>}
-
-      <PilotReadinessPanel />
 
       <section aria-label="Résumé de l’activité">
         <OperationMetricGrid>
@@ -222,7 +215,7 @@ function NoWorkspace() {
 }
 
 function DashboardSkeleton() {
-  return <div className="min-h-full bg-[#f5f6f6]" role="status" aria-label="Chargement de l’accueil"><div className="bg-white"><div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-10 lg:pt-12"><div className="border-b border-[#dfe3e7] pb-6 sm:pb-8"><Skeleton className="h-5 w-64" /><Skeleton className="mt-2 h-3 w-[420px] max-w-full" /></div></div></div><main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8"><div><Skeleton className="mb-2 h-3 w-36" /><div className="grid grid-cols-2 overflow-hidden rounded-[7px] border border-[#e2e6e9] bg-white lg:grid-cols-6">{Array.from({ length: 6 }, (_, index) => <div key={index} className="border-r border-[#eceff2] px-3.5 py-2.5"><Skeleton className="h-2.5 w-20" /><Skeleton className="mt-2 h-5 w-14" /></div>)}</div></div><div className="grid gap-5 xl:grid-cols-[1.6fr_.8fr]"><Skeleton className="h-72 bg-white" /><Skeleton className="h-72 bg-white" /></div></main></div>;
+  return <div className="min-h-full bg-white" role="status" aria-label="Chargement de l’accueil"><div className="bg-white"><div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-10 lg:pt-12"><div className="border-b border-[#dfe3e7] pb-6 sm:pb-8"><Skeleton className="h-5 w-64" /><Skeleton className="mt-2 h-3 w-[420px] max-w-full" /></div></div></div><main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8"><div><Skeleton className="mb-2 h-3 w-36" /><div className="grid grid-cols-2 overflow-hidden rounded-[7px] border border-[#e2e6e9] bg-white lg:grid-cols-6">{Array.from({ length: 6 }, (_, index) => <div key={index} className="border-r border-[#eceff2] px-3.5 py-2.5"><Skeleton className="h-2.5 w-20" /><Skeleton className="mt-2 h-5 w-14" /></div>)}</div></div><div className="grid gap-5 xl:grid-cols-[1.6fr_.8fr]"><Skeleton className="h-72 bg-white" /><Skeleton className="h-72 bg-white" /></div></main></div>;
 }
 
 function Skeleton({ className = "" }: { className?: string }) { return <div className={`animate-pulse rounded-[6px] bg-[#e9ecee] ${className}`} />; }

@@ -7,8 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationStatus } from "@/components/ui/operation-controls";
-import { OperationContent, OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationButton, OperationMetric, OperationMetricGrid, OperationStatus, OperationTab } from "@/components/ui/operation-controls";
+import { OperationContent, OperationSearch, OperationTable } from "@/components/ui/operation-primitives";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { EmptyState, TableSkeleton } from "@/components/ui/page-state";
 import { usePilotOffline } from "@/components/offline/pilot-offline-provider";
@@ -200,7 +200,7 @@ export function DossiersPage() {
     { key: "archived" as const, label: "Archivés", count: stats.archived },
   ], [stats]);
 
-  return <div className="min-h-full bg-[#f7f8f8] text-[#25292e]">
+  return <div className="min-h-full bg-white text-[#25292e]">
     <OperationPageHeader
       title="Dossiers"
       description="Regroupez les clients concernés, suivez leur situation et retrouvez les dossiers qui demandent votre attention."
@@ -208,22 +208,24 @@ export function DossiersPage() {
         <PermissionGuard permission="dossiers.export"><OperationButton onClick={handleExport}><Download size={15} /> Exporter</OperationButton></PermissionGuard>
         <PermissionGuard permission="dossiers.create"><OperationButton variant="primary" onClick={openCreate}>Nouveau dossier</OperationButton></PermissionGuard>
       </>}
+      divider={false}
     />
+    <OperationContent className="grid gap-5">
+      <OperationMetricGrid>
+        <OperationMetric label="Dossiers actifs" value={stats.active.toLocaleString("fr-FR")} active={view === "active"} onClick={() => setView("active")} />
+        <OperationMetric label="Clients rattachés" value={stats.client_memberships.toLocaleString("fr-FR")} />
+        <OperationMetric label="Dossiers à traiter" value={stats.dossiers_requiring_attention.toLocaleString("fr-FR")} tone={stats.dossiers_requiring_attention ? "warning" : "default"} />
+        <OperationMetric label="Clients à suivre" value={stats.clients_requiring_attention.toLocaleString("fr-FR")} tone={stats.clients_requiring_attention ? "warning" : "default"} />
+      </OperationMetricGrid>
 
-    <OperationMetrics><OperationMetricGrid>
-      <OperationMetric label="Dossiers actifs" value={stats.active.toLocaleString("fr-FR")} active={view === "active"} onClick={() => setView("active")} />
-      <OperationMetric label="Clients rattachés" value={stats.client_memberships.toLocaleString("fr-FR")} />
-      <OperationMetric label="Dossiers à traiter" value={stats.dossiers_requiring_attention.toLocaleString("fr-FR")} tone={stats.dossiers_requiring_attention ? "warning" : "default"} />
-      <OperationMetric label="Clients à suivre" value={stats.clients_requiring_attention.toLocaleString("fr-FR")} tone={stats.clients_requiring_attention ? "warning" : "default"} />
-    </OperationMetricGrid></OperationMetrics>
+      <nav aria-label="Vues des dossiers" className="flex min-h-10 gap-1 overflow-x-auto">
+        {tabs.map((item) => <OperationTab key={item.key} active={view === item.key} count={item.count} onClick={() => setView(item.key)} className="h-10">{item.label}</OperationTab>)}
+      </nav>
 
-    <OperationToolbar filters={<OperationFilterPopover activeCount={view === "active" ? 0 : 1} onReset={() => setView("active")} title="Filtrer les dossiers"><OperationField label="Vue"><select className={fieldClass} value={view} onChange={(event) => setView(event.target.value as PilotView)}>{tabs.map((tab) => <option key={tab.key} value={tab.key}>{tab.label}{typeof tab.count === "number" ? ` · ${tab.count}` : ""}</option>)}</select></OperationField></OperationFilterPopover>} />
+      {error && <div className="flex items-start gap-3 rounded-[8px] border border-[#efcaca] bg-[#fff5f5] p-4 text-[13px] text-[#a62b25]">
+        <AlertCircle size={17} className="mt-0.5 shrink-0" /><div><p className="font-semibold">Impossible d’afficher les dossiers</p><p className="mt-0.5">{error}</p></div>
+      </div>}
 
-    {error && <div className="mx-5 mt-5 flex items-start gap-3 rounded-[8px] border border-[#efcaca] bg-[#fff5f5] p-4 text-[13px] text-[#a62b25] sm:mx-6">
-      <AlertCircle size={17} className="mt-0.5 shrink-0" /><div><p className="font-semibold">Impossible d’afficher les dossiers</p><p className="mt-0.5">{error}</p></div>
-    </div>}
-
-    <OperationContent>
       <OperationTable>
         {loading ? <TableSkeleton rows={7} columns={6} /> : items.length === 0 ? <EmptyState
           title="Aucun dossier dans cette vue"
@@ -231,7 +233,7 @@ export function DossiersPage() {
           action={view === "active" ? <OperationButton variant="primary" onClick={openCreate}>Nouveau dossier</OperationButton> : undefined}
         /> : <DossiersTable items={items} openDetail={openDetail} />}
       </OperationTable>
-      {!loading && total > 0 && <div className="mt-3 flex items-center justify-between text-[12px] text-[#6f7983]">
+      {!loading && total > 0 && <div className="flex items-center justify-between text-[12px] text-[#6f7983]">
         <span>{plural(total, "dossier")}</span><div className="flex items-center gap-2">
           <OperationButton className="h-8 w-8 px-0" disabled={page <= 1} onClick={() => load(page - 1)} aria-label="Page précédente"><ChevronLeft size={15} /></OperationButton>
           <span className="min-w-16 text-center font-medium text-[#404951]">{page} / {Math.max(totalPages, 1)}</span>

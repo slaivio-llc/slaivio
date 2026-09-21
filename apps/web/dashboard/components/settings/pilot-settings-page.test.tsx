@@ -161,15 +161,15 @@ describe("PilotSettingsPage navigation", () => {
     expect(screen.queryByRole("button", { name: "Bureaux, routes & services" })).not.toBeInTheDocument();
   });
 
-  it("manages knowledge directly inside settings with card-based entries", async () => {
+  it("keeps only knowledge defaults in settings", async () => {
     const user = userEvent.setup();
     render(<PilotSettingsPage />);
 
     await user.click(await screen.findByRole("button", { name: "Connaissances" }));
 
-    expect(await screen.findByRole("heading", { name: "Base de connaissances" })).toBeVisible();
-    expect(await screen.findByText("Tarif Kinshasa–Goma")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Ajouter une information" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Valeurs proposées par défaut" })).toBeVisible();
+    expect(screen.queryByText("Tarif Kinshasa–Goma")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ajouter une information" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Gérer les connaissances" })).not.toBeInTheDocument();
   });
 });

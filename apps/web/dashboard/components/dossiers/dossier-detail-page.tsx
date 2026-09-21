@@ -1,16 +1,15 @@
 "use client";
 
 import axios from "axios";
-import { ArrowLeft, ChevronRight, History, MessageCircle, MoveRight, Pencil, Plus, RotateCw, Users } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, ChevronRight, History, MessageCircle, MoveRight, Plus, RotateCw, SquarePen, Users } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { OperationConfirmDialog } from "@/components/ui/operation-confirm-dialog";
-import { OperationButton, OperationField, OperationFilterPopover, OperationStatus } from "@/components/ui/operation-controls";
-import { OperationContent, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationButton, OperationStatus, OperationTab } from "@/components/ui/operation-controls";
+import { OperationContent } from "@/components/ui/operation-primitives";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/page-state";
 import { usePilotOffline } from "@/components/offline/pilot-offline-provider";
@@ -18,7 +17,7 @@ import { newOfflineKey } from "@/services/pilot-offline";
 import {
   archiveDossier, attachClientToDossier, createClientInDossier, getDossier, getDossierClientHistory,
   listDossiers, moveDossierClient, removeClientFromDossier, restoreDossier,
-  searchDossierClients, syncDossierWhatsappGroup, updateDossier, updateDossierClientProfile,
+  searchDossierClients, updateDossier, updateDossierClientProfile,
   type DossierClientHistoryEvent, type DossierClientRelation, type DossierClientSearchResult,
   type DossierRecord,
 } from "@/services/dossiers";
@@ -57,7 +56,6 @@ export function DossierDetailPage({ dossierId }: { dossierId: string }) {
   const [clientSearchError, setClientSearchError] = useState("");
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [groupSyncing, setGroupSyncing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -194,13 +192,6 @@ export function DossierDetailPage({ dossierId }: { dossierId: string }) {
     } catch (cause) { setError(apiError(cause)); }
   }
 
-  async function syncWhatsappGroup() {
-    setGroupSyncing(true); setError("");
-    try { await syncDossierWhatsappGroup(dossierId); await load(); }
-    catch (cause) { setError(apiError(cause)); }
-    finally { setGroupSyncing(false); }
-  }
-
   async function confirmPendingAction() {
     if (!dossier || !confirmation) return;
     setConfirming(true);
@@ -230,20 +221,25 @@ export function DossierDetailPage({ dossierId }: { dossierId: string }) {
   if (error && !dossier) return <ErrorState title="Dossier indisponible" description={error} retry={load} />;
   if (!dossier) return null;
 
-  return <div className="min-h-full bg-[#f7f8f8] text-[#25292e]">
+  return <div className="min-h-full bg-white text-[#25292e]">
     <OperationPageHeader
       title={dossier.title || dossier.dossier_reference}
       description={dossier.title ? dossier.dossier_reference : "Dossier de suivi"}
       actions={<>
-        <OperationButton onClick={() => router.push("/app/dossiers")}><ArrowLeft size={15} /> Tous les dossiers</OperationButton>
-        {!dossier.archived_at && <PermissionGuard permission="dossiers.update"><OperationButton aria-label="Modifier le dossier" title="Modifier" className="w-9 px-0" onClick={() => { setFormError(""); setEditOpen(true); }}><Pencil size={15}/></OperationButton></PermissionGuard>}
+        <OperationButton aria-label="Retour aux dossiers" title="Retour aux dossiers" className="w-9 px-0" onClick={() => router.push("/app/dossiers")}><ArrowLeft size={15} /></OperationButton>
+        {!dossier.archived_at && <PermissionGuard permission="dossiers.update"><OperationButton aria-label="Modifier le dossier" title="Modifier" className="w-9 px-0" onClick={() => { setFormError(""); setEditOpen(true); }}><SquarePen size={15}/></OperationButton></PermissionGuard>}
         <PermissionGuard permission="dossiers.archive"><OperationButton variant={dossier.archived_at ? "secondary" : "danger"} onClick={toggleArchive}>{dossier.archived_at ? "Restaurer" : "Archiver"}</OperationButton></PermissionGuard>
       </>}
+      divider={false}
     />
-    <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer le dossier"><OperationField label="Vue"><select className={fieldClass} value={tab} onChange={(event) => setTab(event.target.value as typeof tab)}><option value="overview">Vue d’ensemble</option><option value="clients">Clients ({dossier.clients?.length || 0})</option><option value="activity">Communications et suivi</option></select></OperationField></OperationFilterPopover>} />
-    <OperationContent className="mx-auto w-full max-w-[1180px]">
+    <OperationContent className="mx-auto grid w-full max-w-[1180px] gap-5">
+      <nav aria-label="Sections du dossier" className="flex min-h-10 gap-1 overflow-x-auto">
+        <OperationTab active={tab === "overview"} onClick={() => setTab("overview")} className="h-10">Vue d’ensemble</OperationTab>
+        <OperationTab active={tab === "clients"} count={dossier.clients?.length || 0} onClick={() => setTab("clients")} className="h-10">Clients</OperationTab>
+        <OperationTab active={tab === "activity"} onClick={() => setTab("activity")} className="h-10">Communications et suivi</OperationTab>
+      </nav>
       {error && <div className="mb-4 flex items-center justify-between rounded-[8px] border border-[#efcaca] bg-[#fff5f5] px-4 py-3 text-[13px] text-[#a62b25]"><span>{error}</span><button onClick={load}><RotateCw size={15} /></button></div>}
-      {tab === "overview" ? <Overview dossier={dossier} syncGroup={syncWhatsappGroup} syncing={groupSyncing} addParticipant={() => { setTab("clients"); openAddClient(); }} /> : tab === "clients" ? <Clients dossier={dossier} view={openClient} add={openAddClient} query={query} setQuery={setQuery} searching={searching} matches={matches} attach={attachExisting} saving={saving} error={clientSearchError} /> : <Activity dossier={dossier} />}
+      {tab === "overview" ? <Overview dossier={dossier} /> : tab === "clients" ? <Clients dossier={dossier} view={openClient} add={openAddClient} query={query} setQuery={setQuery} searching={searching} matches={matches} attach={attachExisting} saving={saving} error={clientSearchError} /> : <Activity dossier={dossier} />}
     </OperationContent>
 
     <OperationDrawer open={editOpen} close={() => !saving && setEditOpen(false)} title="Modifier le dossier" description="Mettez à jour uniquement les informations communes au dossier." width="max-w-[620px]" footer={<><OperationButton disabled={saving} onClick={() => setEditOpen(false)}>Annuler</OperationButton><OperationButton variant="primary" type="submit" form="edit-pilot-dossier" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer"}</OperationButton></>}>
@@ -272,21 +268,8 @@ export function DossierDetailPage({ dossierId }: { dossierId: string }) {
   </div>;
 }
 
-function Overview({ dossier, syncGroup, syncing, addParticipant }: { dossier: DossierRecord; syncGroup: () => void; syncing: boolean; addParticipant: () => void }) {
-  return <div className="grid gap-5 lg:grid-cols-[1.4fr_.8fr]"><section className="rounded-[10px] border border-[#e0e4e7] bg-white p-6"><h2 className="text-[16px] font-semibold">Résumé du dossier</h2><p className="mt-3 whitespace-pre-wrap text-[13px] leading-6 text-[#59656f]">{dossier.description || "Aucun contexte n’a encore été ajouté."}</p><dl className="mt-6 grid gap-5 border-t border-[#edf0f2] pt-5 sm:grid-cols-2"><Info label="Référence" value={dossier.dossier_reference} /><Info label="Créé le" value={formatDateTime(dossier.created_at)} /><Info label="Dernière modification" value={formatDateTime(dossier.updated_at || dossier.created_at)} /></dl><WhatsappGroupPanel dossier={dossier} sync={syncGroup} syncing={syncing} addParticipant={addParticipant} /></section><aside className="grid content-start gap-4"><SummaryCard label="Clients rattachés" value={String(dossier.clients?.length || 0)} icon={<Users size={18} />} /><SummaryCard label="Clients à traiter" value={String((dossier.clients || []).filter((client) => client.attention_required).length)} tone="warning" icon={<MessageCircle size={18} />} /></aside></div>;
-}
-
-function WhatsappGroupPanel({ dossier, sync, syncing, addParticipant }: { dossier: DossierRecord; sync: () => void; syncing: boolean; addParticipant: () => void }) {
-  const status = dossier.whatsapp_group_status || "DISABLED";
-  const enabled = Boolean(dossier.whatsapp_group_enabled);
-  const content = {
-    DISABLED: enabled ? ["Prêt à créer", "Le groupe sera créé avec les participants WhatsApp rattachés à ce dossier."] : ["Non activé", "Activez la création automatique dans Paramètres > Canaux."],
-    WAITING_FOR_PARTICIPANT: ["En attente d’un participant", "Ajoutez au dossier un client disposant d’un numéro WhatsApp."],
-    CREATING: ["Création en cours", "Le groupe WhatsApp est en cours de création."],
-    CONNECTED: ["Groupe connecté", "Le groupe est actif et les participants du dossier sont synchronisés."],
-    FAILED: ["Action requise", dossier.whatsapp_group_last_error || "La dernière tentative a échoué. Relancez la synchronisation."],
-  }[status];
-  return <div className="mt-6 border-t border-[#edf0f2] pt-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[9px] ${status === "CONNECTED" ? "bg-[#e8f7ef] text-[#087a46]" : status === "FAILED" ? "bg-[#fff0ee] text-[#b42318]" : "bg-[#f1f3f4] text-[#65717b]"}`}><MessageCircle size={19}/></span><div className="min-w-0 flex-1"><p className="text-[13px] font-semibold">Groupe WhatsApp · {content[0]}</p><p className="mt-1 text-[12px] leading-5 text-[#6d7882]">{content[1]}</p>{status === "CONNECTED" && dossier.whatsapp_group_jid && <p className="mt-1 break-all text-[10px] text-[#84908a]">Identifiant : {dossier.whatsapp_group_jid}</p>}</div><div className="flex shrink-0 gap-2">{status === "DISABLED" && !enabled ? <Link href="/app/settings?section=channels" className="inline-flex h-9 items-center rounded-[6px] border border-[#d4d9df] bg-white px-3 text-[13px] font-semibold hover:bg-[#f6f7f7]">Configurer</Link> : status === "WAITING_FOR_PARTICIPANT" ? <PermissionGuard permission="dossiers.clients.manage"><OperationButton variant="primary" onClick={addParticipant}><Plus size={14}/>Ajouter un participant</OperationButton></PermissionGuard> : <PermissionGuard permission="dossiers.update"><OperationButton onClick={sync} disabled={syncing}><RotateCw size={14} className={syncing ? "animate-spin" : ""}/>{syncing ? "Synchronisation…" : status === "DISABLED" ? "Créer le groupe" : status === "CONNECTED" ? "Synchroniser" : "Réessayer"}</OperationButton></PermissionGuard>}</div></div></div>;
+function Overview({ dossier }: { dossier: DossierRecord }) {
+  return <div className="grid gap-5 lg:grid-cols-[1.4fr_.8fr]"><section className="rounded-[10px] border border-[#e0e4e7] bg-white p-6"><h2 className="text-[16px] font-semibold">Résumé du dossier</h2><p className="mt-3 whitespace-pre-wrap text-[13px] leading-6 text-[#59656f]">{dossier.description || "Aucun contexte n’a encore été ajouté."}</p><dl className="mt-6 grid gap-5 border-t border-[#edf0f2] pt-5 sm:grid-cols-2"><Info label="Référence" value={dossier.dossier_reference} /><Info label="Créé le" value={formatDateTime(dossier.created_at)} /><Info label="Dernière modification" value={formatDateTime(dossier.updated_at || dossier.created_at)} /></dl></section><aside className="grid content-start gap-4"><SummaryCard label="Clients rattachés" value={String(dossier.clients?.length || 0)} icon={<Users size={18} />} /><SummaryCard label="Clients à traiter" value={String((dossier.clients || []).filter((client) => client.attention_required).length)} tone="warning" icon={<MessageCircle size={18} />} /></aside></div>;
 }
 
 function Clients({ dossier, view, add, query, setQuery, searching, matches, attach, saving, error }: { dossier: DossierRecord; view: (client: DossierClientRelation) => void; add: () => void; query: string; setQuery: (value: string) => void; searching: boolean; matches: DossierClientSearchResult[]; attach: (client: DossierClientSearchResult) => void; saving: boolean; error: string }) {

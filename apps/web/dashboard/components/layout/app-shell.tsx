@@ -50,6 +50,7 @@ import { listNotifications, notificationAction, type CenterItem } from "@/servic
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
 import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 import { PilotOfflineIndicator } from "@/components/offline/pilot-offline-indicator";
+import { PilotReadinessPanel } from "@/components/dashboard/pilot-readiness";
 import { dashboardLabel, setDashboardLocale, useDashboardLocale } from "@/components/i18n/dashboard-language";
 import { getTenantContext } from "@/services/tenant";
 
@@ -105,8 +106,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const pilotPrimaryRoutes = useMemo(() => {
     const primaryHrefs = productProfile === "PARCEL_FREIGHT"
-      ? new Set(["/app/clients", "/app/operations", "/app/communication", "/app/finance"])
-      : new Set(["/app/dossiers", "/app/inbox", "/app/followups"]);
+      ? new Set(["/app/clients", "/app/operations", "/app/communication", "/app/knowledge", "/app/finance"])
+      : new Set(["/app/dossiers", "/app/inbox", "/app/followups", "/app/knowledge"]);
     return groupedRoutes.flatMap((group) => group.routes).filter((route) => primaryHrefs.has(route.href));
   }, [groupedRoutes, productProfile]);
 
@@ -323,6 +324,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="ml-auto flex items-center gap-1.5">
             {pilot && <OrganizationSwitcher header menuPlacement="down" />}
+            {pilot && <PilotReadinessPanel compact />}
             {!pilot && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {!pilot && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => togglePanel("help")} active={floatingPanel === "help"} showLabel />}
             <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />

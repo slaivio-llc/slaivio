@@ -8,7 +8,7 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer, OperationDrawerAction } from "@/components/ui/operation-drawer";
 import { getPilotReadiness, recordPilotReadinessReview, type PilotReadiness } from "@/services/organization-admin";
 
-export function PilotReadinessPanel() {
+export function PilotReadinessPanel({compact=false}:{compact?:boolean}) {
   const [data, setData] = useState<PilotReadiness | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,9 +39,10 @@ export function PilotReadinessPanel() {
 
   if (!data && !loading) return null;
   const ready = data?.status === "READY";
+  if (compact && (loading || !data || ready)) return null;
 
   return <>
-    <section className={`flex min-h-[76px] flex-col gap-3 rounded-[9px] border px-5 py-4 sm:flex-row sm:items-center ${ready ? "border-[#c9e6d7] bg-[#f4fbf7]" : "border-[#ead9b8] bg-[#fffaf0]"}`}>
+    {compact ? <button type="button" onClick={()=>setOpen(true)} className="inline-flex h-9 items-center gap-2 rounded-[6px] border border-[#ead9b8] bg-[#fffaf0] px-2 text-[12px] font-semibold text-[#76551d] hover:bg-[#fff6e2] md:px-3"><AlertTriangle size={14}/><span className="hidden max-w-[190px] truncate md:inline">Configuration à finaliser</span><ArrowRight size={13} className="hidden md:block"/></button> : <section className={`flex min-h-[76px] flex-col gap-3 rounded-[9px] border px-5 py-4 sm:flex-row sm:items-center ${ready ? "border-[#c9e6d7] bg-[#f4fbf7]" : "border-[#ead9b8] bg-[#fffaf0]"}`}>
       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${ready ? "bg-[#dff3e8] text-[#087a46]" : "bg-[#f8e9c8] text-[#946000]"}`}>
         {ready ? <CheckCircle2 size={20}/> : <ClipboardCheck size={20}/>} 
       </span>
@@ -50,7 +51,7 @@ export function PilotReadinessPanel() {
         <p className="mt-1 text-[12px] leading-5 text-[#66727c]">{loading ? "Vérification des réglages de l’entreprise…" : `${data?.ready_count || 0} vérification(s) prête(s) sur ${data?.total_count || 0}${data?.action_required_count ? ` · ${data.action_required_count} action(s) nécessaire(s)` : ""}.`}</p>
       </div>
       <button type="button" onClick={()=>setOpen(true)} disabled={!data} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-[6px] border border-[#d1d7db] bg-white px-3 text-[13px] font-semibold text-[#34404a] shadow-[0_1px_1px_rgba(15,23,42,.03)] hover:bg-[#f7f8f8] disabled:opacity-50">Voir les vérifications<ArrowRight size={14}/></button>
-    </section>
+    </section>}
 
     <OperationDrawer
       open={open}

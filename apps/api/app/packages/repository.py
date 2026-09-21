@@ -41,6 +41,7 @@ CUSTOMER_STATUS_MESSAGES = {
     "ARRIVED": "Votre colis {tracking} est arrivé à destination ({destination}).",
     "ARRIVED_DESTINATION": "Votre colis {tracking} est arrivé à destination ({destination}).",
     "READY_FOR_PICKUP": "Votre colis {tracking} est disponible au retrait. Contactez l’agence pour les modalités de remise.",
+    "DELIVERED": "Votre colis {tracking} a été remis. Merci d’avoir choisi notre agence.",
 }
 
 
@@ -49,8 +50,12 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
     if not template or not package.get("client_id"):
         return None
     enabled = conn.execute(text("""
-        select 1 from organizations
-        where id=:org_id and organization_type='PARCEL_FREIGHT'
+        select 1
+        from organizations organization
+        left join parcel_operation_settings settings on settings.org_id=organization.id
+        where organization.id=:org_id
+          and organization.organization_type='PARCEL_FREIGHT'
+          and coalesce(settings.notify_package_milestones,true)
     """), {"org_id": package["org_id"]}).first()
     if not enabled:
         return None

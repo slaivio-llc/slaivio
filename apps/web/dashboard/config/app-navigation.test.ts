@@ -33,14 +33,20 @@ describe("product navigation", () => {
 
     expect(routes.map((route) => route.href)).toEqual([
       "/app/clients",
+      "/app/operations",
       "/app/packages",
       "/app/departures",
-      "/app/followups",
-      "/app/finance",
+      "/app/shipments",
+      "/app/warehouses",
+      "/app/routes",
+      "/app/communication",
       "/app/inbox",
+      "/app/followups",
+      "/app/knowledge",
+      "/app/finance",
     ]);
     expect(routes.some((route) => route.href === "/app/broadcasts")).toBe(false);
-    expect(routes.some((route) => route.href === "/app/routes")).toBe(false);
+    expect(routes.some((route) => route.href === "/app/tracking")).toBe(false);
   });
 
   it("continues to filter visible routes by permission", () => {

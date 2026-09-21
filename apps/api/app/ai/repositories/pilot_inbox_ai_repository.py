@@ -160,12 +160,16 @@ def parcel_operational_knowledge(org_id: str) -> list[dict]:
             return []
         sources: list[dict] = []
         locations = conn.execute(text("""
-          select id::text,name,location_type,country,city,address,
-                 coalesce(nullif(whatsapp,''),nullif(phone,'')) contact,
+          select location.id::text,location.name,location.location_type,
+                 location.country,location.city,location.address,
+                 coalesce(nullif(location.whatsapp,''),nullif(location.phone,'')) contact,
+                 (select string_agg(concat(contact.label, ': ', contact.contact_value), '; ' order by contact.is_primary desc,contact.label)
+                    from organization_location_contacts contact
+                   where contact.org_id=location.org_id and contact.location_id=location.id and contact.active) additional_contacts,
                  opening_hours,services,updated_at
-          from organization_locations
-          where org_id=:org_id and status='ACTIVE'
-          order by name limit 40
+          from organization_locations location
+          where location.org_id=:org_id and location.status='ACTIVE'
+          order by location.name limit 40
         """), {"org_id": org_id}).mappings().all()
         for item in locations:
             content = "; ".join(filter(None, [
@@ -175,6 +179,7 @@ def parcel_operational_knowledge(org_id: str) -> list[dict]:
                 f"Ville: {item.get('city')}" if item.get('city') else None,
                 f"Pays: {item.get('country')}" if item.get('country') else None,
                 f"Contact: {item.get('contact')}" if item.get('contact') else None,
+                f"Autres contacts: {item.get('additional_contacts')}" if item.get('additional_contacts') else None,
                 f"Services: {', '.join(item.get('services') or [])}" if item.get('services') else None,
             ]))
             sources.append({"id": f"location:{item['id']}", "title": item["name"], "content": content,
@@ -221,6 +226,54 @@ def parcel_operational_knowledge(org_id: str) -> list[dict]:
             content = "\n".join(source.pop("lines"))
             source.update(content=content, matched_content=content)
             sources.append(source)
+
+        departures = conn.execute(text("""
+          select departure.id::text,departure.departure_code,departure.scheduled_at,
+                 departure.cutoff_at,departure.estimated_arrival_at,departure.status,
+                 service.service_name,service.shipping_mode,route.route_name,
+                 route.origin_country,route.origin_city,route.destination_country,
+                 route.destination_city,departure.updated_at
+          from cargo_departures departure
+          join shipping_services service on service.id=departure.shipping_service_id
+            and service.org_id=departure.org_id
+          left join shipping_routes route on route.id=service.route_id
+            and route.org_id=service.org_id
+          where departure.org_id=:org_id and departure.published
+            and departure.status in ('OPEN','PLANNED','PENDING_CONFIRMATION','CONFIRMED')
+            and departure.scheduled_at>=now()
+          order by departure.scheduled_at limit 30
+        """), {"org_id": org_id}).mappings().all()
+        for item in departures:
+            origin = ", ".join(filter(None, [item.get("origin_city"), item.get("origin_country")]))
+            destination = ", ".join(filter(None, [item.get("destination_city"), item.get("destination_country")]))
+            content = "; ".join(filter(None, [
+                f"Prochain départ publié: {item['departure_code']}",
+                f"Service: {item.get('service_name')}" if item.get("service_name") else None,
+                f"Route: {origin} vers {destination}" if origin or destination else item.get("route_name"),
+                f"Mode: {item.get('shipping_mode')}" if item.get("shipping_mode") else None,
+                f"Départ prévu: {item['scheduled_at'].isoformat()}",
+                f"Date limite de dépôt: {item['cutoff_at'].isoformat()}" if item.get("cutoff_at") else None,
+                f"Arrivée estimée: {item['estimated_arrival_at'].isoformat()}" if item.get("estimated_arrival_at") else None,
+            ]))
+            sources.append({"id": f"departure:{item['id']}", "title": f"Départ {item['departure_code']}",
+                            "content": content, "matched_content": content,
+                            "updated_at": item.get("updated_at"), "rank": 1.0,
+                            "source_kind": "OPERATIONAL"})
+
+        payment_methods = conn.execute(text("""
+          select id::text,display_name,method_type,provider,created_at
+          from payment_methods
+          where org_id=:org_id and is_active
+          order by display_name limit 30
+        """), {"org_id": org_id}).mappings().all()
+        if payment_methods:
+            labels = [str(item.get("display_name") or item.get("method_type") or item.get("provider"))
+                      for item in payment_methods]
+            content = "Moyens de paiement acceptés par l’agence: " + ", ".join(labels) + "."
+            sources.append({"id": "payment-methods", "title": "Modalités de paiement",
+                            "content": content, "matched_content": content,
+                            "updated_at": max((item.get("created_at") for item in payment_methods), default=None),
+                            "rank": 1.0, "source_kind": "OPERATIONAL"})
         return sources
 
 

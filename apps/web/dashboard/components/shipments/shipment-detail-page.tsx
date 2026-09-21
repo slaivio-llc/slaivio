@@ -150,7 +150,7 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
   if (!shipment) {
     return (
       <div className="min-h-[calc(100vh-56px)] bg-[#f7f8fa] p-8">
-        <Link className={buttonClass} href="/app/shipments"><ArrowLeft size={16} /> Retour</Link>
+        <Link className={`${buttonClass} w-9 px-0`} href="/app/shipments" aria-label="Retour aux expéditions" title="Retour aux expéditions"><ArrowLeft size={16} /></Link>
         <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">{error || "Expédition introuvable."}</div>
       </div>
     );
@@ -161,7 +161,7 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
       <section className="mx-auto overflow-hidden bg-white">
         <header className="border-b border-[#eceef1] px-6 py-5">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <Link className={buttonClass} href="/app/shipments"><ArrowLeft size={16} /> Expéditions</Link>
+            <Link className={`${buttonClass} w-9 px-0`} href="/app/shipments" aria-label="Retour aux expéditions" title="Retour aux expéditions"><ArrowLeft size={16} /></Link>
             <div className="flex items-center gap-2">
               <button className={`${buttonClass} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={16} /></button>
               <PermissionGuard permission="shipments.update"><button className={primaryButtonClass} onClick={() => setActiveTab("Colis")}><Plus size={16} /> Ajouter colis</button></PermissionGuard>

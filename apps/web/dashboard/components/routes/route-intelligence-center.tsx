@@ -13,7 +13,7 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { FormGeographyFields, GeographyFields } from "@/components/ui/geography-fields";
 import { OperationDrawer, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationContent, OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
 import { OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { businessLabel } from "@/components/ui/business-labels";
@@ -116,8 +116,10 @@ export function RouteIntelligenceCenter() {
     ["Marge moyenne", `${stats.margin_percent || 0}%`],
   ];
   return (
-    <div className="min-h-full bg-[#f7f7f6]">
+    <div className="min-h-full bg-white">
       <OperationPageHeader
+        backHref="/app/operations"
+        backLabel="Retour aux opérations"
         title="Routes"
         description="Configurez, exploitez et analysez toutes les routes cargo de votre agence."
         actions={
@@ -140,7 +142,8 @@ export function RouteIntelligenceCenter() {
           {cards.map(([l, v]) => { const metricLabel=String(l); const label=metricLabel.toLowerCase(); const target:View=label.includes("air")?"AIR":label.includes("sea")?"SEA":label.includes("suspend")?"SUSPENDED":label.includes("active")?"ACTIVE":"ALL"; return <OperationMetric key={metricLabel} label={metricLabel} value={v} active={activeMetric===metricLabel} onClick={()=>{setActiveMetric(metricLabel);setView(target)}} />; })}
         </OperationMetricGrid>
       </OperationMetrics>
-      <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Route, pays, ville, entrepôt, bureau…" />} filters={<OperationFilterPopover activeCount={view === "ALL" ? 0 : 1} onReset={() => setView("ALL")} title="Filtrer les routes"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="ALL">Toutes</option><option value="ACTIVE">Actives</option><option value="AIR">Air Cargo</option><option value="SEA">Sea Cargo</option><option value="EXPRESS">Express</option><option value="LIMITED">Capacité limitée</option><option value="SUSPENDED">Suspendues</option><option value="INACTIVE">Inactives</option><option value="ARCHIVED">Archivées</option><option value="ANALYTICS">Analytics</option><option value="ENGINE">Trouver une route</option></select></OperationField></OperationFilterPopover>}><button className={btn} onClick={async () => { const name = prompt("Nom de cette vue"); if (name) await saveRouteView(name, { view, query }); }}>Enregistrer la vue</button><button className={`${btn} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={14} /></button></OperationToolbar>
+      <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Route, pays, ville, entrepôt, bureau…" />} filters={<OperationFilterPopover activeCount={view === "ALL" ? 0 : 1} onReset={() => setView("ALL")} title="Filtrer les routes"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="ALL">Toutes</option><option value="ACTIVE">Actives</option><option value="AIR">Air Cargo</option><option value="SEA">Sea Cargo</option><option value="EXPRESS">Express</option><option value="LIMITED">Capacité limitée</option><option value="SUSPENDED">Suspendues</option><option value="INACTIVE">Inactives</option><option value="ARCHIVED">Archivées</option><option value="ANALYTICS">Analytics</option><option value="ENGINE">Route Engine</option></select></OperationField></OperationFilterPopover>}><button className={btn} onClick={async () => { const name = prompt("Nom de cette vue"); if (name) await saveRouteView(name, { view, query }); }}>Enregistrer la vue</button><button className={`${btn} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={14} /></button></OperationToolbar>
+      <OperationContent className="pt-4">
       {view === "ENGINE" ? (
         <Engine />
       ) : view === "ANALYTICS" ? (
@@ -157,6 +160,7 @@ export function RouteIntelligenceCenter() {
           )}
         </>
       )}
+      </OperationContent>
       {selected && (
         <RouteDetail
           item={selected}

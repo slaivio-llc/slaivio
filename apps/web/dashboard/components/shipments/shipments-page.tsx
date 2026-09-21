@@ -21,7 +21,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "@/services/api";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationContent, OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
 import { OperationActionMenu, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -301,9 +301,11 @@ export function ShipmentsPage() {
   );
 
   return (
-    <div className="min-h-full bg-[#f7f7f6] text-[#1f2328]">
+    <div className="min-h-full bg-white text-[#1f2328]">
       <section className="overflow-hidden bg-white">
         <OperationPageHeader
+          backHref="/app/operations"
+          backLabel="Retour aux opérations"
           title="Expéditions"
           description="Pilotez les transports réels de vos colis : routes, ETA, statuts, clients concernés, documents, coûts et risques."
           actions={
@@ -417,6 +419,8 @@ export function ShipmentsPage() {
                 </OperationFilterPopover>
               }
             />
+
+            <OperationContent className="pt-4">
 
             {error ? <ErrorState title="Expéditions indisponibles" description={error} /> : null}
 
@@ -558,7 +562,7 @@ export function ShipmentsPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#d8dce2] px-4 py-3 text-[13px] text-[#5f6b7a]">
+            <div className="flex items-center justify-between px-1 py-3 text-[13px] text-[#5f6b7a]">
               <span>
                 {pagination.total
                   ? `${(page - 1) * pagination.page_size + 1} – ${Math.min(page * pagination.page_size, pagination.total)} sur ${pagination.total} expéditions`
@@ -586,6 +590,7 @@ export function ShipmentsPage() {
                 </button>
               </div>
             </div>
+            </OperationContent>
           </>
         )}
       </section>

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationContent, OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { getAdmin } from "@/services/organization-admin";
 import {
@@ -90,8 +90,10 @@ export function WarehousesPage() {
     { label: "Anomalies", value: stats.anomalies, tone: stats.anomalies ? "warning" as const : "default" as const },
   ];
 
-  return <div className="min-h-full bg-[#f7f7f6]">
+  return <div className="min-h-full bg-white">
     <OperationPageHeader
+      backHref="/app/operations"
+      backLabel="Retour aux opérations"
       title="Entrepôts"
       description="Pilotez le stock, les emplacements, les transferts et les contrôles physiques."
       actions={<>
@@ -107,9 +109,9 @@ export function WarehousesPage() {
       </OperationMetrics>
       <OperationToolbar
         search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher un entrepôt, une ville…" />}
-        filters={<OperationButton onClick={load}><RotateCw size={14} />Actualiser</OperationButton>}
+        filters={<OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0"><RotateCw size={14} /></OperationButton>}
       />
-      <section className="overflow-hidden bg-white">
+      <OperationContent className="pt-4">
         {error && !items.length ? <ErrorState title="Entrepôts indisponibles" description={error} retry={load} /> : loading ? <TableSkeleton /> : items.length ? (
           <OperationTable>
             <table className="w-full min-w-[980px] border-collapse text-left text-[13px]">
@@ -127,7 +129,7 @@ export function WarehousesPage() {
             </table>
           </OperationTable>
         ) : <EmptyState title="Aucun entrepôt configuré" description="Créez le premier site réel de votre agence pour commencer à organiser le stock." />}
-      </section>
+      </OperationContent>
     </main>
     <CreateWarehouseDrawer open={createOpen} close={() => setCreateOpen(false)} done={() => { setCreateOpen(false); load(); }} />
   </div>;

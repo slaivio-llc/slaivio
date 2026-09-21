@@ -159,6 +159,8 @@ export function DeparturesPage() {
   return (
     <div className="min-h-full bg-white">
       <OperationPageHeader
+        backHref="/app/operations"
+        backLabel="Retour aux opérations"
         title="Calendrier des départs"
         description="Planifiez, suivez et coordonnez tous les départs de votre agence cargo."
         actions={

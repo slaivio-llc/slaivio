@@ -7,6 +7,7 @@ import { OperationDrawer, OperationDrawerTabs } from "@/components/ui/operation-
 import { businessLabel } from "@/components/ui/business-labels";
 import {
   OperationMetrics,
+  OperationContent,
   OperationSearch,
   OperationTable,
   OperationToolbar,
@@ -167,6 +168,8 @@ export function BatchCenterPage() {
   return (
     <div className="min-h-full bg-[#f6f7f6] text-[#17201c]">
       <OperationPageHeader
+        backHref="/app/operations"
+        backLabel="Retour aux opérations"
         title="Batchs & Groupages"
         description="Regroupez les colis compatibles, contrôlez la capacité et préparez les expéditions."
         actions={
@@ -207,7 +210,8 @@ export function BatchCenterPage() {
               />
             }
             filters={<OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer les groupages"><OperationField label="Étape du groupage"><select className={`${input} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Toutes les étapes</option>{Object.entries(labels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></OperationField></OperationFilterPopover>}
-          ><OperationButton onClick={load}><RefreshCcw size={14} />Actualiser</OperationButton></OperationToolbar>
+          ><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0"><RefreshCcw size={14} /></OperationButton></OperationToolbar>
+          <OperationContent className="pt-4">
           {error ? (
             <ErrorState title="Groupages indisponibles" description={error} retry={load} />
           ) : loading ? (
@@ -295,6 +299,7 @@ export function BatchCenterPage() {
               )}
             </OperationTable>
           )}
+          </OperationContent>
         </section>
       </main>
       {createOpen && refs && (

@@ -4,7 +4,7 @@ import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationContent, OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
 import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients, type ClientRecord } from "@/services/clients";
@@ -64,6 +64,7 @@ export function FinancePage() {
     [q, setQ] = useState(""),
     [status, setStatus] = useState(""),
     [kind, setKind] = useState(""),
+    [activeMetric, setActiveMetric] = useState(""),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [create, setCreate] = useState(false),
@@ -109,10 +110,10 @@ export function FinancePage() {
     URL.revokeObjectURL(u);
   }
   return (
-    <div className="min-h-full bg-[#f7f7f6]">
+    <div className="min-h-full bg-white">
       <OperationPageHeader
-        title="Facturation"
-        description="Devis, factures, avoirs, paiements et soldes clients dans un registre unique."
+        title="Finance"
+        description="Suivez les montants à payer, les paiements reçus, les soldes clients, les factures et les reçus."
         actions={
           <>
             <PermissionGuard permission="finance.export">
@@ -135,20 +136,20 @@ export function FinancePage() {
         <OperationMetricGrid>
           {[
             ["Factures", stats.invoices],
-            ["Brouillons", stats.drafts],
+            ["Paiements reçus", cash(stats.collected)],
+            ["À encaisser", cash(stats.outstanding)],
             ["En retard", stats.overdue],
-            ["Facturé", cash(stats.invoiced)],
           ].map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v} active={(l === "Factures" && kind === "INVOICE") || (l === "Brouillons" && status === "DRAFT") || (l === "En retard" && status === "OVERDUE") || (l === "Facturé" && !kind && !status)} onClick={() => { if (l === "Factures") { setKind("INVOICE"); setStatus(""); } else if (l === "Brouillons") { setKind(""); setStatus("DRAFT"); } else if (l === "En retard") { setKind(""); setStatus("OVERDUE"); } else { setKind(""); setStatus(""); } }} />
+            <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { setActiveMetric(String(l)); if (l === "Factures") { setKind("INVOICE"); setStatus(""); } else if (l === "En retard") { setKind(""); setStatus("OVERDUE"); } else { setKind(""); setStatus(""); } }} />
           ))}
         </OperationMetricGrid>
         </OperationMetrics>
-        <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Numéro, client, téléphone…" />} filters={<><OperationFilterPopover activeCount={(status ? 1 : 0) + (kind ? 1 : 0)} onReset={() => { setKind(""); setStatus(""); }} title="Filtrer la facturation"><OperationField label="Type de document"><select className={`${input} w-full`} value={kind} onChange={(event) => setKind(event.target.value)}><option value="">Tous les documents</option><option value="QUOTE">Devis</option><option value="INVOICE">Factures</option><option value="CREDIT_NOTE">Avoirs</option></select></OperationField><OperationField label="État du document"><select className={`${input} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous les états</option>{["DRAFT","ISSUED","PARTIALLY_PAID","PAID","OVERDUE","VOID"].map((x) => <option key={x} value={x}>{labels[x]}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load}>
+        <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Numéro, client, téléphone…" />} filters={<><OperationFilterPopover activeCount={(status ? 1 : 0) + (kind ? 1 : 0)} onReset={() => { setKind(""); setStatus(""); setActiveMetric(""); }} title="Filtrer la finance"><OperationField label="Type de document"><select className={`${input} w-full`} value={kind} onChange={(event) => { setKind(event.target.value); setActiveMetric(""); }}><option value="">Tous les documents</option><option value="QUOTE">Devis</option><option value="INVOICE">Factures</option><option value="CREDIT_NOTE">Avoirs</option></select></OperationField><OperationField label="État du document"><select className={`${input} w-full`} value={status} onChange={(e) => { setStatus(e.target.value); setActiveMetric(""); }}><option value="">Tous les états</option>{["DRAFT","ISSUED","PARTIALLY_PAID","PAID","OVERDUE","VOID"].map((x) => <option key={x} value={x}>{labels[x]}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0">
               <RefreshCcw size={14} />
-              Actualiser
             </OperationButton></>} />
+        <OperationContent className="pt-4">
           {error && <ErrorState title="Facturation indisponible" description={error} retry={load} />}
-        <OperationTable className="border-x-0">
+        <OperationTable>
           {loading ? (
             <TableSkeleton rows={7} columns={9} label="Chargement de la facturation…" />
           ) : items.length ? (
@@ -206,6 +207,7 @@ export function FinancePage() {
             <EmptyState title="Aucun document financier" description="Créez le premier devis ou la première facture de l’agence." />
           )}
         </OperationTable>
+        </OperationContent>
       </main>
       {create && (
         <CreateModal

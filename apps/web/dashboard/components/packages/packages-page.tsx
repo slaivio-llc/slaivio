@@ -706,10 +706,12 @@ export function PackagesPage() {
   );
 
   return (
-    <div className="min-h-full bg-[#f7f7f6] text-[#1f2328]">
+    <div className="min-h-full bg-white text-[#1f2328]">
       <div className="overflow-hidden bg-white">
         <OperationPageHeader
           title="Colis"
+          backHref="/app/operations"
+          backLabel="Retour aux opérations"
           description="Réceptionnez, mesurez, stockez et suivez chaque colis réel. Chaque ligne reste liée à un dossier client pour garder une traçabilité complète."
           actions={
             <>
@@ -837,8 +839,10 @@ export function PackagesPage() {
             }
           />
 
+          <div className="mx-auto w-full max-w-[1200px] px-6 pb-6 sm:px-8">
+
           {error && (
-            <div className="m-4 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
+            <div className="mb-4 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
               <AlertCircle size={17} className="mt-0.5" />
               <p>{error}</p>
             </div>
@@ -864,7 +868,7 @@ export function PackagesPage() {
             <PackagesAnalytics stats={stats} analytics={analytics} />
           )}
 
-          <div className="flex flex-col gap-3 border-t border-[#d8dce2] px-5 py-3 text-[13px] text-[#5f6b76] sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 px-1 py-3 text-[13px] text-[#5f6b76] sm:flex-row sm:items-center sm:justify-between">
             <span>
               {pagination.total === 0
                 ? "0 colis"
@@ -905,6 +909,7 @@ export function PackagesPage() {
               ))}
             </section>
           )}
+          </div>
         </section>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { ListFilter } from "lucide-react";
+import { ArrowLeft, ListFilter } from "lucide-react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -9,23 +10,39 @@ export function OperationPageHeader({
   description,
   actions,
   tabs,
-  divider = true,
+  divider = false,
+  backHref,
+  backLabel = "Retour",
 }: {
   title: string;
   description: string;
   actions?: ReactNode;
   tabs?: ReactNode;
   divider?: boolean;
+  backHref?: string;
+  backLabel?: string;
 }) {
   return (
     <header data-ui="operation-page-header" className="operation-page-header bg-white">
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-10 lg:pt-12">
         <div className={`flex flex-col gap-3 pb-6 sm:pb-8 lg:flex-row lg:items-center lg:justify-between ${divider ? "border-b border-[#dfe1e3]" : ""}`}>
-          <div className="min-w-0">
-            <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
-            <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">
-              {description}
-            </p>
+          <div className="flex min-w-0 items-start gap-3">
+            {backHref && (
+              <Link
+                href={backHref}
+                aria-label={backLabel}
+                title={backLabel}
+                className="mt-0.5 inline-grid h-9 w-9 shrink-0 place-items-center rounded-[6px] border border-[#d8dadd] bg-white text-[#3f4851] shadow-[0_1px_1px_rgba(15,23,42,.03)] transition hover:bg-[#f7f7f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ed8bc]"
+              >
+                <ArrowLeft size={16} aria-hidden="true" />
+              </Link>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
+              <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">
+                {description}
+              </p>
+            </div>
           </div>
           {actions && (
             <div className="operation-actions flex shrink-0 flex-wrap items-center gap-2 [&>details]:order-first">

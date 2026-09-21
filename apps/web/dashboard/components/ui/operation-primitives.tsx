@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function OperationMetrics({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section data-ui="operation-metrics" className="operation-metrics bg-white"><div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><div className={`border-b border-[#dfe3e7] py-3 ${className}`}>{children}</div></div></section>;
+  return <section data-ui="operation-metrics" className="operation-metrics bg-white"><div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><div className={`py-3 ${className}`}>{children}</div></div></section>;
 }
 
 export function OperationToolbar({
@@ -19,7 +19,7 @@ export function OperationToolbar({
   return (
     <div data-ui="operation-toolbar" className="operation-toolbar bg-white">
       <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8">
-        <div className={`flex min-h-[54px] flex-col gap-2 border-b border-[#e1e5e9] py-2 lg:flex-row lg:items-center ${className}`}>
+        <div className={`flex min-h-[54px] flex-col gap-2 py-2 lg:flex-row lg:items-center ${className}`}>
           <div className="min-w-0 flex-1">{search}</div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <div data-ui="operation-toolbar-views" className="contents" />
@@ -57,7 +57,7 @@ export function OperationSearch({
 
 export function ActiveFilterBar({ children }: { children?: ReactNode }) {
   if (!children) return null;
-  return <div data-ui="active-filter-bar" className="operation-filter-bar bg-[#fafbfb]"><div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><div className="flex min-h-10 flex-wrap items-center gap-2 border-b border-[#e5e8eb] py-2">{children}</div></div></div>;
+  return <div data-ui="active-filter-bar" className="operation-filter-bar bg-[#fafbfb]"><div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><div className="flex min-h-10 flex-wrap items-center gap-2 py-2">{children}</div></div></div>;
 }
 
 export function OperationTable({ children, className = "" }: { children: ReactNode; className?: string }) {

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "@/components/ui/operation-drawer";
-import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationContent, OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
 import { OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { businessLabel } from "@/components/ui/business-labels";
@@ -153,8 +153,10 @@ export function ServiceCatalogCenter() {
     ["Catalogue", items.length],
   ];
   return (
-    <div className="min-h-full bg-[#f7f7f6]">
+    <div className="min-h-full bg-white">
       <OperationPageHeader
+        backHref="/app/operations"
+        backLabel="Retour aux opérations"
         title="Services"
         description="Configurez et pilotez tous les services proposés par votre agence cargo."
         actions={
@@ -178,6 +180,7 @@ export function ServiceCatalogCenter() {
         </OperationMetricGrid>
       </OperationMetrics>
       <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Service, type, route, pays, responsable…" />} filters={<OperationFilterPopover activeCount={view === "ALL" ? 0 : 1} onReset={() => setView("ALL")} title="Filtrer les services"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="ALL">Tous</option><option value="TRANSPORT">Transport</option><option value="COMPLEMENTARY">Complémentaires</option><option value="ACTIVE">Actifs</option><option value="LIMITED">Capacité limitée</option><option value="SUSPENDED">Suspendus</option><option value="ARCHIVED">Archivés</option><option value="BUNDLES">Bundles</option><option value="COMPARE">Comparateur</option><option value="RECOMMEND">Recommandation</option><option value="ANALYTICS">Analytics</option><option value="SETTINGS">Paramètres</option></select></OperationField></OperationFilterPopover>}><button className={`${btn} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={14} aria-hidden="true" /></button></OperationToolbar>
+      <OperationContent className="pt-4">
       {error && <ErrorState title="Services indisponibles" description={error} retry={load} />}
       {view === "RECOMMEND" ? (
         <Recommendation />
@@ -201,6 +204,7 @@ export function ServiceCatalogCenter() {
           )}
         </>
       )}
+      </OperationContent>
       {selected && catalog && (
         <DetailDrawer
           item={selected}

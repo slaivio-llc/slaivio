@@ -44,6 +44,29 @@ def test_luza_departures_manifest_and_customer_announcements_are_connected():
         assert route in api
 
 
+def test_luza_departure_allocation_explains_blockers_and_manifest_is_operational():
+    repository = read("apps/api/app/departures/repository.py")
+    api = read("apps/api/app/api/departures.py")
+    page = read("apps/web/dashboard/components/departures/departures-page.tsx")
+
+    for rule in (
+        "PAYMENT_NOT_CLEARED", "GOODS_PROHIBITED", "MISSING_DOCUMENTS",
+        "WAREHOUSE_MISMATCH", "SERVICE_MISMATCH", "ROUTE_MISMATCH",
+        "WEIGHT_CAPACITY_EXCEEDED", "VOLUME_CAPACITY_EXCEEDED",
+        "departure_has_no_packages", "departure_packages_not_eligible",
+    ):
+        assert rule in repository
+    for manifest_field in (
+        "client_phone", "goods_classification", "pieces_count",
+        "declared_value", "payment_status", "transport_reference",
+        "MANIFEST_GENERATED",
+    ):
+        assert manifest_field in repository
+    assert "departures.override_capacity" in api
+    assert "blocking_reasons" in page
+    assert "Non éligible" in page
+
+
 def test_luza_ai_grounds_answers_in_offices_rates_departures_and_payment_methods():
     repository = read("apps/api/app/ai/repositories/pilot_inbox_ai_repository.py")
     service = read("apps/api/app/ai/services/pilot_inbox_ai_service.py")

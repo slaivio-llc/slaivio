@@ -2,6 +2,7 @@ from datetime import datetime
 from fastapi import APIRouter,BackgroundTasks,Depends,Response
 from pydantic import BaseModel,Field
 from app.core.permissions import require_permission
+from app.permissions.services.permission_service import assert_permission
 from app.core.tenant_context import get_current_tenant
 from app.departures import repository as repo
 from app.services.notification_sender import send_notification
@@ -32,11 +33,13 @@ def checklist(departure_id:str,body:Checklist,tenant=Depends(get_current_tenant)
 @router.get('/{departure_id}/compatible-packages')
 def compatible(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.read'))):return {'items':repo.compatible_packages(tenant['org_id'],departure_id)}
 @router.post('/{departure_id}/packages')
-def add_package(departure_id:str,body:PackageAllocation,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.allocate'))):return repo.allocate_package(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
+def add_package(departure_id:str,body:PackageAllocation,tenant=Depends(get_current_tenant),manager=Depends(require_permission('departures.allocate'))):
+ if body.override_capacity:assert_permission(str(manager.get('user_id') or manager.get('id')),tenant['org_id'],'departures.override_capacity')
+ return repo.allocate_package(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
 @router.delete('/{departure_id}/packages/{package_id}')
 def remove_package(departure_id:str,package_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.allocate'))):return repo.remove_package(tenant['org_id'],departure_id,package_id,aid(tenant),aname(tenant))
 @router.get('/{departure_id}/manifest.csv')
-def manifest(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.export'))):return Response(repo.manifest(tenant['org_id'],departure_id),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename=departure-{departure_id}.csv'})
+def manifest(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.export'))):return Response(repo.manifest(tenant['org_id'],departure_id,aid(tenant),aname(tenant)),media_type='text/csv; charset=utf-8',headers={'Content-Disposition':f'attachment; filename=departure-{departure_id}.csv'})
 @router.get('/analytics/overview')
 def analytics(tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.read'))):return repo.analytics(tenant['org_id'])
 @router.get('/configuration/templates')

@@ -138,9 +138,38 @@ export function DeparturesPage() {
       await transitionDeparture(x.id, status, x.row_version, reason);
       setSelected(null);
       load();
-    } catch {
+    } catch (cause) {
+      const detail = (cause as {
+        response?: {
+          data?: {
+            detail?:
+              | string
+              | {
+                  message?: string;
+                  packages?: Array<{
+                    package_reference?: string;
+                    reasons?: Array<{ message?: string }>;
+                  }>;
+                };
+          };
+        };
+      })?.response?.data?.detail;
+      const packageErrors =
+        typeof detail === "object" && Array.isArray(detail?.packages)
+          ? detail.packages
+              .map((pkg) => {
+                const reasons = (pkg.reasons || [])
+                  .map((reason) => reason.message)
+                  .filter(Boolean)
+                  .join(" ");
+                return `${pkg.package_reference || "Colis"} : ${reasons}`;
+              })
+              .join(" ")
+          : "";
       setError(
-        "Transition refusée : vérifiez la checklist, la conformité ou la version du départ.",
+        packageErrors ||
+          (typeof detail === "object" ? detail?.message : detail) ||
+          "Transition refusée : vérifiez la checklist, la conformité ou la version du départ.",
       );
     }
   }
@@ -601,6 +630,7 @@ function DepartureOperations({
   const [candidates, setCandidates] = useState<Array<Record<string, unknown>>>(
       [],
     ),
+    [candidatesLoaded, setCandidatesLoaded] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function toggle(key: string, value: boolean) {
@@ -617,7 +647,16 @@ function DepartureOperations({
     }
   }
   async function find() {
-    setCandidates(await compatibleDeparturePackages(item.id));
+    setBusy(true);
+    setError("");
+    try {
+      setCandidates(await compatibleDeparturePackages(item.id));
+      setCandidatesLoaded(true);
+    } catch {
+      setError("La recherche des colis compatibles est indisponible.");
+    } finally {
+      setBusy(false);
+    }
   }
   async function add(id: string) {
     setBusy(true);
@@ -625,8 +664,10 @@ function DepartureOperations({
       await addDeparturePackage(item.id, id);
       await refresh();
       await find();
-    } catch {
-      setError("Affectation impossible : capacité, cut-off ou doublon.");
+    } catch (cause) {
+      const detail=(cause as {response?:{data?:{detail?:{reasons?:Array<{message?:string}>}|string}}})?.response?.data?.detail;
+      const reasons=typeof detail==='object'&&detail?.reasons?detail.reasons.map(reason=>reason.message).filter(Boolean).join(" "):"";
+      setError(reasons || (typeof detail==='string'?detail:"") || "Affectation impossible : vérifiez l’éligibilité du colis.");
     } finally {
       setBusy(false);
     }
@@ -675,7 +716,7 @@ function DepartureOperations({
             Colis affectés · {item.packages?.length || 0}
           </h3>
           <div className="flex gap-2">
-            <button className={btn} onClick={find}>
+            <button className={btn} onClick={find} disabled={busy}>
               Colis compatibles
             </button>
             <button className={btn} onClick={manifest}>
@@ -708,29 +749,36 @@ function DepartureOperations({
         </div>
         {candidates.length > 0 && (
           <div className="mt-4 border-t pt-3">
-            <b className="text-[12px]">Suggestions compatibles</b>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <b className="text-[12px]">Colis évalués pour ce départ</b>
+              <span className="text-[11px] text-[#69727c]">{candidates.filter(candidate=>candidate.eligible).length} compatible(s) · {candidates.filter(candidate=>!candidate.eligible).length} bloqué(s)</span>
+            </div>
             {candidates.map((p) => (
               <div
                 key={String(p.id)}
-                className="mt-2 flex justify-between text-[12px]"
+                className={`mt-2 flex items-start justify-between gap-4 rounded-[7px] border p-3 text-[12px] ${p.eligible?"border-[#dce7e1] bg-[#fbfdfc]":"border-[#eadfd8] bg-[#fffaf7]"}`}
               >
-                <span>
-                  {String(p.package_reference)} ·{" "}
-                  {String(p.client_name || "Client")} ·{" "}
-                  {String(p.weight_kg || 0)} kg
-                </span>
+                <div className="min-w-0">
+                  <p><b>{String(p.package_reference)}</b> · {String(p.client_name || "Client non associé")} · {String(p.weight_kg || 0)} kg{Number(p.volume_cbm||0)>0?` · ${String(p.volume_cbm)} CBM`:""}</p>
+                  {!p.eligible&&Array.isArray(p.blocking_reasons)&&<ul className="mt-1.5 grid gap-1 text-[11px] leading-4 text-[#9a4d32]">{(p.blocking_reasons as Array<{code:string;message:string}>).map(reason=><li key={reason.code}>• {reason.message}</li>)}</ul>}
+                </div>
                 <PermissionGuard permission="departures.allocate">
                   <button
-                    disabled={busy}
+                    disabled={busy || !p.eligible}
                     onClick={() => add(String(p.id))}
-                    className="text-emerald-700"
+                    className={`shrink-0 font-medium ${p.eligible?"text-emerald-700":"cursor-not-allowed text-[#a2a8ad]"}`}
                   >
-                    Ajouter
+                    {p.eligible?"Ajouter":"Non éligible"}
                   </button>
                 </PermissionGuard>
               </div>
             ))}
           </div>
+        )}
+        {candidatesLoaded && candidates.length === 0 && (
+          <p className="mt-4 rounded-[7px] border border-[#e2e6e9] bg-[#fafbfb] p-3 text-[12px] text-[#69727c]">
+            Aucun autre colis n’est disponible pour ce départ.
+          </p>
         )}
       </section>
       {error && (

@@ -24,8 +24,8 @@ export async function listAgencyWhatsappNumbers(){return(await api.get<{numbers:
 
 export type PilotSettingsData={
  organization:{id:string;organization_name:string;legal_name?:string|null;organization_type?:"VEHICLE_IMPORT"|"PARCEL_FREIGHT"|string|null;country?:string|null;city?:string|null;address?:string|null;phone?:string|null;email?:string|null;website?:string|null;logo_url?:string|null;row_version:number;whatsapp_group_on_dossier_create:boolean};
- responsible?:{id:string;member_display_name?:string|null;member_email?:string|null;role_code:string;status:string;last_seen_at?:string|null}|null;
- team:Array<{id:string;member_display_name?:string|null;member_email?:string|null;role_code:string;status:string;last_seen_at?:string|null}>;
+ responsible?:{id:string;clerk_user_id:string;member_display_name?:string|null;member_email?:string|null;role_code:string;status:string;last_seen_at?:string|null}|null;
+ team:Array<{id:string;clerk_user_id:string;member_display_name?:string|null;member_email?:string|null;role_code:string;status:string;last_seen_at?:string|null}>;
  locations:Array<{id:string;name:string;code:string;location_type:"OFFICE"|"WAREHOUSE"|"HUB"|"PICKUP_POINT";country:string;city:string;address?:string|null;phone?:string|null;whatsapp?:string|null;email?:string|null;manager_name?:string|null;timezone:string;services:string[];status:string;row_version:number}>;
  numbering:Array<{document_type:"CLIENT"|"DOSSIER"|"PACKAGE";prefix_format:string;next_number:number;row_version:number;updated_at:string}>;
  whatsapp_numbers:Array<{id:string;provider:"META"|"WAZZAP"|"QR_LINKED_DEVICE";phone_number_id?:string|null;display_phone_number?:string|null;verified_name?:string|null;connection_status:string;quality_rating?:string|null;is_default:boolean;last_sync_at?:string|null;auto_mark_read:boolean;group_replies_enabled:boolean}>;

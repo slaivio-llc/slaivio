@@ -80,10 +80,11 @@ def test_pilot_dashboard_shows_only_daily_dossier_and_communication_work():
         "Relances en attente",
         "Dernières activités",
         "Clients récemment ajoutés",
-        "Nouveau dossier",
-        "Boîte de réception",
     ):
         assert label in pilot
+
+    assert "Nouveau dossier" not in pilot
+    assert "Boîte de réception" not in pilot
 
     for hidden_cargo_metric in ("Facturation", "Paiements", "Entrepôts", "Expéditions"):
         assert hidden_cargo_metric not in pilot
@@ -99,7 +100,7 @@ def test_pilot_dashboard_links_rows_to_real_dossier_pages():
     assert "relation.attention_required" in repository
     assert "conversation_assignments" in repository
     assert "followup_tasks" in repository
-    assert 'href="/app/dossiers?create=1"' in dashboard
+    assert 'href="/app/dossiers?create=1"' not in dashboard
     assert 'href="/app/dossiers?view=attention"' not in dashboard
     assert 'searchParams.get("create") === "1"' in dossiers
     assert 'requestedView === "recent" || requestedView === "archived"' in dossiers

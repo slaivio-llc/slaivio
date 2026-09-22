@@ -32,7 +32,7 @@ def overview(org_id: str) -> dict:
           from organizations where id=:org_id
         """), {"org_id": org_id}).fetchone())
         responsible = _dict(conn.execute(text("""
-          select id::text,member_display_name,member_email,role_code,status,last_seen_at
+          select id::text,clerk_user_id,member_display_name,member_email,role_code,status,last_seen_at
           from organization_memberships
           where org_id=:org_id and status='ACTIVE'
           order by case role_code when 'OWNER' then 0 when 'MANAGER' then 1 else 2 end,
@@ -40,7 +40,7 @@ def overview(org_id: str) -> dict:
           limit 1
         """), {"org_id": org_id}).fetchone())
         team = [dict(row._mapping) for row in conn.execute(text("""
-          select id::text,member_display_name,member_email,role_code,status,last_seen_at
+          select id::text,clerk_user_id,member_display_name,member_email,role_code,status,last_seen_at
           from organization_memberships where org_id=:org_id
           order by case status when 'ACTIVE' then 0 else 1 end,created_at
         """), {"org_id": org_id}).fetchall()]

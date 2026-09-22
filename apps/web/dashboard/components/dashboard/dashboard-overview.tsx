@@ -19,13 +19,14 @@ export function DashboardOverviewPage() {
   const [data, setData] = useState<DashboardHome | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [scope, setScope] = useState<"office" | "network">("office");
 
   const load = useCallback(async (keepCurrent = true) => {
     if (!keepCurrent) setData(null);
     setLoading(true);
     setError("");
     try {
-      const next = await getDashboardHome();
+      const next = await getDashboardHome(undefined, scope);
       setData(next);
       window.sessionStorage.setItem(dashboardCacheKey, JSON.stringify(next));
     } catch {
@@ -33,7 +34,7 @@ export function DashboardOverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     try {
@@ -60,7 +61,7 @@ export function DashboardOverviewPage() {
   if (data?.status === "no_workspace") return <NoWorkspace />;
   if (pilot && data) return <PilotDashboard data={data} loading={loading} error={error} reload={() => load(true)} />;
   if (productProfile === PRODUCT_PROFILES.PARCEL_FREIGHT && data) {
-    return <ParcelFreightDashboard data={data} loading={loading} error={error} reload={() => load(true)} />;
+    return <ParcelFreightDashboard data={data} loading={loading} error={error} reload={() => load(true)} scope={scope} setScope={setScope} />;
   }
 
   const resources = (data?.resources || []).filter((resource) => !pilot || isPilotVisiblePath(resource.href));
@@ -96,14 +97,14 @@ export function DashboardOverviewPage() {
   </div>;
 }
 
-function ParcelFreightDashboard({ data, loading, error, reload }: { data: DashboardHome; loading: boolean; error: string; reload: () => void }) {
+function ParcelFreightDashboard({ data, loading, error, reload, scope, setScope }: { data: DashboardHome; loading: boolean; error: string; reload: () => void; scope: "office" | "network"; setScope: (scope: "office" | "network") => void }) {
   const parcel = data.parcel_freight || { stats: { received: 0, shipped: 0, in_transit: 0, delivered: 0, waiting: 0 }, destinations: [], recent_packages: [] };
   const stats = parcel.stats;
   return <div className="min-h-full bg-white text-[#25292e]">
     <OperationPageHeader
       title="Accueil"
-      description={`Suivez les colis et les départs de ${data.workspace.name}.`}
-      actions={<OperationButton onClick={reload} disabled={loading} aria-label="Actualiser l’accueil" title="Actualiser" className="w-9 px-0"><RefreshCcw size={15} className={loading ? "animate-spin" : ""} /></OperationButton>}
+      description={scope === "network" ? `Vue consolidée de ${data.network?.name || "votre réseau"}.` : `Suivez les colis et les départs de ${data.workspace.name}.`}
+      actions={<>{data.network?.available&&<select aria-label="Périmètre du tableau de bord" value={scope} onChange={event=>setScope(event.target.value as "office"|"network")} className="h-9 rounded-[6px] border border-[#d4d9df] bg-white px-3 text-[12px] font-medium outline-none"><option value="office">Bureau actif</option><option value="network">Réseau complet</option></select>}<OperationButton onClick={reload} disabled={loading} aria-label="Actualiser l’accueil" title="Actualiser" className="w-9 px-0"><RefreshCcw size={15} className={loading ? "animate-spin" : ""} /></OperationButton></>}
     />
     <main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 py-6 sm:px-8">
       {error && <div className="flex items-center gap-3 rounded-[7px] border border-[#f1c7c3] bg-[#fff5f4] px-4 py-3 text-[12px] text-[#a52a22]"><span>{error} Les dernières données connues restent affichées.</span><button type="button" onClick={reload} className="ml-auto font-semibold">Réessayer</button></div>}
@@ -119,7 +120,7 @@ function ParcelFreightDashboard({ data, loading, error, reload }: { data: Dashbo
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
         <PilotSection title="Derniers colis" count={parcel.recent_packages.length} action={<Link href="/app/packages" className="text-[12px] font-semibold text-[#087a46]">Voir tous les colis</Link>}>
-          {parcel.recent_packages.length ? parcel.recent_packages.map((item) => <Link key={item.id} href={item.href} className="grid min-h-[68px] grid-cols-[38px_minmax(0,1fr)_auto_18px] items-center gap-3 border-b border-[#edf0f2] px-5 py-3.5 last:border-0 hover:bg-[#f8faf9]"><span className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#edf8f2] text-[#087a46]"><Package size={16}/></span><span className="min-w-0"><span className="block truncate text-[13px] font-semibold">{item.reference}</span><span className="mt-1 block truncate text-[12px] text-[#74808a]">{item.client_name} · {item.destination}</span></span><OperationStatus label={item.status} tone={item.status === "BLOCKED" ? "warning" : "neutral"}/><ArrowRight size={14} className="text-[#a1a7ad]"/></Link>) : <PilotEmpty title="Aucun colis enregistré" description="Enregistrez le premier colis dès sa réception." />}
+          {parcel.recent_packages.length ? parcel.recent_packages.map((item) => <Link key={item.id} href={item.href} className="grid min-h-[68px] grid-cols-[38px_minmax(0,1fr)_auto_18px] items-center gap-3 border-b border-[#edf0f2] px-5 py-3.5 last:border-0 hover:bg-[#f8faf9]"><span className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#edf8f2] text-[#087a46]"><Package size={16}/></span><span className="min-w-0"><span className="block truncate text-[13px] font-semibold">{item.reference}</span><span className="mt-1 block truncate text-[12px] text-[#74808a]">{item.client_name} · {item.destination}{scope === "network" && item.office_name ? ` · ${item.office_name}` : ""}</span></span><OperationStatus label={item.status} tone={item.status === "BLOCKED" ? "warning" : "neutral"}/><ArrowRight size={14} className="text-[#a1a7ad]"/></Link>) : <PilotEmpty title="Aucun colis enregistré" description="Enregistrez le premier colis dès sa réception." />}
         </PilotSection>
         <PilotSection title="Performance par destination" count={parcel.destinations.length}>
           {parcel.destinations.length ? parcel.destinations.map((item) => <div key={item.destination} className="grid min-h-16 grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 border-b border-[#edf0f2] px-5 py-3 last:border-0"><span className="grid h-8 w-8 place-items-center rounded-[8px] bg-[#f2f4f4] text-[#59646e]"><MapPin size={15}/></span><span className="min-w-0"><span className="block truncate text-[13px] font-semibold">{item.destination}</span><span className="mt-1 block text-[11px] text-[#78828c]">{item.delivered} livré(s) sur {item.total}</span></span><strong className="text-[13px] font-semibold text-[#087a46]">{Number(item.delivery_rate || 0).toFixed(0)}%</strong></div>) : <PilotEmpty title="Aucune destination" description="Les performances apparaîtront après l’enregistrement des colis." />}

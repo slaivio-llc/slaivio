@@ -105,3 +105,49 @@ def test_luza_parcel_navigation_keeps_every_daily_module_available():
         "/app/knowledge", "/app/finance",
     ):
         assert f'href: "{route}"' in navigation
+
+
+def test_luza_multi_office_network_has_secure_office_scope_and_shared_destination_tracking():
+    migration = read("infra/sql/124_parcel_multi_office_network.sql")
+    network_repository = read("apps/api/app/organization_network/repository.py")
+    network_api = read("apps/api/app/api/organization_network.py")
+    tenant_repository = read("apps/api/app/tenant/repositories/tenant_repository.py")
+    package_repository = read("apps/api/app/packages/repository.py")
+    departure_repository = read("apps/api/app/departures/repository.py")
+    dashboard_repository = read("apps/api/app/dashboard/home_repository.py")
+    settings = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
+    switcher = read("apps/web/dashboard/components/tenant/organization-switcher.tsx")
+    entitlements = read("apps/api/app/entitlements/repositories/entitlement_repository.py")
+    features = read("apps/api/app/features/repositories/feature_repository.py")
+
+    for capability in (
+        "organization_network_memberships", "ALL_OFFICES", "ASSIGNED_OFFICES",
+        "network.offices.manage", "network.members.manage", "destination_org_id",
+        "organization_network_clients", "network_client_id",
+    ):
+        assert capability in migration
+    for operation in ("def context", "def setup", "def create_office", "def grant_offices"):
+        assert operation in network_repository
+    for route in ('@router.get(""', '@router.post("/setup"', '@router.post("/offices"', '@router.post("/members/grant"'):
+        assert route in network_api
+    assert "group_id::text as group_id" in tenant_repository
+    assert "p.org_id = :org_id or p.destination_org_id = :org_id" in package_repository
+    assert "d.org_id=:o or d.destination_org_id=:o" in departure_repository
+    assert 'scope == "network"' in dashboard_repository
+    assert "NetworkOfficeSettings" in settings
+    assert "grantNetworkOffices" in settings
+    assert "Bureaux autorisés" in settings
+    assert "role_permissions(role_id,permission_id)" in network_repository
+    assert "status='SUSPENDED'" in network_repository
+    assert "tenant.city" in switcher and "tenant.country" in switcher
+    assert "active_org.parent_org_id" in entitlements
+    assert "parent_flag.enabled" in features
+
+
+def test_luza_customer_identity_remains_shared_after_phone_updates():
+    clients = read("apps/api/app/clients/repository.py")
+    pilot_settings = read("apps/api/app/organization_admin/pilot_repository.py")
+
+    assert clients.count("insert into organization_network_clients") >= 2
+    assert "network_client_id = cast(:network_client_id as uuid)" in clients
+    assert "clerk_user_id,member_display_name" in pilot_settings

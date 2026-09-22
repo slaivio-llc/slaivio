@@ -33,6 +33,8 @@ def _resolve_active_tenant(manager: dict) -> dict:
                 "org_id": active.get("org_id"),
                 "organization_name": active.get("organization_name"),
             }
+    except HTTPException:
+        raise
     except Exception:
         pass
 
@@ -53,13 +55,14 @@ def dashboard_overview(manager=Depends(get_current_manager)):
 
 
 @router.get("/dashboard/home")
-def dashboard_home(manager=Depends(get_current_manager)):
+def dashboard_home(scope: str = Query(default="office", pattern="^(office|network)$"), manager=Depends(get_current_manager)):
     tenant = _resolve_active_tenant(manager)
     return get_home(
         org_id=tenant.get("org_id"),
         user_id=str(manager.get("user_id") or manager.get("id")),
         organization_name=tenant.get("organization_name"),
         manager=manager,
+        scope=scope,
     )
 
 

@@ -36,6 +36,7 @@ export function GeographyFields({
   onCountryChange,
   onCityChange,
   countryName = "country",
+  countryCodeName,
   cityName = "city",
   countryValueMode = "name",
   required = false,
@@ -51,6 +52,7 @@ export function GeographyFields({
   onCountryChange?: (value: string) => void;
   onCityChange?: (value: string) => void;
   countryName?: string;
+  countryCodeName?: string;
   cityName?: string;
   countryValueMode?: "name" | "isoCode";
   required?: boolean;
@@ -123,6 +125,7 @@ export function GeographyFields({
       <label className={fieldClassName}>
         <span>{countryLabel}{required ? " *" : ""}</span>
         <input type="hidden" name={countryName} value={country} />
+        {countryCodeName && <input type="hidden" name={countryCodeName} value={selectedCountry?.shortName || ""} />}
         <select
           required={required}
           aria-label={countryLabel}

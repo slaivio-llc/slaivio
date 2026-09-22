@@ -312,7 +312,7 @@ def _pilot_home(conn, org_id: str, tables: set[str]) -> dict:
     return summary
 
 
-def _parcel_freight_home(conn, org_id: str, tables: set[str]) -> dict:
+def _parcel_freight_home(conn, org_id: str, tables: set[str], *, user_id: str = "", network_scope: bool = False) -> dict:
     summary = {
         "stats": {
             "received": 0,
@@ -323,46 +323,74 @@ def _parcel_freight_home(conn, org_id: str, tables: set[str]) -> dict:
         },
         "destinations": [],
         "recent_packages": [],
+        "scope": "network" if network_scope else "office",
+        "visible_office_ids": [org_id],
     }
     if "cargo_packages" not in tables:
         return summary
 
-    summary["stats"].update(_optional_row(conn, "parcel_freight_stats", """
+    visible_org_ids = [org_id]
+    if network_scope:
+        network_access = _optional_row(conn, "parcel_network_access", """
+            select organization.group_id::text group_id,
+              coalesce(network.access_scope, 'ASSIGNED_OFFICES') access_scope
+            from organizations organization
+            left join organization_network_memberships network
+              on network.group_id=organization.group_id and network.clerk_user_id=:user_id and network.status='ACTIVE'
+            where organization.id=:org_id
+        """, {"org_id": org_id, "user_id": user_id})
+        if network_access.get("group_id"):
+            visible_org_ids = [row["org_id"] for row in _optional_rows(conn, "parcel_network_offices", """
+                select office.id org_id from organizations office
+                where office.group_id=cast(:group_id as uuid) and office.status='ACTIVE'
+                  and (:all_offices or exists(
+                    select 1 from organization_memberships membership
+                    where membership.org_id=office.id and membership.clerk_user_id=:user_id and membership.status='ACTIVE'
+                  ))
+            """, {"group_id": network_access["group_id"], "user_id": user_id,
+                    "all_offices": network_access.get("access_scope") == "ALL_OFFICES"})] or [org_id]
+    summary["visible_office_ids"] = visible_org_ids
+    params = {"org_id": org_id, "org_ids": visible_org_ids}
+    package_scope = "package.org_id = any(cast(:org_ids as text[]))" if network_scope else "(package.org_id=:org_id or package.destination_org_id=:org_id)"
+
+    summary["stats"].update(_optional_row(conn, "parcel_freight_stats", f"""
         select
           count(*) filter (where status in ('RECEIVED','RECEIVED_AT_ORIGIN','WAREHOUSED','WAREHOUSE_PROCESSING'))::int received,
           count(*) filter (where status in ('SHIPPED','DEPARTED'))::int shipped,
           count(*) filter (where status = 'IN_TRANSIT')::int in_transit,
           count(*) filter (where status = 'DELIVERED')::int delivered,
           count(*) filter (where status in ('CREATED','PENDING_VALIDATION','CONFIRMED','BLOCKED','READY_FOR_PICKUP'))::int waiting
-        from cargo_packages
-        where org_id = :org_id and deleted_at is null
-    """, {"org_id": org_id}))
-    summary["destinations"] = _optional_rows(conn, "parcel_freight_destinations", """
+        from cargo_packages package
+        where {package_scope} and package.deleted_at is null
+    """, params))
+    summary["destinations"] = _optional_rows(conn, "parcel_freight_destinations", f"""
         select coalesce(nullif(destination_city, ''), nullif(destination_country, ''), 'Non renseignée') destination,
                count(*)::int total,
                count(*) filter (where status = 'DELIVERED')::int delivered,
                round(100.0 * count(*) filter (where status = 'DELIVERED') / nullif(count(*), 0), 1) delivery_rate
-        from cargo_packages
-        where org_id = :org_id and deleted_at is null
+        from cargo_packages package
+        where {package_scope} and package.deleted_at is null
         group by 1
         order by count(*) desc, 1
         limit 8
-    """, {"org_id": org_id})
-    summary["recent_packages"] = _optional_rows(conn, "parcel_freight_recent", """
+    """, params)
+    summary["recent_packages"] = _optional_rows(conn, "parcel_freight_recent", f"""
         select package.id::text,
                coalesce(package.package_reference, package.tracking_id, package.id::text) reference,
                coalesce(to_jsonb(client)->>'display_name', client.name, client.phone, 'Client') client_name,
                coalesce(nullif(package.destination_city, ''), nullif(package.destination_country, ''), 'Destination non renseignée') destination,
                package.status,
+               coalesce(office.organization_name,office.name,office.id) office_name,
                coalesce(package.updated_at, package.created_at) updated_at,
                '/app/packages' href
         from cargo_packages package
         left join clients client
           on client.org_id = package.org_id and client.id = package.client_id
-        where package.org_id = :org_id and package.deleted_at is null
+        left join organizations office on office.id=package.org_id
+        where {package_scope} and package.deleted_at is null
         order by coalesce(package.updated_at, package.created_at) desc
         limit 8
-    """, {"org_id": org_id})
+    """, params)
     return summary
 
 
@@ -409,7 +437,7 @@ def _attention_items(conn, org_id: str, tables: set[str]) -> list[dict]:
     return sorted(items, key=lambda item: (item.get("priority") != "HIGH", item.get("created_at") or ""))[:5]
 
 
-def get_home(org_id: str | None, user_id: str, organization_name: str | None, manager: dict) -> dict:
+def get_home(org_id: str | None, user_id: str, organization_name: str | None, manager: dict, scope: str = "office") -> dict:
     manager_name = manager.get("full_name") or manager.get("name") or manager.get("email") or "Manager Slaivio"
     base = {
         "status": "ok",
@@ -421,7 +449,8 @@ def get_home(org_id: str | None, user_id: str, organization_name: str | None, ma
             "stats": {}, "attention_dossiers": [], "recent_dossiers": [],
             "recent_clients": [], "recent_activity": [],
         },
-        "parcel_freight": {"stats": {}, "destinations": [], "recent_packages": []},
+        "parcel_freight": {"stats": {}, "destinations": [], "recent_packages": [], "scope": "office"},
+        "network": {"available": False, "name": None, "offices": 1, "countries": 1},
     }
     if not org_id:
         return dict(base, status="no_workspace")
@@ -460,7 +489,18 @@ def get_home(org_id: str | None, user_id: str, organization_name: str | None, ma
         """, {"org_id": org_id}) if "organization_whatsapp_numbers" in tables else {}
         attention_items = _attention_items(conn, org_id, tables)
         pilot_home = _pilot_home(conn, org_id, tables)
-        parcel_freight_home = _parcel_freight_home(conn, org_id, tables)
+        network = _optional_row(conn, "network_summary", """
+            select group_row.group_name name,count(distinct office.id)::int offices,
+              count(distinct nullif(office.country,''))::int countries
+            from organizations current_org
+            join organization_groups group_row on group_row.id=current_org.group_id
+            join organizations office on office.group_id=group_row.id and office.status='ACTIVE'
+            where current_org.id=:org_id group by group_row.id,group_row.group_name
+        """, {"org_id": org_id})
+        parcel_freight_home = _parcel_freight_home(
+            conn, org_id, tables, user_id=user_id,
+            network_scope=scope == "network" and bool(network),
+        )
 
     base.update({
         "workspace": {"org_id": org_id, "name": workspace.get("name") or organization_name or "Mon espace Slaivio", "country": workspace.get("country"), "city": workspace.get("city")},
@@ -471,6 +511,7 @@ def get_home(org_id: str | None, user_id: str, organization_name: str | None, ma
         "whatsapp": whatsapp or {"configured": False, "status": "NOT_CONFIGURED"},
         "pilot": pilot_home,
         "parcel_freight": parcel_freight_home,
+        "network": {"available": bool(network.get("offices", 0) > 1), **network} if network else base["network"],
     })
     return base
 

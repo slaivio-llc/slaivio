@@ -383,6 +383,22 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
 
     try:
         with engine.begin() as conn:
+            network_client_id = None
+            network_phone = phone or whatsapp_phone
+            if network_phone:
+                network_client_id = conn.execute(
+                    text("""
+                        insert into organization_network_clients(group_id,normalized_phone,display_name,email)
+                        select organization.group_id,:phone,:display_name,:email
+                        from organizations organization
+                        where organization.id=:org_id and organization.group_id is not null
+                        on conflict(group_id,normalized_phone) do update set
+                          display_name=coalesce(excluded.display_name,organization_network_clients.display_name),
+                          email=coalesce(excluded.email,organization_network_clients.email),updated_at=now()
+                        returning id
+                    """),
+                    {"org_id": org_id, "phone": network_phone, "display_name": display_name, "email": email},
+                ).scalar()
             row = conn.execute(
             text("""
                 insert into clients (
@@ -390,7 +406,7 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
                     email, normalized_phone, normalized_email, country, city, address, customer_type, lifecycle_status,
                     source, preferred_language, preferred_currency, notes, credit_enabled,
                     credit_limit, current_balance, total_spent,
-                    payment_amount_due, payment_amount_paid, payment_currency, last_activity_at,
+                    payment_amount_due, payment_amount_paid, payment_currency, network_client_id, last_activity_at,
                     created_by, updated_by
                 )
                 values (
@@ -398,7 +414,7 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
                     :email, :normalized_phone, :normalized_email, :country, :city, :address, :customer_type, :lifecycle_status,
                     :source, :preferred_language, :preferred_currency, :notes, :credit_enabled,
                     :credit_limit, :current_balance, :total_spent,
-                    :payment_amount_due, :payment_amount_paid, :payment_currency, now(),
+                    :payment_amount_due, :payment_amount_paid, :payment_currency, cast(:network_client_id as uuid), now(),
                     :user_id, :user_id
                 )
                 returning id::text
@@ -431,6 +447,7 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
                 "payment_amount_due": payload.get("payment_amount_due") or 0,
                 "payment_amount_paid": payload.get("payment_amount_paid") or 0,
                 "payment_currency": (payload.get("payment_currency") or payload.get("preferred_currency") or "USD").upper(),
+                "network_client_id": str(network_client_id) if network_client_id else None,
                 },
             ).fetchone()
             if row is not None:
@@ -490,6 +507,27 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
 
     try:
         with engine.begin() as conn:
+            network_client_id = None
+            network_phone = phone or whatsapp_phone
+            if network_phone:
+                network_client_id = conn.execute(
+                    text("""
+                        insert into organization_network_clients(group_id,normalized_phone,display_name,email)
+                        select organization.group_id,:phone,:display_name,:email
+                        from organizations organization
+                        where organization.id=:org_id and organization.group_id is not null
+                        on conflict(group_id,normalized_phone) do update set
+                          display_name=coalesce(excluded.display_name,organization_network_clients.display_name),
+                          email=coalesce(excluded.email,organization_network_clients.email),updated_at=now()
+                        returning id
+                    """),
+                    {
+                        "org_id": org_id,
+                        "phone": network_phone,
+                        "display_name": data["display_name"],
+                        "email": email,
+                    },
+                ).scalar()
             result = conn.execute(
             text("""
                 update clients set
@@ -518,6 +556,7 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
                     payment_amount_due = :payment_amount_due,
                     payment_amount_paid = :payment_amount_paid,
                     payment_currency = :payment_currency,
+                    network_client_id = cast(:network_client_id as uuid),
                     updated_by = :user_id,
                     updated_at = now(),
                     row_version = row_version + 1
@@ -528,6 +567,7 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
             """),
             dict(data, org_id=org_id, client_id=client_id, user_id=user_id,
                  normalized_phone=phone or whatsapp_phone, normalized_email=email,
+                 network_client_id=str(network_client_id) if network_client_id else None,
                  expected_version=expected_version),
             )
             if result.rowcount > 0:

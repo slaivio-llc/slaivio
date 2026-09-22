@@ -11,6 +11,10 @@ type Tenant = {
   org_id: string;
   organization_name?: string | null;
   role_code?: string | null;
+  group_id?: string | null;
+  network_name?: string | null;
+  country?: string | null;
+  city?: string | null;
 };
 
 export function formatOrganizationDisplayName(value?: string | null) {
@@ -113,7 +117,7 @@ export function OrganizationSwitcher({ collapsed = false, menuPlacement = "up", 
       {open && (
         <div className={`absolute z-50 w-[248px] overflow-hidden rounded-[7px] border border-[#d2d5d8] bg-white shadow-[0_14px_38px_rgba(15,23,42,.16)] ${collapsed ? "bottom-0 left-[48px]" : menuPlacement === "down" ? header ? "right-0 top-[44px]" : "left-0 top-[52px]" : "bottom-[52px] left-0"}`}>
           <div className="flex h-10 items-center border-b border-[#eceeed] px-3 text-[12px] font-medium text-[#5f6670]">
-            Vos organisations
+            {activeTenant?.group_id ? activeTenant.network_name || "Bureaux du réseau" : "Vos organisations"}
             <button type="button" onClick={() => setOpen(false)} className="ml-auto rounded p-1 hover:bg-[#f0f1f1]" aria-label="Fermer">
               <X size={14} />
             </button>
@@ -129,6 +133,7 @@ export function OrganizationSwitcher({ collapsed = false, menuPlacement = "up", 
                 <Building2 size={15} className="text-[#686e75]" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-medium">{formatOrganizationDisplayName(tenant.organization_name)}</span>
+                  {(tenant.city || tenant.country) && <span className="mt-0.5 block truncate text-[11px] text-[#7b838b]">{[tenant.city, tenant.country].filter(Boolean).join(" · ")} · {tenant.role_code || "MEMBRE"}</span>}
                 </span>
                 {tenant.org_id === activeTenant?.org_id && <Check size={15} className="text-[#16855f]" />}
               </button>

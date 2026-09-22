@@ -91,6 +91,7 @@ from app.api.routes_services import router as routes_services_router
 from app.api.departures import router as departures_router
 from app.api.documents import router as documents_router
 from app.api.organization_admin import router as organization_admin_router
+from app.api.organization_network import router as organization_network_router
 from app.api.notification_center import router as notification_center_router
 from app.api.reports import router as reports_router
 from app.api.support import router as support_router
@@ -207,6 +208,7 @@ app.include_router(dashboard_router)
 app.include_router(clients_router)
 app.include_router(packages_router)
 app.include_router(tracking_router)
+app.include_router(organization_network_router)
 app.include_router(finance_router)
 app.include_router(routes_services_router)
 app.include_router(departures_router)

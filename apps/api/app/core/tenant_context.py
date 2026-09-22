@@ -37,4 +37,8 @@ def get_current_tenant(
         "user_id": user_id,
         "actor_name": manager.get("full_name") or manager.get("name") or manager.get("email"),
         "actor_role": active.get("role_code") or manager.get("role"),
+        "group_id": active.get("group_id"),
+        "network_name": active.get("network_name"),
+        "country": active.get("country"),
+        "city": active.get("city"),
     }

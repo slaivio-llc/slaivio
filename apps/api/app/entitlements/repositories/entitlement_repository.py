@@ -28,11 +28,14 @@ def get_org_plan_code(
         row = conn.execute(
             text("""
                 select p.code as plan_code
-                from agency_subscriptions s
+                from organizations active_org
+                join agency_subscriptions s
+                  on s.org_id = active_org.id or s.org_id = active_org.parent_org_id
                 join pricing_plans p
                     on p.id = s.pricing_plan_id
-                where s.org_id = :org_id
+                where active_org.id = :org_id
                   and s.status in ('TRIAL', 'ACTIVE', 'GRACE')
+                order by (s.org_id = active_org.id) desc
                 limit 1
             """),
             {

@@ -16,10 +16,16 @@ def list_user_tenants(
                     coalesce(o.organization_name, o.name, o.id) as organization_name,
                     coalesce(o.organization_code, o.id) as organization_code,
                     o.organization_type
-                    ,o.status as organization_status
+                    ,o.status as organization_status,
+                    o.group_id::text as group_id,
+                    o.parent_org_id,
+                    o.country,
+                    o.city,
+                    coalesce(g.group_name, o.organization_name, o.name, o.id) as network_name
                 from organization_memberships m
                 join organizations o
                     on o.id = m.org_id
+                left join organization_groups g on g.id = o.group_id
                 where m.clerk_user_id = :clerk_user_id
                   and m.status = 'ACTIVE'
                 order by coalesce(o.organization_name, o.name, o.id)
@@ -95,10 +101,16 @@ def get_active_tenant(
                     coalesce(o.organization_name, o.name, o.id) as organization_name,
                     coalesce(o.organization_code, o.id) as organization_code,
                     o.organization_type
-                    ,o.status as organization_status
+                    ,o.status as organization_status,
+                    o.group_id::text as group_id,
+                    o.parent_org_id,
+                    o.country,
+                    o.city,
+                    coalesce(g.group_name, o.organization_name, o.name, o.id) as network_name
                 from tenant_sessions s
                 join organizations o
                     on o.id = s.org_id
+                left join organization_groups g on g.id = o.group_id
                 join organization_memberships m
                     on m.org_id = s.org_id
                    and m.clerk_user_id = s.clerk_user_id

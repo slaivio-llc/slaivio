@@ -125,7 +125,7 @@ describe("PilotSettingsPage navigation", () => {
 
     const labels = [
       "Entreprise",
-      "Bureaux, routes & services",
+      "Réseau et équipe",
       "Identifiants",
       "Canaux",
       "IA",
@@ -158,7 +158,7 @@ describe("PilotSettingsPage navigation", () => {
     render(<PilotSettingsPage />);
 
     expect(await screen.findByRole("button", { name: "Entreprise" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Bureaux, routes & services" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Réseau et équipe" })).not.toBeInTheDocument();
   });
 
   it("keeps only knowledge defaults in settings", async () => {

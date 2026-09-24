@@ -417,7 +417,7 @@ function pilotRouteLabel(locale: "fr" | "en", fallback: string, href: string) {
     "/app/dossiers": { fr: "Dossiers", en: "Cases" },
     "/app/inbox": { fr: "Messages", en: "Messages" },
     "/app/followups": { fr: "Relances", en: "Follow-ups" },
-    "/app/knowledge": { fr: "Savoirs", en: "Knowledge" },
+    "/app/knowledge": { fr: "Connaissances", en: "Knowledge" },
   };
   return labels[href]?.[locale] || dashboardLabel(locale, fallback, href);
 }

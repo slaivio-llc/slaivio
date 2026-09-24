@@ -134,7 +134,7 @@ def test_luza_multi_office_network_has_secure_office_scope_and_shared_destinatio
     assert "p.org_id = :org_id or p.destination_org_id = :org_id" in package_repository
     assert "d.org_id=:o or d.destination_org_id=:o" in departure_repository
     assert 'scope == "network"' in dashboard_repository
-    assert "NetworkOfficeSettings" in settings
+    assert "ParcelNetworkSettings" in settings
     assert "grantNetworkOffices" in settings
     assert "Bureaux autorisés" in settings
     assert "role_permissions(role_id,permission_id)" in network_repository
@@ -142,6 +142,26 @@ def test_luza_multi_office_network_has_secure_office_scope_and_shared_destinatio
     assert "tenant.city" in switcher and "tenant.country" in switcher
     assert "active_org.parent_org_id" in entitlements
     assert "parent_flag.enabled" in features
+
+
+def test_luza_network_offices_are_created_from_the_switcher_and_invitations_provision_selected_offices():
+    migration = read("infra/sql/125_parcel_network_invitations.sql")
+    network_repository = read("apps/api/app/organization_network/repository.py")
+    network_api = read("apps/api/app/api/organization_network.py")
+    membership_service = read("apps/api/app/organizations/services/membership_role_service.py")
+    switcher = read("apps/web/dashboard/components/tenant/organization-switcher.tsx")
+    settings = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
+
+    assert "organization_network_invitation_offices" in migration
+    for operation in ("validate_invitation_offices", "attach_invitation_offices", "list_network_invitations"):
+        assert f"def {operation}" in network_repository
+    assert '@router.post("/invitations"' in network_api
+    assert "list_invitation_office_grants" in membership_service
+    assert "network_memberships" in membership_service
+    assert "Ajouter un bureau" in switcher
+    assert "createNetworkOffice" in switcher
+    assert "Les routes et services restent dans leurs modules opérationnels" in settings
+    assert "inviteNetworkMember" in settings
 
 
 def test_luza_customer_identity_remains_shared_after_phone_updates():

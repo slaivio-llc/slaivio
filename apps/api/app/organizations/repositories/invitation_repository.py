@@ -50,6 +50,7 @@ def create_invitation_record(
 def mark_invitation_accepted(
     clerk_invitation_id: str | None = None,
     email: str | None = None,
+    org_id: str | None = None,
 ):
     with engine.connect() as conn:
         if clerk_invitation_id:
@@ -60,10 +61,12 @@ def mark_invitation_accepted(
                         status = 'ACCEPTED',
                         accepted_at = now()
                     where clerk_invitation_id = :clerk_invitation_id
+                      and (:org_id is null or org_id = :org_id)
                     returning *
                 """),
                 {
                     "clerk_invitation_id": clerk_invitation_id,
+                    "org_id": org_id,
                 },
             ).fetchone()
         else:
@@ -73,12 +76,20 @@ def mark_invitation_accepted(
                     set
                         status = 'ACCEPTED',
                         accepted_at = now()
-                    where email = :email
-                      and status = 'PENDING'
+                    where id = (
+                        select id
+                        from organization_invitations
+                        where email = :email
+                          and status = 'PENDING'
+                          and (:org_id is null or org_id = :org_id)
+                        order by created_at desc
+                        limit 1
+                    )
                     returning *
                 """),
                 {
                     "email": email,
+                    "org_id": org_id,
                 },
             ).fetchone()
 
@@ -103,5 +114,20 @@ def list_invitations(
             },
         ).fetchall()
 
+        return [dict(row._mapping) for row in rows]
+
+
+def list_invitation_office_grants(invitation_id: str):
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("""
+                select grant_row.org_id, grant_row.role_code, organization.clerk_org_id
+                from organization_network_invitation_offices grant_row
+                join organizations organization on organization.id = grant_row.org_id
+                where grant_row.invitation_id = cast(:invitation_id as uuid)
+                order by organization.country, organization.city, organization.organization_name
+            """),
+            {"invitation_id": invitation_id},
+        ).fetchall()
         return [dict(row._mapping) for row in rows]
 

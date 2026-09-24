@@ -92,7 +92,7 @@ export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
     routes: [
       { label: "Opérations", href: "/app/operations", icon: BriefcaseBusiness, keywords: ["opérations", "colis", "départ", "expédition", "entrepôt", "route"] },
       { label: "Colis", href: "/app/packages", icon: Package, keywords: ["colis", "poids", "destination", "statut", "suivi"] },
-      { label: "Départs et manifestes", href: "/app/departures", icon: Truck, permission: "departures.read", keywords: ["départ", "manifeste", "expédition"] },
+      { label: "Départs", href: "/app/departures", icon: Truck, permission: "departures.read", keywords: ["départ", "manifeste", "expédition"] },
       { label: "Expéditions", href: "/app/shipments", icon: Truck, permission: "shipments.read", keywords: ["expédition", "chargement", "groupage", "transport"] },
       { label: "Entrepôts", href: "/app/warehouses", icon: Warehouse, permission: "warehouses.read", keywords: ["entrepôt", "stock", "bureau", "réception"] },
       { label: "Routes et services", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "service", "tarif", "destination", "eta"] },

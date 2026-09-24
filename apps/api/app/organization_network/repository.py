@@ -290,3 +290,70 @@ def grant_offices(org_id: str, actor_id: str, target_user_id: str, office_ids: l
         """), {"group_id": current["group_id"], "user_id": target_user_id, "actor": actor_id})
         _event(conn, current["group_id"], org_id, "MEMBER_OFFICES_GRANTED", actor_id, {"user_id": target_user_id, "office_ids": office_ids, "role_code": role_code})
     return {"user_id": target_user_id, "office_ids": office_ids, "role_code": role_code}
+
+
+def validate_invitation_offices(org_id: str, office_ids: list[str]) -> dict:
+    unique_ids = list(dict.fromkeys(office_ids))
+    if org_id not in unique_ids:
+        raise HTTPException(422, "current_office_required_for_invitation")
+    with engine.connect() as conn:
+        current = _current_network(conn, org_id)
+        if not current or not current.get("group_id"):
+            raise HTTPException(409, "organization_network_not_configured")
+        offices = _rows(conn.execute(text("""
+            select id,clerk_org_id,coalesce(organization_name,name,id) organization_name
+            from organizations
+            where group_id=cast(:group_id as uuid) and status='ACTIVE'
+              and id=any(cast(:office_ids as text[]))
+        """), {"group_id": current["group_id"], "office_ids": unique_ids}))
+    if len(offices) != len(unique_ids):
+        raise HTTPException(422, "office_outside_network")
+    return {"group_id": current["group_id"], "offices": offices, "office_ids": unique_ids}
+
+
+def attach_invitation_offices(
+    org_id: str, actor_id: str, invitation_id: str, office_ids: list[str], role_code: str,
+) -> dict:
+    validated = validate_invitation_offices(org_id, office_ids)
+    with engine.begin() as conn:
+        invitation = conn.execute(text("""
+            select id::text,email,status from organization_invitations
+            where id=cast(:invitation_id as uuid) and org_id=:org_id
+        """), {"invitation_id": invitation_id, "org_id": org_id}).mappings().first()
+        if not invitation:
+            raise HTTPException(404, "network_invitation_not_found")
+        conn.execute(text("delete from organization_network_invitation_offices where invitation_id=cast(:invitation_id as uuid)"), {"invitation_id": invitation_id})
+        conn.execute(text("""
+            insert into organization_network_invitation_offices(invitation_id,group_id,org_id,role_code)
+            select cast(:invitation_id as uuid),cast(:group_id as uuid),office.id,:role_code
+            from organizations office
+            where office.id=any(cast(:office_ids as text[]))
+        """), {
+            "invitation_id": invitation_id, "group_id": validated["group_id"],
+            "office_ids": validated["office_ids"], "role_code": role_code,
+        })
+        _event(conn, validated["group_id"], org_id, "MEMBER_INVITED", actor_id, {
+            "invitation_id": invitation_id, "email": invitation["email"],
+            "office_ids": validated["office_ids"], "role_code": role_code,
+        })
+    return {**dict(invitation), "office_ids": validated["office_ids"], "role_code": role_code}
+
+
+def list_network_invitations(org_id: str) -> list[dict]:
+    with engine.connect() as conn:
+        current = _current_network(conn, org_id)
+        if not current or not current.get("group_id"):
+            return []
+        return _rows(conn.execute(text("""
+            select invitation.id::text,invitation.email,invitation.status,invitation.created_at,
+              invitation.accepted_at,grant_row.role_code,
+              array_agg(grant_row.org_id order by office.country,office.city,office.organization_name) office_ids,
+              array_agg(coalesce(office.organization_name,office.name,office.id)
+                order by office.country,office.city,office.organization_name) office_names
+            from organization_invitations invitation
+            join organization_network_invitation_offices grant_row on grant_row.invitation_id=invitation.id
+            join organizations office on office.id=grant_row.org_id
+            where grant_row.group_id=cast(:group_id as uuid)
+            group by invitation.id,grant_row.role_code
+            order by invitation.created_at desc
+        """), {"group_id": current["group_id"]}))

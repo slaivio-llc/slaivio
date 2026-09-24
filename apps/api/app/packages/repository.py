@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from urllib.parse import quote
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from math import ceil
@@ -13,6 +14,7 @@ from uuid import uuid4
 from sqlalchemy import text
 from fastapi import HTTPException
 
+from app.core.config import settings
 from app.db.database import engine
 
 
@@ -38,10 +40,16 @@ CUSTOMER_STATUS_MESSAGES = {
     "RECEIVED": "Nous confirmons la réception de votre colis {tracking} dans notre agence.",
     "RECEIVED_AT_ORIGIN": "Nous confirmons la réception de votre colis {tracking} à l’origine.",
     "SHIPPED": "Votre colis {tracking} a été expédié vers {destination}.",
+    "IN_TRANSIT": "Votre colis {tracking} est actuellement en transit vers {destination}.",
+    "CUSTOMS": "Votre colis {tracking} est en cours de traitement douanier.",
     "ARRIVED": "Votre colis {tracking} est arrivé à destination ({destination}).",
     "ARRIVED_DESTINATION": "Votre colis {tracking} est arrivé à destination ({destination}).",
-    "READY_FOR_PICKUP": "Votre colis {tracking} est disponible au retrait. Contactez l’agence pour les modalités de remise.",
+    "CLEARED": "Le traitement douanier de votre colis {tracking} est terminé.",
+    "READY_FOR_PICKUP": "Votre colis {tracking} est disponible au point de retrait. Contactez l’agence pour les modalités de remise.",
     "DELIVERED": "Votre colis {tracking} a été remis. Merci d’avoir choisi notre agence.",
+    "BLOCKED": "Le traitement de votre colis {tracking} nécessite une vérification par notre équipe. Nous vous tiendrons informé.",
+    "RETURNED": "Votre colis {tracking} a été marqué comme retourné. Contactez notre équipe pour les détails.",
+    "CANCELLED": "Le traitement de votre colis {tracking} a été annulé. Contactez notre équipe pour les détails.",
 }
 
 
@@ -54,20 +62,29 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
         from organizations organization
         left join parcel_operation_settings settings on settings.org_id=organization.id
         where organization.id=:org_id
-          and organization.organization_type='PARCEL_FREIGHT'
+          and organization.organization_type in ('PARCEL_FREIGHT','CARGO')
           and coalesce(settings.notify_package_milestones,true)
     """), {"org_id": package["org_id"]}).first()
     if not enabled:
         return None
-    client = conn.execute(text("""
-        select coalesce(nullif(whatsapp_phone,''), nullif(phone,'')) phone
-        from clients where org_id=:org_id and id=:client_id and deleted_at is null
+    customer_context = conn.execute(text("""
+        select coalesce(nullif(client.whatsapp_phone,''), nullif(client.phone,'')) phone,
+               coalesce(nullif(organization.organization_name,''), nullif(organization.name,''), 'Notre agence') agency_name
+        from clients client
+        join organizations organization on organization.id=client.org_id
+        where client.org_id=:org_id and client.id=:client_id and client.deleted_at is null
     """), {"org_id": package["org_id"], "client_id": package["client_id"]}).mappings().first()
-    if not client or not client.get("phone"):
+    if not customer_context or not customer_context.get("phone"):
         return None
     destination = ", ".join(filter(None, [package.get("destination_city"), package.get("destination_country")])) or "sa destination"
     tracking = package.get("tracking_id") or package.get("package_reference") or "votre colis"
-    message = template.format(tracking=tracking, destination=destination)
+    tracking_url = f"{settings.public_web_base_url.rstrip('/')}/track?reference={quote(str(tracking), safe='')}"
+    message = (
+        f"{customer_context['agency_name']}\n\n"
+        f"{template.format(tracking=tracking, destination=destination)}\n\n"
+        f"Suivre le colis : {tracking_url}\n"
+        f"Numéro de suivi : {tracking}"
+    )
     notification_type = f"PACKAGE_STATUS:{package['id']}:{status}"
     row = conn.execute(text("""
         insert into notification_outbox(
@@ -80,7 +97,7 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
         )
         returning id::text
     """), {"org_id": package["org_id"], "client_id": package["client_id"],
-             "dossier_id": package.get("dossier_id"), "phone": client["phone"],
+             "dossier_id": package.get("dossier_id"), "phone": customer_context["phone"],
              "notification_type": notification_type, "message": message}).first()
     if not row:
         return None
@@ -93,7 +110,7 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
           cast(:notification_outbox_id as uuid)
         )
     """), {"org_id": package["org_id"], "package_id": package["id"],
-             "notification_type": notification_type, "phone": client["phone"],
+             "notification_type": notification_type, "phone": customer_context["phone"],
              "message": message, "user_id": user_id,
              "notification_outbox_id": str(row[0])})
     return str(row[0])
@@ -806,14 +823,19 @@ def public_package_tracking(reference: str) -> dict | None:
         return None
     with engine.connect() as conn:
         matches = conn.execute(text("""
-            select id::text, package_reference, tracking_id, status,
-                   origin_city, origin_country, destination_city, destination_country,
-                   eta_at, received_at, dispatched_at, delivered_at, last_scan_location,
-                   updated_at
-            from cargo_packages
-            where deleted_at is null and public_tracking_enabled=true
-              and (upper(tracking_id)=upper(:reference) or upper(package_reference)=upper(:reference))
-            order by updated_at desc
+            select package.id::text, package.package_reference, package.tracking_id, package.status,
+                   package.origin_city, package.origin_country,
+                   package.destination_city, package.destination_country,
+                   package.eta_at, package.received_at, package.dispatched_at,
+                   package.delivered_at, package.last_scan_location,
+                   package.updated_at,
+                   coalesce(nullif(organization.organization_name,''), nullif(organization.name,''), 'Agence') agency_name,
+                   organization.logo_url agency_logo_url
+            from cargo_packages package
+            join organizations organization on organization.id=package.org_id
+            where package.deleted_at is null and package.public_tracking_enabled=true
+              and (upper(package.tracking_id)=upper(:reference) or upper(package.package_reference)=upper(:reference))
+            order by package.updated_at desc
             limit 2
         """), {"reference": normalized}).fetchall()
         # An ambiguous reference must not allow a caller to select another tenant.
@@ -821,10 +843,12 @@ def public_package_tracking(reference: str) -> dict | None:
             return None
         package = _safe(dict(matches[0]._mapping))
         package["events"] = [_safe(dict(row._mapping)) for row in conn.execute(text("""
-            select event_type, title, description, new_status, created_at occurred_at
+            select event_type, title, null::text description, new_status, created_at occurred_at
             from package_events
             where package_id=cast(:package_id as uuid)
-              and event_type in ('PACKAGE_CREATED','PACKAGE_STATUS_CHANGED','STATUS_CHANGED')
+              and event_type in ('PACKAGE_CREATED','PACKAGE_STATUS_CHANGED','STATUS_CHANGED',
+                'DEPARTURE_CONFIRMED','DEPARTURE_DELAYED','DEPARTURE_DEPARTED',
+                'DEPARTURE_ARRIVED','DEPARTURE_CANCELLED','DELIVERED')
             order by created_at desc
             limit 50
         """), {"package_id": package["id"]}).fetchall()]

@@ -249,6 +249,8 @@ export type ShipmentPackageEligibility = {
 };
 
 export type ExpeditionPayload = Partial<{
+  route_id: string;
+  shipping_service_id: string;
   expected_version:number;
   expedition_reference: string;
   title: string;

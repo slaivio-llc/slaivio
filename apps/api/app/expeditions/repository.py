@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from urllib.parse import quote
 from datetime import date, datetime
 from decimal import Decimal
 from math import ceil
@@ -94,9 +95,12 @@ def _queue_expedition_assignment_notification(
     if not enabled:
         return None
     client = conn.execute(text("""
-        select coalesce(nullif(whatsapp_phone, ''), nullif(phone, '')) phone
-        from clients
-        where org_id = :org_id and id = cast(:client_id as uuid) and deleted_at is null
+        select coalesce(nullif(client.whatsapp_phone, ''), nullif(client.phone, '')) phone,
+               coalesce(nullif(organization.organization_name, ''), nullif(organization.name, ''), 'Notre agence') agency_name
+        from clients client
+        join organizations organization on organization.id = client.org_id
+        where client.org_id = :org_id and client.id = cast(:client_id as uuid)
+          and client.deleted_at is null
     """), {"org_id": org_id, "client_id": package["client_id"]}).mappings().first()
     if not client or not client.get("phone"):
         return None
@@ -104,8 +108,9 @@ def _queue_expedition_assignment_notification(
     tracking = package.get("tracking_id") or package.get("package_reference")
     if not tracking:
         return None
-    tracking_url = f"{settings.public_web_base_url.rstrip('/')}/track"
+    tracking_url = f"{settings.public_web_base_url.rstrip('/')}/track?reference={quote(str(tracking), safe='')}"
     message = (
+        f"{client['agency_name']}\n\n"
         f"Votre colis {tracking} a été affecté à l’expédition "
         f"{expedition['expedition_reference']}.\n\n"
         f"Suivez son évolution ici : {tracking_url}\n"
@@ -927,6 +932,11 @@ def create_expedition(org_id: str, user_id: str, payload: dict) -> dict:
             {
                 "org_id": org_id,
                 "reference": reference,
+                "route_id": payload.get("route_id"),
+                "shipping_service_id": payload.get("shipping_service_id"),
+                "origin_warehouse_id": payload.get("origin_warehouse_id"),
+                "destination_office_id": payload.get("destination_office_id"),
+                "departure_id": payload.get("departure_id"),
                 "title": payload.get("title"),
                 "status": status,
                 "mode": mode,
@@ -980,6 +990,45 @@ def create_expedition(org_id: str, user_id: str, payload: dict) -> dict:
     return expedition
 
 
+def _sync_customer_package_milestone(conn, org_id: str, expedition_id: str, user_id: str, status: str) -> list[str]:
+    from app.packages.repository import _queue_customer_status_notification
+
+    target = {
+        'DISPATCHED': 'SHIPPED', 'IN_TRANSIT': 'IN_TRANSIT',
+        'ARRIVED_DESTINATION': 'ARRIVED_DESTINATION', 'CUSTOMS_CLEARANCE': 'CUSTOMS',
+        'AVAILABLE_FOR_PICKUP': 'READY_FOR_PICKUP', 'DELIVERED': 'DELIVERED',
+        'BLOCKED': 'BLOCKED',
+    }.get(status)
+    if not target:
+        return []
+    packages = conn.execute(text("""
+        select p.* from cargo_packages p
+        join expedition_packages ep on ep.package_id=p.id and ep.org_id=p.org_id
+        where ep.org_id=:org_id and ep.expedition_id=:expedition_id
+          and ep.removed_at is null and p.deleted_at is null
+          and p.status not in ('DELIVERED','CANCELLED','RETURNED')
+          and p.status<>:status
+        order by p.id for update of p
+    """), {'org_id': org_id, 'expedition_id': expedition_id, 'status': target}).mappings().all()
+    queued = []
+    for package in packages:
+        conn.execute(text("""
+            update cargo_packages set status=:status,current_status=:status,
+              dispatched_at=case when :status='SHIPPED' then coalesce(dispatched_at,now()) else dispatched_at end,
+              delivered_at=case when :status='DELIVERED' then coalesce(delivered_at,now()) else delivered_at end,
+              row_version=row_version+1,updated_at=now(),updated_by=:user_id
+            where org_id=:org_id and id=:id
+        """), {'org_id': org_id, 'id': package['id'], 'status': target, 'user_id': user_id})
+        conn.execute(text("""
+            insert into package_events(org_id,package_id,event_type,title,previous_status,new_status,actor_id)
+            values(:org_id,:id,'PACKAGE_STATUS_CHANGED','Étape du transport mise à jour',:previous,:status,:user_id)
+        """), {'org_id': org_id, 'id': package['id'], 'previous': package['status'], 'status': target, 'user_id': user_id})
+        notification_id = _queue_customer_status_notification(conn, dict(package), target, user_id)
+        if notification_id:
+            queued.append(notification_id)
+    return queued
+
+
 def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: dict, expected_version: int | None = None) -> dict | None:
     _ensure_schema()
     allowed = [
@@ -991,6 +1040,7 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
         "planned_departure_at", "departed_at", "eta_at", "arrived_at", "delivered_at",
         "is_delayed", "delay_reason", "currency", "notes",
     ]
+    queued_notification_ids = []
     updates = {key: value for key, value in payload.items() if key in allowed}
     if not updates:
         return get_expedition(org_id, expedition_id)
@@ -1002,7 +1052,7 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
         raise ValueError("invalid_risk_level")
     with engine.begin() as conn:
         current = conn.execute(
-            text("select status from cargo_expeditions where org_id = :org_id and id = :id and archived_at is null"),
+            text("select status from cargo_expeditions where org_id = :org_id and id = :id and archived_at is null for update"),
             {"org_id": org_id, "id": expedition_id},
         ).fetchone()
         if not current:
@@ -1024,6 +1074,9 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
             raise ValueError("stale_shipment_version")
         conn.execute(text("insert into shipment_audit_log(org_id,expedition_id,action,actor_id,payload) values(:org_id,:id,'SHIPMENT_UPDATED',:user_id,cast(:payload as jsonb))"),{"org_id":org_id,"id":expedition_id,"user_id":user_id,"payload":json.dumps(updates,default=str)})
         if "status" in updates and updates["status"] != current.status:
+            queued_notification_ids = _sync_customer_package_milestone(
+                conn, org_id, expedition_id, user_id, updates["status"],
+            )
             _insert_event(
                 conn,
                 org_id=org_id,
@@ -1034,7 +1087,10 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
                 new_status=updates["status"],
                 actor_id=user_id,
             )
-    return get_expedition(org_id, expedition_id)
+    result = get_expedition(org_id, expedition_id)
+    if result and queued_notification_ids:
+        result['_queued_notification_ids'] = queued_notification_ids
+    return result
 
 
 def archive_expedition(org_id: str, expedition_id: str, user_id: str, expected_version: int | None = None) -> bool:

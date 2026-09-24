@@ -238,7 +238,7 @@ def get_shipment(shipment_id: str, tenant=Depends(get_current_tenant)):
 
 
 @router.patch("/shipments/{shipment_id}",dependencies=[Depends(require_permission("shipments.update"))])
-def patch_shipment(shipment_id: str, payload: ExpeditionPayload, tenant=Depends(get_current_tenant)):
+def patch_shipment(shipment_id: str, payload: ExpeditionPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
     org_id, user_id = _tenant_ids(tenant)
     try:
         values=payload.model_dump(exclude_unset=True);expected_version=values.pop("expected_version",None)
@@ -247,6 +247,8 @@ def patch_shipment(shipment_id: str, payload: ExpeditionPayload, tenant=Depends(
         raise HTTPException(status_code=409 if str(exc)=="stale_shipment_version" else 400, detail=str(exc)) from exc
     if not expedition:
         raise HTTPException(status_code=404, detail="Expedition not found")
+    for notification_id in expedition.pop("_queued_notification_ids", []):
+        background_tasks.add_task(send_notification, org_id, notification_id)
     return {"status": "ok", "shipment": expedition, "expedition": expedition}
 
 

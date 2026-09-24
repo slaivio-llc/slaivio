@@ -1,4 +1,5 @@
 import csv,io,json
+from urllib.parse import quote
 from datetime import datetime,timedelta,timezone
 from uuid import uuid4
 from fastapi import HTTPException
@@ -288,6 +289,7 @@ def _sync_operations(c,o,dep,a,n,status,reason,queued_notification_ids):
  c.execute(text('update cargo_expeditions set status=:s,is_delayed=:delayed,delay_reason=coalesce(:reason,delay_reason),departed_at=case when :s=\'DISPATCHED\' then coalesce(departed_at,now()) else departed_at end,arrived_at=case when :s=\'ARRIVED_DESTINATION\' then coalesce(arrived_at,now()) else arrived_at end,updated_by=:a,updated_at=now() where org_id=:o and id=:id'),{'s':exp_status,'delayed':status=='DELAYED','reason':reason,'a':a,'o':o,'id':exp['id']})
  c.execute(text("insert into expedition_events(org_id,expedition_id,event_type,title,description,new_status,metadata,actor_id,actor_name,idempotency_key) values(:o,:id,:event,:title,:description,:status,cast(:meta as jsonb),:a,:n,:key) on conflict(idempotency_key) do nothing"),{'o':o,'id':exp['id'],'event':f'DEPARTURE_{status}','title':f'Départ {status.lower()}','description':reason,'status':exp_status,'meta':json.dumps({'departure_id':str(dep['id']),'departure_code':dep['departure_code']}),'a':a,'n':n,'key':f"departure:{dep['id']}:{status}:{dep['row_version']}"})
  milestones_enabled=c.execute(text("select coalesce(notify_package_milestones,true) from parcel_operation_settings where org_id=:o"),{'o':o}).scalar()
+ agency_name=c.execute(text("select coalesce(nullif(organization_name,''),nullif(name,''),'Notre agence') from organizations where id=:o"),{'o':o}).scalar() or 'Notre agence'
  packages=rows(c.execute(text("select p.*,cl.phone client_phone,cl.whatsapp_phone client_whatsapp_phone from departure_package_allocations da join cargo_packages p on p.id=da.package_id and p.org_id=da.org_id left join clients cl on cl.id=p.client_id and cl.org_id=p.org_id where da.org_id=:o and da.departure_id=:d and da.status<>'REMOVED' and p.deleted_at is null"),{'o':o,'d':dep['id']}))
  for pkg in packages:
   c.execute(text("insert into expedition_packages(org_id,expedition_id,package_id,added_by) values(:o,:e,:p,:a) on conflict(org_id,expedition_id,package_id) where removed_at is null do nothing"),{'o':o,'e':exp['id'],'p':pkg['id'],'a':a})
@@ -296,8 +298,11 @@ def _sync_operations(c,o,dep,a,n,status,reason,queued_notification_ids):
   c.execute(text("insert into package_events(org_id,package_id,event_type,title,description,new_status,metadata,actor_id) values(:o,:p,:event,:title,:description,:status,cast(:meta as jsonb),:a)"),{'o':o,'p':pkg['id'],'event':f'DEPARTURE_{status}','title':f'Départ {status.lower()}','description':reason,'status':package_status,'meta':json.dumps({'departure_id':str(dep['id']),'expedition_id':exp['id']}),'a':a})
   if milestones_enabled is not False and status in {'DELAYED','DEPARTED','ARRIVED','CANCELLED'} and pkg.get('client_id') and (pkg.get('client_phone') or pkg.get('client_whatsapp_phone')):
    when=dep.get('scheduled_at')
-   tracking=pkg.get('tracking_id') or pkg.get('package_reference');tracking_url=f"{settings.public_web_base_url.rstrip('/')}/track"
-   message=(f"Votre départ {dep['departure_code']} a été retardé. Nouvelle date prévue : {when}. Motif : {reason}." if status=='DELAYED' else f"Votre colis {pkg.get('package_reference')} a quitté l'origine.\n\nSuivez son évolution ici : {tracking_url}\nNuméro de suivi : {tracking}." if status=='DEPARTED' else f"Votre colis {pkg.get('package_reference')} est arrivé à destination.\n\nSuivi : {tracking_url}\nNuméro de suivi : {tracking}." if status=='ARRIVED' else f"Le départ {dep['departure_code']} a été annulé. Votre colis sera réaffecté au prochain départ compatible.")
+   tracking=pkg.get('tracking_id') or pkg.get('package_reference');tracking_url=f"{settings.public_web_base_url.rstrip('/')}/track?reference={quote(str(tracking),safe='')}"
+   body=(f"Votre départ {dep['departure_code']} a été retardé. Nouvelle date prévue : {when}. Motif : {reason}." if status=='DELAYED' else f"Votre colis {pkg.get('package_reference')} a quitté l'origine.\n\nSuivez son évolution ici : {tracking_url}\nNuméro de suivi : {tracking}." if status=='DEPARTED' else f"Votre colis {pkg.get('package_reference')} est arrivé à destination.\n\nSuivi : {tracking_url}\nNuméro de suivi : {tracking}." if status=='ARRIVED' else f"Le départ {dep['departure_code']} a été annulé. Votre colis sera réaffecté au prochain départ compatible.")
+   if status in {'DELAYED','CANCELLED'}:
+    body += f"\n\nSuivi : {tracking_url}\nNuméro de suivi : {tracking}."
+   message=f"{agency_name}\n\n{body}"
    notification_type=f"DEPARTURE_{status}:{dep['id']}:{pkg['id']}"
    queued=c.execute(text("insert into notification_outbox(org_id,client_id,dossier_id,channel,recipient_phone,notification_type,message) select :o,:client,:dossier,'whatsapp',:phone,:type,:message where not exists(select 1 from notification_outbox where org_id=:o and notification_type=:type) returning id::text"),{'o':o,'client':pkg['client_id'],'dossier':pkg['dossier_id'],'phone':pkg.get('client_whatsapp_phone') or pkg.get('client_phone'),'type':notification_type,'message':message}).first()
    if queued:queued_notification_ids.append(str(queued[0]))

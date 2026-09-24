@@ -25,7 +25,7 @@ import { OperationContent, OperationMetrics, OperationSearch, OperationToolbar }
 import { OperationActionMenu, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { FormGeographyFields } from "@/components/ui/geography-fields";
+import { catalog, type Route, type Service } from "@/services/route-catalog";
 import {
   createShipment,
   exportShipments,
@@ -156,6 +156,31 @@ export function ShipmentsPage() {
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [analytics, setAnalytics] = useState<ShipmentAnalytics | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [routeId, setRouteId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const selectedRoute = routes.find(route => route.id === routeId);
+  const routeServices = services.filter(service => service.route_id === routeId);
+  const selectedService = routeServices.find(service => service.id === serviceId);
+  useEffect(() => {
+    if (!formOpen) return;
+    let cancelled = false;
+    setCatalogLoading(true);
+    setCatalogError("");
+    catalog().then(result => {
+      if (cancelled) return;
+      setRoutes(result.routes.filter(route => route.active));
+      setServices(result.services);
+      setRouteId("");
+      setServiceId("");
+    }).catch(() => {
+      if (!cancelled) setCatalogError("Impossible de charger les routes et services. Fermez puis rouvrez ce formulaire pour réessayer.");
+    }).finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
+  }, [formOpen]);
 
   const currentView = views.find((view) => view.key === activeView) || views[0];
   const page = pagination.page || 1;
@@ -223,29 +248,31 @@ export function ShipmentsPage() {
     setSaving(true);
     setFormError("");
     const form = new FormData(event.currentTarget);
+    if (!selectedRoute || !selectedService || catalogLoading || catalogError) {
+      setFormError("Sélectionnez une route et son service configuré.");
+      setSaving(false);
+      return;
+    }
+    const departure = value(form, "planned_departure_at");
+    const arrival = value(form, "eta_at");
+    if (departure && arrival && new Date(arrival) < new Date(departure)) {
+      setFormError("L’arrivée estimée doit être après le départ prévu.");
+      setSaving(false);
+      return;
+    }
     const payload: ExpeditionPayload = {
-      title: value(form, "title"),
-      status: value(form, "status") as ExpeditionStatus,
-      mode: value(form, "mode") as ExpeditionMode,
-      service_type: value(form, "service_type"),
-      risk_level: value(form, "risk_level") as RiskLevel,
-      origin_country: value(form, "origin_country"),
-      origin_city: value(form, "origin_city"),
-      origin_warehouse: value(form, "origin_warehouse"),
-      destination_country: value(form, "destination_country"),
-      destination_city: value(form, "destination_city"),
-      destination_warehouse: value(form, "destination_warehouse"),
-      route_label: value(form, "route_label"),
+      route_id: selectedRoute.id,
+      shipping_service_id: selectedService.id,
+      title: value(form, "title") || `${selectedRoute.route_name} · ${selectedService.service_name}`,
+      status: "PREPARING",
+      currency: selectedService.currency_code,
       carrier_name: value(form, "carrier_name"),
       flight_number: value(form, "flight_number"),
       container_number: value(form, "container_number"),
       awb_number: value(form, "awb_number"),
       bl_number: value(form, "bl_number"),
-      batch_reference: value(form, "batch_reference"),
-      owner_name: value(form, "owner_name"),
-      planned_departure_at: value(form, "planned_departure_at"),
-      eta_at: value(form, "eta_at"),
-      currency: value(form, "currency") || "USD",
+      planned_departure_at: departure ? new Date(departure).toISOString() : undefined,
+      eta_at: arrival ? new Date(arrival).toISOString() : undefined,
       notes: value(form, "notes"),
     };
     try {
@@ -602,98 +629,46 @@ export function ShipmentsPage() {
         <OperationDrawer
           open
           title="Nouvelle expédition"
-          description="Planifiez le transport, la capacité et les références opérationnelles."
+          description="Choisissez une route et un service, puis ajoutez les colis prêts à partir après la création."
           close={() => setFormOpen(false)}
-          width="max-w-4xl"
+          width="max-w-2xl"
         >
           <form
             onSubmit={handleCreate}
           >
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field
-                name="title"
-                label="Titre"
-                placeholder="China → Kinshasa Juin"
-              />
-              <Select
-                name="status"
-                label="Statut"
-                options={statusLabels}
-                defaultValue="PREPARING"
-              />
-              <Select
-                name="mode"
-                label="Mode"
-                options={modeLabels}
-                defaultValue="AIR"
-              />
-              <Field
-                name="service_type"
-                label="Service"
-                placeholder="Air Cargo Premium"
-              />
-              <Select
-                name="risk_level"
-                label="Risque"
-                options={riskLabels}
-                defaultValue="LOW"
-              />
-              <Field name="currency" label="Devise" defaultValue="USD" />
-              <FormGeographyFields required countryName="origin_country" cityName="origin_city" countryLabel="Pays de départ" cityLabel="Ville de départ" className={formInputClass} fieldClassName="grid gap-1 text-[13px] font-medium text-[#334155]"/>
-              <Field
-                name="origin_warehouse"
-                label="Entrepôt départ"
-                placeholder="Entrepôt Guangzhou"
-              />
-              <FormGeographyFields required countryName="destination_country" cityName="destination_city" countryLabel="Pays d’arrivée" cityLabel="Ville d’arrivée" className={formInputClass} fieldClassName="grid gap-1 text-[13px] font-medium text-[#334155]"/>
-              <Field
-                name="destination_warehouse"
-                label="Entrepôt arrivée"
-                placeholder="Agence Kinshasa"
-              />
-              <Field
-                name="route_label"
-                label="Route"
-                placeholder="Chine → RDC"
-              />
-              <Field
-                name="carrier_name"
-                label="Transporteur"
-                placeholder="Ethiopian Airlines"
-              />
-              <Field name="flight_number" label="Vol" placeholder="ET-840" />
-              <Field
-                name="container_number"
-                label="Container"
-                placeholder="MSCU..."
-              />
-              <Field name="awb_number" label="AWB" placeholder="157-..." />
-              <Field name="bl_number" label="BL" placeholder="BL-..." />
-              <Field
-                name="batch_reference"
-                label="Batch"
-                placeholder="BATCH-CN-0626"
-              />
-              <Field
-                name="owner_name"
-                label="Responsable"
-                placeholder="Country Manager"
-              />
-              <Field
-                name="planned_departure_at"
-                label="Départ prévu"
-                type="datetime-local"
-              />
-              <Field name="eta_at" label="ETA" type="datetime-local" />
-              <label className="md:col-span-3">
-                <span className="mb-1 block text-[13px] font-medium text-[#334155]">
-                  Notes
-                </span>
-                <textarea
-                  name="notes"
-                  className="min-h-24 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[14px] outline-none focus:border-[#12c76f]"
-                  placeholder="Notes internes pour l'équipe opérationnelle"
-                />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">Route
+                <select required className={formInputClass} value={routeId} disabled={catalogLoading || !!catalogError} onChange={event => {setRouteId(event.target.value);setServiceId("");}}>
+                  <option value="">{catalogLoading ? "Chargement…" : "Choisir une route"}</option>
+                  {routes.map(route => <option key={route.id} value={route.id}>{route.route_name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">Service et voie
+                <select required className={formInputClass} value={serviceId} disabled={!routeId || catalogLoading} onChange={event => setServiceId(event.target.value)}>
+                  <option value="">Choisir un service</option>
+                  {routeServices.map(service => <option key={service.id} value={service.id}>{service.service_name}</option>)}
+                </select>
+              </label>
+              {catalogError && <p role="alert" className="sm:col-span-2 text-sm text-red-700">{catalogError}</p>}
+              {!catalogLoading && !catalogError && (!routes.length || (routeId && !routeServices.length)) && <p className="sm:col-span-2 text-sm text-[#69747d]">Configurez une route active et son service dans Routes et Services avant de créer l’expédition.</p>}
+              {selectedRoute && <div className="sm:col-span-2 rounded-lg bg-[#f5f8f7] p-3 text-[13px] text-[#52616a]">
+                <p>{[selectedRoute.origin_city, selectedRoute.origin_country].filter(Boolean).join(", ")} → {[selectedRoute.destination_city, selectedRoute.destination_country].filter(Boolean).join(", ")}</p>
+                {selectedService && <p className="mt-1">{selectedService.service_name} · {selectedService.currency_code} · Délai indicatif : {selectedService.eta_min_days}–{selectedService.eta_max_days} jours</p>}
+              </div>}
+              <Field name="planned_departure_at" label="Départ prévu" type="datetime-local"/>
+              <Field name="eta_at" label="Arrivée estimée" type="datetime-local"/>
+              <Field name="title" label="Libellé (optionnel)" placeholder="Généré à partir de la route et du service"/>
+              <Field name="carrier_name" label="Transporteur (optionnel)"/>
+              {selectedService && ["AIR", "EXPRESS"].includes(selectedService.shipping_mode) && <>
+                <Field name="flight_number" label="Numéro de vol (optionnel)"/>
+                <Field name="awb_number" label="Lettre de transport aérien · AWB (optionnel)"/>
+              </>}
+              {selectedService?.shipping_mode === "SEA" && <>
+                <Field name="container_number" label="Numéro de conteneur (optionnel)"/>
+                <Field name="bl_number" label="Connaissement · BL (optionnel)"/>
+              </>}
+              <label className="sm:col-span-2 grid gap-1 text-[13px] font-medium text-[#334155]">Notes internes (optionnelles)
+                <textarea name="notes" className="min-h-20 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[13px]" placeholder="Consignes pour l’équipe"/>
               </label>
             </div>
             {formError ? (
@@ -712,7 +687,7 @@ export function ShipmentsPage() {
               <button
                 type="submit"
                 className={primaryButtonClass}
-                disabled={saving}
+                disabled={saving || catalogLoading || !!catalogError || !selectedService}
               >
                 {saving ? (
                   <Loader2 className="animate-spin" size={16} />
@@ -829,37 +804,6 @@ function Field({
         placeholder={placeholder}
         className="h-9 w-full rounded-md border border-[#cfd5dd] px-3 text-[14px] outline-none focus:border-[#12c76f]"
       />
-    </label>
-  );
-}
-
-function Select({
-  label,
-  name,
-  options,
-  defaultValue,
-}: {
-  label: string;
-  name: string;
-  options: Record<string, string>;
-  defaultValue?: string;
-}) {
-  return (
-    <label>
-      <span className="mb-1 block text-[13px] font-medium text-[#334155]">
-        {label}
-      </span>
-      <select
-        name={name}
-        defaultValue={defaultValue}
-        className="h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[14px] outline-none focus:border-[#12c76f]"
-      >
-        {Object.entries(options).map(([key, label]) => (
-          <option value={key} key={key}>
-            {label}
-          </option>
-        ))}
-      </select>
     </label>
   );
 }

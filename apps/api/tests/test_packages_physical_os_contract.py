@@ -35,7 +35,7 @@ def test_parcel_status_notifications_are_dispatched_and_public_tracking_is_safe(
     api=(ROOT/'apps/api/app/api/packages.py').read_text(encoding='utf-8')
     assert 'CUSTOMER_STATUS_MESSAGES' in repository
     assert '_queue_customer_status_notification' in repository
-    assert "organization_type='PARCEL_FREIGHT'" in repository
+    assert "organization.organization_type in ('PARCEL_FREIGHT','CARGO')" in repository
     assert 'notification_type = f"PACKAGE_STATUS:' in repository
     assert 'public_tracking_enabled=true' in repository
     assert 'len(matches) != 1' in repository

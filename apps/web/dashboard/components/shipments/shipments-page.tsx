@@ -308,9 +308,6 @@ export function ShipmentsPage() {
           description="Pilotez les transports réels de vos colis : routes, ETA, statuts, clients concernés, documents, coûts et risques."
           actions={
             <>
-              <OperationActionMenu>
-                <button onClick={() => setAnalyticsOpen((value) => !value)}>{analyticsOpen ? "Revenir à la liste" : "Voir les analytics"}</button>
-              </OperationActionMenu>
               <PermissionGuard permission="shipments.read">
                 <button className={buttonClass} onClick={handleExport}><Download size={14} />Exporter CSV</button>
               </PermissionGuard>
@@ -335,12 +332,16 @@ export function ShipmentsPage() {
         </OperationMetrics>
 
         {analyticsOpen ? (
-          <ShipmentAnalyticsView data={analytics} />
+          <>
+            <OperationToolbar filters={<OperationActionMenu><button onClick={() => setAnalyticsOpen(false)}>Revenir à la liste</button></OperationActionMenu>} />
+            <ShipmentAnalyticsView data={analytics} />
+          </>
         ) : (
           <>
             <OperationToolbar
               search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher une expédition…" />}
               filters={
+                <>
                 <OperationFilterPopover
                   open={filtersOpen}
                   onOpenChange={setFiltersOpen}
@@ -415,6 +416,10 @@ export function ShipmentsPage() {
                   </select>
                   </OperationField>
                 </OperationFilterPopover>
+                <OperationActionMenu>
+                  <button onClick={() => setAnalyticsOpen(true)}>Voir les analytics</button>
+                </OperationActionMenu>
+                </>
               }
             />
 

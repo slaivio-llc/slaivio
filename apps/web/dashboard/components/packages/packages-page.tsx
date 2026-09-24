@@ -717,32 +717,6 @@ export function PackagesPage() {
                 <PackageSearch size={14} />
                 Suivi client
               </OperationButton>
-              <OperationActionMenu>
-                  <button
-                    onClick={() => setScanOpen(true)}
-                  >
-                    <Barcode size={14} />
-                    Scanner un colis
-                  </button>
-                  <button
-                    onClick={() =>
-                      setLayoutMode(
-                        layoutMode === "kanban" ? "table" : "kanban",
-                      )
-                    }
-                  >
-                    {layoutMode === "kanban" ? "Vue tableau" : "Vue Kanban"}
-                  </button>
-                  <button
-                    onClick={() =>
-                      layoutMode === "analytics"
-                        ? setLayoutMode("table")
-                        : showAnalytics()
-                    }
-                  >
-                    {layoutMode === "analytics" ? "Vue tableau" : "Analytics"}
-                  </button>
-              </OperationActionMenu>
               <OperationButton onClick={() => setImportOpen(true)}>
                 <Upload size={14} />
                 Importer
@@ -778,6 +752,7 @@ export function PackagesPage() {
           <OperationToolbar
             search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher un colis…" />}
             filters={
+              <>
               <OperationFilterPopover
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
@@ -834,6 +809,15 @@ export function PackagesPage() {
                   Afficher uniquement les colis fragiles
                 </label>
               </OperationFilterPopover>
+              <OperationActionMenu>
+                <button onClick={() => setLayoutMode(layoutMode === "kanban" ? "table" : "kanban")}>
+                  Vue Kanban
+                </button>
+                <button onClick={() => layoutMode === "analytics" ? setLayoutMode("table") : showAnalytics()}>
+                  Analytics
+                </button>
+              </OperationActionMenu>
+              </>
             }
           />
 

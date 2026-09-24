@@ -10,7 +10,6 @@ import {
   Languages,
   MapPin,
   Plug,
-  RefreshCcw,
   ShieldCheck,
   UserPlus,
   Users,
@@ -141,12 +140,6 @@ export function OrganizationAdminPage() {
       <OperationPageHeader
         title="Paramètres"
         description="Configurez l’entreprise, les accès et les préférences de votre espace de travail."
-        actions={
-          <OperationButton onClick={load}>
-            <RefreshCcw className="mr-2 inline" size={14} />
-            Actualiser
-          </OperationButton>
-        }
       />
       <div className="grid min-h-[calc(100vh-132px)] lg:grid-cols-[272px_minmax(0,1fr)]">
         <aside className="hidden border-r border-[#e0e2e4] bg-[#fafafa] p-3 lg:block">

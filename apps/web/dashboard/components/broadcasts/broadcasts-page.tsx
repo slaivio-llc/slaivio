@@ -116,13 +116,6 @@ export function BroadcastsPage() {
             <OperationButton onClick={() => exportCampaigns(items)}>
               <Download size={14} className="inline" /> Exporter
             </OperationButton>
-            <OperationActionMenu>
-                <button
-                  onClick={() => setModal("audience")}
-                >
-                  Créer un groupe de destinataires
-                </button>
-            </OperationActionMenu>
             <OperationButton variant="primary" onClick={() => setModal("campaign")}>
               <Plus size={14} className="inline" /> Nouvelle campagne
             </OperationButton>
@@ -137,7 +130,7 @@ export function BroadcastsPage() {
           })}
         </OperationMetricGrid>
       </OperationMetrics>
-      <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une campagne…" />} filters={<OperationFilterPopover activeCount={(channel ? 1 : 0) + (status ? 1 : 0)} onReset={() => { setStatus(""); setChannel(""); }} title="Filtrer les campagnes"><OperationField label="Vue"><select className={`${field} w-full`} value={status} onChange={(event) => setStatus(event.target.value)}>{tabs.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></OperationField><OperationField label="Canal d’envoi"><select className={`${field} w-full`} value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">Tous les canaux</option>{Array.from(new Set(items.flatMap((item) => item.channels || []))).map((value) => <option key={value} value={value}>{channelLabels[value] || value}</option>)}</select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
+      <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une campagne…" />} filters={<><OperationFilterPopover activeCount={(channel ? 1 : 0) + (status ? 1 : 0)} onReset={() => { setStatus(""); setChannel(""); }} title="Filtrer les campagnes"><OperationField label="Vue"><select className={`${field} w-full`} value={status} onChange={(event) => setStatus(event.target.value)}>{tabs.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></OperationField><OperationField label="Canal d’envoi"><select className={`${field} w-full`} value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">Tous les canaux</option>{Array.from(new Set(items.flatMap((item) => item.channels || []))).map((value) => <option key={value} value={value}>{channelLabels[value] || value}</option>)}</select></OperationField></OperationFilterPopover><OperationActionMenu><button onClick={() => setModal("audience")}>Créer un groupe de destinataires</button></OperationActionMenu></>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
       {error && <ErrorState title="Campagnes indisponibles" description={error} retry={load} />}
       {loading ? <TableSkeleton rows={7} columns={7} label="Chargement des campagnes…" /> : items.length ? <OperationTable className="min-h-[460px]">
         <table className="w-full min-w-[980px] border-collapse bg-white text-left text-[13px]">

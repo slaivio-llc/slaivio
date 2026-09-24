@@ -131,27 +131,6 @@ export function PickupsPage() {
         description="Vérifiez le client, le paiement et le code avant toute remise physique."
         actions={
           <>
-            <OperationActionMenu>
-                <button
-                  onClick={() => setAnalyticsOpen(true)}
-                >
-                  Analytics
-                </button>
-                <PermissionGuard permission="pickups.notify">
-                  <button
-                    onClick={reminders}
-                  >
-                    Relancer les retraits en attente
-                  </button>
-                </PermissionGuard>
-                <PermissionGuard permission="pickups.settings">
-                  <button
-                    onClick={() => setSettingsOpen(true)}
-                  >
-                    Paramètres des retraits
-                  </button>
-                </PermissionGuard>
-            </OperationActionMenu>
             <PermissionGuard permission="pickups.export">
               <OperationButton onClick={download}>
                 <Download size={14} />
@@ -181,7 +160,7 @@ export function PickupsPage() {
           </OperationMetricGrid>
         </OperationMetrics>
         <section className="overflow-hidden bg-white">
-          <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Téléphone, nom, colis ou tracking…" />} filters={<><OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer les retraits"><OperationField label="Étape du retrait"><select value={status} onChange={(e) => setStatus(e.target.value)} className={`${input} w-full`}><option value="">Toutes les étapes</option>{Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load}>
+          <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Téléphone, nom, colis ou tracking…" />} filters={<><OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer les retraits"><OperationField label="Étape du retrait"><select value={status} onChange={(e) => setStatus(e.target.value)} className={`${input} w-full`}><option value="">Toutes les étapes</option>{Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></OperationField></OperationFilterPopover><OperationActionMenu><button onClick={() => setAnalyticsOpen(true)}>Analytics</button><PermissionGuard permission="pickups.notify"><button onClick={reminders}>Relancer les retraits en attente</button></PermissionGuard><PermissionGuard permission="pickups.settings"><button onClick={() => setSettingsOpen(true)}>Paramètres des retraits</button></PermissionGuard></OperationActionMenu><OperationButton onClick={load}>
               <RefreshCcw size={14} />
               Actualiser
             </OperationButton></>} />

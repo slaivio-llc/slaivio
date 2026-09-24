@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatOrganizationDisplayName } from "./organization-switcher";
+import { formatOfficeDisplayName, formatOrganizationDisplayName } from "./organization-switcher";
 
 describe("organization display name", () => {
   it("normalizes the organization label without changing the stored name", () => {
@@ -10,5 +10,10 @@ describe("organization display name", () => {
 
   it("does not append the suffix twice", () => {
     expect(formatOrganizationDisplayName("otie cargo's org")).toBe("otie cargo's org");
+  });
+
+  it("uses a normalized office label for parcel and freight workspaces", () => {
+    expect(formatOfficeDisplayName("OTIE CARGO")).toBe("otie cargo's office");
+    expect(formatOfficeDisplayName("otie cargo's office")).toBe("otie cargo's office");
   });
 });

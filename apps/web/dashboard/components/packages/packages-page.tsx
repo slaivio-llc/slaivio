@@ -713,10 +713,6 @@ export function PackagesPage() {
           description="Réceptionnez, mesurez, stockez et suivez chaque colis réel. Chaque ligne reste liée à un dossier client pour garder une traçabilité complète."
           actions={
             <>
-              <OperationButton onClick={() => window.open("/track", "_blank", "noopener,noreferrer")}>
-                <PackageSearch size={14} />
-                Suivi client
-              </OperationButton>
               <OperationButton onClick={() => setImportOpen(true)}>
                 <Upload size={14} />
                 Importer

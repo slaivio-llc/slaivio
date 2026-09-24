@@ -6,12 +6,13 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.tenant_context import get_current_tenant
 from app.core.permissions import require_permission
 from app.services.dossier_document_storage import create_document_download_url,upload_private_document
+from app.services.notification_sender import send_notification
 from app.expeditions.repository import (
     add_document,
     add_financial_line,
@@ -266,7 +267,7 @@ def get_shipment_timeline(shipment_id: str, tenant=Depends(get_current_tenant)):
 
 
 @router.post("/shipments/{shipment_id}/packages",dependencies=[Depends(require_permission("shipments.update"))])
-def attach_package(shipment_id: str, payload: PackageAssignmentPayload, tenant=Depends(get_current_tenant)):
+def attach_package(shipment_id: str, payload: PackageAssignmentPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
     org_id, user_id = _tenant_ids(tenant)
     try:
         expedition = add_package_to_expedition(org_id, shipment_id, payload.package_id, user_id)
@@ -278,6 +279,8 @@ def attach_package(shipment_id: str, payload: PackageAssignmentPayload, tenant=D
         raise HTTPException(status_code=422, detail=detail) from exc
     if not expedition:
         raise HTTPException(status_code=404, detail="Expedition or package not found")
+    for notification_id in expedition.pop("_queued_notification_ids", []):
+        background_tasks.add_task(send_notification, org_id, notification_id)
     return {"status": "ok", "shipment": expedition, "expedition": expedition}
 
 

@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.db.database import engine
 from app.packages.repository import _ensure_schema as ensure_packages_schema
 
@@ -68,6 +69,91 @@ def _safe(value: Any) -> Any:
     if isinstance(value, list):
         return [_safe(item) for item in value]
     return value
+
+
+def _queue_expedition_assignment_notification(
+    conn,
+    *,
+    org_id: str,
+    expedition: dict,
+    package: dict,
+    user_id: str,
+) -> str | None:
+    """Queue public tracking instructions once a parcel is assigned."""
+    if not package.get("client_id"):
+        return None
+    enabled = conn.execute(text("""
+        select 1
+        from organizations organization
+        left join parcel_operation_settings operation_settings
+          on operation_settings.org_id = organization.id
+        where organization.id = :org_id
+          and organization.organization_type in ('PARCEL_FREIGHT', 'CARGO')
+          and coalesce(operation_settings.notify_package_milestones, true)
+    """), {"org_id": org_id}).first()
+    if not enabled:
+        return None
+    client = conn.execute(text("""
+        select coalesce(nullif(whatsapp_phone, ''), nullif(phone, '')) phone
+        from clients
+        where org_id = :org_id and id = cast(:client_id as uuid) and deleted_at is null
+    """), {"org_id": org_id, "client_id": package["client_id"]}).mappings().first()
+    if not client or not client.get("phone"):
+        return None
+
+    tracking = package.get("tracking_id") or package.get("package_reference")
+    if not tracking:
+        return None
+    tracking_url = f"{settings.public_web_base_url.rstrip('/')}/track"
+    message = (
+        f"Votre colis {tracking} a été affecté à l’expédition "
+        f"{expedition['expedition_reference']}.\n\n"
+        f"Suivez son évolution ici : {tracking_url}\n"
+        f"Numéro de suivi : {tracking}"
+    )
+    notification_type = f"EXPEDITION_ASSIGNED:{expedition['id']}:{package['id']}"
+    queued = conn.execute(text("""
+        insert into notification_outbox(
+          org_id, client_id, dossier_id, channel, recipient_phone, notification_type, message
+        )
+        select :org_id, cast(:client_id as uuid), p.dossier_id, 'whatsapp', :phone,
+               :notification_type, :message
+        from cargo_packages p
+        where p.org_id = :org_id and p.id = cast(:package_id as uuid)
+          and not exists (
+            select 1 from notification_outbox
+            where org_id = :org_id and notification_type = :notification_type
+          )
+        returning id::text
+    """), {
+        "org_id": org_id,
+        "client_id": package["client_id"],
+        "package_id": package["id"],
+        "phone": client["phone"],
+        "notification_type": notification_type,
+        "message": message,
+    }).first()
+    if not queued:
+        return None
+    notification_id = str(queued[0])
+    conn.execute(text("""
+        insert into package_notifications(
+          org_id, package_id, channel, notification_type, recipient, message,
+          status, created_by, notification_outbox_id
+        ) values(
+          :org_id, cast(:package_id as uuid), 'whatsapp', :notification_type,
+          :phone, :message, 'PENDING', :user_id, cast(:notification_id as uuid)
+        )
+    """), {
+        "org_id": org_id,
+        "package_id": package["id"],
+        "notification_type": notification_type,
+        "phone": client["phone"],
+        "message": message,
+        "user_id": user_id,
+        "notification_id": notification_id,
+    })
+    return notification_id
 
 
 def _one(row) -> dict | None:
@@ -1114,6 +1200,7 @@ def list_package_eligibility(org_id: str, expedition_id: str) -> list[dict] | No
 
 def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, user_id: str) -> dict | None:
     _ensure_schema()
+    queued_notification_id = None
     with engine.begin() as conn:
         expedition = _expedition_for_package_validation(conn, org_id, expedition_id)
         package = _package_for_expedition_validation(conn, org_id, package_id, expedition_id)
@@ -1175,8 +1262,18 @@ def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, 
             actor_id=user_id,
             metadata={"package_id": package_id},
         )
+        queued_notification_id = _queue_expedition_assignment_notification(
+            conn,
+            org_id=org_id,
+            expedition=expedition,
+            package=package,
+            user_id=user_id,
+        )
         _recompute_expedition_totals(conn, org_id, expedition_id)
-    return get_expedition(org_id, expedition_id)
+    result = get_expedition(org_id, expedition_id)
+    if result and queued_notification_id:
+        result["_queued_notification_ids"] = [queued_notification_id]
+    return result
 
 
 def remove_package_from_expedition(org_id: str, expedition_id: str, package_id: str, user_id: str, reason: str | None = None) -> dict | None:

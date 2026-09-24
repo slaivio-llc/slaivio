@@ -3,6 +3,7 @@ from datetime import datetime,timedelta,timezone
 from uuid import uuid4
 from fastapi import HTTPException
 from sqlalchemy import text
+from app.core.config import settings
 from app.db.database import engine
 def rows(r):return [dict(x) for x in r.mappings().all()]
 def ev(c,o,d,t,a,n,p=None):c.execute(text("insert into departure_events(org_id,departure_id,event_type,actor_id,actor_name,payload) values(:o,:d,:t,:a,:n,cast(:p as jsonb))"),{"o":o,"d":d,"t":t,"a":a,"n":n,"p":json.dumps(p or {})})
@@ -295,7 +296,8 @@ def _sync_operations(c,o,dep,a,n,status,reason,queued_notification_ids):
   c.execute(text("insert into package_events(org_id,package_id,event_type,title,description,new_status,metadata,actor_id) values(:o,:p,:event,:title,:description,:status,cast(:meta as jsonb),:a)"),{'o':o,'p':pkg['id'],'event':f'DEPARTURE_{status}','title':f'Départ {status.lower()}','description':reason,'status':package_status,'meta':json.dumps({'departure_id':str(dep['id']),'expedition_id':exp['id']}),'a':a})
   if milestones_enabled is not False and status in {'DELAYED','DEPARTED','ARRIVED','CANCELLED'} and pkg.get('client_id') and (pkg.get('client_phone') or pkg.get('client_whatsapp_phone')):
    when=dep.get('scheduled_at')
-   message=(f"Votre départ {dep['departure_code']} a été retardé. Nouvelle date prévue : {when}. Motif : {reason}." if status=='DELAYED' else f"Votre colis {pkg.get('package_reference')} a quitté l'origine. Suivi : {pkg.get('tracking_id') or pkg.get('package_reference')}." if status=='DEPARTED' else f"Votre colis {pkg.get('package_reference')} est arrivé à destination." if status=='ARRIVED' else f"Le départ {dep['departure_code']} a été annulé. Votre colis sera réaffecté au prochain départ compatible.")
+   tracking=pkg.get('tracking_id') or pkg.get('package_reference');tracking_url=f"{settings.public_web_base_url.rstrip('/')}/track"
+   message=(f"Votre départ {dep['departure_code']} a été retardé. Nouvelle date prévue : {when}. Motif : {reason}." if status=='DELAYED' else f"Votre colis {pkg.get('package_reference')} a quitté l'origine.\n\nSuivez son évolution ici : {tracking_url}\nNuméro de suivi : {tracking}." if status=='DEPARTED' else f"Votre colis {pkg.get('package_reference')} est arrivé à destination.\n\nSuivi : {tracking_url}\nNuméro de suivi : {tracking}." if status=='ARRIVED' else f"Le départ {dep['departure_code']} a été annulé. Votre colis sera réaffecté au prochain départ compatible.")
    notification_type=f"DEPARTURE_{status}:{dep['id']}:{pkg['id']}"
    queued=c.execute(text("insert into notification_outbox(org_id,client_id,dossier_id,channel,recipient_phone,notification_type,message) select :o,:client,:dossier,'whatsapp',:phone,:type,:message where not exists(select 1 from notification_outbox where org_id=:o and notification_type=:type) returning id::text"),{'o':o,'client':pkg['client_id'],'dossier':pkg['dossier_id'],'phone':pkg.get('client_whatsapp_phone') or pkg.get('client_phone'),'type':notification_type,'message':message}).first()
    if queued:queued_notification_ids.append(str(queued[0]))

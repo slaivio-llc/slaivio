@@ -92,8 +92,6 @@ export function WarehousesPage() {
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader
-      backHref="/app/operations"
-      backLabel="Retour aux opérations"
       title="Entrepôts"
       description="Pilotez le stock, les emplacements, les transferts et les contrôles physiques."
       actions={<>

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   OperationButton,
+  OperationBackLink,
   OperationActionMenu,
   OperationField,
   OperationFilterPopover,
@@ -14,6 +15,15 @@ import {
 } from "./operation-controls";
 
 describe("operational design primitives", () => {
+  it("keeps one compact back control for genuine detail pages", () => {
+    render(<OperationBackLink href="/app/dossiers" label="Retour aux dossiers" />);
+
+    const link = screen.getByRole("link", { name: "Retour aux dossiers" });
+    expect(link).toHaveAttribute("href", "/app/dossiers");
+    expect(link.className).toContain("h-9");
+    expect(link.className).toContain("w-9");
+  });
+
   it("exposes accessible tabs and agency-friendly fields", () => {
     render(<>
       <OperationTab active count={12}>En entrepôt</OperationTab>

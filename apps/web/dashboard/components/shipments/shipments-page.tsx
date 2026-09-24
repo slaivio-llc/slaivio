@@ -304,8 +304,6 @@ export function ShipmentsPage() {
     <div className="min-h-full bg-white text-[#1f2328]">
       <section className="overflow-hidden bg-white">
         <OperationPageHeader
-          backHref="/app/operations"
-          backLabel="Retour aux opérations"
           title="Expéditions"
           description="Pilotez les transports réels de vos colis : routes, ETA, statuts, clients concernés, documents, coûts et risques."
           actions={

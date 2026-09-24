@@ -32,8 +32,6 @@ export function KnowledgePage({embedded=false}:{embedded?:boolean}){
   async function archive(){if(!archiving)return;setBusyId(archiving.id);try{await pilotKnowledgeAction(archiving.id,'archive',archiving.version);setArchiving(null);await load();}catch{setError("L’information n’a pas pu être archivée.");}finally{setBusyId(null);}}
   return <div className={`${embedded?"knowledge-embedded min-w-0":"min-h-full"} bg-white`} data-ui-contract={knowledgeInterfaceVocabulary}>
     {!embedded&&<OperationPageHeader
-      backHref="/app/communication"
-      backLabel="Retour à la communication"
       title={dashboardLabel(locale,"Connaissances")}
       description={dashboardLabel(locale,"Conservez les réponses officielles de votre entreprise et contrôlez exactement ce que l’IA peut communiquer aux clients.")}
       actions={<PermissionGuard permission="pilot.knowledge.manage"><OperationButton variant="primary" onClick={()=>setCreateOpen(true)}><Plus size={15}/>{dashboardLabel(locale,"Ajouter une information")}</OperationButton></PermissionGuard>}

@@ -155,8 +155,6 @@ export function ServiceCatalogCenter() {
   return (
     <div className="min-h-full bg-white">
       <OperationPageHeader
-        backHref="/app/operations"
-        backLabel="Retour aux opérations"
         title="Services"
         description="Configurez et pilotez tous les services proposés par votre agence cargo."
         actions={

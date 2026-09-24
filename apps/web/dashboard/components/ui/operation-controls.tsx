@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, ChevronDown, ListFilter, Menu, RefreshCcw, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ListFilter, Menu, RefreshCcw, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -41,6 +42,19 @@ export function OperationButton({
       title={refresh ? props.title || "Actualiser" : props.title}
       className={`inline-flex h-9 items-center justify-center gap-2 rounded-[6px] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
     >{refresh ? (visibleChildren.length > 0 ? visibleChildren : <RefreshCcw size={14} aria-hidden="true" />) : children}</button>
+  );
+}
+
+export function OperationBackLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      title={label}
+      className="inline-grid h-9 w-9 shrink-0 place-items-center rounded-[6px] border border-[#d8dadd] bg-white text-[#30363d] shadow-[0_1px_1px_rgba(15,23,42,.03)] transition-colors hover:border-[#c7cbcf] hover:bg-[#f7f7f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ed8bc]"
+    >
+      <ArrowLeft size={15} aria-hidden="true" />
+    </Link>
   );
 }
 

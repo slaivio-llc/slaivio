@@ -65,6 +65,7 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
                  organization.name organization_name,
                  message.id source_message_id,
                  message.text_body source_message,
+                 message.sender_jid source_sender_jid,
                  message.created_at source_message_at
           from conversation_assignments assignment
           join organizations organization on organization.id=assignment.org_id
@@ -73,7 +74,7 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
           left join dossiers dossier
             on dossier.org_id=assignment.org_id and dossier.id=assignment.dossier_id
           left join lateral (
-            select candidate.id, candidate.text_body, candidate.created_at
+            select candidate.id, candidate.text_body, candidate.sender_jid, candidate.created_at
             from messages candidate
             where candidate.org_id=assignment.org_id
               and candidate.from_phone=assignment.client_phone

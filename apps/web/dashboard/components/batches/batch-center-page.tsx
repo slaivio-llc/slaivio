@@ -168,8 +168,6 @@ export function BatchCenterPage() {
   return (
     <div className="min-h-full bg-[#f6f7f6] text-[#17201c]">
       <OperationPageHeader
-        backHref="/app/operations"
-        backLabel="Retour aux opérations"
         title="Batchs & Groupages"
         description="Regroupez les colis compatibles, contrôlez la capacité et préparez les expéditions."
         actions={

@@ -563,7 +563,9 @@ def process_pilot_inbound_ai(
         return {**prepared, "status": "sent" if outbound.get("send_status") == "SENT" else "failed", "message": outbound, "idempotent_replay": True}
     try:
         provider = get_whatsapp_provider(org_id=org_id, preferred_role=preferred_role)
-        delivery = provider.send_message(to=client_phone, message=prepared["response_text"])
+        source_sender_jid = str(context.get("source_sender_jid") or "")
+        delivery_target = source_sender_jid if source_sender_jid.endswith(("@lid", "@s.whatsapp.net", "@c.us")) else client_phone
+        delivery = provider.send_message(to=delivery_target, message=prepared["response_text"])
         if not delivery.get("success"):
             raise RuntimeError("provider_rejected_message")
         sent = mark_outbound_message_sent(str(outbound["id"]), delivery.get("provider_message_id"))

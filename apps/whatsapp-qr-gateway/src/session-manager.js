@@ -8,7 +8,7 @@ import pino from "pino";
 import { createPostgresAuthState } from "./auth-store.js";
 import { emitCallback } from "./callback.js";
 import { pool } from "./db.js";
-import { phoneFromJid, resolveSenderIdentity } from "./message-identity.js";
+import { phoneFromJid, resolveOutboundJid, resolveSenderIdentity } from "./message-identity.js";
 
 const sessions = new Map();
 const logger = pino({ level: process.env.LOG_LEVEL || "info", redact: ["qr", "message", "payload"] });
@@ -227,6 +227,11 @@ export async function startSession(id, orgId) {
           if (!managedGroup.rowCount) continue;
         }
         let identity = resolveSenderIdentity(item.key, isGroup, session.lidPhoneMap);
+        if (!isGroup && identity.senderJid?.endsWith("@lid") && identity.phone) {
+          const phoneJid = `${identity.phone.replace(/\D/g, "")}@s.whatsapp.net`;
+          session.lidPhoneMap.set(identity.senderJid, phoneJid);
+          void persistIdentity(session, identity.senderJid, phoneJid);
+        }
         const text = textFromMessage(item.message);
         const media = mediaMetadata(item.message);
         const messageType = media?.messageType || getContentType(messageContent(item.message))?.replace("Message", "") || "unknown";
@@ -290,8 +295,8 @@ export function getSession(id) { return publicState(sessions.get(id)); }
 export async function sendMessage(id, to, message) {
   const session = sessions.get(id);
   if (!session?.socket || session.status !== "CONNECTED") throw new Error("whatsapp_qr_session_not_connected");
-  const rawTarget = String(to || "").trim();
-  const jid = rawTarget.endsWith("@g.us") ? rawTarget : `${rawTarget.replace(/\D/g, "")}@s.whatsapp.net`;
+  const jid = resolveOutboundJid(to, session.lidPhoneMap);
+  if (!jid) throw new Error("whatsapp_recipient_required");
   const result = await session.socket.sendMessage(jid, { text: message });
   return { success: true, provider_message_id: result?.key?.id || null };
 }

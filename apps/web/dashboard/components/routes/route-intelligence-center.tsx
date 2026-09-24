@@ -118,8 +118,6 @@ export function RouteIntelligenceCenter() {
   return (
     <div className="min-h-full bg-white">
       <OperationPageHeader
-        backHref="/app/operations"
-        backLabel="Retour aux opérations"
         title="Routes"
         description="Configurez, exploitez et analysez toutes les routes cargo de votre agence."
         actions={

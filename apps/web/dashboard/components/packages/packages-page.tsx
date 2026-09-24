@@ -710,8 +710,6 @@ export function PackagesPage() {
       <div className="overflow-hidden bg-white">
         <OperationPageHeader
           title="Colis"
-          backHref="/app/operations"
-          backLabel="Retour aux opérations"
           description="Réceptionnez, mesurez, stockez et suivez chaque colis réel. Chaque ligne reste liée à un dossier client pour garder une traçabilité complète."
           actions={
             <>

@@ -45,7 +45,10 @@ class QRLinkedDeviceWhatsAppProvider(WhatsAppProvider):
 
     @staticmethod
     def normalize_to(value: str) -> str:
-        digits = re.sub(r"\D", "", value.replace("whatsapp:", ""))
+        raw = re.sub(r"^whatsapp:", "", str(value or "").strip(), flags=re.IGNORECASE)
+        if re.fullmatch(r"[0-9]+(?::[0-9]+)?@(lid|s\.whatsapp\.net|c\.us|g\.us)", raw, re.IGNORECASE):
+            return raw.lower()
+        digits = re.sub(r"\D", "", raw)
         if not 8 <= len(digits) <= 15:
             raise ValueError("Invalid WhatsApp phone number")
         return f"+{digits}"

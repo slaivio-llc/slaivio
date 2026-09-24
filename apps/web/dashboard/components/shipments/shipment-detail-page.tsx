@@ -2,7 +2,6 @@
 
 import axios from "axios";
 import {
-  ArrowLeft,
   Bell,
   CheckCircle2,
   Clock,
@@ -17,11 +16,11 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {PermissionGuard} from "@/components/permissions/permission-guard";
+import { OperationBackLink } from "@/components/ui/operation-controls";
 import {LoadingState} from "@/components/ui/page-state";
 import {businessLabel} from "@/components/ui/business-labels";
 import {
@@ -150,7 +149,7 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
   if (!shipment) {
     return (
       <div className="min-h-[calc(100vh-56px)] bg-[#f7f8fa] p-8">
-        <Link className={`${buttonClass} w-9 px-0`} href="/app/shipments" aria-label="Retour aux expéditions" title="Retour aux expéditions"><ArrowLeft size={16} /></Link>
+        <OperationBackLink href="/app/shipments" label="Retour aux expéditions" />
         <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">{error || "Expédition introuvable."}</div>
       </div>
     );
@@ -160,9 +159,9 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
     <div className="min-h-[calc(100vh-56px)] bg-[#f7f8fa] px-8 py-6 text-[#1f2328]">
       <section className="mx-auto overflow-hidden bg-white">
         <header className="border-b border-[#eceef1] px-6 py-5">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <Link className={`${buttonClass} w-9 px-0`} href="/app/shipments" aria-label="Retour aux expéditions" title="Retour aux expéditions"><ArrowLeft size={16} /></Link>
+          <div className="mb-5 flex flex-wrap items-center justify-end gap-4">
             <div className="flex items-center gap-2">
+              <OperationBackLink href="/app/shipments" label="Retour aux expéditions" />
               <button className={`${buttonClass} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={16} /></button>
               <PermissionGuard permission="shipments.update"><button className={primaryButtonClass} onClick={() => setActiveTab("Colis")}><Plus size={16} /> Ajouter colis</button></PermissionGuard>
             </div>

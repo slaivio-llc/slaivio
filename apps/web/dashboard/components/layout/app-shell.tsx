@@ -42,6 +42,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
+
 import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
 import { canAccessRoute, getAppNavigation, type AppRoute } from "@/config/app-navigation";
 import { getOrganizationProductProfile, getProductProfile, isPilotV1, usesCompactAgencyShell } from "@/config/product-profile";

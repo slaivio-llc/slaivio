@@ -38,6 +38,11 @@ export function AppProviders({
 }
 
 function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
+  // SSR: return children directly, no Clerk hooks during server render
+  if (typeof window === 'undefined') {
+    return <>{children}</>;
+  }
+
   const { getToken, isLoaded, isSignedIn, userId, orgId } = useAuth();
   const [ready, setReady] = useState(false);
 
@@ -59,11 +64,6 @@ function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
       setAccessTokenProvider(null);
     };
   }, [getToken, isLoaded, isSignedIn]);
-
-  // Return children directly during SSR to avoid Clerk errors
-  if (typeof window === 'undefined') {
-    return <>{children}</>;
-  }
 
   if (!ready) {
     return <SlaivioLogoLoader label="Préparation de votre espace SLAIVIO" />;

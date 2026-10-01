@@ -1,29 +1,22 @@
-import json
-
 from sqlalchemy import text
 
+from app.core.json_utils import json_dumps
 from app.db.database import engine
 
 
 ONBOARDING_STEPS = [
-    ("WELCOME", "Welcome", 1, True),
-    ("AGENCY_PROFILE", "Agency Profile", 2, True),
-    ("WORKSPACES", "Offices / Workspaces", 3, True),
-    ("WAREHOUSES", "Warehouses", 4, True),
-    ("ROUTES", "Routes", 5, True),
-    ("SHIPPING_SERVICES", "Shipping Services", 6, True),
-    ("PRICING", "Pricing", 7, True),
-    ("GOODS_RULES", "Goods Rules", 8, True),
-    ("NOTIFICATIONS", "Notifications", 9, True),
-    ("TEAM", "Team", 10, False),
-    ("WHATSAPP", "WhatsApp", 11, True),
-    ("REVIEW", "Review", 12, True),
-    ("GO_LIVE", "Go Live", 13, True),
+    ("WELCOME", "Bienvenue", 1, True),
+    ("AGENCY_PROFILE", "Entreprise", 2, True),
+    ("OPERATIONS", "Opérations", 3, False),
+    ("WHATSAPP", "WhatsApp", 4, False),
+    ("AI_KNOWLEDGE", "IA et connaissances", 5, False),
+    ("REVIEW", "Vérification", 6, True),
+    ("GO_LIVE", "Terminé", 7, True),
 ]
 
 
 def _json(value):
-    return json.dumps(value)
+    return json_dumps(value)
 
 
 def fetch_one(query: str, params: dict):
@@ -39,7 +32,7 @@ def fetch_all(query: str, params: dict):
         return [dict(row._mapping) for row in rows]
 
 
-def get_or_create_journey(org_id: str, journey_version: str = "v1"):
+def get_or_create_journey(org_id: str, journey_version: str = "v2"):
     existing = fetch_one(
         """
         select *
@@ -54,10 +47,7 @@ def get_or_create_journey(org_id: str, journey_version: str = "v1"):
         },
     )
 
-    if existing:
-        return existing
-
-    journey = fetch_one(
+    journey = existing or fetch_one(
         """
         insert into onboarding_journeys (
             org_id,
@@ -99,7 +89,10 @@ def get_or_create_journey(org_id: str, journey_version: str = "v1"):
                 :status
             )
             on conflict (org_id, journey_id, step_key)
-            do nothing
+            do update set
+                step_name = excluded.step_name,
+                step_order = excluded.step_order,
+                required = excluded.required
             returning *
             """,
             {
@@ -148,7 +141,7 @@ def update_step_status(
                 else started_at
             end,
             completed_at = case
-                when :status = 'COMPLETED' then now()
+                when :status in ('COMPLETED', 'SKIPPED') then now()
                 else completed_at
             end
         where org_id = :org_id
@@ -163,6 +156,25 @@ def update_step_status(
             "status": status,
         },
     )
+
+
+def get_business_type(org_id: str):
+    row = fetch_one(
+        """
+        select case
+            when profile.business_type = 'PARCEL_FREIGHT'
+              or organization.organization_type = 'PARCEL_FREIGHT'
+                then 'PARCEL_FREIGHT'
+            else 'VEHICLE_IMPORT'
+        end as business_type
+        from organizations organization
+        left join agency_profile profile on profile.org_id = organization.id
+        where organization.id = :org_id
+        limit 1
+        """,
+        {"org_id": org_id},
+    )
+    return (row or {}).get("business_type", "VEHICLE_IMPORT")
 
 
 def complete_journey(org_id: str, journey_id: str):

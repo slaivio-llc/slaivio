@@ -8,6 +8,7 @@ from app.onboarding_experience.schemas.onboarding_experience_schemas import (
 from app.onboarding_experience.services.onboarding_experience_service import (
     complete_step,
     get_experience_state,
+    skip_step,
     track_event,
 )
 
@@ -37,6 +38,21 @@ def complete_onboarding_step(
     return {
         "status": "ok",
         "data": complete_step(
+            org_id=tenant["org_id"],
+            user_id=tenant["user_id"],
+            step_key=body.step_key,
+        ),
+    }
+
+
+@router.post("/onboarding-experience/skip-step")
+def skip_onboarding_step(
+    body: CompleteExperienceStepIn,
+    tenant=Depends(get_current_tenant),
+):
+    return {
+        "status": "ok",
+        "data": skip_step(
             org_id=tenant["org_id"],
             user_id=tenant["user_id"],
             step_key=body.step_key,

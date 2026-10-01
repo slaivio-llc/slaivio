@@ -33,6 +33,9 @@ CLIENT_EXPORT_COLUMNS = [
     "credit_limit",
     "current_balance",
     "total_spent",
+    "payment_amount_due",
+    "payment_amount_paid",
+    "payment_currency",
     "notes",
 ]
 
@@ -208,13 +211,23 @@ def list_clients(
                     c.credit_limit,
                     c.current_balance,
                     c.total_spent,
+                    c.payment_amount_due,
+                    c.payment_amount_paid,
+                    c.payment_currency,
+                    case
+                      when c.payment_amount_due <= 0 then 'NOT_SET'
+                      when c.payment_amount_paid <= 0 then 'UNPAID'
+                      when c.payment_amount_paid < c.payment_amount_due then 'PARTIAL'
+                      else 'PAID'
+                    end payment_status,
                     c.last_activity_at,
                     c.created_at,
                     c.updated_at,
                     c.row_version,
                     c.deleted_at,
                     coalesce(d.dossiers_count, 0)::int dossiers_count,
-                    coalesce(s.shipments_count, 0)::int shipments_count
+                    coalesce(s.shipments_count, 0)::int shipments_count,
+                    coalesce(p.packages_count, 0)::int packages_count
                 from clients c
                 left join (
                     select client_id, count(*) dossiers_count
@@ -228,6 +241,12 @@ def list_clients(
                     where org_id = :org_id
                     group by client_id
                 ) s on s.client_id = c.id
+                left join (
+                    select client_id, count(*) packages_count
+                    from cargo_packages
+                    where org_id = :org_id and deleted_at is null
+                    group by client_id
+                ) p on p.client_id = c.id
                 where {where_clause}
                 order by {order_by}
                 limit :limit offset :offset
@@ -274,12 +293,22 @@ def get_client(org_id: str, client_id: str) -> dict | None:
                     c.credit_limit,
                     c.current_balance,
                     c.total_spent,
+                    c.payment_amount_due,
+                    c.payment_amount_paid,
+                    c.payment_currency,
+                    case
+                      when c.payment_amount_due <= 0 then 'NOT_SET'
+                      when c.payment_amount_paid <= 0 then 'UNPAID'
+                      when c.payment_amount_paid < c.payment_amount_due then 'PARTIAL'
+                      else 'PAID'
+                    end payment_status,
                     c.last_activity_at,
                     c.created_at,
                     c.updated_at,
                     c.row_version,
                     coalesce(d.dossiers_count, 0)::int dossiers_count,
-                    coalesce(s.shipments_count, 0)::int shipments_count
+                    coalesce(s.shipments_count, 0)::int shipments_count,
+                    coalesce(p.packages_count, 0)::int packages_count
                 from clients c
                 left join (
                     select client_id, count(*) dossiers_count
@@ -293,6 +322,12 @@ def get_client(org_id: str, client_id: str) -> dict | None:
                     where org_id = :org_id
                     group by client_id
                 ) s on s.client_id = c.id
+                left join (
+                    select client_id, count(*) packages_count
+                    from cargo_packages
+                    where org_id = :org_id and deleted_at is null
+                    group by client_id
+                ) p on p.client_id = c.id
                 where c.org_id = :org_id
                   and c.id = :client_id
                   and c.deleted_at is null
@@ -348,20 +383,38 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
 
     try:
         with engine.begin() as conn:
+            network_client_id = None
+            network_phone = phone or whatsapp_phone
+            if network_phone:
+                network_client_id = conn.execute(
+                    text("""
+                        insert into organization_network_clients(group_id,normalized_phone,display_name,email)
+                        select organization.group_id,:phone,:display_name,:email
+                        from organizations organization
+                        where organization.id=:org_id and organization.group_id is not null
+                        on conflict(group_id,normalized_phone) do update set
+                          display_name=coalesce(excluded.display_name,organization_network_clients.display_name),
+                          email=coalesce(excluded.email,organization_network_clients.email),updated_at=now()
+                        returning id
+                    """),
+                    {"org_id": org_id, "phone": network_phone, "display_name": display_name, "email": email},
+                ).scalar()
             row = conn.execute(
             text("""
                 insert into clients (
                     org_id, name, display_name, company_name, tax_id, phone, whatsapp_phone,
                     email, normalized_phone, normalized_email, country, city, address, customer_type, lifecycle_status,
                     source, preferred_language, preferred_currency, notes, credit_enabled,
-                    credit_limit, current_balance, total_spent, last_activity_at,
+                    credit_limit, current_balance, total_spent,
+                    payment_amount_due, payment_amount_paid, payment_currency, network_client_id, last_activity_at,
                     created_by, updated_by
                 )
                 values (
                     :org_id, :name, :display_name, :company_name, :tax_id, :phone, :whatsapp_phone,
                     :email, :normalized_phone, :normalized_email, :country, :city, :address, :customer_type, :lifecycle_status,
                     :source, :preferred_language, :preferred_currency, :notes, :credit_enabled,
-                    :credit_limit, :current_balance, :total_spent, now(),
+                    :credit_limit, :current_balance, :total_spent,
+                    :payment_amount_due, :payment_amount_paid, :payment_currency, cast(:network_client_id as uuid), now(),
                     :user_id, :user_id
                 )
                 returning id::text
@@ -391,6 +444,10 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
                 "credit_limit": payload.get("credit_limit") or 0,
                 "current_balance": payload.get("current_balance") or 0,
                 "total_spent": payload.get("total_spent") or 0,
+                "payment_amount_due": payload.get("payment_amount_due") or 0,
+                "payment_amount_paid": payload.get("payment_amount_paid") or 0,
+                "payment_currency": (payload.get("payment_currency") or payload.get("preferred_currency") or "USD").upper(),
+                "network_client_id": str(network_client_id) if network_client_id else None,
                 },
             ).fetchone()
             if row is not None:
@@ -440,6 +497,9 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
         "credit_limit": payload.get("credit_limit", existing.get("credit_limit")),
         "current_balance": payload.get("current_balance", existing.get("current_balance")),
         "total_spent": payload.get("total_spent", existing.get("total_spent")),
+        "payment_amount_due": payload.get("payment_amount_due", existing.get("payment_amount_due")),
+        "payment_amount_paid": payload.get("payment_amount_paid", existing.get("payment_amount_paid")),
+        "payment_currency": (payload.get("payment_currency", existing.get("payment_currency")) or "USD").upper(),
     }
     expected_version = int(payload["row_version"])
     if not data["display_name"]:
@@ -447,6 +507,27 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
 
     try:
         with engine.begin() as conn:
+            network_client_id = None
+            network_phone = phone or whatsapp_phone
+            if network_phone:
+                network_client_id = conn.execute(
+                    text("""
+                        insert into organization_network_clients(group_id,normalized_phone,display_name,email)
+                        select organization.group_id,:phone,:display_name,:email
+                        from organizations organization
+                        where organization.id=:org_id and organization.group_id is not null
+                        on conflict(group_id,normalized_phone) do update set
+                          display_name=coalesce(excluded.display_name,organization_network_clients.display_name),
+                          email=coalesce(excluded.email,organization_network_clients.email),updated_at=now()
+                        returning id
+                    """),
+                    {
+                        "org_id": org_id,
+                        "phone": network_phone,
+                        "display_name": data["display_name"],
+                        "email": email,
+                    },
+                ).scalar()
             result = conn.execute(
             text("""
                 update clients set
@@ -472,6 +553,10 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
                     credit_limit = :credit_limit,
                     current_balance = :current_balance,
                     total_spent = :total_spent,
+                    payment_amount_due = :payment_amount_due,
+                    payment_amount_paid = :payment_amount_paid,
+                    payment_currency = :payment_currency,
+                    network_client_id = cast(:network_client_id as uuid),
                     updated_by = :user_id,
                     updated_at = now(),
                     row_version = row_version + 1
@@ -482,6 +567,7 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
             """),
             dict(data, org_id=org_id, client_id=client_id, user_id=user_id,
                  normalized_phone=phone or whatsapp_phone, normalized_email=email,
+                 network_client_id=str(network_client_id) if network_client_id else None,
                  expected_version=expected_version),
             )
             if result.rowcount > 0:
@@ -948,6 +1034,57 @@ def client_timeline(org_id: str, client_id: str, *, limit: int = 50) -> list[dic
                     }
                 )
 
+        if _table_exists(conn, "cargo_packages"):
+            rows = conn.execute(
+                text("""
+                    select id::text, package_reference, tracking_id, status,
+                           destination_city, destination_country, created_at, updated_at
+                    from cargo_packages
+                    where org_id=:org_id and client_id=cast(:client_id as uuid)
+                      and deleted_at is null
+                    order by updated_at desc
+                    limit 30
+                """),
+                {"org_id": org_id, "client_id": client_id},
+            ).fetchall()
+            for row in rows:
+                item = dict(row._mapping)
+                destination = ", ".join(filter(None, [item.get("destination_city"), item.get("destination_country")]))
+                events.append({
+                    "id": f"package-{item['id']}",
+                    "type": "package",
+                    "title": "Colis mis à jour",
+                    "description": f"{item.get('tracking_id') or item.get('package_reference') or 'Colis'} · {item.get('status') or 'UNKNOWN'}{f' · {destination}' if destination else ''}",
+                    "occurred_at": item.get("updated_at") or item.get("created_at"),
+                    "metadata": {"package_id": item.get("id"), "status": item.get("status")},
+                })
+
+        if _table_exists(conn, "finance_payments") and _table_exists(conn, "finance_documents"):
+            rows = conn.execute(
+                text("""
+                    select payment.id::text, payment.amount, payment.currency, payment.status,
+                           payment.receipt_number, payment.paid_at, document.document_number
+                    from finance_payments payment
+                    join finance_documents document on document.id=payment.document_id
+                      and document.org_id=payment.org_id
+                    where payment.org_id=:org_id
+                      and document.client_id=cast(:client_id as uuid)
+                    order by payment.paid_at desc
+                    limit 30
+                """),
+                {"org_id": org_id, "client_id": client_id},
+            ).fetchall()
+            for row in rows:
+                item = dict(row._mapping)
+                events.append({
+                    "id": f"payment-{item['id']}",
+                    "type": "payment",
+                    "title": "Paiement enregistré",
+                    "description": f"{item.get('amount') or 0} {item.get('currency') or ''} · {item.get('document_number') or item.get('receipt_number') or 'Paiement'}",
+                    "occurred_at": item.get("paid_at"),
+                    "metadata": {"status": item.get("status"), "receipt_number": item.get("receipt_number")},
+                })
+
         if _table_exists(conn, "messages_raw"):
             rows = conn.execute(
                 text("""
@@ -999,6 +1136,104 @@ def client_timeline(org_id: str, client_id: str, *, limit: int = 50) -> list[dic
     events = [_safe(event) for event in events if event.get("occurred_at")]
     events.sort(key=lambda event: event.get("occurred_at") or "", reverse=True)
     return events[: min(max(limit, 1), 100)]
+
+
+def client_workspace(org_id: str, client_id: str) -> dict | None:
+    """Return the operational 360° view without leaking data across agencies."""
+    client = get_client(org_id, client_id)
+    if not client:
+        return None
+
+    packages: list[dict] = []
+    messages: list[dict] = []
+    documents: list[dict] = []
+    payments: list[dict] = []
+    with engine.connect() as conn:
+        if (_table_exists(conn, "cargo_packages") and
+                _table_exists(conn, "departure_package_allocations") and
+                _table_exists(conn, "cargo_departures")):
+            packages = [_safe(dict(row._mapping)) for row in conn.execute(text("""
+                select p.id::text, p.package_reference, p.tracking_id, p.status,
+                       p.weight_kg, p.destination_city, p.destination_country,
+                       p.received_at, p.dispatched_at, p.delivered_at, p.updated_at,
+                       departure.id::text departure_id, departure.departure_code,
+                       departure.scheduled_at departure_scheduled_at,
+                       departure.status departure_status
+                from cargo_packages p
+                left join lateral (
+                    select d.id, d.departure_code, d.scheduled_at, d.status
+                    from departure_package_allocations allocation
+                    join cargo_departures d on d.id=allocation.departure_id
+                      and d.org_id=allocation.org_id
+                    where allocation.org_id=p.org_id and allocation.package_id=p.id
+                      and allocation.status<>'REMOVED'
+                    order by allocation.created_at desc
+                    limit 1
+                ) departure on true
+                where p.org_id=:org_id and p.client_id=cast(:client_id as uuid)
+                  and p.deleted_at is null
+                order by p.updated_at desc
+                limit 100
+            """), {"org_id": org_id, "client_id": client_id}).fetchall()]
+
+        if _table_exists(conn, "messages"):
+            messages = [_safe(dict(row._mapping)) for row in conn.execute(text("""
+                select id::text, direction, text_body, message_type, send_status,
+                       error_message, from_phone, to_phone, sender_name, is_group,
+                       media_mime_type, media_file_name, created_at
+                from messages
+                where org_id=:org_id and client_id=cast(:client_id as uuid)
+                  and coalesce(sender_jid, '') not like '%@newsletter'
+                  and coalesce(conversation_jid, '') not like '%@newsletter'
+                order by created_at desc
+                limit 100
+            """), {"org_id": org_id, "client_id": client_id}).fetchall()]
+
+        if _table_exists(conn, "finance_documents"):
+            documents = [_safe(dict(row._mapping)) for row in conn.execute(text("""
+                select id::text, document_type, document_number, status, currency,
+                       total, amount_paid, balance_due, issue_date, due_date, created_at
+                from finance_documents
+                where org_id=:org_id and client_id=cast(:client_id as uuid)
+                order by created_at desc
+                limit 100
+            """), {"org_id": org_id, "client_id": client_id}).fetchall()]
+
+        if _table_exists(conn, "finance_payments") and _table_exists(conn, "finance_documents"):
+            payments = [_safe(dict(row._mapping)) for row in conn.execute(text("""
+                select payment.id::text, payment.receipt_number, payment.amount,
+                       payment.currency, payment.method, payment.reference,
+                       payment.paid_at, payment.status,
+                       document.id::text document_id, document.document_number
+                from finance_payments payment
+                join finance_documents document on document.id=payment.document_id
+                  and document.org_id=payment.org_id
+                where payment.org_id=:org_id
+                  and document.client_id=cast(:client_id as uuid)
+                order by payment.paid_at desc
+                limit 100
+            """), {"org_id": org_id, "client_id": client_id}).fetchall()]
+
+    outstanding = sum(float(item.get("balance_due") or 0) for item in documents
+                      if item.get("status") not in {"VOID", "PAID"})
+    paid = sum(float(item.get("amount") or 0) for item in payments
+               if item.get("status") == "CONFIRMED")
+    return {
+        "client": client,
+        "packages": packages,
+        "messages": messages,
+        "documents": documents,
+        "payments": payments,
+        "summary": {
+            "packages": len(packages),
+            "active_packages": sum(1 for item in packages if item.get("status") not in {"DELIVERED", "CANCELLED", "RETURNED"}),
+            "messages": len(messages),
+            "documents": len(documents),
+            "payments": len(payments),
+            "outstanding": round(outstanding, 2),
+            "paid": round(paid, 2),
+        },
+    }
 
 
 def export_clients(org_id: str, *, limit: int = 50_001, **filters) -> list[dict]:
@@ -1061,6 +1296,9 @@ def import_clients(org_id: str, user_id: str, rows: list[dict]) -> dict:
             "notes": row.get("notes"),
             "credit_enabled": str(row.get("credit_enabled") or "").lower() in {"true", "1", "yes", "oui"},
             "credit_limit": row.get("credit_limit") or 0,
+            "payment_amount_due": row.get("payment_amount_due") or row.get("montant_attendu") or 0,
+            "payment_amount_paid": row.get("payment_amount_paid") or row.get("montant_paye") or 0,
+            "payment_currency": row.get("payment_currency") or row.get("devise_paiement") or row.get("devise") or "USD",
         }
         if payload["customer_type"] not in CLIENT_TYPES:
             errors.append({"row": row_number, "error": "invalid_customer_type"})
@@ -1077,6 +1315,14 @@ def import_clients(org_id: str, user_id: str, rows: list[dict]) -> dict:
                 raise ValueError
         except (TypeError, ValueError):
             errors.append({"row": row_number, "error": "invalid_credit_limit"})
+            continue
+        try:
+            payload["payment_amount_due"] = float(payload["payment_amount_due"] or 0)
+            payload["payment_amount_paid"] = float(payload["payment_amount_paid"] or 0)
+            if payload["payment_amount_due"] < 0 or payload["payment_amount_paid"] < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            errors.append({"row": row_number, "error": "invalid_payment_amount"})
             continue
 
         try:

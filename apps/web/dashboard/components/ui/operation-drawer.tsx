@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Edit3, RotateCcw, Trash2, X } from "lucide-react";
+import { Archive, RotateCcw, SquarePen, Trash2, X } from "lucide-react";
 import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { OperationTabMenu } from "@/components/ui/operation-controls";
 
@@ -75,7 +75,7 @@ export function OperationDrawerAction({
 }) {
   const textLabel = typeof children === "string" ? children : undefined;
   const resolvedIcon = icon || (intent === "danger" && textLabel && ["Retirer", "Supprimer"].some(label=>textLabel.startsWith(label)) ? "delete" : undefined);
-  const Icon = resolvedIcon === "edit" ? Edit3 : resolvedIcon === "archive" ? Archive : resolvedIcon === "restore" ? RotateCcw : resolvedIcon === "delete" ? Trash2 : null;
+  const Icon = resolvedIcon === "edit" ? SquarePen : resolvedIcon === "archive" ? Archive : resolvedIcon === "restore" ? RotateCcw : resolvedIcon === "delete" ? Trash2 : null;
   const iconOnly = Boolean(resolvedIcon && textLabel && ["Modifier", "Retirer", "Archiver", "Restaurer", "Supprimer"].some(label=>textLabel.startsWith(label)));
   const colors = intent === "primary"
     ? "border-[#0faf63] bg-[#12c76f] text-white hover:bg-[#0faf63]"

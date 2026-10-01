@@ -27,13 +27,15 @@ def get_org_feature_flags(
                     f.flag_name,
                     f.description,
                     f.category,
-                    coalesce(of.enabled, f.default_enabled) as enabled,
-                    coalesce(of.rollout_percentage, 100) as rollout_percentage,
-                    of.metadata
+                    coalesce(local_flag.enabled, parent_flag.enabled, f.default_enabled) as enabled,
+                    coalesce(local_flag.rollout_percentage, parent_flag.rollout_percentage, 100) as rollout_percentage,
+                    coalesce(local_flag.metadata, parent_flag.metadata) metadata
                 from feature_flags f
-                left join organization_feature_flags of
-                    on of.flag_key = f.flag_key
-                   and of.org_id = :org_id
+                join organizations organization on organization.id=:org_id
+                left join organization_feature_flags local_flag
+                    on local_flag.flag_key = f.flag_key and local_flag.org_id = organization.id
+                left join organization_feature_flags parent_flag
+                    on parent_flag.flag_key = f.flag_key and parent_flag.org_id = organization.parent_org_id
                 order by f.category, f.flag_key
             """),
             {
@@ -103,11 +105,13 @@ def is_feature_enabled_for_org(
         row = conn.execute(
             text("""
                 select
-                    coalesce(of.enabled, f.default_enabled) as enabled
+                    coalesce(local_flag.enabled, parent_flag.enabled, f.default_enabled) as enabled
                 from feature_flags f
-                left join organization_feature_flags of
-                    on of.flag_key = f.flag_key
-                   and of.org_id = :org_id
+                join organizations organization on organization.id=:org_id
+                left join organization_feature_flags local_flag
+                    on local_flag.flag_key = f.flag_key and local_flag.org_id = organization.id
+                left join organization_feature_flags parent_flag
+                    on parent_flag.flag_key = f.flag_key and parent_flag.org_id = organization.parent_org_id
                 where f.flag_key = :flag_key
                 limit 1
             """),

@@ -1,30 +1,55 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { ArrowLeft, ListFilter } from "lucide-react";
+import Link from "next/link";
+import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 export function OperationPageHeader({
   title,
   description,
   actions,
   tabs,
+  divider = false,
+  backHref,
+  backLabel = "Retour",
 }: {
   title: string;
   description: string;
   actions?: ReactNode;
   tabs?: ReactNode;
+  divider?: boolean;
+  backHref?: string;
+  backLabel?: string;
 }) {
   return (
-    <header data-ui="operation-page-header" className="operation-page-header border-b border-[#dfe1e3] bg-white">
-      <div className="flex min-h-[72px] flex-col gap-3 px-5 py-3.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
-          <p className="mt-1 max-w-4xl text-[13px] leading-5 text-[#69717a]">
-            {description}
-          </p>
-        </div>
-        {actions && (
-          <div className="operation-actions flex shrink-0 flex-wrap items-center gap-2 [&>details]:order-first">
-            {actions}
+    <header data-ui="operation-page-header" className="operation-page-header bg-white">
+      <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-10 lg:pt-12">
+        <div className={`flex flex-col gap-3 pb-6 sm:pb-8 lg:flex-row lg:items-center lg:justify-between ${divider ? "border-b border-[#dfe1e3]" : ""}`}>
+          <div className="flex min-w-0 items-start gap-3">
+            {backHref && (
+              <Link
+                href={backHref}
+                aria-label={backLabel}
+                title={backLabel}
+                className="mt-0.5 inline-grid h-9 w-9 shrink-0 place-items-center rounded-[6px] border border-[#d8dadd] bg-white text-[#3f4851] shadow-[0_1px_1px_rgba(15,23,42,.03)] transition hover:bg-[#f7f7f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ed8bc]"
+              >
+                <ArrowLeft size={16} aria-hidden="true" />
+              </Link>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
+              <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">
+                {description}
+              </p>
+            </div>
           </div>
-        )}
+          {actions && (
+            <div className="operation-actions flex shrink-0 flex-wrap items-center gap-2 [&>details]:order-first">
+              {actions}
+            </div>
+          )}
+        </div>
       </div>
       {tabs && <OperationTabs>{tabs}</OperationTabs>}
     </header>
@@ -32,13 +57,60 @@ export function OperationPageHeader({
 }
 
 export function OperationTabs({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <nav
-      data-ui="operation-tabs"
-      className={`operation-tabs flex min-h-[45px] items-end gap-1 overflow-x-auto border-b border-[#d8dce2] bg-white px-5 sm:px-6 ${className}`}
-      aria-label="Vues du module"
+  const [open, setOpen] = useState(false);
+  const [toolbarTarget, setToolbarTarget] = useState<HTMLElement | null | undefined>(undefined);
+  const root = useRef<HTMLDivElement>(null);
+  const placeholder = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const page = placeholder.current?.parentElement;
+    setToolbarTarget(page?.querySelector<HTMLElement>('[data-ui="operation-toolbar-views"]') || null);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!root.current?.contains(target) && !target.closest('[data-ui="operation-tab-menu"]')) setOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const selector = (
+    <div
+      ref={root}
+      data-ui="operation-view-selector"
+      className={`relative ${className}`}
     >
-      {children}
-    </nav>
+      <button
+        type="button"
+        aria-label="Choisir une vue"
+        title="Choisir une vue"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={`inline-grid h-9 w-9 place-items-center rounded-[6px] border shadow-[0_1px_1px_rgba(15,23,42,.03)] ${open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : "border-[#d8dadd] bg-white text-[#3f4851] hover:bg-[#f7f7f6]"}`}
+      >
+        <ListFilter size={15} aria-hidden="true" />
+      </button>
+      {open && (
+        <nav
+          aria-label="Vues du module"
+          role="menu"
+          onClick={(event) => { if ((event.target as HTMLElement).closest('[data-ui="operation-tab"]')) setOpen(false); }}
+          className="operation-view-options absolute right-0 top-11 z-40 grid min-w-[240px] gap-1 rounded-[8px] border border-[#d9dde1] bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,.14)]"
+        >
+          {children}
+        </nav>
+      )}
+    </div>
   );
+
+  return <>
+    <span ref={placeholder} data-ui="operation-tabs" hidden />
+    {toolbarTarget ? createPortal(selector, toolbarTarget) : toolbarTarget === null ? (
+      <div className="mx-auto flex w-full max-w-[1200px] justify-end bg-white px-6 py-2 sm:px-8">{selector}</div>
+    ) : null}
+  </>;
 }

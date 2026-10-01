@@ -43,13 +43,16 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
-import { appNavigation, canAccessRoute, searchableAppRoutes, type AppRoute } from "@/config/app-navigation";
-import { isPilotV1 } from "@/config/product-profile";
+import { canAccessRoute, getAppNavigation, type AppRoute } from "@/config/app-navigation";
+import { getOrganizationProductProfile, getProductProfile, isPilotV1, usesCompactAgencyShell } from "@/config/product-profile";
 import { SESSION_EXPIRED_EVENT } from "@/services/api";
 import { listNotifications, notificationAction, type CenterItem } from "@/services/notification-center";
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
+import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 import { PilotOfflineIndicator } from "@/components/offline/pilot-offline-indicator";
+import { PilotReadinessPanel } from "@/components/dashboard/pilot-readiness";
 import { dashboardLabel, setDashboardLocale, useDashboardLocale } from "@/components/i18n/dashboard-language";
+import { getTenantContext } from "@/services/tenant";
 
 type FloatingPanel = "account" | "notifications" | "help" | "language" | null;
 type SupportView = "topics" | "contact" | null;
@@ -64,7 +67,10 @@ const utilityRoutes: readonly AppRoute[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const locale = useDashboardLocale();
-  const pilot = isPilotV1();
+  const [productProfile, setProductProfile] = useState(getProductProfile);
+  const pilot = usesCompactAgencyShell(productProfile);
+  const appNavigation = useMemo(() => getAppNavigation(productProfile), [productProfile]);
+  const searchableAppRoutes = useMemo(() => appNavigation.flatMap((group) => group.routes), [appNavigation]);
   const pathname = usePathname();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -80,18 +86,30 @@ export function AppShell({ children }: { children: ReactNode }) {
     pilot ? { Communication: true } : { Clients: false, Opérations: true, "Offre commerciale": false, Communication: false, Pilotage: false },
   );
 
+  useEffect(() => {
+    let active = true;
+    getTenantContext()
+      .then((context) => {
+        if (active) setProductProfile(getOrganizationProductProfile(context.active_tenant?.organization_type));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
   const groupedRoutes = useMemo(
     () => appNavigation.map((group) => ({
       ...group,
       routes: group.routes.filter((route) => canAccessRoute(route, permissions, permissionsAvailable)),
     })).filter((group) => group.routes.length),
-    [permissions, permissionsAvailable],
+    [appNavigation, permissions, permissionsAvailable],
   );
 
   const pilotPrimaryRoutes = useMemo(() => {
-    const primaryHrefs = new Set(["/app/dossiers", "/app/inbox", "/app/followups", "/app/knowledge"]);
+    const primaryHrefs = productProfile === "PARCEL_FREIGHT"
+      ? new Set(["/app/clients", "/app/operations", "/app/communication", "/app/finance"])
+      : new Set(["/app/dossiers", "/app/inbox", "/app/followups", "/app/knowledge"]);
     return groupedRoutes.flatMap((group) => group.routes).filter((route) => primaryHrefs.has(route.href));
-  }, [groupedRoutes]);
+  }, [groupedRoutes, productProfile]);
 
   const results = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("fr");
@@ -102,7 +120,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return routes.filter((route) =>
       [route.label, ...route.keywords].some((term) => term.toLocaleLowerCase("fr").includes(normalized)),
     );
-  }, [query, permissions, permissionsAvailable]);
+  }, [query, permissions, permissionsAvailable, searchableAppRoutes]);
 
   useEffect(() => {
     if (pilot) {
@@ -128,7 +146,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         setOpenGroups(Object.fromEntries(appNavigation.map((group) => [group.label, group.label === selected])));
       } catch { /* Ignore stale preferences. */ }
     }
-  }, [pilot]);
+  }, [appNavigation, pilot]);
 
   useEffect(() => {
     if (pilot) return;
@@ -306,6 +324,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="ml-auto flex items-center gap-1.5">
             {pilot && <OrganizationSwitcher header menuPlacement="down" />}
+            {pilot && <PilotReadinessPanel compact />}
             {!pilot && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {!pilot && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => togglePanel("help")} active={floatingPanel === "help"} showLabel />}
             <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />
@@ -398,7 +417,7 @@ function pilotRouteLabel(locale: "fr" | "en", fallback: string, href: string) {
     "/app/dossiers": { fr: "Dossiers", en: "Cases" },
     "/app/inbox": { fr: "Messages", en: "Messages" },
     "/app/followups": { fr: "Relances", en: "Follow-ups" },
-    "/app/knowledge": { fr: "Savoirs", en: "Knowledge" },
+    "/app/knowledge": { fr: "Connaissances", en: "Knowledge" },
   };
   return labels[href]?.[locale] || dashboardLabel(locale, fallback, href);
 }
@@ -467,11 +486,14 @@ function AccountMenuContent({ close, name, email, imageUrl, openSupport, logout 
   const canOpenPlatform = !available || permissions.some((permission) => permission.startsWith("platform."));
   const pilot = isPilotV1();
   const [theme,setTheme]=useState<"light"|"dark">("light");
+  const [signingOut,setSigningOut]=useState(false);
   useEffect(()=>{setTheme(document.documentElement.dataset.theme==="dark"?"dark":"light")},[]);
   function toggleTheme(){const next=theme==="dark"?"light":"dark";setTheme(next);document.documentElement.dataset.theme=next;window.localStorage.setItem("slaivio.theme",next);}
+  async function signOutAccount(){setSigningOut(true);try{await logout();}catch{setSigningOut(false)}}
 
   if (pilot) {
-    return (
+    return (<>
+      {signingOut && <SlaivioLogoLoader overlay label={locale === "en" ? "Signing out" : "Déconnexion"} />}
       <div className="w-[300px] rounded-[7px] border border-[#d1d4d7] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
         <div className="px-4 py-3.5">
           <p className="text-[11px] text-[#737a82]">{locale === "en" ? "Signed in as" : "Connecté en tant que"}</p>
@@ -482,14 +504,15 @@ function AccountMenuContent({ close, name, email, imageUrl, openSupport, logout 
         <MenuLink href="/app/settings?section=privacy" icon={<ShieldCheck size={15} />} label={locale === "en" ? "Privacy and cookies" : "Confidentialité et cookies"} close={close} />
         <MenuLink href="/app/settings" icon={<Settings size={15} />} label={dashboardLabel(locale,"Paramètres")} close={close} />
         <MenuDivider />
-        <button type="button" onClick={async () => { close(); await logout(); }} className={menuClass}>
+        <button type="button" onClick={() => void signOutAccount()} disabled={signingOut} className={menuClass}>
           <LogOut size={15} /> {dashboardLabel(locale,"Se déconnecter")}
         </button>
       </div>
-    );
+    </>);
   }
 
-  return (
+  return (<>
+    {signingOut && <SlaivioLogoLoader overlay label="Déconnexion" />}
     <div className="w-[300px] overflow-hidden rounded-[7px] border border-[#d1d4d7] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
       <div className="flex items-center gap-3 px-4 py-4">
         <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#087a46] text-sm font-semibold text-white"><UserAvatar imageUrl={imageUrl} name={name} size={40} /></div>
@@ -511,11 +534,11 @@ function AccountMenuContent({ close, name, email, imageUrl, openSupport, logout 
       {canOpenPlatform && <MenuLink href="/app/platform" icon={<ShieldCheck size={15} />} label="Console Super Admin" close={close} />}
       <MenuDivider />
       <MenuDisabled icon={<Trash2 size={15} />} label="Corbeille" status="Bientôt" />
-      <button type="button" onClick={async () => { close(); await logout(); }} className={menuClass}>
+      <button type="button" onClick={() => void signOutAccount()} disabled={signingOut} className={menuClass}>
         <LogOut size={15} /> Se déconnecter
       </button>
     </div>
-  );
+  </>);
 }
 
 function SupportDialog({ locale, view, setView, close }: { locale: "fr" | "en"; view: Exclude<SupportView, null>; setView: (view: SupportView) => void; close: () => void }) {
@@ -532,8 +555,8 @@ function SupportDialog({ locale, view, setView, close }: { locale: "fr" | "en"; 
             <h2 id="support-dialog-title" className="text-center text-[24px] font-semibold tracking-[-0.02em]">{fr ? "Comment pouvons-nous vous aider ?" : "How can we help?"}</h2>
             <p className="mt-2 text-center text-[14px] text-[#697179]">{fr ? "Sélectionnez un sujet pour trouver l’aide dont vous avez besoin" : "Select a topic to find the help you need"}</p>
             <div className="mt-7 grid gap-3">
-              <SupportTopic icon={<FileQuestion size={19} />} title={fr ? "Comment fonctionnent les candidatures ?" : "How do applications work?"} subtitle={fr ? "Processus de candidature et premières étapes" : "Application process and how to get started"} close={close} />
-              <SupportTopic icon={<Megaphone size={19} />} title={fr ? "Politiques de parrainage" : "Referral policies"} subtitle={fr ? "Nous aimons les recommandations, voici à quoi vous attendre" : "We love referrals, here’s what to expect"} close={close} />
+              <SupportTopic icon={<Settings size={19} />} title={fr ? "Configurer votre agence" : "Set up your agency"} subtitle={fr ? "Organisation, équipe, WhatsApp, IA et connaissances" : "Organization, team, WhatsApp, AI and knowledge"} close={close} />
+              <SupportTopic icon={<Users size={19} />} title={fr ? "Gérer clients et opérations" : "Manage clients and operations"} subtitle={fr ? "Dossiers, colis, départs, paiements et suivi client" : "Cases, parcels, departures, payments and customer tracking"} close={close} />
               <SupportTopic icon={<MessageSquareText size={19} />} title={fr ? "Contacter le support" : "Contact support"} subtitle={fr ? "Contactez-nous pour obtenir de l’aide." : "Reach out for help."} onClick={() => setView("contact")} />
             </div>
           </div>

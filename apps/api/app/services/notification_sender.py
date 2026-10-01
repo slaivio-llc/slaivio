@@ -4,6 +4,7 @@ from app.db.notification_repository import (
     get_notification_by_id,
     mark_notification_sent,
     mark_notification_failed,
+    sync_package_notification_status,
 )
 
 from app.services.manager_event_service import emit_notification_event
@@ -54,6 +55,7 @@ def send_notification(org_id: str, notification_id: str):
                 provider=result.get("provider") or "meta",
                 provider_status=result.get("status"),
             )
+            sync_package_notification_status(notification, "SENT", provider=result.get("provider") or "meta", provider_message_id=result.get("provider_message_id"))
 
             emit_notification_event(
                 org_id=notification["org_id"],
@@ -76,6 +78,7 @@ def send_notification(org_id: str, notification_id: str):
             notification_id=notification_id,
             error=str(result.get("response") or "provider_error"),
         )
+        sync_package_notification_status(notification, "FAILED", error=str(result.get("response") or "provider_error"))
 
         emit_notification_event(
             org_id=notification["org_id"],
@@ -98,6 +101,7 @@ def send_notification(org_id: str, notification_id: str):
             notification_id=notification_id,
             error=str(e),
         )
+        sync_package_notification_status(notification, "FAILED", error=str(e))
 
         emit_notification_event(
             org_id=notification["org_id"],

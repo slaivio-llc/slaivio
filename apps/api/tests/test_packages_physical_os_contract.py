@@ -19,3 +19,28 @@ def test_package_schema_bootstrap_is_serialized_across_requests_and_processes():
  r=(ROOT/'apps/api/app/packages/repository.py').read_text(encoding='utf-8')
  assert '_SCHEMA_LOCK = Lock()' in r
  assert "pg_advisory_xact_lock(hashtext('slaivio.packages.ensure_schema'))" in r
+
+def test_package_status_notifications_are_dispatched_and_deduplicated():
+    repository=(ROOT/'apps/api/app/packages/repository.py').read_text(encoding='utf-8')
+    api=(ROOT/'apps/api/app/api/packages.py').read_text(encoding='utf-8')
+    sender=(ROOT/'apps/api/app/services/notification_sender.py').read_text(encoding='utf-8')
+    for status in ('RECEIVED_AT_ORIGIN','SHIPPED','ARRIVED_DESTINATION','READY_FOR_PICKUP'):assert status in repository
+    assert 'where not exists' in repository and 'PACKAGE_STATUS:' in repository
+    assert 'background_tasks.add_task(send_notification' in api
+    assert 'sync_package_notification_status' in sender
+
+
+def test_parcel_status_notifications_are_dispatched_and_public_tracking_is_safe():
+    repository=(ROOT/'apps/api/app/packages/repository.py').read_text(encoding='utf-8')
+    api=(ROOT/'apps/api/app/api/packages.py').read_text(encoding='utf-8')
+    assert 'CUSTOMER_STATUS_MESSAGES' in repository
+    assert '_queue_customer_status_notification' in repository
+    assert "organization.organization_type in ('PARCEL_FREIGHT','CARGO')" in repository
+    assert 'notification_type = f"PACKAGE_STATUS:' in repository
+    assert 'public_tracking_enabled=true' in repository
+    assert 'len(matches) != 1' in repository
+    assert 'package.pop("id", None)' in repository
+    assert 'notification_outbox_id' in repository
+    assert 'status: str = "RECEIVED_AT_ORIGIN"' in api
+    assert 'BackgroundTasks' in api and 'send_notification' in api
+    assert '/public/packages/tracking/{reference}' in api

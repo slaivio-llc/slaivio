@@ -10,3 +10,7 @@ def test_departures_are_capacity_safe_audited_and_tenant_scoped():
  assert 'departure_package_allocations' in m and 'departure_recurrences' in m and 'departure_templates' in m
  for integration in ('cargo_expeditions','expedition_packages','expedition_events','package_events','notification_outbox','_sync_operations'):assert integration in r
  assert 'run_automation' in r and 'departure_automation' in (ROOT/'apps/api/app/jobs/departure_automation.py').read_text()
+ assert "background_tasks.add_task(send_notification" in a
+ assert "'DELAYED','DEPARTED','ARRIVED','CANCELLED'" in r
+ assert '_queued_notification_ids' in r
+ assert 'BackgroundTasks' in a and 'send_notification' in a

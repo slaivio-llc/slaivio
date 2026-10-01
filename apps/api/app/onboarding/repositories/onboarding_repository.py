@@ -1,7 +1,6 @@
-import json
-
 from sqlalchemy import text
 
+from app.core.json_utils import json_dumps
 from app.db.database import engine
 
 
@@ -16,7 +15,7 @@ ALLOWED_COUNT_TABLES = {
 
 
 def _json(value):
-    return json.dumps(value)
+    return json_dumps(value)
 
 
 def fetch_one(query: str, params: dict):
@@ -133,6 +132,19 @@ def upsert_agency_profile(org_id: str, data: dict):
             "business_type": data.get("business_type"),
             "metadata": _json(data.get("metadata", {})),
         },
+    )
+
+
+def update_organization_business_type(org_id: str, business_type: str):
+    return fetch_one(
+        """
+        update organizations
+        set organization_type = :business_type,
+            updated_at = now()
+        where id = :org_id
+        returning id, organization_type
+        """,
+        {"org_id": org_id, "business_type": business_type},
     )
 
 

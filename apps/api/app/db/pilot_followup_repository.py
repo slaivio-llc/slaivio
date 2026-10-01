@@ -81,43 +81,64 @@ def options(org_id: str, q: str | None = None, limit: int = 40) -> dict:
           order by dossier.updated_at desc nulls last,dossier.created_at desc
           limit :limit
         """), params))
-    return {"clients": clients, "dossiers": dossiers}
+        prospects = _rows(conn.execute(text("""
+          select journey.id::text,journey.id::text journey_id,
+            coalesce(journey.full_name,journey.conversation_phone,'Prospect WhatsApp') display_name,
+            journey.conversation_phone phone,journey.stage,journey.service_interest,
+            journey.route_interest,journey.missing_fields,journey.updated_at
+          from parcel_customer_journeys journey
+          where journey.org_id=:org_id and journey.client_id is null
+            and journey.stage not in('CONVERTED','NOT_INTERESTED','CLOSED')
+            and (:prospect_q='' or coalesce(journey.full_name,'') ilike :prospect_q
+              or journey.conversation_phone ilike :prospect_q
+              or coalesce(journey.service_interest,'') ilike :prospect_q)
+          order by journey.updated_at desc limit :limit
+        """), {"org_id": org_id, "prospect_q": f"%{(q or '').strip()}%" if q else "", "limit": limit}))
+    return {"clients": clients, "dossiers": dossiers, "prospects": prospects}
 
 
-def _audience(conn, org_id: str, client_ids: list[str], dossier_ids: list[str], excluded_ids: list[str]) -> dict:
+def _audience(conn, org_id: str, client_ids: list[str], dossier_ids: list[str], journey_ids: list[str], excluded_ids: list[str], excluded_journey_ids: list[str]) -> dict:
     direct = set(str(value) for value in client_ids)
     params = {
         "org_id": org_id,
         "client_ids": list(direct),
         "dossier_ids": [str(value) for value in dossier_ids],
+        "journey_ids": [str(value) for value in journey_ids],
     }
     candidates = _rows(conn.execute(text("""
       with selected as (
-        select client.id client_id,null::uuid dossier_id
+        select client.id client_id,null::uuid dossier_id,null::uuid journey_id
         from clients client
         where client.org_id=:org_id and client.id=any(cast(:client_ids as uuid[])) and client.deleted_at is null
         union
-        select relation.client_id,relation.dossier_id
+        select relation.client_id,relation.dossier_id,null::uuid journey_id
         from dossier_clients relation
         join dossiers dossier on dossier.org_id=relation.org_id and dossier.id=relation.dossier_id and dossier.archived_at is null
         where relation.org_id=:org_id and relation.dossier_id=any(cast(:dossier_ids as uuid[])) and relation.archived_at is null
       )
-      select client.id::text client_id,selected.dossier_id::text,
+      select client.id::text client_id,selected.dossier_id::text,selected.journey_id::text,
         coalesce(client.display_name,client.name,client.phone,'Client') display_name,
         client.client_reference,client.phone,
         coalesce(dossier.dossier_reference,dossier.tracking_id,dossier.title) dossier_reference
       from selected
       join clients client on client.org_id=:org_id and client.id=selected.client_id and client.deleted_at is null
       left join dossiers dossier on dossier.org_id=:org_id and dossier.id=selected.dossier_id
-      order by client.updated_at desc nulls last,client.created_at desc
+      union all
+      select null::text client_id,null::text dossier_id,journey.id::text journey_id,
+        coalesce(journey.full_name,journey.conversation_phone,'Prospect WhatsApp') display_name,
+        null::text client_reference,journey.conversation_phone phone,null::text dossier_reference
+      from parcel_customer_journeys journey
+      where journey.org_id=:org_id and journey.id=any(cast(:journey_ids as uuid[]))
+        and journey.client_id is null and journey.stage not in('CONVERTED','NOT_INTERESTED','CLOSED')
     """), params))
     excluded = set(str(value) for value in excluded_ids)
+    excluded_journeys = set(str(value) for value in excluded_journey_ids)
     chosen: dict[str, dict] = {}
     skipped: list[dict] = []
     for candidate in candidates:
         normalized = _phone(candidate.get("phone"))
         reason = None
-        if candidate["client_id"] in excluded:
+        if candidate.get("client_id") in excluded or candidate.get("journey_id") in excluded_journeys:
             reason = "Exclu de cette relance"
         elif not normalized:
             reason = "Téléphone manquant"
@@ -126,13 +147,15 @@ def _audience(conn, org_id: str, client_ids: list[str], dossier_ids: list[str], 
         if reason:
             skipped.append({**candidate, "reason": reason})
             continue
-        chosen[normalized] = {**candidate, "normalized_phone": normalized}
+        chosen[normalized] = {**candidate, "normalized_phone": normalized,
+          "target_id": candidate.get("client_id") or candidate.get("journey_id"),
+          "target_kind": "CLIENT" if candidate.get("client_id") else "PROSPECT"}
     return {"recipients": list(chosen.values()), "skipped": skipped}
 
 
-def preview(org_id: str, client_ids: list[str], dossier_ids: list[str], excluded_ids: list[str]) -> dict:
+def preview(org_id: str, client_ids: list[str], dossier_ids: list[str], journey_ids: list[str], excluded_ids: list[str], excluded_journey_ids: list[str]) -> dict:
     with engine.connect() as conn:
-        audience = _audience(conn, org_id, client_ids, dossier_ids, excluded_ids)
+        audience = _audience(conn, org_id, client_ids, dossier_ids, journey_ids, excluded_ids, excluded_journey_ids)
     return {**audience, "recipient_count": len(audience["recipients"]), "skipped_count": len(audience["skipped"])}
 
 
@@ -147,16 +170,17 @@ def save_draft(org_id: str, actor: str, data: dict) -> tuple[dict, bool]:
                 return dict(existing), True
         row = dict(conn.execute(text("""
           insert into pilot_followup_batches(
-            org_id,title,message,selected_client_ids,selected_dossier_ids,excluded_client_ids,
+            org_id,title,message,selected_client_ids,selected_dossier_ids,selected_journey_ids,excluded_client_ids,excluded_journey_ids,
             idempotency_key,created_by,updated_by
           ) values(
-            :org_id,:title,:message,cast(:client_ids as uuid[]),cast(:dossier_ids as uuid[]),
-            cast(:excluded_ids as uuid[]),:idempotency_key,:actor,:actor
+            :org_id,:title,:message,cast(:client_ids as uuid[]),cast(:dossier_ids as uuid[]),cast(:journey_ids as uuid[]),
+            cast(:excluded_ids as uuid[]),cast(:excluded_journey_ids as uuid[]),:idempotency_key,:actor,:actor
           ) returning *
         """), {
             "org_id": org_id, "title": data["title"].strip(), "message": data["message"].strip(),
             "client_ids": data.get("client_ids") or [], "dossier_ids": data.get("dossier_ids") or [],
-            "excluded_ids": data.get("excluded_client_ids") or [], "idempotency_key": idempotency_key,
+            "journey_ids": data.get("journey_ids") or [], "excluded_ids": data.get("excluded_client_ids") or [],
+            "excluded_journey_ids": data.get("excluded_journey_ids") or [], "idempotency_key": idempotency_key,
             "actor": actor,
         }).mappings().one())
         _event(conn, org_id, str(row["id"]), "DRAFT_CREATED", actor)
@@ -172,7 +196,7 @@ def confirm(org_id: str, batch_id: str, actor: str, expected_version: int) -> di
         """), {"org_id": org_id, "batch_id": batch_id, "version": expected_version}).mappings().first()
         if not batch:
             return None
-        audience = _audience(conn, org_id, list(batch["selected_client_ids"] or []), list(batch["selected_dossier_ids"] or []), list(batch["excluded_client_ids"] or []))
+        audience = _audience(conn, org_id, list(batch["selected_client_ids"] or []), list(batch["selected_dossier_ids"] or []), list(batch["selected_journey_ids"] or []), list(batch["excluded_client_ids"] or []), list(batch["excluded_journey_ids"] or []))
         if not audience["recipients"]:
             raise ValueError("no_reachable_recipient")
         organization_name = conn.execute(text("select name from organizations where id=:org_id"), {"org_id": org_id}).scalar() or "Notre entreprise"
@@ -180,10 +204,10 @@ def confirm(org_id: str, batch_id: str, actor: str, expected_version: int) -> di
             rendered = _render(batch["message"], recipient, organization_name)
             conn.execute(text("""
               insert into pilot_followup_recipients(
-                org_id,batch_id,client_id,dossier_id,normalized_phone,phone_snapshot,
+                org_id,batch_id,client_id,dossier_id,journey_id,normalized_phone,phone_snapshot,
                 client_name_snapshot,client_reference_snapshot,dossier_reference_snapshot,rendered_message
               ) values(
-                :org_id,:batch_id,:client_id,cast(:dossier_id as uuid),:normalized_phone,:phone,
+                :org_id,:batch_id,cast(:client_id as uuid),cast(:dossier_id as uuid),cast(:journey_id as uuid),:normalized_phone,:phone,
                 :display_name,:client_reference,:dossier_reference,:rendered_message
               ) on conflict(batch_id,normalized_phone) do nothing
             """), {"org_id": org_id, "batch_id": batch_id, "rendered_message": rendered, **recipient})
@@ -222,11 +246,11 @@ def send(org_id: str, batch_id: str, actor: str) -> dict | None:
         try:
             task = followup_repository.create_manual_followup(org_id, actor, {
                 "workspace_id": None,
-                "client_id": str(recipient["client_id"]),
+                "client_id": str(recipient["client_id"]) if recipient.get("client_id") else None,
                 "dossier_id": str(recipient["dossier_id"]) if recipient.get("dossier_id") else None,
                 "followup_type": "PILOT_MANUAL",
-                "subject_type": "CLIENT",
-                "subject_id": str(recipient["client_id"]),
+                "subject_type": "CLIENT" if recipient.get("client_id") else "PROSPECT",
+                "subject_id": str(recipient.get("client_id") or recipient.get("journey_id")),
                 "subject_reference": recipient.get("client_reference_snapshot"),
                 "reason": batch["title"],
                 "channel": "WHATSAPP",
@@ -235,6 +259,8 @@ def send(org_id: str, batch_id: str, actor: str) -> dict | None:
                 "priority": "NORMAL", "responsible_id": None, "responsible_name": None,
                 "amount_context": None, "currency": None, "consent_type": "OPERATIONAL",
                 "condition_snapshot": {"pilot_batch_id": batch_id},
+                "conversation_phone": None if recipient.get("client_id") else recipient["phone_snapshot"],
+                "journey_id": str(recipient["journey_id"]) if recipient.get("journey_id") else None,
                 "idempotency_key": f"pilot:{batch_id}:{recipient['normalized_phone']}",
             })
             with engine.begin() as conn:

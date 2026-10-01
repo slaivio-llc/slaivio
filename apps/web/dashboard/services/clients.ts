@@ -27,8 +27,13 @@ export type ClientRecord = {
   credit_limit: number;
   current_balance: number;
   total_spent: number;
+  payment_amount_due: number;
+  payment_amount_paid: number;
+  payment_currency: string | null;
+  payment_status: "NOT_SET" | "UNPAID" | "PARTIAL" | "PAID";
   dossiers_count: number;
   shipments_count: number;
+  packages_count?: number;
   last_activity_at: string | null;
   created_at: string;
   updated_at: string;
@@ -43,6 +48,82 @@ export type ClientTimelineEvent = {
   description: string;
   occurred_at: string;
   metadata: Record<string, unknown>;
+};
+
+export type ClientPackageSummary = {
+  id: string;
+  package_reference: string;
+  tracking_id: string | null;
+  status: string;
+  weight_kg: number | null;
+  destination_city: string | null;
+  destination_country: string | null;
+  received_at: string | null;
+  dispatched_at: string | null;
+  delivered_at: string | null;
+  updated_at: string;
+  departure_id: string | null;
+  departure_code: string | null;
+  departure_scheduled_at: string | null;
+  departure_status: string | null;
+};
+
+export type ClientMessageSummary = {
+  id: string;
+  direction: "inbound" | "outbound";
+  text_body: string | null;
+  message_type: string | null;
+  send_status: string | null;
+  error_message: string | null;
+  from_phone: string | null;
+  to_phone: string | null;
+  sender_name: string | null;
+  is_group: boolean;
+  media_mime_type: string | null;
+  media_file_name: string | null;
+  created_at: string;
+};
+
+export type ClientFinanceDocument = {
+  id: string;
+  document_type: "QUOTE" | "INVOICE" | "CREDIT_NOTE";
+  document_number: string;
+  status: string;
+  currency: string;
+  total: number;
+  amount_paid: number;
+  balance_due: number;
+  issue_date: string | null;
+  due_date: string | null;
+  created_at: string;
+};
+
+export type ClientPaymentSummary = {
+  id: string;
+  receipt_number: string;
+  amount: number;
+  currency: string;
+  method: string;
+  reference: string | null;
+  paid_at: string;
+  status: string;
+  document_id: string;
+  document_number: string;
+};
+
+export type ClientWorkspace = {
+  client: ClientRecord;
+  packages: ClientPackageSummary[];
+  messages: ClientMessageSummary[];
+  documents: ClientFinanceDocument[];
+  payments: ClientPaymentSummary[];
+  summary: {
+    packages: number;
+    active_packages: number;
+    messages: number;
+    outstanding: number;
+    paid: number;
+  };
 };
 
 export type ClientDuplicate = Pick<
@@ -102,6 +183,9 @@ export type ClientPayload = {
   notes?: string;
   credit_enabled?: boolean;
   credit_limit?: number;
+  payment_amount_due?: number;
+  payment_amount_paid?: number;
+  payment_currency?: string;
 };
 
 export async function listClients(params: {
@@ -158,6 +242,10 @@ export async function getClientStats() {
 
 export async function getClientTimeline(id: string) {
   return (await api.get<{ status: "ok"; items: ClientTimelineEvent[] }>(`/clients/${id}/timeline`)).data.items;
+}
+
+export async function getClientWorkspace(id: string) {
+  return (await api.get<{ status: "ok"; workspace: ClientWorkspace }>(`/clients/${id}/workspace`)).data.workspace;
 }
 
 export async function findClientDuplicates(params: {

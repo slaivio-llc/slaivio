@@ -19,12 +19,13 @@ import type { ReactNode } from "react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { API_BASE_URL } from "@/services/api";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationActionMenu, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
+import { OperationContent, OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationActionMenu, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
+import { catalog, type Route, type Service } from "@/services/route-catalog";
 import {
   createShipment,
   exportShipments,
@@ -119,6 +120,8 @@ const primaryButtonClass =
   "inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#12c76f] px-4 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#0fb966]";
 const pagerButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-md border border-[#cfd5dd] bg-white text-[#334155] shadow-sm disabled:opacity-40";
+const formInputClass =
+  "h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[14px] outline-none focus:border-[#12c76f]";
 
 type Pagination = {
   page: number;
@@ -138,6 +141,7 @@ export function ShipmentsPage() {
     total_pages: 0,
   });
   const [activeView, setActiveView] = useState("all");
+  const [activeMetric, setActiveMetric] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ExpeditionStatus | "">("");
   const [mode, setMode] = useState<ExpeditionMode | "">("");
@@ -149,10 +153,34 @@ export function ShipmentsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [allMetrics, setAllMetrics] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [analytics, setAnalytics] = useState<ShipmentAnalytics | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [routeId, setRouteId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const selectedRoute = routes.find(route => route.id === routeId);
+  const routeServices = services.filter(service => service.route_id === routeId);
+  const selectedService = routeServices.find(service => service.id === serviceId);
+  useEffect(() => {
+    if (!formOpen) return;
+    let cancelled = false;
+    setCatalogLoading(true);
+    setCatalogError("");
+    catalog().then(result => {
+      if (cancelled) return;
+      setRoutes(result.routes.filter(route => route.active));
+      setServices(result.services);
+      setRouteId("");
+      setServiceId("");
+    }).catch(() => {
+      if (!cancelled) setCatalogError("Impossible de charger les routes et services. Fermez puis rouvrez ce formulaire pour réessayer.");
+    }).finally(() => { if (!cancelled) setCatalogLoading(false); });
+    return () => { cancelled = true; };
+  }, [formOpen]);
 
   const currentView = views.find((view) => view.key === activeView) || views[0];
   const page = pagination.page || 1;
@@ -220,29 +248,31 @@ export function ShipmentsPage() {
     setSaving(true);
     setFormError("");
     const form = new FormData(event.currentTarget);
+    if (!selectedRoute || !selectedService || catalogLoading || catalogError) {
+      setFormError("Sélectionnez une route et son service configuré.");
+      setSaving(false);
+      return;
+    }
+    const departure = value(form, "planned_departure_at");
+    const arrival = value(form, "eta_at");
+    if (departure && arrival && new Date(arrival) < new Date(departure)) {
+      setFormError("L’arrivée estimée doit être après le départ prévu.");
+      setSaving(false);
+      return;
+    }
     const payload: ExpeditionPayload = {
-      title: value(form, "title"),
-      status: value(form, "status") as ExpeditionStatus,
-      mode: value(form, "mode") as ExpeditionMode,
-      service_type: value(form, "service_type"),
-      risk_level: value(form, "risk_level") as RiskLevel,
-      origin_country: value(form, "origin_country"),
-      origin_city: value(form, "origin_city"),
-      origin_warehouse: value(form, "origin_warehouse"),
-      destination_country: value(form, "destination_country"),
-      destination_city: value(form, "destination_city"),
-      destination_warehouse: value(form, "destination_warehouse"),
-      route_label: value(form, "route_label"),
+      route_id: selectedRoute.id,
+      shipping_service_id: selectedService.id,
+      title: value(form, "title") || `${selectedRoute.route_name} · ${selectedService.service_name}`,
+      status: "PREPARING",
+      currency: selectedService.currency_code,
       carrier_name: value(form, "carrier_name"),
       flight_number: value(form, "flight_number"),
       container_number: value(form, "container_number"),
       awb_number: value(form, "awb_number"),
       bl_number: value(form, "bl_number"),
-      batch_reference: value(form, "batch_reference"),
-      owner_name: value(form, "owner_name"),
-      planned_departure_at: value(form, "planned_departure_at"),
-      eta_at: value(form, "eta_at"),
-      currency: value(form, "currency") || "USD",
+      planned_departure_at: departure ? new Date(departure).toISOString() : undefined,
+      eta_at: arrival ? new Date(arrival).toISOString() : undefined,
       notes: value(form, "notes"),
     };
     try {
@@ -279,35 +309,32 @@ export function ShipmentsPage() {
 
   const kpis = useMemo(
     () => [
-      { label: "Expéditions actives", value: stats.active, icon: Plane },
-      { label: "Aujourd'hui", value: stats.today, icon: CalendarClock },
-      { label: "En transit", value: stats.in_transit, icon: Truck },
+      { label: "Expéditions actives", value: stats.active, icon: Plane, view: "all" },
+      { label: "Aujourd'hui", value: stats.today, icon: CalendarClock, view: "all" },
+      { label: "En transit", value: stats.in_transit, icon: Truck, view: "transit" },
       {
         label: "Arrivées aujourd'hui",
         value: stats.arrivals_today,
-        icon: Ship,
+        icon: Ship, view: "arrived",
       },
-      { label: "Retards", value: stats.delayed, icon: AlertCircle, warm: true },
+      { label: "Retards", value: stats.delayed, icon: AlertCircle, warm: true, view: "blocked" },
       {
         label: "Taux livraison",
         value: `${stats.delivery_rate || 0}%`,
-        icon: ArrowRight,
+        icon: ArrowRight, view: "delivered",
       },
     ],
     [stats],
   );
 
   return (
-    <div className="min-h-full bg-[#f7f7f6] text-[#1f2328]">
+    <div className="min-h-full bg-white text-[#1f2328]">
       <section className="overflow-hidden bg-white">
         <OperationPageHeader
           title="Expéditions"
           description="Pilotez les transports réels de vos colis : routes, ETA, statuts, clients concernés, documents, coûts et risques."
           actions={
             <>
-              <OperationActionMenu>
-                <button onClick={() => setAnalyticsOpen((value) => !value)}>{analyticsOpen ? "Revenir à la liste" : "Voir les analytics"}</button>
-              </OperationActionMenu>
               <PermissionGuard permission="shipments.read">
                 <button className={buttonClass} onClick={handleExport}><Download size={14} />Exporter CSV</button>
               </PermissionGuard>
@@ -324,60 +351,36 @@ export function ShipmentsPage() {
         />
 
         <OperationMetrics>
-          <OperationMetricGrid className={allMetrics ? "lg:grid-cols-6" : "lg:grid-cols-4"}>
-            {kpis.slice(0, allMetrics ? 6 : 4).map((item) => (
-              <OperationMetric key={item.label} label={item.label} value={item.value} tone={item.warm ? "warning" : "default"} />
+          <OperationMetricGrid className="lg:grid-cols-6">
+            {kpis.map((item) => (
+              <OperationMetric key={item.label} label={item.label} value={item.value} tone={activeMetric === item.label ? "success" : item.warm ? "warning" : "default"} active={activeMetric === item.label} onClick={() => { setActiveMetric(item.label); setActiveView(item.view); setStatus(""); }} />
             ))}
           </OperationMetricGrid>
-          <button
-            onClick={() => setAllMetrics((value) => !value)}
-            className="mt-3 text-[11px] font-medium text-[#087a46]"
-          >
-            {allMetrics
-              ? "Réduire les indicateurs"
-              : "Voir tous les indicateurs"}
-          </button>
         </OperationMetrics>
 
         {analyticsOpen ? (
-          <ShipmentAnalyticsView data={analytics} />
+          <>
+            <OperationToolbar filters={<OperationActionMenu><button onClick={() => setAnalyticsOpen(false)}>Revenir à la liste</button></OperationActionMenu>} />
+            <ShipmentAnalyticsView data={analytics} />
+          </>
         ) : (
           <>
-            <OperationTabs>
-              <div className="flex flex-wrap items-end gap-1">
-                {views.slice(0, 4).map((view) => (
-                  <OperationTab
-                    active={activeView === view.key}
-                    key={view.key}
-                    onClick={() => {
-                      setActiveView(view.key);
-                      setStatus("");
-                    }}
-                  >
-                    {view.label}
-                  </OperationTab>
-                ))}
-                <OperationTabMenu
-                  items={views.slice(4).map((view) => [view.key, view.label] as const)}
-                  value={views.slice(4).some((view) => view.key === activeView) ? activeView : ""}
-                  onChange={(next) => {
-                    setActiveView(next);
-                    setStatus("");
-                  }}
-                />
-              </div>
-            </OperationTabs>
-
             <OperationToolbar
               search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher une expédition…" />}
               filters={
+                <>
                 <OperationFilterPopover
                   open={filtersOpen}
                   onOpenChange={setFiltersOpen}
-                  activeCount={[status, mode, risk].filter(Boolean).length + (sort !== "updated_desc" ? 1 : 0)}
-                  onReset={() => { setStatus(""); setMode(""); setRisk(""); setSort("updated_desc"); }}
+                  activeCount={[status, mode, risk].filter(Boolean).length + (sort !== "updated_desc" ? 1 : 0) + (activeView !== "all" ? 1 : 0)}
+                  onReset={() => { setActiveMetric(null); setActiveView("all"); setStatus(""); setMode(""); setRisk(""); setSort("updated_desc"); }}
                   title="Filtrer les expéditions"
                 >
+                  <OperationField label="Vue">
+                    <select className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none" value={activeView} onChange={(event) => { setActiveMetric(null); setActiveView(event.target.value); setStatus(""); }}>
+                      {views.map((view) => <option key={view.key} value={view.key}>{view.label}</option>)}
+                    </select>
+                  </OperationField>
                   <OperationField label="Étape de l’expédition">
                   <select
                     className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]"
@@ -440,8 +443,14 @@ export function ShipmentsPage() {
                   </select>
                   </OperationField>
                 </OperationFilterPopover>
+                <OperationActionMenu>
+                  <button onClick={() => setAnalyticsOpen(true)}>Voir les analytics</button>
+                </OperationActionMenu>
+                </>
               }
             />
+
+            <OperationContent className="pt-4">
 
             {error ? <ErrorState title="Expéditions indisponibles" description={error} /> : null}
 
@@ -583,7 +592,7 @@ export function ShipmentsPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#d8dce2] px-4 py-3 text-[13px] text-[#5f6b7a]">
+            <div className="flex items-center justify-between px-1 py-3 text-[13px] text-[#5f6b7a]">
               <span>
                 {pagination.total
                   ? `${(page - 1) * pagination.page_size + 1} – ${Math.min(page * pagination.page_size, pagination.total)} sur ${pagination.total} expéditions`
@@ -611,6 +620,7 @@ export function ShipmentsPage() {
                 </button>
               </div>
             </div>
+            </OperationContent>
           </>
         )}
       </section>
@@ -619,116 +629,46 @@ export function ShipmentsPage() {
         <OperationDrawer
           open
           title="Nouvelle expédition"
-          description="Planifiez le transport, la capacité et les références opérationnelles."
+          description="Choisissez une route et un service, puis ajoutez les colis prêts à partir après la création."
           close={() => setFormOpen(false)}
-          width="max-w-4xl"
+          width="max-w-2xl"
         >
           <form
             onSubmit={handleCreate}
           >
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field
-                name="title"
-                label="Titre"
-                placeholder="China → Kinshasa Juin"
-              />
-              <Select
-                name="status"
-                label="Statut"
-                options={statusLabels}
-                defaultValue="PREPARING"
-              />
-              <Select
-                name="mode"
-                label="Mode"
-                options={modeLabels}
-                defaultValue="AIR"
-              />
-              <Field
-                name="service_type"
-                label="Service"
-                placeholder="Air Cargo Premium"
-              />
-              <Select
-                name="risk_level"
-                label="Risque"
-                options={riskLabels}
-                defaultValue="LOW"
-              />
-              <Field name="currency" label="Devise" defaultValue="USD" />
-              <Field
-                name="origin_country"
-                label="Pays départ"
-                placeholder="Chine"
-              />
-              <Field
-                name="origin_city"
-                label="Ville départ"
-                placeholder="Guangzhou"
-              />
-              <Field
-                name="origin_warehouse"
-                label="Entrepôt départ"
-                placeholder="Entrepôt Guangzhou"
-              />
-              <Field
-                name="destination_country"
-                label="Pays arrivée"
-                placeholder="RDC"
-              />
-              <Field
-                name="destination_city"
-                label="Ville arrivée"
-                placeholder="Kinshasa"
-              />
-              <Field
-                name="destination_warehouse"
-                label="Entrepôt arrivée"
-                placeholder="Agence Kinshasa"
-              />
-              <Field
-                name="route_label"
-                label="Route"
-                placeholder="Chine → RDC"
-              />
-              <Field
-                name="carrier_name"
-                label="Transporteur"
-                placeholder="Ethiopian Airlines"
-              />
-              <Field name="flight_number" label="Vol" placeholder="ET-840" />
-              <Field
-                name="container_number"
-                label="Container"
-                placeholder="MSCU..."
-              />
-              <Field name="awb_number" label="AWB" placeholder="157-..." />
-              <Field name="bl_number" label="BL" placeholder="BL-..." />
-              <Field
-                name="batch_reference"
-                label="Batch"
-                placeholder="BATCH-CN-0626"
-              />
-              <Field
-                name="owner_name"
-                label="Responsable"
-                placeholder="Country Manager"
-              />
-              <Field
-                name="planned_departure_at"
-                label="Départ prévu"
-                type="datetime-local"
-              />
-              <Field name="eta_at" label="ETA" type="datetime-local" />
-              <label className="md:col-span-3">
-                <span className="mb-1 block text-[13px] font-medium text-[#334155]">
-                  Notes
-                </span>
-                <textarea
-                  name="notes"
-                  className="min-h-24 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[14px] outline-none focus:border-[#12c76f]"
-                  placeholder="Notes internes pour l'équipe opérationnelle"
-                />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">Route
+                <select required className={formInputClass} value={routeId} disabled={catalogLoading || !!catalogError} onChange={event => {setRouteId(event.target.value);setServiceId("");}}>
+                  <option value="">{catalogLoading ? "Chargement…" : "Choisir une route"}</option>
+                  {routes.map(route => <option key={route.id} value={route.id}>{route.route_name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">Service et voie
+                <select required className={formInputClass} value={serviceId} disabled={!routeId || catalogLoading} onChange={event => setServiceId(event.target.value)}>
+                  <option value="">Choisir un service</option>
+                  {routeServices.map(service => <option key={service.id} value={service.id}>{service.service_name}</option>)}
+                </select>
+              </label>
+              {catalogError && <p role="alert" className="sm:col-span-2 text-sm text-red-700">{catalogError}</p>}
+              {!catalogLoading && !catalogError && (!routes.length || (routeId && !routeServices.length)) && <p className="sm:col-span-2 text-sm text-[#69747d]">Configurez une route active et son service dans Routes et Services avant de créer l’expédition.</p>}
+              {selectedRoute && <div className="sm:col-span-2 rounded-lg bg-[#f5f8f7] p-3 text-[13px] text-[#52616a]">
+                <p>{[selectedRoute.origin_city, selectedRoute.origin_country].filter(Boolean).join(", ")} → {[selectedRoute.destination_city, selectedRoute.destination_country].filter(Boolean).join(", ")}</p>
+                {selectedService && <p className="mt-1">{selectedService.service_name} · {selectedService.currency_code} · Délai indicatif : {selectedService.eta_min_days}–{selectedService.eta_max_days} jours</p>}
+              </div>}
+              <Field name="planned_departure_at" label="Départ prévu" type="datetime-local"/>
+              <Field name="eta_at" label="Arrivée estimée" type="datetime-local"/>
+              <Field name="title" label="Libellé (optionnel)" placeholder="Généré à partir de la route et du service"/>
+              <Field name="carrier_name" label="Transporteur (optionnel)"/>
+              {selectedService && ["AIR", "EXPRESS"].includes(selectedService.shipping_mode) && <>
+                <Field name="flight_number" label="Numéro de vol (optionnel)"/>
+                <Field name="awb_number" label="Lettre de transport aérien · AWB (optionnel)"/>
+              </>}
+              {selectedService?.shipping_mode === "SEA" && <>
+                <Field name="container_number" label="Numéro de conteneur (optionnel)"/>
+                <Field name="bl_number" label="Connaissement · BL (optionnel)"/>
+              </>}
+              <label className="sm:col-span-2 grid gap-1 text-[13px] font-medium text-[#334155]">Notes internes (optionnelles)
+                <textarea name="notes" className="min-h-20 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[13px]" placeholder="Consignes pour l’équipe"/>
               </label>
             </div>
             {formError ? (
@@ -747,7 +687,7 @@ export function ShipmentsPage() {
               <button
                 type="submit"
                 className={primaryButtonClass}
-                disabled={saving}
+                disabled={saving || catalogLoading || !!catalogError || !selectedService}
               >
                 {saving ? (
                   <Loader2 className="animate-spin" size={16} />
@@ -864,37 +804,6 @@ function Field({
         placeholder={placeholder}
         className="h-9 w-full rounded-md border border-[#cfd5dd] px-3 text-[14px] outline-none focus:border-[#12c76f]"
       />
-    </label>
-  );
-}
-
-function Select({
-  label,
-  name,
-  options,
-  defaultValue,
-}: {
-  label: string;
-  name: string;
-  options: Record<string, string>;
-  defaultValue?: string;
-}) {
-  return (
-    <label>
-      <span className="mb-1 block text-[13px] font-medium text-[#334155]">
-        {label}
-      </span>
-      <select
-        name={name}
-        defaultValue={defaultValue}
-        className="h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[14px] outline-none focus:border-[#12c76f]"
-      >
-        {Object.entries(options).map(([key, label]) => (
-          <option value={key} key={key}>
-            {label}
-          </option>
-        ))}
-      </select>
     </label>
   );
 }

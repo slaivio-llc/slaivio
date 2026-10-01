@@ -2,7 +2,6 @@
 
 import axios from "axios";
 import {
-  ArrowLeft,
   Bell,
   CheckCircle2,
   Clock,
@@ -17,14 +16,12 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { listPackages, type PackageRecord } from "@/services/packages";
 import {PermissionGuard} from "@/components/permissions/permission-guard";
+import { OperationBackLink } from "@/components/ui/operation-controls";
 import {LoadingState} from "@/components/ui/page-state";
-import {OperationTabMenu} from "@/components/ui/operation-controls";
 import {businessLabel} from "@/components/ui/business-labels";
 import {
   archiveShipment,
@@ -34,6 +31,7 @@ import {
   createShipmentAnomaly,
   createShipmentNotification,
   getShipment,
+  getShipmentPackageEligibility,
   getShipmentDocumentUrl,
   exportShipmentManifest,
   removeShipmentPackage,
@@ -46,6 +44,7 @@ import {
   type ExpeditionPayload,
   type ExpeditionStatus,
   type RiskLevel,
+  type ShipmentPackageEligibility,
 } from "@/services/shipments";
 
 const statusLabels: Record<ExpeditionStatus, string> = {
@@ -90,7 +89,7 @@ const primaryButtonClass = "inline-flex h-9 items-center justify-center gap-2 ro
 
 export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
   const [shipment, setShipment] = useState<ExpeditionDetail | null>(null);
-  const [availablePackages, setAvailablePackages] = useState<PackageRecord[]>([]);
+  const [availablePackages, setAvailablePackages] = useState<ShipmentPackageEligibility[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,12 +107,9 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
     try {
       const detail = await getShipment(shipmentId);
       setShipment(detail);
-      // La fiche reste accessible si le sélecteur secondaire de colis échoue.
-      const packageList = await listPackages({
-        page_size: 100,
-        sort: "updated_desc",
-      }).catch(() => null);
-      setAvailablePackages(packageList?.items || []);
+      // La fiche reste accessible si l'analyse d'éligibilité secondaire échoue.
+      const packageList = await getShipmentPackageEligibility(shipmentId).catch(() => null);
+      setAvailablePackages(packageList || []);
     } catch (err) {
       setError(axios.isAxiosError(err) ? String(err.response?.data?.detail || `Erreur API (${err.response?.status || "réseau"})`) : "Impossible de charger cette expédition.");
     } finally {
@@ -127,8 +123,14 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
     try {
       const next = await action();
       setShipment(next);
+      const packageList = await getShipmentPackageEligibility(shipmentId).catch(() => null);
+      if (packageList) setAvailablePackages(packageList);
     } catch (err) {
-      setError(axios.isAxiosError(err) ? String(err.response?.data?.detail || "Action impossible.") : "Action impossible.");
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null;
+      const message = detail && typeof detail === "object" && Array.isArray(detail.reasons)
+        ? detail.reasons.join(" ")
+        : typeof detail === "string" ? detail : "Action impossible.";
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -147,7 +149,7 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
   if (!shipment) {
     return (
       <div className="min-h-[calc(100vh-56px)] bg-[#f7f8fa] p-8">
-        <Link className={buttonClass} href="/app/shipments"><ArrowLeft size={16} /> Retour</Link>
+        <OperationBackLink href="/app/shipments" label="Retour aux expéditions" />
         <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">{error || "Expédition introuvable."}</div>
       </div>
     );
@@ -157,10 +159,10 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
     <div className="min-h-[calc(100vh-56px)] bg-[#f7f8fa] px-8 py-6 text-[#1f2328]">
       <section className="mx-auto overflow-hidden bg-white">
         <header className="border-b border-[#eceef1] px-6 py-5">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <Link className={buttonClass} href="/app/shipments"><ArrowLeft size={16} /> Expéditions</Link>
+          <div className="mb-5 flex flex-wrap items-center justify-end gap-4">
             <div className="flex items-center gap-2">
-              <button className={buttonClass} onClick={load}><RefreshCcw size={16} /> Actualiser</button>
+              <OperationBackLink href="/app/shipments" label="Retour aux expéditions" />
+              <button className={`${buttonClass} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={16} /></button>
               <PermissionGuard permission="shipments.update"><button className={primaryButtonClass} onClick={() => setActiveTab("Colis")}><Plus size={16} /> Ajouter colis</button></PermissionGuard>
             </div>
           </div>
@@ -182,14 +184,7 @@ export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
 
         {error ? <div className="m-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">{error}</div> : null}
 
-        <div className="flex overflow-x-auto border-b border-[#d8dce2] px-4">
-          {primaryTabs.map((tab) => (
-            <button key={tab} className={`px-3 py-3 text-[13px] font-medium ${activeTab === tab ? "border-b-2 border-[#12c76f] text-[#067a45]" : "text-[#526071] hover:text-[#1f2328]"}`} onClick={() => setActiveTab(tab)}>
-              {tab}
-            </button>
-          ))}
-          <OperationTabMenu items={secondaryTabs.map(tab=>[tab,tab] as const)} value={secondaryTabs.includes(activeTab as typeof secondaryTabs[number])?activeTab:""} onChange={setActiveTab}/>
-        </div>
+        <div className="border-b border-[#d8dce2] px-4 py-2"><select aria-label="Vue de l’expédition" className="h-9 w-full max-w-[260px] rounded-[6px] border border-[#d5dade] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]" value={activeTab} onChange={(event) => setActiveTab(event.target.value as Tab)}>{[...primaryTabs, ...secondaryTabs].map((tab) => <option key={tab} value={tab}>{tab}</option>)}</select></div>
 
         <div className="p-5">
           {activeTab === "Overview" ? <Overview shipment={shipment} progress={progress} setTab={setActiveTab} /> : null}
@@ -284,9 +279,9 @@ function Overview({ shipment, progress, setTab }: { shipment: ExpeditionDetail; 
   );
 }
 
-function PackagesTab({ shipment, availablePackages, saving, onAdd, onRemove }: { shipment: ExpeditionDetail; availablePackages: PackageRecord[]; saving: boolean; onAdd: (id: string) => void; onRemove: (id: string) => void }) {
-  const attached = new Set(shipment.packages.map((item) => item.id));
-  const candidates = availablePackages.filter((item) => !attached.has(item.id));
+function PackagesTab({ shipment, availablePackages, saving, onAdd, onRemove }: { shipment: ExpeditionDetail; availablePackages: ShipmentPackageEligibility[]; saving: boolean; onAdd: (id: string) => void; onRemove: (id: string) => void }) {
+  const candidates = availablePackages.filter((item) => item.eligible);
+  const blocked = availablePackages.filter((item) => !item.eligible);
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const packageId = String(new FormData(event.currentTarget).get("package_id") || "");
@@ -303,8 +298,23 @@ function PackagesTab({ shipment, availablePackages, saving, onAdd, onRemove }: {
             {candidates.map((item) => <option key={item.id} value={item.id}>{item.package_reference || item.tracking_id} · {item.client_name || "Client non renseigné"}</option>)}
           </select>
         </label>
-        <button className={primaryButtonClass} disabled={saving}><Plus size={16} /> Ajouter</button>
+        <button className={primaryButtonClass} disabled={saving || candidates.length === 0}><Plus size={16} /> Ajouter</button>
       </form>
+      {blocked.length ? (
+        <details className="rounded-md border border-[#e5e7eb] bg-white">
+          <summary className="cursor-pointer px-4 py-3 text-[13px] font-medium text-[#475569]">
+            {blocked.length} colis à régulariser avant expédition
+          </summary>
+          <div className="divide-y divide-[#eef0f2] border-t border-[#eef0f2]">
+            {blocked.slice(0, 30).map((item) => (
+              <div key={item.id} className="grid gap-1 px-4 py-3 md:grid-cols-[220px_1fr]">
+                <div className="text-[13px] font-medium text-[#1f2937]">{item.package_reference || item.tracking_id || "Colis"}</div>
+                <div className="text-[12px] leading-5 text-[#b45309]">{item.reasons.join(" ")}</div>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
       <DataTable headers={["Colis", "Client", "Dossier", "Statut", "Poids", "Volume", "Paiement", ""]}>
         {shipment.packages.map((item) => (
           <tr className="border-b border-[#edf0f3]" key={item.id}>

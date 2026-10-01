@@ -7,6 +7,7 @@ from app.onboarding.services.onboarding_service import (
     refresh_onboarding,
     save_agency_profile,
 )
+from app.onboarding.repositories.onboarding_repository import get_agency_profile
 
 
 router = APIRouter(
@@ -20,6 +21,7 @@ def onboarding_status(tenant=Depends(get_current_tenant)):
     return {
         "status": "ok",
         "onboarding": get_onboarding_status(tenant["org_id"]),
+        "profile": get_agency_profile(tenant["org_id"]),
     }
 
 

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -12,7 +14,7 @@ class AgencyProfileIn(BaseModel):
     website: str | None = None
     default_language: str | None = None
     default_currency: str | None = None
-    business_type: str | None = None
+    business_type: Literal["VEHICLE_IMPORT", "PARCEL_FREIGHT"]
 
 
 class CompleteStepIn(BaseModel):

@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     app_env: Environment = "development"
     app_runtime: RuntimeRole = "api"
     public_base_url: str | None = None
+    public_web_base_url: str = "https://slaivio.com"
     platform_quarantine_encryption_key: str | None = None
     quarantine_replay_max_attempts: int = Field(default=5, ge=1, le=20)
     quarantine_replay_lease_seconds: int = Field(default=900, ge=60, le=3600)
@@ -127,6 +128,8 @@ class Settings(BaseSettings):
             errors.append("CLERK_WEBHOOK_SECRET is required")
         if not self.public_base_url or not self.public_base_url.startswith("https://"):
             errors.append("PUBLIC_BASE_URL must be an HTTPS URL")
+        if not self.public_web_base_url.startswith("https://"):
+            errors.append("PUBLIC_WEB_BASE_URL must be an HTTPS URL")
         if self.knowledge_antivirus_required and not self.clamav_host:
             errors.append("CLAMAV_HOST is required when KNOWLEDGE_ANTIVIRUS_REQUIRED=true")
         if self.whatsapp_provider == "meta":

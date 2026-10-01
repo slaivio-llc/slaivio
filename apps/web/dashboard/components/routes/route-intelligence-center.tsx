@@ -10,10 +10,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
+import { FormGeographyFields, GeographyFields } from "@/components/ui/geography-fields";
 import { OperationDrawer, OperationDrawerTabs } from "@/components/ui/operation-drawer";
-import { OperationPageHeader, OperationTabs } from "@/components/ui/operation-page-header";
-import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationMetric, OperationMetricGrid, OperationTab, OperationTabMenu } from "@/components/ui/operation-controls";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
+import { OperationContent, OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { businessLabel } from "@/components/ui/business-labels";
 import {
@@ -31,6 +32,8 @@ import {
   addRouteLeg,
   addRouteCarrier,
   addRouteRestriction,
+  networkOffices,
+  type NetworkOffice,
   type Route,
 } from "@/services/route-catalog";
 const btn =
@@ -57,9 +60,9 @@ export function RouteIntelligenceCenter() {
     [stats, setStats] = useState<Record<string, number>>({}),
     [query, setQuery] = useState(""),
     [view, setView] = useState<View>("ALL"),
+    [activeMetric, setActiveMetric] = useState<string | null>(null),
     [selected, setSelected] = useState<Detail | null>(null),
     [createOpen, setCreateOpen] = useState(false),
-    [allMetrics, setAllMetrics] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -113,7 +116,7 @@ export function RouteIntelligenceCenter() {
     ["Marge moyenne", `${stats.margin_percent || 0}%`],
   ];
   return (
-    <div className="min-h-full bg-[#f7f7f6]">
+    <div className="min-h-full bg-white">
       <OperationPageHeader
         title="Routes"
         description="Configurez, exploitez et analysez toutes les routes cargo de votre agence."
@@ -133,72 +136,18 @@ export function RouteIntelligenceCenter() {
         }
       />
       <OperationMetrics>
-        <OperationMetricGrid className={allMetrics ? "lg:grid-cols-8" : "lg:grid-cols-4"}>
-          {cards.slice(0, allMetrics ? 8 : 4).map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v} />
-          ))}
+        <OperationMetricGrid className="lg:grid-cols-4">
+          {cards.map(([l, v]) => { const metricLabel=String(l); const label=metricLabel.toLowerCase(); const target:View=label.includes("air")?"AIR":label.includes("sea")?"SEA":label.includes("suspend")?"SUSPENDED":label.includes("active")?"ACTIVE":"ALL"; return <OperationMetric key={metricLabel} label={metricLabel} value={v} active={activeMetric===metricLabel} onClick={()=>{setActiveMetric(metricLabel);setView(target)}} />; })}
         </OperationMetricGrid>
-        <button
-          onClick={() => setAllMetrics((current) => !current)}
-          className="mt-3 text-[11px] font-medium text-[#087a46]"
-        >
-          {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
-        </button>
       </OperationMetrics>
-      <OperationTabs>
-          <>
-            {(
-              [
-                ["ALL", "Toutes"],
-                ["ACTIVE", "Actives"],
-                ["AIR", "Air Cargo"],
-                ["SEA", "Sea Cargo"],
-              ] as const
-            ).map(([k, l]) => (
-              <OperationTab
-                key={k}
-                onClick={() => setView(k)}
-                active={view === k}
-              >
-                {l}
-              </OperationTab>
-            ))}
-            <OperationTabMenu
-              items={[
-                ["EXPRESS", "Express"],
-                ["LIMITED", "Capacité limitée"],
-                ["SUSPENDED", "Suspendues"],
-                ["INACTIVE", "Inactives"],
-                ["ARCHIVED", "Archivées"],
-                ["ANALYTICS", "Analytics"],
-                ["ENGINE", "Trouver une route"],
-              ]}
-              value={["EXPRESS", "LIMITED", "SUSPENDED", "INACTIVE", "ARCHIVED", "ANALYTICS", "ENGINE"].includes(view) ? view : ""}
-              onChange={setView}
-            />
-          </>
-      </OperationTabs>
+      <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Route, pays, ville, entrepôt, bureau…" />} filters={<OperationFilterPopover activeCount={view === "ALL" ? 0 : 1} onReset={() => setView("ALL")} title="Filtrer les routes"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="ALL">Toutes</option><option value="ACTIVE">Actives</option><option value="AIR">Air Cargo</option><option value="SEA">Sea Cargo</option><option value="EXPRESS">Express</option><option value="LIMITED">Capacité limitée</option><option value="SUSPENDED">Suspendues</option><option value="INACTIVE">Inactives</option><option value="ARCHIVED">Archivées</option><option value="ANALYTICS">Analytics</option><option value="ENGINE">Route Engine</option></select></OperationField></OperationFilterPopover>}><button className={btn} onClick={async () => { const name = prompt("Nom de cette vue"); if (name) await saveRouteView(name, { view, query }); }}>Enregistrer la vue</button><button className={`${btn} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={14} /></button></OperationToolbar>
+      <OperationContent className="pt-4">
       {view === "ENGINE" ? (
         <Engine />
       ) : view === "ANALYTICS" ? (
         <Analytics />
       ) : (
         <>
-          <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Route, pays, ville, entrepôt, bureau…" />}>
-            <button
-              className={btn}
-              onClick={async () => {
-                const name = prompt("Nom de cette vue");
-                if (name) await saveRouteView(name, { view, query });
-              }}
-            >
-              Enregistrer la vue
-            </button>
-            <button className={btn} onClick={load}>
-              <RefreshCcw size={14} />
-              Actualiser
-            </button>
-          </OperationToolbar>
           {error && <ErrorState title="Routes indisponibles" description={error} retry={load} />}
           {loading ? (
             <TableSkeleton rows={7} columns={12} label="Chargement du réseau…" />
@@ -209,6 +158,7 @@ export function RouteIntelligenceCenter() {
           )}
         </>
       )}
+      </OperationContent>
       {selected && (
         <RouteDetail
           item={selected}
@@ -632,18 +582,30 @@ function Engine() {
     <main className="grid gap-4 p-4 xl:grid-cols-[380px_1fr]">
       <form onSubmit={submit} className="grid gap-3 border bg-white p-4">
         <h2 className="font-semibold">Simulateur de route</h2>
+        <FormGeographyFields
+          countryName="origin_country"
+          cityName="origin_city"
+          countryLabel="Pays d’origine"
+          cityLabel="Ville d’origine"
+          className={input}
+          fieldClassName="grid gap-1 text-[12px] font-medium text-[#4d5761]"
+        />
+        <FormGeographyFields
+          required
+          countryName="destination_country"
+          cityName="destination_city"
+          countryLabel="Pays de destination"
+          cityLabel="Ville de destination"
+          className={input}
+          fieldClassName="grid gap-1 text-[12px] font-medium text-[#4d5761]"
+        />
         {[
-          ["origin_country", "Pays origine"],
-          ["origin_city", "Ville origine"],
-          ["destination_country", "Pays destination"],
-          ["destination_city", "Ville destination"],
           ["goods_category", "Marchandise"],
           ["weight_kg", "Poids kg"],
           ["volume_cbm", "CBM"],
         ].map(([n, p]) => (
           <input
             key={n}
-            required={n === "destination_country"}
             className={input}
             name={n}
             placeholder={p}
@@ -713,6 +675,15 @@ function Analytics() {
 function CreateRoute({ done }: { done: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [locations,setLocations]=useState<NetworkOffice[]>([]);
+  const [originLocationId,setOriginLocationId]=useState("");
+  const [destinationLocationId,setDestinationLocationId]=useState("");
+  const [destinationOrgId,setDestinationOrgId]=useState("");
+  const [originCountry, setOriginCountry] = useState("");
+  const [originCity, setOriginCity] = useState("");
+  const [destinationCountry, setDestinationCountry] = useState("");
+  const [destinationCity, setDestinationCity] = useState("");
+  useEffect(()=>{networkOffices().then(data=>setLocations(data.filter(location=>Boolean(location.location_id)))).catch(()=>setLocations([]));},[]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -722,6 +693,9 @@ function CreateRoute({ done }: { done: () => Promise<void> }) {
       await createRoute({
         route_code: f.get("route_code"),
         route_name: f.get("route_name"),
+        origin_location_id: originLocationId||null,
+        destination_location_id: destinationLocationId||null,
+        destination_org_id: destinationOrgId||null,
         origin_country: f.get("origin_country"),
         origin_city: f.get("origin_city"),
         destination_country: f.get("destination_country"),
@@ -763,36 +737,7 @@ function CreateRoute({ done }: { done: () => Promise<void> }) {
         </RouteFormField>
       </section>
       <section className="grid gap-4 border-t border-[#eceef1] pt-5 md:grid-cols-2">
-        <RouteFormField label="Pays de départ">
-          <input
-            required
-            className={input}
-            name="origin_country"
-            placeholder="Choisir ou saisir le pays"
-          />
-        </RouteFormField>
-        <RouteFormField label="Ville de départ">
-          <input
-            className={input}
-            name="origin_city"
-            placeholder="Ville d’origine"
-          />
-        </RouteFormField>
-        <RouteFormField label="Pays de destination">
-          <input
-            required
-            className={input}
-            name="destination_country"
-            placeholder="Choisir ou saisir le pays"
-          />
-        </RouteFormField>
-        <RouteFormField label="Ville de destination">
-          <input
-            className={input}
-            name="destination_city"
-            placeholder="Ville de destination"
-          />
-        </RouteFormField>
+        {locations.length?<><RouteFormField label="Bureau ou entrepôt de départ"><select required className={input} value={originLocationId} onChange={event=>{const id=event.target.value;const location=locations.find(item=>item.location_id===id);setOriginLocationId(id);setOriginCountry(location?.country||"");setOriginCity(location?.city||"");}}><option value="">Choisir un site configuré</option>{locations.filter(location=>location.is_current).map(location=><option key={location.location_id!} value={location.location_id!}>{location.location_name} · {location.city}, {location.country}</option>)}</select><input type="hidden" name="origin_country" value={originCountry}/><input type="hidden" name="origin_city" value={originCity}/></RouteFormField><RouteFormField label="Bureau ou entrepôt de destination"><select required className={input} value={destinationLocationId} onChange={event=>{const id=event.target.value;const location=locations.find(item=>item.location_id===id);setDestinationLocationId(id);setDestinationOrgId(location?.org_id||"");setDestinationCountry(location?.country||"");setDestinationCity(location?.city||"");}}><option value="">Choisir un bureau du réseau</option>{locations.filter(location=>location.location_id!==originLocationId).map(location=><option key={`${location.org_id}:${location.location_id}`} value={location.location_id!}>{location.organization_name} · {location.location_name} · {location.city}, {location.country}</option>)}</select><input type="hidden" name="destination_country" value={destinationCountry}/><input type="hidden" name="destination_city" value={destinationCity}/></RouteFormField></>:<><GeographyFields required country={originCountry} city={originCity} onCountryChange={setOriginCountry} onCityChange={setOriginCity} countryName="origin_country" cityName="origin_city" countryLabel="Pays de départ" cityLabel="Ville de départ" className={input} fieldClassName="grid gap-2 text-[12px] font-medium text-[#4d5761]"/><GeographyFields required country={destinationCountry} city={destinationCity} onCountryChange={setDestinationCountry} onCityChange={setDestinationCity} countryName="destination_country" cityName="destination_city" countryLabel="Pays de destination" cityLabel="Ville de destination" className={input} fieldClassName="grid gap-2 text-[12px] font-medium text-[#4d5761]"/></>}
       </section>
       <section className="grid gap-4 border-t border-[#eceef1] pt-5 md:grid-cols-3">
         <RouteFormField label="Mode de transport">

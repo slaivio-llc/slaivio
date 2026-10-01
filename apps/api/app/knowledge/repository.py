@@ -15,6 +15,24 @@ from app.services.knowledge_connectors import encrypt_credentials,decrypt_creden
 
 EDITABLE = ("title", "knowledge_type", "category", "content", "structured_data", "question_variants", "tags", "language", "audiences", "ai_scope", "source_type", "source_entity_type", "source_entity_id", "effective_at", "expires_at", "review_due_at", "review_interval_days", "owner_id", "owner_name", "sensitive", "workspace_id")
 SUSPICIOUS = re.compile(r"(?i)(ignore (all|previous)|system prompt|reveal (the )?(secret|instructions)|jailbreak|developer message)")
+SEARCH_STOP_WORDS = {
+    "alors", "avec", "avoir", "bonjour", "cela", "cette", "chez", "client",
+    "comment", "dans", "depuis", "elle", "elles", "est", "êtes", "faire",
+    "faut", "il", "ils", "je", "les", "leur", "leurs", "mais", "mes",
+    "mon", "nous", "notre", "pour", "pouvez", "quel", "quelle", "quels",
+    "quelles", "que", "qui", "sans", "sont", "sur", "un", "une", "vos", "votre", "vous",
+    "what", "when", "where", "which", "with", "your", "the", "and", "for",
+}
+
+
+def _search_terms(query: str) -> list[str]:
+    """Keep meaningful words so natural customer questions do not become AND queries."""
+    terms = [
+        token.lower()
+        for token in re.findall(r"[0-9A-Za-zÀ-ÖØ-öø-ÿ]+", query or "")
+        if len(token) >= 2 and token.lower() not in SEARCH_STOP_WORDS
+    ]
+    return list(dict.fromkeys(terms))[:16]
 
 
 def _dict(row):
@@ -153,8 +171,41 @@ def _replace_chunks(conn, item):
 def search(org_id, query, channel, language="FR", workspace_id=None, limit=8):
     scope = "('CLIENT','BOTH')" if channel in ("CLIENT","WHATSAPP") else "('INTERNAL','BOTH')"
     audience = "PUBLIC" if channel in ("CLIENT","WHATSAPP") else None
-    params={"o":org_id,"q":query,"lang":language.upper(),"w":workspace_id,"limit":min(limit,20),"aud":audience}
-    sql=f"""select e.id,e.reference,e.title,e.category,e.content,e.source_type,e.source_entity_type,e.source_entity_id,e.updated_at,ts_rank(to_tsvector('simple',coalesce(e.title,'')||' '||coalesce(e.content,'')),websearch_to_tsquery('simple',:q)) rank from knowledge_entries e where e.org_id=:o and e.status='PUBLISHED' and e.ai_scope in {scope} and e.sensitive=false and e.language=:lang and (e.workspace_id is null or e.workspace_id=:w) and (e.effective_at is null or e.effective_at<=now()) and (e.expires_at is null or e.expires_at>now()) and (e.review_due_at is null or e.review_due_at>now()) and (:aud is null or :aud=any(e.audiences)) and (to_tsvector('simple',coalesce(e.title,'')||' '||coalesce(e.content,'')) @@ websearch_to_tsquery('simple',:q) or exists(select 1 from unnest(e.tags||e.question_variants) term where term ilike '%'||:q||'%')) order by case e.source_type when 'ROUTE' then 1 when 'SERVICE' then 2 when 'PRICING' then 3 when 'WAREHOUSE' then 4 else 5 end,rank desc,e.updated_at desc limit :limit"""
+    terms = _search_terms(query)
+    if not terms:
+        return []
+    web_query = " OR ".join(terms)
+    params={"o":org_id,"q":query,"terms":terms,"web_query":web_query,"term_count":len(terms),"lang":language.upper(),"w":workspace_id,"limit":min(limit,20),"aud":audience}
+    sql=f"""
+      select e.id,e.reference,e.title,e.category,e.content,e.source_type,
+             e.source_entity_type,e.source_entity_id,e.updated_at,
+             greatest(
+               ts_rank(
+                 to_tsvector('simple',coalesce(e.title,'')||' '||coalesce(e.content,'')),
+                 websearch_to_tsquery('simple',:web_query)
+               ),
+               matches.matched_terms::float / :term_count
+             ) rank,
+             matches.matched_terms
+      from knowledge_entries e
+      cross join lateral (
+        select count(distinct token)::int matched_terms
+        from unnest(cast(:terms as text[])) token
+        where (coalesce(e.title,'')||' '||coalesce(e.content,'')||' '||array_to_string(coalesce(e.tags,'{{}}')||coalesce(e.question_variants,'{{}}'),' ')) ilike '%'||token||'%'
+      ) matches
+      where e.org_id=:o and e.status='PUBLISHED' and e.ai_scope in {scope}
+        and e.sensitive=false and e.language=:lang
+        and (e.workspace_id is null or e.workspace_id=:w)
+        and (e.effective_at is null or e.effective_at<=now())
+        and (e.expires_at is null or e.expires_at>now())
+        and (e.review_due_at is null or e.review_due_at>now())
+        and (:aud is null or :aud=any(e.audiences))
+        and matches.matched_terms > 0
+      order by rank desc,
+        case e.source_type when 'ROUTE' then 1 when 'SERVICE' then 2 when 'PRICING' then 3 when 'WAREHOUSE' then 4 else 5 end,
+        e.updated_at desc
+      limit :limit
+    """
     lexical=[]
     with engine.connect() as conn:
         lexical=[_dict(r) for r in conn.execute(text(sql),params).fetchall()]
@@ -164,17 +215,17 @@ def search(org_id, query, channel, language="FR", workspace_id=None, limit=8):
             matched = conn.execute(text("""
               select content from knowledge_chunks
               where org_id=:o and knowledge_id=:knowledge_id
-                and to_tsvector('simple',content) @@ websearch_to_tsquery('simple',:q)
-              order by ts_rank(to_tsvector('simple',content),websearch_to_tsquery('simple',:q)) desc,
+                and to_tsvector('simple',content) @@ websearch_to_tsquery('simple',:web_query)
+              order by ts_rank(to_tsvector('simple',content),websearch_to_tsquery('simple',:web_query)) desc,
                 chunk_index
               limit 1
-            """), {"o": org_id, "knowledge_id": item["id"], "q": query}).scalar()
+            """), {"o": org_id, "knowledge_id": item["id"], "web_query": web_query}).scalar()
             item["matched_content"] = matched or item["content"]
     try: vector=embed_texts([query])[0]
     except RuntimeError:return lexical
     vector_literal="["+",".join(str(float(x)) for x in vector)+"]"
     with engine.connect() as conn:
-        semantic=[_dict(r) for r in conn.execute(text(f"select e.id,e.reference,e.title,e.category,e.content,e.source_type,e.source_entity_type,e.source_entity_id,e.updated_at,1-(e.embedding<=>cast(:embedding as vector)) rank from knowledge_entries e where e.org_id=:o and e.status='PUBLISHED' and e.ai_scope in {scope} and e.sensitive=false and e.language=:lang and e.embedding is not null and (e.workspace_id is null or e.workspace_id=:w) and (e.effective_at is null or e.effective_at<=now()) and (e.expires_at is null or e.expires_at>now()) and (e.review_due_at is null or e.review_due_at>now()) and (:aud is null or :aud=any(e.audiences)) order by e.embedding<=>cast(:embedding as vector) limit :limit"),{**params,"embedding":vector_literal}).fetchall()]
+        semantic=[_dict(r) for r in conn.execute(text(f"select e.id,e.reference,e.title,e.category,e.content,e.source_type,e.source_entity_type,e.source_entity_id,e.updated_at,1-(e.embedding<=>cast(:embedding as vector)) rank from knowledge_entries e where e.org_id=:o and e.status='PUBLISHED' and e.ai_scope in {scope} and e.sensitive=false and e.language=:lang and e.embedding is not null and (e.workspace_id is null or e.workspace_id=:w) and (e.effective_at is null or e.effective_at<=now()) and (e.expires_at is null or e.expires_at>now()) and (e.review_due_at is null or e.review_due_at>now()) and (:aud is null or :aud=any(e.audiences)) and 1-(e.embedding<=>cast(:embedding as vector)) >= 0.55 order by e.embedding<=>cast(:embedding as vector) limit :limit"),{**params,"embedding":vector_literal}).fetchall()]
     for item in semantic:
         item["matched_content"] = item["content"]
     merged={str(x["id"]):x for x in semantic};merged.update({str(x["id"]):x for x in lexical});return sorted(merged.values(),key=lambda x:float(x.get("rank") or 0),reverse=True)[:limit]

@@ -1,9 +1,11 @@
 from datetime import datetime
-from fastapi import APIRouter,Depends,Response
+from fastapi import APIRouter,BackgroundTasks,Depends,Response
 from pydantic import BaseModel,Field
 from app.core.permissions import require_permission
+from app.permissions.services.permission_service import assert_permission
 from app.core.tenant_context import get_current_tenant
 from app.departures import repository as repo
+from app.services.notification_sender import send_notification
 router=APIRouter(prefix='/departures',tags=['departures'])
 def aid(t):return str(t.get('user_id') or 'system')
 def aname(t):return str(t.get('actor_name') or "Membre de l'agence")
@@ -22,17 +24,22 @@ def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission('depar
 @router.get('/{departure_id}')
 def detail(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.read'))):return repo.detail(tenant['org_id'],departure_id)
 @router.patch('/{departure_id}')
-def patch(departure_id:str,body:Patch,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):return repo.update(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump(exclude_none=True))
+def patch(departure_id:str,body:Patch,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):
+ result=repo.update(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump(exclude_none=True))
+ for notification_id in result.pop('_queued_notification_ids',[]):background_tasks.add_task(send_notification,tenant['org_id'],notification_id)
+ return result
 @router.patch('/{departure_id}/checklist')
 def checklist(departure_id:str,body:Checklist,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.checklist'))):return repo.checklist(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
 @router.get('/{departure_id}/compatible-packages')
 def compatible(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.read'))):return {'items':repo.compatible_packages(tenant['org_id'],departure_id)}
 @router.post('/{departure_id}/packages')
-def add_package(departure_id:str,body:PackageAllocation,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.allocate'))):return repo.allocate_package(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
+def add_package(departure_id:str,body:PackageAllocation,tenant=Depends(get_current_tenant),manager=Depends(require_permission('departures.allocate'))):
+ if body.override_capacity:assert_permission(str(manager.get('user_id') or manager.get('id')),tenant['org_id'],'departures.override_capacity')
+ return repo.allocate_package(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
 @router.delete('/{departure_id}/packages/{package_id}')
 def remove_package(departure_id:str,package_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.allocate'))):return repo.remove_package(tenant['org_id'],departure_id,package_id,aid(tenant),aname(tenant))
 @router.get('/{departure_id}/manifest.csv')
-def manifest(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.export'))):return Response(repo.manifest(tenant['org_id'],departure_id),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename=departure-{departure_id}.csv'})
+def manifest(departure_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.export'))):return Response(repo.manifest(tenant['org_id'],departure_id,aid(tenant),aname(tenant)),media_type='text/csv; charset=utf-8',headers={'Content-Disposition':f'attachment; filename=departure-{departure_id}.csv'})
 @router.get('/analytics/overview')
 def analytics(tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.read'))):return repo.analytics(tenant['org_id'])
 @router.get('/configuration/templates')
@@ -44,8 +51,14 @@ def recurrences(tenant=Depends(get_current_tenant),_=Depends(require_permission(
 @router.post('/configuration/recurrences')
 def create_recurrence(body:Recurrence,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.templates'))):return repo.create_recurrence(tenant['org_id'],aid(tenant),body.model_dump())
 @router.post('')
-def create(body:Create,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):return repo.create(tenant['org_id'],aid(tenant),aname(tenant),body.model_dump())
+def create(body:Create,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.manage'))):
+ result=repo.create(tenant['org_id'],aid(tenant),aname(tenant),body.model_dump())
+ for notification_id in result.pop('_queued_notification_ids',[]):background_tasks.add_task(send_notification,tenant['org_id'],notification_id)
+ return result
 @router.post('/{departure_id}/allocations')
 def allocate(departure_id:str,body:Allocate,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.allocate'))):return repo.allocate(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.model_dump())
 @router.post('/{departure_id}/transition')
-def transition(departure_id:str,body:Transition,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.dispatch'))):return repo.transition(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.status,body.expected_version,body.reason)
+def transition(departure_id:str,body:Transition,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant),_=Depends(require_permission('departures.dispatch'))):
+ result=repo.transition(tenant['org_id'],departure_id,aid(tenant),aname(tenant),body.status,body.expected_version,body.reason)
+ for notification_id in result.pop('_queued_notification_ids',[]):background_tasks.add_task(send_notification,tenant['org_id'],notification_id)
+ return result

@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.tenant_context import get_current_tenant
 from app.core.permissions import require_permission
 from app.services.dossier_document_storage import create_document_download_url,upload_private_document
+from app.services.notification_sender import send_notification
 from app.expeditions.repository import (
     add_document,
     add_financial_line,
@@ -26,6 +28,7 @@ from app.expeditions.repository import (
     export_expeditions,
     export_manifest,
     get_expedition,
+    list_package_eligibility,
     list_expeditions,
     remove_package_from_expedition,
     resolve_anomaly,
@@ -235,7 +238,7 @@ def get_shipment(shipment_id: str, tenant=Depends(get_current_tenant)):
 
 
 @router.patch("/shipments/{shipment_id}",dependencies=[Depends(require_permission("shipments.update"))])
-def patch_shipment(shipment_id: str, payload: ExpeditionPayload, tenant=Depends(get_current_tenant)):
+def patch_shipment(shipment_id: str, payload: ExpeditionPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
     org_id, user_id = _tenant_ids(tenant)
     try:
         values=payload.model_dump(exclude_unset=True);expected_version=values.pop("expected_version",None)
@@ -244,6 +247,8 @@ def patch_shipment(shipment_id: str, payload: ExpeditionPayload, tenant=Depends(
         raise HTTPException(status_code=409 if str(exc)=="stale_shipment_version" else 400, detail=str(exc)) from exc
     if not expedition:
         raise HTTPException(status_code=404, detail="Expedition not found")
+    for notification_id in expedition.pop("_queued_notification_ids", []):
+        background_tasks.add_task(send_notification, org_id, notification_id)
     return {"status": "ok", "shipment": expedition, "expedition": expedition}
 
 
@@ -264,12 +269,30 @@ def get_shipment_timeline(shipment_id: str, tenant=Depends(get_current_tenant)):
 
 
 @router.post("/shipments/{shipment_id}/packages",dependencies=[Depends(require_permission("shipments.update"))])
-def attach_package(shipment_id: str, payload: PackageAssignmentPayload, tenant=Depends(get_current_tenant)):
+def attach_package(shipment_id: str, payload: PackageAssignmentPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
     org_id, user_id = _tenant_ids(tenant)
-    expedition = add_package_to_expedition(org_id, shipment_id, payload.package_id, user_id)
+    try:
+        expedition = add_package_to_expedition(org_id, shipment_id, payload.package_id, user_id)
+    except ValueError as exc:
+        try:
+            detail = json.loads(str(exc))
+        except (TypeError, ValueError):
+            detail = {"code": str(exc), "message": "Ce colis ne peut pas être ajouté à cette expédition."}
+        raise HTTPException(status_code=422, detail=detail) from exc
     if not expedition:
         raise HTTPException(status_code=404, detail="Expedition or package not found")
+    for notification_id in expedition.pop("_queued_notification_ids", []):
+        background_tasks.add_task(send_notification, org_id, notification_id)
     return {"status": "ok", "shipment": expedition, "expedition": expedition}
+
+
+@router.get("/shipments/{shipment_id}/package-eligibility",dependencies=[Depends(require_permission("shipments.read"))])
+def get_package_eligibility(shipment_id: str, tenant=Depends(get_current_tenant)):
+    org_id, _ = _tenant_ids(tenant)
+    items = list_package_eligibility(org_id, shipment_id)
+    if items is None:
+        raise HTTPException(status_code=404, detail="Expedition not found")
+    return {"status": "ok", "items": items}
 
 
 @router.delete("/shipments/{shipment_id}/packages/{package_id}",dependencies=[Depends(require_permission("shipments.update"))])

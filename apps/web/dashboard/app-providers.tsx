@@ -7,7 +7,7 @@ import { EntitlementProvider } from "@/components/entitlements/entitlement-provi
 import { FeatureProvider } from "@/components/features/feature-provider";
 import { PermissionProvider } from "@/components/permissions/permission-provider";
 import { setAccessTokenProvider } from "@/services/api";
-import { LoadingState } from "@/components/ui/page-state";
+import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 import { ApiMutationFeedback } from "@/components/ui/api-mutation-feedback";
 import { PilotOfflineProvider } from "@/components/offline/pilot-offline-provider";
 import { clearPilotOfflineData } from "@/services/pilot-offline";
@@ -61,7 +61,7 @@ function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
   }, [getToken, isLoaded, isSignedIn]);
 
   if (!ready) {
-    return <div className="min-h-screen bg-[#f7f7f6]"><LoadingState label="Préparation de votre espace Slaivio…" /></div>;
+    return <SlaivioLogoLoader label="Préparation de votre espace SLAIVIO" />;
   }
   return <PilotOfflineProvider scopeKey={`${userId || "account"}:${orgId || "personal"}`}>{children}</PilotOfflineProvider>;
 }

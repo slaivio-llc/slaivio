@@ -3,8 +3,10 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
+from app.ai.services import pilot_inbox_ai_service as ai_service
 from app.ai.services.pilot_inbox_ai_service import _classify, _grounding_check
 from app.api import ai_drafts
+from app.knowledge.repository import _search_terms
 
 
 ROOT = Path(__file__).parents[3]
@@ -29,7 +31,8 @@ def test_migration_defines_three_explicit_modes_and_tenant_audit():
 def test_sensitive_and_business_actions_can_never_be_classified_safe():
     assert _classify("Je conteste ce paiement et je veux un remboursement")["risk"] == "SENSITIVE"
     assert _classify("Pouvez-vous modifier mon dossier ?")["risk"] == "REVIEW"
-    assert _classify("Bonjour")["risk"] == "SAFE"
+    assert _classify("Bonjour")["risk"] == "REVIEW"
+    assert _classify("Merci beaucoup")["intent"] == "INFORMATION_REQUEST"
 
 
 def test_automatic_reply_rejects_unsupported_numbers_and_promises():
@@ -37,18 +40,124 @@ def test_automatic_reply_rejects_unsupported_numbers_and_promises():
     assert _grounding_check("Le délai est de 8 à 12 jours.", knowledge)[0] is True
     assert _grounding_check("Le délai est de 5 jours.", knowledge) == (False, "information_chiffree_non_sourcee")
     assert _grounding_check("La livraison est garantie.", knowledge) == (False, "promesse_non_autorisee")
+    assert _grounding_check("Votre colis TRK-804 est arrivé.", [], "Colis TRK-804 : statut=ARRIVED") == (True, None)
+
+
+def test_knowledge_search_keeps_useful_words_from_a_natural_question():
+    assert _search_terms("Bonjour, quels sont vos tarifs pour envoyer un colis ?") == ["tarifs", "envoyer", "colis"]
 
 
 def test_pilot_ai_uses_only_published_client_knowledge_and_provider_abstraction():
     service = read("apps/api/app/ai/services/pilot_inbox_ai_service.py")
     knowledge = read("apps/api/app/knowledge/repository.py")
-    assert 'search_knowledge(org_id, message, "WHATSAPP"' in service
+    assert 'search_knowledge(org_id, knowledge_query, "WHATSAPP"' in service
     assert "get_provider(settings[\"provider\"])" in service
     assert "e.status='PUBLISHED'" in knowledge
     assert "e.sensitive=false" in knowledge
     assert "PUBLIC" in knowledge
     assert "eligible_for_auto" in service
     assert "pilot-ai:{org_id}:{event_key}" in service
+    assert "DONNÉES OPÉRATIONNELLES ACTUELLES DU CLIENT" in service
+    assert "cargo_packages" in read("apps/api/app/ai/repositories/pilot_inbox_ai_repository.py")
+
+
+def test_prompt_preview_uses_the_real_whatsapp_knowledge_pipeline(monkeypatch):
+    captured = {}
+    source = {
+        "id": "f4ac8e09-4b6e-4d8e-91ba-dc13ca18af3a",
+        "title": "Tarif maritime",
+        "content": "Le transport maritime coûte 1 200 euros par conteneur.",
+        "matched_content": "Le transport maritime coûte 1 200 euros par conteneur.",
+        "updated_at": None,
+        "rank": 0.92,
+    }
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {
+        "provider": "MOCK", "model_name": "support", "temperature": 0.1,
+        "max_tokens": 800, "system_prompt": "", "user_prompt_template": "",
+        "communication_style": "PROFESSIONAL", "organization_name": "Agence Test",
+    })
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda *args, **kwargs: [source])
+
+    def fake_provider(_settings, system_prompt, user_message, **_kwargs):
+        captured.update(system_prompt=system_prompt, user_message=user_message)
+        return {"success": True, "content": "**Le transport maritime coûte 1 200 euros par conteneur.**"}
+
+    monkeypatch.setattr(ai_service, "_provider_response", fake_provider)
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Quel est le tarif maritime ?")
+
+    assert source["matched_content"] in captured["system_prompt"]
+    assert "Quel est le tarif maritime ?" in captured["user_message"]
+    assert result["answer"] == "Le transport maritime coûte 1 200 euros par conteneur."
+    assert result["decision"] == "ANSWERED"
+    assert result["sources"][0]["title"] == "Tarif maritime"
+
+
+def test_prompt_preview_does_not_invent_when_no_published_knowledge_exists(monkeypatch):
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {})
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda *args, **kwargs: [])
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: {"success": True, "content": "KNOWLEDGE_QUERY|prix"})
+
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Quel est le prix ?")
+
+    assert result["decision"] == "NO_KNOWLEDGE"
+    assert result["grounded"] is False
+    assert result["sources"] == []
+
+
+def test_prompt_preview_answers_a_greeting_naturally_without_false_knowledge_warning(monkeypatch):
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {"organization_name": "Lexman"})
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: {
+        "success": True,
+        "content": "SOCIAL_RESPONSE|Bonjour ! Bienvenue chez Lexman. Comment puis-je vous aider ?",
+    })
+
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Bonjour l’agence, vous êtes là ?")
+
+    assert result["decision"] == "ANSWERED"
+    assert result["requires_knowledge"] is False
+    assert "Lexman" in result["answer"]
+    assert result["sources"] == []
+
+
+def test_adaptive_router_never_treats_a_business_question_as_source_free(monkeypatch):
+    queries = []
+    monkeypatch.setattr(ai_service, "get_pilot_ai_settings", lambda _org_id: {"organization_name": "Lexman"})
+    monkeypatch.setattr(ai_service, "search_knowledge", lambda _org_id, query, *_args, **_kwargs: queries.append(query) or [])
+    monkeypatch.setattr(ai_service, "_provider_response", lambda *_args, **_kwargs: {
+        "success": True, "content": "KNOWLEDGE_QUERY|tarif livraison Kinshasa",
+    })
+
+    result = ai_service.preview_pilot_response(org_id="agency-a", message="Salut l’agence, ça coûte combien pour Kinshasa ?")
+
+    assert result["decision"] == "NO_KNOWLEDGE"
+    assert result["requires_knowledge"] is True
+    assert queries == ["tarif livraison Kinshasa", "tarif livraison Kinshasa"]
+
+
+def test_prompt_test_uses_unsaved_editor_values(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(ai_drafts, "get_pilot_ai_settings", lambda _org_id: {
+        "system_prompt": "ancienne consigne", "user_prompt_template": "ancien cadre",
+    })
+
+    def fake_preview(**values):
+        captured.update(values)
+        return {"answer": "Réponse", "decision": "ANSWERED", "grounded": True, "requires_knowledge": False, "reason": None, "sources": []}
+
+    monkeypatch.setattr(ai_drafts, "preview_pilot_response", fake_preview)
+    body = ai_drafts.TestPilotPrompt(
+        message="Question client",
+        system_prompt="Nouvelle consigne suffisamment longue qui cite les connaissances et le responsable humain.",
+        user_prompt_template="Réponds au message : {message}",
+        communication_style="WARM",
+    )
+    result = ai_drafts.test_pilot_prompt(body, tenant={"org_id": "agency-a"})
+
+    assert captured["system_prompt"] == body.system_prompt
+    assert captured["user_prompt_template"] == body.user_prompt_template
+    assert captured["communication_style"] == "WARM"
+    assert result["answer"] == "Réponse"
 
 
 def test_settings_endpoint_uses_active_tenant_and_validated_mode(monkeypatch):
@@ -83,16 +192,34 @@ def test_paused_mode_is_returned_as_a_clear_conflict(monkeypatch):
     assert error.value.detail == "ai_paused"
 
 
-def test_inbox_exposes_human_labels_and_controlled_ai_actions():
+def test_inbox_exposes_human_labels_and_automatic_ai_actions():
     page = read("apps/web/dashboard/components/inbox/pilot-inbox-page.tsx")
     service = read("apps/web/dashboard/services/inbox.ts")
-    for label in ("Suggestion uniquement", "Automatique contrôlé", "IA en pause", "Suggérer une réponse", "Résumé pour le responsable"):
+    for label in ("Suggestion uniquement", "Mode automatique", "IA en pause", "Suggérer une réponse", "Résumé pour le responsable"):
         assert label in page
     assert "generateInboxAISuggestion" in service
     assert "summarizeInboxConversation" in service
     assert "updateInboxAIMode" in service
     assert "MISTRAL" not in page
     assert "UUID" not in page
+
+
+def test_ai_settings_preview_is_bounded_and_exposes_used_sources():
+    page = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
+    assert "h-[600px] min-h-0" in page
+    assert "overflow-y-auto" in page
+    assert "Connaissances utilisées" in page
+    assert "Utiliser le modèle recommandé" in page
+    assert "system_prompt:systemPrompt" in page
+    assert "Aucune connaissance publiée et communicable" in page
+    assert "Réponse conversationnelle" in page
+
+
+def test_ai_prompt_defaults_preserve_existing_custom_prompts():
+    sql = read("infra/sql/119_pilot_ai_customer_support_prompts.sql")
+    assert "where btrim(system_prompt) = ''" in sql
+    assert "where btrim(user_prompt_template) = ''" in sql
+    assert "{message}" in sql
 
 
 def test_legacy_cargo_mutations_stop_before_pilot_ai_policy():

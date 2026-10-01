@@ -8,13 +8,11 @@ import {
   RefreshCcw,
   Ship,
 } from "lucide-react";
-import {
-  OperationPageHeader,
-  OperationTabs,
-} from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { businessLabel } from "@/components/ui/business-labels";
 import {
   OperationMetrics,
+  OperationContent,
   OperationSearch,
   OperationToolbar,
 } from "@/components/ui/operation-primitives";
@@ -25,7 +23,6 @@ import {
   OperationFilterPopover,
   OperationMetric,
   OperationMetricGrid,
-  OperationTab,
 } from "@/components/ui/operation-controls";
 import { ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { getReferenceCatalog, type ReferenceItem } from "@/services/references";
@@ -86,7 +83,7 @@ export function DeparturesPage() {
     [mode, setMode] = useState(""),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
-    [allMetrics, setAllMetrics] = useState(false),
+    [activeMetric, setActiveMetric] = useState<"confirmed" | "pending" | "delayed" | "full" | "packages" | "weight" | null>(null),
     [cursor, setCursor] = useState(new Date());
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,11 +115,15 @@ export function DeparturesPage() {
               .toLowerCase()
               .includes(query.toLowerCase())) &&
           (!mode || x.shipping_mode === mode) &&
+          (activeMetric !== "confirmed" || ["CONFIRMED", "CLOSED"].includes(x.status)) &&
+          (activeMetric !== "pending" || ["DRAFT", "OPEN", "PLANNED", "PENDING_CONFIRMATION"].includes(x.status)) &&
+          (activeMetric !== "delayed" || x.status === "DELAYED") &&
+          (activeMetric !== "packages" || Number(x.reserved_packages || 0) > 0) &&
           (view !== "delays" || x.status === "DELAYED") &&
           (view !== "history" ||
             ["ARRIVED", "COMPLETED", "CANCELLED"].includes(x.status)),
       ),
-    [items, query, mode, view],
+    [activeMetric, items, query, mode, view],
   );
   async function choose(x: Departure) {
     setSelected(await departure(x.id));
@@ -137,27 +138,55 @@ export function DeparturesPage() {
       await transitionDeparture(x.id, status, x.row_version, reason);
       setSelected(null);
       load();
-    } catch {
+    } catch (cause) {
+      const detail = (cause as {
+        response?: {
+          data?: {
+            detail?:
+              | string
+              | {
+                  message?: string;
+                  packages?: Array<{
+                    package_reference?: string;
+                    reasons?: Array<{ message?: string }>;
+                  }>;
+                };
+          };
+        };
+      })?.response?.data?.detail;
+      const packageErrors =
+        typeof detail === "object" && Array.isArray(detail?.packages)
+          ? detail.packages
+              .map((pkg) => {
+                const reasons = (pkg.reasons || [])
+                  .map((reason) => reason.message)
+                  .filter(Boolean)
+                  .join(" ");
+                return `${pkg.package_reference || "Colis"} : ${reasons}`;
+              })
+              .join(" ")
+          : "";
       setError(
-        "Transition refusée : vérifiez la checklist, la conformité ou la version du départ.",
+        packageErrors ||
+          (typeof detail === "object" ? detail?.message : detail) ||
+          "Transition refusée : vérifiez la checklist, la conformité ou la version du départ.",
       );
     }
   }
   const cards = [
-    ["Aujourd’hui", stats?.today || 0],
-    ["Cette semaine", stats?.this_week || 0],
-    ["Confirmés", stats?.confirmed || 0],
-    ["À confirmer", stats?.pending || 0],
-    ["Retardés", stats?.delayed || 0],
-    ["Complets", stats?.full || 0],
-    ["Colis planifiés", stats?.packages || 0],
+    ["confirmed", "Confirmés", stats?.confirmed || 0, "list"],
+    ["pending", "À confirmer", stats?.pending || 0, "list"],
+    ["delayed", "Retardés", stats?.delayed || 0, "delays"],
+    ["full", "Complets", stats?.full || 0, "capacity"],
+    ["packages", "Colis planifiés", stats?.packages || 0, "list"],
     [
+      "weight",
       "Poids prévu",
-      `${Number(stats?.weight_kg || 0).toLocaleString("fr-FR")} kg`,
+      `${Number(stats?.weight_kg || 0).toLocaleString("fr-FR")} kg`, "capacity",
     ],
-  ];
+  ] as const;
   return (
-    <div className="min-h-full bg-[#f7f7f6]">
+    <div className="min-h-full bg-white">
       <OperationPageHeader
         title="Calendrier des départs"
         description="Planifiez, suivez et coordonnez tous les départs de votre agence cargo."
@@ -179,38 +208,11 @@ export function DeparturesPage() {
       <main>
         <OperationMetrics>
           <OperationMetricGrid>
-            {cards.slice(0, allMetrics ? cards.length : 4).map(([l, v]) => (
-              <OperationMetric key={l} label={String(l)} value={v} />
+            {cards.map(([id, label, value, target]) => (
+              <OperationMetric key={id} label={label} value={value} active={activeMetric === id} onClick={() => { setActiveMetric(id); setView(target); }} />
             ))}
           </OperationMetricGrid>
-          <button
-            type="button"
-            onClick={() => setAllMetrics((current) => !current)}
-            className="mt-3 text-[11px] font-medium text-[#087a46]"
-          >
-            {allMetrics ? "Réduire les indicateurs" : "Voir tous les indicateurs"}
-          </button>
         </OperationMetrics>
-        <OperationTabs>
-          {(
-            [
-              ["calendar", "Calendrier"],
-              ["list", "Liste"],
-              ["routes", "Routes"],
-              ["capacity", "Capacité"],
-              ["delays", "Retards"],
-              ["history", "Historique"],
-            ] as const
-          ).map(([k, l]) => (
-            <OperationTab
-              key={k}
-              onClick={() => setView(k)}
-              active={view === k}
-            >
-              {l}
-            </OperationTab>
-          ))}
-        </OperationTabs>
         <OperationToolbar
           search={
             <OperationSearch
@@ -219,9 +221,10 @@ export function DeparturesPage() {
               placeholder="Rechercher un départ, une route..."
             />
           }
-          filters={<OperationFilterPopover activeCount={mode ? 1 : 0} onReset={() => setMode("")} title="Filtrer les départs"><OperationField label="Mode proposé par l’agence"><select className={`${input} w-full`} value={mode} onChange={(e) => setMode(e.target.value)}><option value="">Tous les modes</option>{Array.from(new Set(services.map((service) => service.shipping_mode).filter(Boolean))).map((serviceMode) => <option key={serviceMode} value={serviceMode}>{({AIR:"Avion",SEA:"Bateau",EXPRESS:"Express",ROAD:"Route",RAIL:"Rail",MULTIMODAL:"Plusieurs modes"} as Record<string,string>)[serviceMode] || serviceMode}</option>)}</select></OperationField></OperationFilterPopover>}
-        ><OperationButton onClick={load}><RefreshCcw size={14} />Actualiser</OperationButton></OperationToolbar>
+          filters={<OperationFilterPopover activeCount={(mode ? 1 : 0) + (view !== "calendar" ? 1 : 0) + (activeMetric ? 1 : 0)} onReset={() => { setMode(""); setView("calendar"); setActiveMetric(null); }} title="Filtrer les départs"><OperationField label="Vue"><select className={`${input} w-full`} value={view} onChange={(event) => { setView(event.target.value as typeof view); setActiveMetric(null); }}><option value="calendar">Calendrier</option><option value="list">Liste</option><option value="routes">Routes</option><option value="capacity">Capacité</option><option value="delays">Retards</option><option value="history">Historique</option></select></OperationField><OperationField label="Mode proposé par l’agence"><select className={`${input} w-full`} value={mode} onChange={(e) => setMode(e.target.value)}><option value="">Tous les modes</option>{Array.from(new Set(services.map((service) => service.shipping_mode).filter(Boolean))).map((serviceMode) => <option key={serviceMode} value={serviceMode}>{({AIR:"Avion",SEA:"Bateau",EXPRESS:"Express",ROAD:"Route",RAIL:"Rail",MULTIMODAL:"Plusieurs modes"} as Record<string,string>)[serviceMode] || serviceMode}</option>)}</select></OperationField></OperationFilterPopover>}
+        ><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0"><RefreshCcw size={14} /></OperationButton></OperationToolbar>
         {error && <ErrorState title="Calendrier indisponible" description={error} retry={load} />}
+        <OperationContent className="bg-white">
         {loading ? (
           <TableSkeleton rows={7} columns={6} label="Préparation du calendrier des départs…" />
         ) : view === "calendar" ? (
@@ -238,6 +241,7 @@ export function DeparturesPage() {
         ) : (
           <List items={filtered} select={choose} />
         )}
+        </OperationContent>
       </main>
       {selected && (
         <Detail item={selected} close={() => setSelected(null)} move={move} />
@@ -335,10 +339,10 @@ function Calendar({
   });
   const today = new Date().toDateString();
   return (
-    <section className="m-5 overflow-hidden rounded-[8px] border border-[#d9dee3] bg-white sm:m-6">
+    <section className="overflow-hidden rounded-[8px] border border-[#d9dee3] bg-white">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dfe3e7] px-4 py-3">
         <div className="flex items-center gap-2">
-          <select className={`${input} w-auto min-w-32`} value={direction} onChange={(e) => setDirection(e.target.value as "departures" | "arrivals")}>
+          <select className="h-9 w-[148px] rounded-[6px] border border-[#d2d7dc] bg-white px-2.5 text-[13px] outline-none" value={direction} onChange={(e) => setDirection(e.target.value as "departures" | "arrivals")}>
             <option value="departures">Départs prévus</option>
             <option value="arrivals">Arrivées prévues</option>
           </select>
@@ -350,7 +354,7 @@ function Calendar({
             <b className="min-w-36 border-x border-[#e2e5e8] px-3 text-center text-[13px] font-semibold capitalize">{title}</b>
             <button className="grid h-full w-9 place-items-center hover:bg-[#f4f6f7]" onClick={() => shift(1)} aria-label="Période suivante"><ChevronRight size={15} /></button>
           </div>
-          <select className={`${input} w-auto`} value={period} onChange={(event) => setPeriod(event.target.value as "day" | "week" | "month")}>
+          <select className="h-9 w-[108px] rounded-[6px] border border-[#d2d7dc] bg-white px-2.5 text-[13px] outline-none" value={period} onChange={(event) => setPeriod(event.target.value as "day" | "week" | "month")}>
             <option value="day">Jour</option><option value="week">Semaine</option><option value="month">Mois</option>
           </select>
         </div>
@@ -624,6 +628,7 @@ function DepartureOperations({
   const [candidates, setCandidates] = useState<Array<Record<string, unknown>>>(
       [],
     ),
+    [candidatesLoaded, setCandidatesLoaded] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function toggle(key: string, value: boolean) {
@@ -640,7 +645,16 @@ function DepartureOperations({
     }
   }
   async function find() {
-    setCandidates(await compatibleDeparturePackages(item.id));
+    setBusy(true);
+    setError("");
+    try {
+      setCandidates(await compatibleDeparturePackages(item.id));
+      setCandidatesLoaded(true);
+    } catch {
+      setError("La recherche des colis compatibles est indisponible.");
+    } finally {
+      setBusy(false);
+    }
   }
   async function add(id: string) {
     setBusy(true);
@@ -648,8 +662,10 @@ function DepartureOperations({
       await addDeparturePackage(item.id, id);
       await refresh();
       await find();
-    } catch {
-      setError("Affectation impossible : capacité, cut-off ou doublon.");
+    } catch (cause) {
+      const detail=(cause as {response?:{data?:{detail?:{reasons?:Array<{message?:string}>}|string}}})?.response?.data?.detail;
+      const reasons=typeof detail==='object'&&detail?.reasons?detail.reasons.map(reason=>reason.message).filter(Boolean).join(" "):"";
+      setError(reasons || (typeof detail==='string'?detail:"") || "Affectation impossible : vérifiez l’éligibilité du colis.");
     } finally {
       setBusy(false);
     }
@@ -698,7 +714,7 @@ function DepartureOperations({
             Colis affectés · {item.packages?.length || 0}
           </h3>
           <div className="flex gap-2">
-            <button className={btn} onClick={find}>
+            <button className={btn} onClick={find} disabled={busy}>
               Colis compatibles
             </button>
             <button className={btn} onClick={manifest}>
@@ -731,29 +747,36 @@ function DepartureOperations({
         </div>
         {candidates.length > 0 && (
           <div className="mt-4 border-t pt-3">
-            <b className="text-[12px]">Suggestions compatibles</b>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <b className="text-[12px]">Colis évalués pour ce départ</b>
+              <span className="text-[11px] text-[#69727c]">{candidates.filter(candidate=>candidate.eligible).length} compatible(s) · {candidates.filter(candidate=>!candidate.eligible).length} bloqué(s)</span>
+            </div>
             {candidates.map((p) => (
               <div
                 key={String(p.id)}
-                className="mt-2 flex justify-between text-[12px]"
+                className={`mt-2 flex items-start justify-between gap-4 rounded-[7px] border p-3 text-[12px] ${p.eligible?"border-[#dce7e1] bg-[#fbfdfc]":"border-[#eadfd8] bg-[#fffaf7]"}`}
               >
-                <span>
-                  {String(p.package_reference)} ·{" "}
-                  {String(p.client_name || "Client")} ·{" "}
-                  {String(p.weight_kg || 0)} kg
-                </span>
+                <div className="min-w-0">
+                  <p><b>{String(p.package_reference)}</b> · {String(p.client_name || "Client non associé")} · {String(p.weight_kg || 0)} kg{Number(p.volume_cbm||0)>0?` · ${String(p.volume_cbm)} CBM`:""}</p>
+                  {!p.eligible&&Array.isArray(p.blocking_reasons)&&<ul className="mt-1.5 grid gap-1 text-[11px] leading-4 text-[#9a4d32]">{(p.blocking_reasons as Array<{code:string;message:string}>).map(reason=><li key={reason.code}>• {reason.message}</li>)}</ul>}
+                </div>
                 <PermissionGuard permission="departures.allocate">
                   <button
-                    disabled={busy}
+                    disabled={busy || !p.eligible}
                     onClick={() => add(String(p.id))}
-                    className="text-emerald-700"
+                    className={`shrink-0 font-medium ${p.eligible?"text-emerald-700":"cursor-not-allowed text-[#a2a8ad]"}`}
                   >
-                    Ajouter
+                    {p.eligible?"Ajouter":"Non éligible"}
                   </button>
                 </PermissionGuard>
               </div>
             ))}
           </div>
+        )}
+        {candidatesLoaded && candidates.length === 0 && (
+          <p className="mt-4 rounded-[7px] border border-[#e2e6e9] bg-[#fafbfb] p-3 text-[12px] text-[#69727c]">
+            Aucun autre colis n’est disponible pour ce départ.
+          </p>
         )}
       </section>
       {error && (
@@ -776,6 +799,7 @@ function Create({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [routeId, setRouteId] = useState(""),
+    [serviceId, setServiceId] = useState(""),
     [offices, setOffices] = useState<ReferenceItem[]>([]);
   useEffect(() => {
     getReferenceCatalog()
@@ -790,6 +814,7 @@ function Create({
       ]),
     ).values(),
   );
+  const selectedService=services.find(service=>service.id===serviceId);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -829,7 +854,7 @@ function Create({
             <select
               required
               value={routeId}
-              onChange={(event) => setRouteId(event.target.value)}
+              onChange={(event) => {setRouteId(event.target.value);setServiceId("");}}
               className={input}
             >
               <option value="">Choisir une route</option>
@@ -845,6 +870,8 @@ function Create({
             <select
               required
               name="shipping_service_id"
+              value={serviceId}
+              onChange={event=>setServiceId(event.target.value)}
               disabled={!routeId}
               className={input}
             >
@@ -875,12 +902,7 @@ function Create({
             type="datetime-local"
           />
           <input type="hidden" name="timezone" value="UTC" />
-          <Field
-            name="capacity_weight_kg"
-            label="Capacité poids kg"
-            type="number"
-          />
-          <Field name="capacity_cbm" label="Capacité CBM" type="number" />
+          {selectedService?.shipping_mode==="SEA"?<Field name="capacity_cbm" label="Capacité maritime (CBM)" type="number" required/>:<Field name="capacity_weight_kg" label="Capacité transport (kg)" type="number" required/>}
           <Field
             name="capacity_packages"
             label="Nombre maximal de colis"

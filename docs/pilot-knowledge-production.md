@@ -39,6 +39,12 @@ Avant de redéployer l’API :
 
 En Docker Compose, démarrer le service fourni avec `docker compose -f infra/docker-compose.antivirus.yml up -d` et utiliser `CLAMAV_HOST=clamav` uniquement si l’API est attachée au même réseau Compose. Si l’API tourne directement sur la machine hôte, utiliser l’adresse locale appropriée au système d’exploitation et garder `CLAMAV_PORT=3310`.
 
+Sur Render, déployer le service privé décrit dans
+[`infra/render/clamav/README.md`](../infra/render/clamav/README.md), dans la même
+région que l’API. Copier son **Internal Hostname** dans `CLAMAV_HOST`, puis
+exécuter `python scripts/check_clamav.py` depuis le Shell du service API. Le test
+doit afficher `PONG` avant d’ouvrir les imports aux agences.
+
 ## Formats pris en charge
 
 - images : JPG, PNG, WebP ;

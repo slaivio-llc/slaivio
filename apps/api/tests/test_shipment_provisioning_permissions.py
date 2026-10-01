@@ -8,7 +8,7 @@ from app.expeditions.repository import EXPEDITION_TRANSITIONS
 EXPECTED_PERMISSIONS={
  ("/shipments","GET"):"shipments.read",("/shipments/stats","GET"):"shipments.read",("/shipments/analytics","GET"):"shipments.read",("/shipments/export","GET"):"shipments.read",("/shipments","POST"):"shipments.create",
  ("/shipments/{shipment_id}","GET"):"shipments.read",("/shipments/{shipment_id}","PATCH"):"shipments.update",("/shipments/{shipment_id}","DELETE"):"shipments.update",
- ("/shipments/{shipment_id}/timeline","GET"):"shipments.read",("/shipments/{shipment_id}/packages","POST"):"shipments.update",("/shipments/{shipment_id}/packages/{package_id}","DELETE"):"shipments.update",
+ ("/shipments/{shipment_id}/timeline","GET"):"shipments.read",("/shipments/{shipment_id}/packages","POST"):"shipments.update",("/shipments/{shipment_id}/package-eligibility","GET"):"shipments.read",("/shipments/{shipment_id}/packages/{package_id}","DELETE"):"shipments.update",
  ("/shipments/{shipment_id}/checkpoints/{checkpoint_key}","PATCH"):"shipments.update",("/shipments/{shipment_id}/documents","POST"):"shipments.update",("/shipments/{shipment_id}/documents/upload","POST"):"shipments.update",("/shipments/{shipment_id}/documents/{document_id}/view","GET"):"shipments.read",
  ("/shipments/{shipment_id}/financial-lines","POST"):"shipments.update",("/shipments/{shipment_id}/anomalies","POST"):"shipments.update",("/shipments/{shipment_id}/anomalies/{anomaly_id}/resolve","PATCH"):"shipments.update",("/shipments/{shipment_id}/notifications","POST"):"shipments.update",("/shipments/notifications/bulk","POST"):"shipments.update",("/shipments/{shipment_id}/manifest","GET"):"shipments.read",("/shipments/{shipment_id}/notes","POST"):"shipments.update",
 }

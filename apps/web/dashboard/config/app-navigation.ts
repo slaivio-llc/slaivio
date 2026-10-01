@@ -73,6 +73,52 @@ export const pilotV1Navigation: readonly AppNavigationGroup[] = [
   },
 ];
 
+// Exact operational scope requested for parcel and freight agencies. The
+// underlying Cargo OS modules remain reusable, but unrelated modules are not
+// exposed in this agency navigation.
+export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
+  {
+    label: "Clients",
+    icon: Users,
+    collapsible: false,
+    routes: [
+      { label: "Clients", href: "/app/clients", icon: Users, permission: "clients.read", keywords: ["client", "historique", "contact"] },
+    ],
+  },
+  {
+    label: "Opérations",
+    icon: BriefcaseBusiness,
+    collapsible: true,
+    routes: [
+      { label: "Opérations", href: "/app/operations", icon: BriefcaseBusiness, keywords: ["opérations", "colis", "départ", "expédition", "entrepôt", "route"] },
+      { label: "Colis", href: "/app/packages", icon: Package, keywords: ["colis", "poids", "destination", "statut", "suivi"] },
+      { label: "Départs", href: "/app/departures", icon: Truck, permission: "departures.read", keywords: ["départ", "manifeste", "expédition"] },
+      { label: "Expéditions", href: "/app/shipments", icon: Truck, permission: "shipments.read", keywords: ["expédition", "chargement", "groupage", "transport"] },
+      { label: "Entrepôts", href: "/app/warehouses", icon: Warehouse, permission: "warehouses.read", keywords: ["entrepôt", "stock", "bureau", "réception"] },
+      { label: "Routes et services", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "service", "tarif", "destination", "eta"] },
+    ],
+  },
+  {
+    label: "Communication",
+    icon: Megaphone,
+    collapsible: true,
+    routes: [
+      { label: "Communication", href: "/app/communication", icon: Megaphone, keywords: ["communication", "whatsapp", "annonce", "relance", "connaissance"] },
+      { label: "Messagerie", href: "/app/inbox", icon: MessageCircle, permission: "inbox.read", keywords: ["whatsapp", "message", "conversation"] },
+      { label: "Annonces et relances", href: "/app/followups", icon: BellRing, permission: "followups.read", keywords: ["annonce", "relance", "rappel", "client", "dossier", "whatsapp"] },
+      { label: "Connaissances", href: "/app/knowledge", icon: BookOpen, permission: "pilot.knowledge.read", keywords: ["connaissance", "fichier", "image", "ia", "réponse"] },
+    ],
+  },
+  {
+    label: "Finance",
+    icon: ReceiptText,
+    collapsible: false,
+    routes: [
+      { label: "Finance", href: "/app/finance", icon: ReceiptText, permission: "finance.read", keywords: ["paiement", "solde", "facture", "reçu"] },
+    ],
+  },
+];
+
 // The former operational surface stays available behind CARGO_OS. Nothing is deleted.
 export const cargoOsNavigation: readonly AppNavigationGroup[] = [
   {
@@ -126,7 +172,9 @@ export const cargoOsNavigation: readonly AppNavigationGroup[] = [
 ];
 
 export function getAppNavigation(profile: ProductProfile = getProductProfile()) {
-  return profile === PRODUCT_PROFILES.PILOT_V1 ? pilotV1Navigation : cargoOsNavigation;
+  if (profile === PRODUCT_PROFILES.PILOT_V1) return pilotV1Navigation;
+  if (profile === PRODUCT_PROFILES.PARCEL_FREIGHT) return parcelFreightNavigation;
+  return cargoOsNavigation;
 }
 
 export const appNavigation = getAppNavigation();

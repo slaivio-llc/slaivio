@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from urllib.parse import quote
 from datetime import date, datetime
 from decimal import Decimal
 from math import ceil
@@ -11,6 +12,7 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.db.database import engine
 from app.packages.repository import _ensure_schema as ensure_packages_schema
 
@@ -68,6 +70,95 @@ def _safe(value: Any) -> Any:
     if isinstance(value, list):
         return [_safe(item) for item in value]
     return value
+
+
+def _queue_expedition_assignment_notification(
+    conn,
+    *,
+    org_id: str,
+    expedition: dict,
+    package: dict,
+    user_id: str,
+) -> str | None:
+    """Queue public tracking instructions once a parcel is assigned."""
+    if not package.get("client_id"):
+        return None
+    enabled = conn.execute(text("""
+        select 1
+        from organizations organization
+        left join parcel_operation_settings operation_settings
+          on operation_settings.org_id = organization.id
+        where organization.id = :org_id
+          and organization.organization_type in ('PARCEL_FREIGHT', 'CARGO')
+          and coalesce(operation_settings.notify_package_milestones, true)
+    """), {"org_id": org_id}).first()
+    if not enabled:
+        return None
+    client = conn.execute(text("""
+        select coalesce(nullif(client.whatsapp_phone, ''), nullif(client.phone, '')) phone,
+               coalesce(nullif(organization.organization_name, ''), nullif(organization.name, ''), 'Notre agence') agency_name
+        from clients client
+        join organizations organization on organization.id = client.org_id
+        where client.org_id = :org_id and client.id = cast(:client_id as uuid)
+          and client.deleted_at is null
+    """), {"org_id": org_id, "client_id": package["client_id"]}).mappings().first()
+    if not client or not client.get("phone"):
+        return None
+
+    tracking = package.get("tracking_id") or package.get("package_reference")
+    if not tracking:
+        return None
+    tracking_url = f"{settings.public_web_base_url.rstrip('/')}/track?reference={quote(str(tracking), safe='')}"
+    message = (
+        f"{client['agency_name']}\n\n"
+        f"Votre colis {tracking} a été affecté à l’expédition "
+        f"{expedition['expedition_reference']}.\n\n"
+        f"Suivez son évolution ici : {tracking_url}\n"
+        f"Numéro de suivi : {tracking}"
+    )
+    notification_type = f"EXPEDITION_ASSIGNED:{expedition['id']}:{package['id']}"
+    queued = conn.execute(text("""
+        insert into notification_outbox(
+          org_id, client_id, dossier_id, channel, recipient_phone, notification_type, message
+        )
+        select :org_id, cast(:client_id as uuid), p.dossier_id, 'whatsapp', :phone,
+               :notification_type, :message
+        from cargo_packages p
+        where p.org_id = :org_id and p.id = cast(:package_id as uuid)
+          and not exists (
+            select 1 from notification_outbox
+            where org_id = :org_id and notification_type = :notification_type
+          )
+        returning id::text
+    """), {
+        "org_id": org_id,
+        "client_id": package["client_id"],
+        "package_id": package["id"],
+        "phone": client["phone"],
+        "notification_type": notification_type,
+        "message": message,
+    }).first()
+    if not queued:
+        return None
+    notification_id = str(queued[0])
+    conn.execute(text("""
+        insert into package_notifications(
+          org_id, package_id, channel, notification_type, recipient, message,
+          status, created_by, notification_outbox_id
+        ) values(
+          :org_id, cast(:package_id as uuid), 'whatsapp', :notification_type,
+          :phone, :message, 'PENDING', :user_id, cast(:notification_id as uuid)
+        )
+    """), {
+        "org_id": org_id,
+        "package_id": package["id"],
+        "notification_type": notification_type,
+        "phone": client["phone"],
+        "message": message,
+        "user_id": user_id,
+        "notification_id": notification_id,
+    })
+    return notification_id
 
 
 def _one(row) -> dict | None:
@@ -841,6 +932,11 @@ def create_expedition(org_id: str, user_id: str, payload: dict) -> dict:
             {
                 "org_id": org_id,
                 "reference": reference,
+                "route_id": payload.get("route_id"),
+                "shipping_service_id": payload.get("shipping_service_id"),
+                "origin_warehouse_id": payload.get("origin_warehouse_id"),
+                "destination_office_id": payload.get("destination_office_id"),
+                "departure_id": payload.get("departure_id"),
                 "title": payload.get("title"),
                 "status": status,
                 "mode": mode,
@@ -894,6 +990,45 @@ def create_expedition(org_id: str, user_id: str, payload: dict) -> dict:
     return expedition
 
 
+def _sync_customer_package_milestone(conn, org_id: str, expedition_id: str, user_id: str, status: str) -> list[str]:
+    from app.packages.repository import _queue_customer_status_notification
+
+    target = {
+        'DISPATCHED': 'SHIPPED', 'IN_TRANSIT': 'IN_TRANSIT',
+        'ARRIVED_DESTINATION': 'ARRIVED_DESTINATION', 'CUSTOMS_CLEARANCE': 'CUSTOMS',
+        'AVAILABLE_FOR_PICKUP': 'READY_FOR_PICKUP', 'DELIVERED': 'DELIVERED',
+        'BLOCKED': 'BLOCKED',
+    }.get(status)
+    if not target:
+        return []
+    packages = conn.execute(text("""
+        select p.* from cargo_packages p
+        join expedition_packages ep on ep.package_id=p.id and ep.org_id=p.org_id
+        where ep.org_id=:org_id and ep.expedition_id=:expedition_id
+          and ep.removed_at is null and p.deleted_at is null
+          and p.status not in ('DELIVERED','CANCELLED','RETURNED')
+          and p.status<>:status
+        order by p.id for update of p
+    """), {'org_id': org_id, 'expedition_id': expedition_id, 'status': target}).mappings().all()
+    queued = []
+    for package in packages:
+        conn.execute(text("""
+            update cargo_packages set status=:status,current_status=:status,
+              dispatched_at=case when :status='SHIPPED' then coalesce(dispatched_at,now()) else dispatched_at end,
+              delivered_at=case when :status='DELIVERED' then coalesce(delivered_at,now()) else delivered_at end,
+              row_version=row_version+1,updated_at=now(),updated_by=:user_id
+            where org_id=:org_id and id=:id
+        """), {'org_id': org_id, 'id': package['id'], 'status': target, 'user_id': user_id})
+        conn.execute(text("""
+            insert into package_events(org_id,package_id,event_type,title,previous_status,new_status,actor_id)
+            values(:org_id,:id,'PACKAGE_STATUS_CHANGED','Étape du transport mise à jour',:previous,:status,:user_id)
+        """), {'org_id': org_id, 'id': package['id'], 'previous': package['status'], 'status': target, 'user_id': user_id})
+        notification_id = _queue_customer_status_notification(conn, dict(package), target, user_id)
+        if notification_id:
+            queued.append(notification_id)
+    return queued
+
+
 def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: dict, expected_version: int | None = None) -> dict | None:
     _ensure_schema()
     allowed = [
@@ -905,6 +1040,7 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
         "planned_departure_at", "departed_at", "eta_at", "arrived_at", "delivered_at",
         "is_delayed", "delay_reason", "currency", "notes",
     ]
+    queued_notification_ids = []
     updates = {key: value for key, value in payload.items() if key in allowed}
     if not updates:
         return get_expedition(org_id, expedition_id)
@@ -916,7 +1052,7 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
         raise ValueError("invalid_risk_level")
     with engine.begin() as conn:
         current = conn.execute(
-            text("select status from cargo_expeditions where org_id = :org_id and id = :id and archived_at is null"),
+            text("select status from cargo_expeditions where org_id = :org_id and id = :id and archived_at is null for update"),
             {"org_id": org_id, "id": expedition_id},
         ).fetchone()
         if not current:
@@ -938,6 +1074,9 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
             raise ValueError("stale_shipment_version")
         conn.execute(text("insert into shipment_audit_log(org_id,expedition_id,action,actor_id,payload) values(:org_id,:id,'SHIPMENT_UPDATED',:user_id,cast(:payload as jsonb))"),{"org_id":org_id,"id":expedition_id,"user_id":user_id,"payload":json.dumps(updates,default=str)})
         if "status" in updates and updates["status"] != current.status:
+            queued_notification_ids = _sync_customer_package_milestone(
+                conn, org_id, expedition_id, user_id, updates["status"],
+            )
             _insert_event(
                 conn,
                 org_id=org_id,
@@ -948,7 +1087,10 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
                 new_status=updates["status"],
                 actor_id=user_id,
             )
-    return get_expedition(org_id, expedition_id)
+    result = get_expedition(org_id, expedition_id)
+    if result and queued_notification_ids:
+        result['_queued_notification_ids'] = queued_notification_ids
+    return result
 
 
 def archive_expedition(org_id: str, expedition_id: str, user_id: str, expected_version: int | None = None) -> bool:
@@ -964,19 +1106,165 @@ def archive_expedition(org_id: str, expedition_id: str, user_id: str, expected_v
     return True
 
 
+PACKAGE_ELIGIBILITY_LABELS = {
+    "client_missing": "Associez d'abord un client au colis.",
+    "already_assigned": "Ce colis appartient déjà à une autre expédition.",
+    "status_not_ready": "Le colis n'est pas encore dans un état expédiable.",
+    "warehouse_not_ready": "Le colis doit être réceptionné et disponible en entrepôt.",
+    "validation_required": "Le contrôle du colis doit être validé.",
+    "payment_not_cleared": "Le paiement du colis doit être soldé ou autorisé.",
+    "route_mismatch": "La route du colis ne correspond pas à celle de l'expédition.",
+    "service_mismatch": "Le service du colis ne correspond pas à celui de l'expédition.",
+    "destination_country_mismatch": "Le pays de destination ne correspond pas à l'expédition.",
+    "destination_city_mismatch": "La ville de destination ne correspond pas à l'expédition.",
+    "weight_missing": "Le poids doit être renseigné pour cette expédition.",
+    "weight_capacity_exceeded": "L'ajout dépasserait la capacité de poids du départ.",
+    "volume_missing": "Le volume CBM n'est pas encore renseigné.",
+    "volume_capacity_exceeded": "L'ajout dépasserait la capacité CBM du départ.",
+}
+
+
+def _normalized_match(left: Any, right: Any) -> bool:
+    if left is None or right is None:
+        return True
+    return str(left).strip().casefold() == str(right).strip().casefold()
+
+
+def _package_eligibility(conn, org_id: str, expedition: dict, package: dict) -> dict:
+    reasons: list[str] = []
+    warnings: list[str] = []
+    ready_statuses = {
+        "RECEIVED", "WAREHOUSED", "WAREHOUSE_PROCESSING", "RECEIVED_AT_ORIGIN",
+        "READY_FOR_BATCH", "READY_FOR_DISPATCH", "CONFIRMED",
+    }
+    if not package.get("client_id"):
+        reasons.append("client_missing")
+    if package.get("other_expedition_id"):
+        reasons.append("already_assigned")
+    if package.get("status") not in ready_statuses:
+        reasons.append("status_not_ready")
+    if package.get("inventory_status") not in {"IN_STOCK", "RESERVED"}:
+        reasons.append("warehouse_not_ready")
+    if package.get("validation_status") != "VALIDATED":
+        reasons.append("validation_required")
+    if expedition.get("require_payment_clearance", True) and package.get("payment_status") not in {"PAID", "CLEARED"}:
+        reasons.append("payment_not_cleared")
+    if package.get("route_id") and expedition.get("route_id") and str(package["route_id"]) != str(expedition["route_id"]):
+        reasons.append("route_mismatch")
+    if package.get("shipping_service_id") and expedition.get("shipping_service_id") and str(package["shipping_service_id"]) != str(expedition["shipping_service_id"]):
+        reasons.append("service_mismatch")
+    if not _normalized_match(package.get("destination_country"), expedition.get("destination_country")):
+        reasons.append("destination_country_mismatch")
+    if not _normalized_match(package.get("destination_city"), expedition.get("destination_city")):
+        reasons.append("destination_city_mismatch")
+
+    mode = str(expedition.get("mode") or "").upper()
+    weight = float(package.get("weight_kg") or 0)
+    volume = float(package.get("volume_cbm") or 0)
+    if mode in {"AIR", "EXPRESS", "ROAD"} and weight <= 0:
+        reasons.append("weight_missing")
+    if mode == "SEA" and volume <= 0:
+        # A sea parcel may still be accepted after warehouse cubing, but the
+        # operator must see that capacity cannot yet be calculated reliably.
+        warnings.append("volume_missing")
+
+    capacity_weight = expedition.get("capacity_weight_kg")
+    reserved_weight = float(expedition.get("reserved_weight_kg") or 0)
+    capacity_cbm = expedition.get("capacity_cbm")
+    reserved_cbm = float(expedition.get("reserved_cbm") or 0)
+    if capacity_weight is not None and weight + reserved_weight > float(capacity_weight):
+        reasons.append("weight_capacity_exceeded")
+    if capacity_cbm is not None and volume > 0 and volume + reserved_cbm > float(capacity_cbm):
+        reasons.append("volume_capacity_exceeded")
+
+    reasons = list(dict.fromkeys(reasons))
+    warnings = list(dict.fromkeys(warnings))
+    return {
+        "eligible": not reasons,
+        "reason_codes": reasons,
+        "reasons": [PACKAGE_ELIGIBILITY_LABELS[code] for code in reasons],
+        "warning_codes": warnings,
+        "warnings": [PACKAGE_ELIGIBILITY_LABELS[code] for code in warnings],
+    }
+
+
+def _expedition_for_package_validation(conn, org_id: str, expedition_id: str) -> dict | None:
+    row = conn.execute(text("""
+        select e.id::text, e.expedition_reference, e.status, e.mode,
+               e.route_id::text, e.shipping_service_id::text, e.departure_id::text,
+               e.destination_country, e.destination_city,
+               coalesce(settings.require_payment_clearance, true) require_payment_clearance,
+               departure.capacity_weight_kg, departure.reserved_weight_kg,
+               departure.capacity_cbm, departure.reserved_cbm
+        from cargo_expeditions e
+        left join parcel_operation_settings settings on settings.org_id = e.org_id
+        left join cargo_departures departure
+          on departure.org_id = e.org_id and departure.id = e.departure_id
+        where e.org_id = :org_id and e.id = :id and e.archived_at is null
+    """), {"org_id": org_id, "id": expedition_id}).mappings().first()
+    return dict(row) if row else None
+
+
+def _package_for_expedition_validation(conn, org_id: str, package_id: str, expedition_id: str) -> dict | None:
+    row = conn.execute(text("""
+        select p.id::text, p.package_reference, p.tracking_id, p.client_id::text,
+               p.status, p.inventory_status, p.validation_status, p.payment_status,
+               p.route_id::text, p.shipping_service_id::text,
+               p.destination_country, p.destination_city, p.weight_kg, p.volume_cbm,
+               c.name client_name,
+               other_assignment.expedition_id::text other_expedition_id
+        from cargo_packages p
+        left join clients c on c.org_id = p.org_id and c.id = p.client_id
+        left join lateral (
+          select ep.expedition_id
+          from expedition_packages ep
+          where ep.org_id = p.org_id and ep.package_id = p.id
+            and ep.removed_at is null and ep.expedition_id <> cast(:expedition_id as uuid)
+          limit 1
+        ) other_assignment on true
+        where p.org_id = :org_id and p.id = :package_id and p.deleted_at is null
+    """), {"org_id": org_id, "package_id": package_id, "expedition_id": expedition_id}).mappings().first()
+    return dict(row) if row else None
+
+
+def list_package_eligibility(org_id: str, expedition_id: str) -> list[dict] | None:
+    _ensure_schema()
+    with engine.connect() as conn:
+        expedition = _expedition_for_package_validation(conn, org_id, expedition_id)
+        if not expedition:
+            return None
+        rows = conn.execute(text("""
+            select p.id::text
+            from cargo_packages p
+            where p.org_id = :org_id and p.deleted_at is null
+              and not exists (
+                select 1 from expedition_packages own
+                where own.org_id = p.org_id and own.package_id = p.id
+                  and own.expedition_id = cast(:expedition_id as uuid) and own.removed_at is null
+              )
+            order by p.updated_at desc
+            limit 250
+        """), {"org_id": org_id, "expedition_id": expedition_id}).fetchall()
+        items: list[dict] = []
+        for row in rows:
+            package = _package_for_expedition_validation(conn, org_id, str(row.id), expedition_id)
+            if not package:
+                continue
+            items.append({**_safe(package), **_package_eligibility(conn, org_id, expedition, package)})
+        return items
+
+
 def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, user_id: str) -> dict | None:
     _ensure_schema()
+    queued_notification_id = None
     with engine.begin() as conn:
-        expedition = conn.execute(
-            text("select id, expedition_reference from cargo_expeditions where org_id = :org_id and id = :id and archived_at is null"),
-            {"org_id": org_id, "id": expedition_id},
-        ).fetchone()
-        package = conn.execute(
-            text("select id, status from cargo_packages where org_id = :org_id and id = :id and deleted_at is null"),
-            {"org_id": org_id, "id": package_id},
-        ).fetchone()
+        expedition = _expedition_for_package_validation(conn, org_id, expedition_id)
+        package = _package_for_expedition_validation(conn, org_id, package_id, expedition_id)
         if not expedition or not package:
             return None
+        eligibility = _package_eligibility(conn, org_id, expedition, package)
+        if not eligibility["eligible"]:
+            raise ValueError(json.dumps({"code": "package_not_eligible", **eligibility}, ensure_ascii=False))
         conn.execute(
             text("""
                 insert into expedition_packages (org_id, expedition_id, package_id, added_by)
@@ -985,8 +1273,8 @@ def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, 
             """),
             {"org_id": org_id, "expedition_id": expedition_id, "package_id": package_id, "user_id": user_id},
         )
-        new_package_status = package.status
-        if package.status in ("CREATED", "RECEIVED_AT_ORIGIN", "WAREHOUSE_PROCESSING"):
+        new_package_status = package["status"]
+        if package["status"] in ("CREATED", "RECEIVED_AT_ORIGIN", "WAREHOUSE_PROCESSING", "RECEIVED", "WAREHOUSED", "READY_FOR_BATCH"):
             new_package_status = "READY_FOR_DISPATCH"
         conn.execute(
             text("""
@@ -1001,7 +1289,7 @@ def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, 
             {
                 "org_id": org_id,
                 "package_id": package_id,
-                "reference": expedition.expedition_reference,
+                "reference": expedition["expedition_reference"],
                 "status": new_package_status,
                 "user_id": user_id,
             },
@@ -1014,10 +1302,10 @@ def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, 
             {
                 "org_id": org_id,
                 "package_id": package_id,
-                "description": expedition.expedition_reference,
-                "previous_status": package.status,
+                "description": expedition["expedition_reference"],
+                "previous_status": package["status"],
                 "new_status": new_package_status,
-                "metadata": _json({"expedition_id": expedition_id, "expedition_reference": expedition.expedition_reference}),
+                "metadata": _json({"expedition_id": expedition_id, "expedition_reference": expedition["expedition_reference"]}),
                 "actor_id": user_id,
             },
         )
@@ -1030,8 +1318,18 @@ def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, 
             actor_id=user_id,
             metadata={"package_id": package_id},
         )
+        queued_notification_id = _queue_expedition_assignment_notification(
+            conn,
+            org_id=org_id,
+            expedition=expedition,
+            package=package,
+            user_id=user_id,
+        )
         _recompute_expedition_totals(conn, org_id, expedition_id)
-    return get_expedition(org_id, expedition_id)
+    result = get_expedition(org_id, expedition_id)
+    if result and queued_notification_id:
+        result["_queued_notification_ids"] = [queued_notification_id]
+    return result
 
 
 def remove_package_from_expedition(org_id: str, expedition_id: str, package_id: str, user_id: str, reason: str | None = None) -> dict | None:

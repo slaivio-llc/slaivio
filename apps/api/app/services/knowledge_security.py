@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import socket
 import struct
 import time
@@ -7,6 +8,7 @@ import time
 from app.core.config import settings
 
 MAX_SCAN_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 
 
 def _scan_once(content: bytes) -> str:
@@ -48,6 +50,13 @@ def scan_bytes(content: bytes) -> dict:
         # container is stopped. Staging and production always remain fail-closed.
         if not settings.is_deployed:
             return {"status": "CLEAN", "engine": "development-bypass-unavailable", "signature": None}
+        logger.error(
+            "knowledge_antivirus_unavailable host=%s port=%s error_type=%s error=%s",
+            settings.clamav_host,
+            settings.clamav_port,
+            type(last_error).__name__ if last_error else "unknown",
+            last_error,
+        )
         raise RuntimeError("knowledge_antivirus_unavailable") from last_error
 
     if "FOUND" in response:

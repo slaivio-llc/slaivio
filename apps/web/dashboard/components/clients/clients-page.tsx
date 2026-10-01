@@ -12,10 +12,8 @@ import {
   Import,
   Mail,
   MessageCircle,
-  Package,
   Phone,
   Search,
-  ShieldAlert,
   Truck,
   Upload,
   UserRound,
@@ -25,10 +23,7 @@ import type { LucideIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL } from "@/services/api";
-import {
-  OperationPageHeader,
-  OperationTabs,
-} from "@/components/ui/operation-page-header";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import {
   OperationButton,
@@ -36,10 +31,9 @@ import {
   OperationFilterPopover,
   OperationMetric,
   OperationMetricGrid,
-  OperationTab,
-  OperationTabMenu,
 } from "@/components/ui/operation-controls";
 import {
+  OperationContent,
   OperationMetrics,
   OperationSearch,
   OperationToolbar,
@@ -47,6 +41,8 @@ import {
 import { EmptyState as SharedEmptyState, TableSkeleton } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { GeographyFields } from "@/components/ui/geography-fields";
+import { getTenantContext } from "@/services/tenant";
 import {
   createClient,
   deleteClient,
@@ -55,6 +51,7 @@ import {
   getClient,
   getClientStats,
   getClientTimeline,
+  getClientWorkspace,
   importClients,
   listClients,
   listArchivedClients,
@@ -70,6 +67,7 @@ import {
   type ClientSource,
   type ClientStats,
   type ClientTimelineEvent,
+  type ClientWorkspace,
 } from "@/services/clients";
 
 const statusLabels: Record<ClientLifecycleStatus, string> = {
@@ -104,6 +102,18 @@ const sourceLabels: Record<ClientSource, string> = {
   api: "API",
 };
 
+const currencyLabels = {
+  USD: "USD — Dollar américain",
+  EUR: "EUR — Euro",
+  CDF: "CDF — Franc congolais",
+  XAF: "XAF — Franc CFA",
+  GBP: "GBP — Livre sterling",
+  CNY: "CNY — Yuan chinois",
+  AED: "AED — Dirham des Émirats",
+  GHS: "GHS — Cedi ghanéen",
+  KES: "KES — Shilling kényan",
+} as const;
+
 const emptyStats: ClientStats = {
   total: 0,
   leads: 0,
@@ -115,7 +125,7 @@ const emptyStats: ClientStats = {
 };
 
 type ClientView = {
-  key: "all" | "lead" | "active" | "pending" | "business" | "archived";
+  key: "all" | "lead" | "active" | "pending" | "inactive" | "archived";
   label: string;
   status?: ClientLifecycleStatus;
   customerType?: ClientCustomerType;
@@ -127,7 +137,7 @@ const views: ClientView[] = [
   { key: "lead", label: "Nouveaux contacts", status: "lead" },
   { key: "pending", label: "Premier colis attendu", status: "pending" },
   { key: "active", label: "Clients avec colis", status: "active" },
-  { key: "business", label: "Entreprises", customerType: "business" },
+  { key: "inactive", label: "Sans activité", status: "inactive" },
   { key: "archived", label: "Archivés", archived: true },
 ];
 
@@ -168,6 +178,7 @@ export function ClientsPage() {
   });
   const [selected, setSelected] = useState<ClientRecord | null>(null);
   const [timeline, setTimeline] = useState<ClientTimelineEvent[]>([]);
+  const [workspace, setWorkspace] = useState<ClientWorkspace | null>(null);
   const [duplicates, setDuplicates] = useState<ClientDuplicate[]>([]);
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
   const [activeView, setActiveView] =
@@ -180,6 +191,7 @@ export function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [duplicatesLoading, setDuplicatesLoading] = useState(false);
   const [mergingDuplicateId, setMergingDuplicateId] = useState<string | null>(
     null,
@@ -202,6 +214,7 @@ export function ClientsPage() {
   const [clientAction, setClientAction] = useState<
     "archive" | "restore" | null
   >(null);
+  const [parcelFreight, setParcelFreight] = useState(true);
   const listRequestId = useRef(0);
 
   const currentView = views.find((view) => view.key === activeView) || views[0];
@@ -218,11 +231,15 @@ export function ClientsPage() {
 
   useEffect(() => {
     loadStats();
+    getTenantContext()
+      .then((context) => setParcelFreight(context.active_tenant?.organization_type === "PARCEL_FREIGHT"))
+      .catch(() => setParcelFreight(true));
   }, []);
 
   useEffect(() => {
     if (!selected) return;
     if (activeTab === "history") loadTimeline(selected.id);
+    if (["operations", "messages", "payments"].includes(activeTab)) loadWorkspace(selected.id);
     if (activeTab === "duplicates") loadDuplicates(selected);
   }, [activeTab, selected]);
 
@@ -339,6 +356,7 @@ export function ClientsPage() {
     setActiveTab("summary");
     setDetailLoading(true);
     setTimeline([]);
+    setWorkspace(null);
     setDuplicates([]);
     try {
       const [detail, detectedDuplicates] = await Promise.all([
@@ -362,6 +380,17 @@ export function ClientsPage() {
       setTimeline([]);
     } finally {
       setTimelineLoading(false);
+    }
+  }
+
+  async function loadWorkspace(clientId: string) {
+    setWorkspaceLoading(true);
+    try {
+      setWorkspace(await getClientWorkspace(clientId));
+    } catch {
+      setWorkspace(null);
+    } finally {
+      setWorkspaceLoading(false);
     }
   }
 
@@ -396,12 +425,12 @@ export function ClientsPage() {
     setSaving(true);
     const form = new FormData(event.currentTarget);
     const payload: ClientPayload = {
-      display_name: clean(form.get("display_name")),
+      display_name: clean(form.get("display_name")) || (parcelFreight ? clean(form.get("name")) : undefined),
       name: clean(form.get("name")),
       company_name: clean(form.get("company_name")),
       tax_id: clean(form.get("tax_id")),
       phone: clean(form.get("phone")),
-      whatsapp_phone: clean(form.get("whatsapp_phone")),
+      whatsapp_phone: clean(form.get("whatsapp_phone")) || (parcelFreight ? clean(form.get("phone")) : undefined),
       email: clean(form.get("email")),
       country: clean(form.get("country")),
       city: clean(form.get("city")),
@@ -414,10 +443,12 @@ export function ClientsPage() {
       ) as ClientLifecycleStatus,
       source: String(form.get("source") || "manual") as ClientSource,
       preferred_language: clean(form.get("preferred_language")) || "FR",
-      preferred_currency: clean(form.get("preferred_currency")),
       notes: clean(form.get("notes")),
       credit_enabled: form.get("credit_enabled") === "on",
       credit_limit: Number(form.get("credit_limit") || 0),
+      payment_amount_due: parcelFreight ? undefined : Number(form.get("payment_amount_due") || 0),
+      payment_amount_paid: parcelFreight ? undefined : Number(form.get("payment_amount_paid") || 0),
+      payment_currency: parcelFreight ? undefined : clean(form.get("payment_currency")) || "USD",
       row_version: formClient?.row_version,
     };
 
@@ -485,16 +516,22 @@ export function ClientsPage() {
     }
   }
 
-  const statCards = useMemo(
+  const statCards = useMemo<Array<{
+    label: string;
+    value: number;
+    tone: "blue" | "amber" | "neutral";
+    view: ClientView["key"];
+  }>>(
     () => [
-      { label: "Clients total", value: stats.total, tone: "blue" },
-      { label: "Clients avec colis", value: stats.active, tone: "blue" },
-      { label: "Nouveaux contacts", value: stats.leads, tone: "blue" },
-      { label: "Premier colis attendu", value: stats.pending, tone: "amber" },
+      { label: "Clients total", value: stats.total, tone: "blue", view: "all" },
+      { label: "Clients avec colis", value: stats.active, tone: "blue", view: "active" },
+      { label: "Nouveaux contacts", value: stats.leads, tone: "blue", view: "lead" },
+      { label: "Premier colis attendu", value: stats.pending, tone: "amber", view: "pending" },
       {
         label: "Sans activité",
-        value: stats.inactive + stats.blocked,
+        value: stats.inactive,
         tone: "neutral",
+        view: "inactive",
       },
     ],
     [stats],
@@ -536,51 +573,27 @@ export function ClientsPage() {
         <OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-5">
             {statCards.map((card) => (
-              <OperationMetric
+              <button
                 key={card.label}
-                label={card.label}
-                value={card.value.toLocaleString("fr-FR")}
-                tone={card.tone === "amber" ? "warning" : "default"}
-              />
+                type="button"
+                aria-pressed={activeView === card.view}
+                onClick={() => {
+                  setActiveView(card.view);
+                  setStatus("");
+                  setCustomerType("");
+                }}
+                className={`group min-w-0 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#12a865] ${activeView === card.view ? "bg-[#edf8f2] shadow-[inset_0_3px_0_#12a865]" : "hover:bg-[#f7faf8]"}`}
+              >
+                <OperationMetric
+                  label={card.label}
+                  value={card.value.toLocaleString("fr-FR")}
+                  tone={activeView === card.view ? "success" : card.tone === "amber" ? "warning" : "default"}
+                  className="cursor-pointer"
+                />
+              </button>
             ))}
           </OperationMetricGrid>
         </OperationMetrics>
-
-        <OperationTabs>
-          {views.slice(0, 4).map((view) => (
-            <OperationTab
-              key={view.key}
-              disabled={Boolean(view.archived && !archivedAllowed)}
-              title={
-                view.archived && !archivedAllowed
-                  ? "Permission clients.archive requise"
-                  : undefined
-              }
-              onClick={() => setActiveView(view.key)}
-              active={activeView === view.key}
-              className="disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              {view.label}
-              {view.archived && !archivedAllowed ? " · verrouillé" : ""}
-            </OperationTab>
-          ))}
-          <OperationTab
-            disabled={!archivedAllowed}
-            title={
-              archivedAllowed ? undefined : "Permission clients.archive requise"
-            }
-            onClick={() => setActiveView("archived")}
-            active={activeView === "archived"}
-            className="disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            Archivés{archivedAllowed ? "" : " · verrouillé"}
-          </OperationTab>
-          <OperationTabMenu
-            items={[["business", "Entreprises"]]}
-            value={activeView === "business" ? activeView : ""}
-            onChange={setActiveView}
-          />
-        </OperationTabs>
 
         <section>
           <OperationToolbar
@@ -589,10 +602,20 @@ export function ClientsPage() {
               <OperationFilterPopover
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
-                activeCount={[customerType, status, source].filter(Boolean).length + (sort !== "created_desc" ? 1 : 0)}
-                onReset={() => { setCustomerType(""); setStatus(""); setSource(""); setSort("created_desc"); }}
+                activeCount={[customerType, status, source].filter(Boolean).length + (sort !== "created_desc" ? 1 : 0) + (currentView.archived ? 1 : 0)}
+                onReset={() => { setActiveView("all"); setCustomerType(""); setStatus(""); setSource(""); setSort("created_desc"); }}
                 title="Filtrer les clients"
               >
+                <OperationField label="Disponibilité">
+                  <select
+                    value={currentView.archived ? "archived" : "current"}
+                    onChange={(event) => setActiveView(event.target.value === "archived" ? "archived" : "all")}
+                    className={inputClass}
+                  >
+                    <option value="current">Clients actuels</option>
+                    <option value="archived" disabled={!archivedAllowed}>Clients archivés{archivedAllowed ? "" : " · accès requis"}</option>
+                  </select>
+                </OperationField>
                 <OperationField label="Type de client">
                   <select value={customerType} onChange={(event) => setCustomerType(event.target.value as ClientCustomerType | "")} className={inputClass}>
                     <option value="">Tous les types</option>
@@ -624,8 +647,9 @@ export function ClientsPage() {
             }
           />
 
+          <OperationContent className="pt-4">
           {error && (
-            <div className="m-4 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
+            <div className="mb-4 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
               <AlertCircle size={17} className="mt-0.5" />
               <div className="flex-1">
                 <p>{error}</p>
@@ -676,19 +700,7 @@ export function ClientsPage() {
               </button>
             </div>
           </div>
-          <section className="hidden">
-            {statCards.map((card) => (
-              <div
-                key={card.label}
-                className={`min-h-[90px] rounded-md border p-4 ${metricCardClass(card.tone)}`}
-              >
-                <p className="text-[13px] font-medium">{card.label}</p>
-                <p className="mt-3 text-[30px] font-normal leading-none tracking-[-0.04em]">
-                  {card.value.toLocaleString("fr-FR")}
-                </p>
-              </div>
-            ))}
-          </section>
+          </OperationContent>
         </section>
       </div>
 
@@ -700,6 +712,8 @@ export function ClientsPage() {
           onTabChange={setActiveTab}
           timeline={timeline}
           timelineLoading={timelineLoading}
+          workspace={workspace}
+          workspaceLoading={workspaceLoading}
           duplicates={duplicates}
           duplicatesLoading={duplicatesLoading}
           mergingDuplicateId={mergingDuplicateId}
@@ -719,6 +733,7 @@ export function ClientsPage() {
           client={formClient}
           saving={saving}
           error={formError}
+          parcelFreight={parcelFreight}
           onClose={() => {
             if (saving) return;
             setFormOpen(false);
@@ -778,6 +793,7 @@ function ClientsTable({
             <th className="px-3 py-2">Téléphone</th>
             <th className="px-3 py-2">Pays / ville</th>
             <th className="px-3 py-2">Statut</th>
+            <th className="px-3 py-2">Colis</th>
             <th className="px-3 py-2">Activité</th>
             <th className="w-10 px-3 py-2" />
           </tr>
@@ -822,6 +838,7 @@ function ClientsTable({
               <td className="px-3 py-2">
                 <StatusBadge status={client.lifecycle_status} />
               </td>
+              <td className="px-3 py-2 font-medium text-[#334155]">{client.packages_count||0}</td>
               <td className="px-3 py-2 text-[#687584]">
                 {formatDate(client.last_activity_at || client.updated_at)}
               </td>
@@ -847,6 +864,8 @@ function ClientDetails({
   onTabChange,
   timeline,
   timelineLoading,
+  workspace,
+  workspaceLoading,
   duplicates,
   duplicatesLoading,
   mergingDuplicateId,
@@ -864,6 +883,8 @@ function ClientDetails({
   onTabChange: (tab: DetailTab) => void;
   timeline: ClientTimelineEvent[];
   timelineLoading: boolean;
+  workspace: ClientWorkspace | null;
+  workspaceLoading: boolean;
   duplicates: ClientDuplicate[];
   duplicatesLoading: boolean;
   mergingDuplicateId: string | null;
@@ -957,21 +978,9 @@ function ClientDetails({
       bodyClassName={loading ? "opacity-60" : ""}
     >
             {activeTab === "summary" && <SummaryTab client={client} />}
-            {activeTab === "operations" && <OperationsTab client={client} />}
-            {activeTab === "messages" && (
-              <ModulePlaceholder
-                icon={MessageCircle}
-                title="Messages client"
-                text="Cette vue affichera les conversations WhatsApp, emails et messages liés à ce client lorsque le module Communication les aura synchronisés."
-              />
-            )}
-            {activeTab === "payments" && (
-              <ModulePlaceholder
-                icon={ShieldAlert}
-                title="Paiements client"
-                text="Cette vue affichera les factures, paiements reçus, soldes et relances provenant du module Finance. Aucun montant n’est inventé ici."
-              />
-            )}
+            {activeTab === "operations" && <OperationsTab workspace={workspace} loading={workspaceLoading} />}
+            {activeTab === "messages" && <MessagesTab workspace={workspace} loading={workspaceLoading} />}
+            {activeTab === "payments" && <PaymentsTab workspace={workspace} loading={workspaceLoading} currency={client.preferred_currency} />}
             {activeTab === "history" && (
               <HistoryTab events={timeline} loading={timelineLoading} />
             )}
@@ -1033,33 +1042,62 @@ function SummaryTab({ client }: { client: ClientRecord }) {
           />
         </div>
       </Section>
+      {client.payment_amount_due > 0 && (
+        <Section title="Paiement du client">
+          <div className="grid grid-cols-2 gap-3">
+            <SmallMetric
+              label="Montant attendu"
+              value={formatMoney(client.payment_amount_due, client.payment_currency)}
+            />
+            <SmallMetric
+              label="Montant payé"
+              value={formatMoney(client.payment_amount_paid, client.payment_currency)}
+            />
+          </div>
+          <Field label="État du paiement" value={humanStatus(client.payment_status)} />
+          <Field
+            label="Reste à payer"
+            value={formatMoney(
+              Math.max(0, client.payment_amount_due - client.payment_amount_paid),
+              client.payment_currency,
+            )}
+          />
+        </Section>
+      )}
     </div>
   );
 }
 
-function OperationsTab({ client }: { client: ClientRecord }) {
-  return (
-    <div className="space-y-4">
-      <ModuleCounter
-        icon={FileText}
-        title="Dossiers"
-        count={client.dossiers_count}
-        text="Les dossiers liés à ce client seront consultables ici dès que le module Dossiers exposera sa vue détaillée."
-      />
-      <ModuleCounter
-        icon={Package}
-        title="Colis"
-        count={client.shipments_count}
-        text="Les colis et expéditions liés au client seront alimentés par les modules Colis, Tracking et Expéditions."
-      />
-      <ModuleCounter
-        icon={Truck}
-        title="Expéditions"
-        count={client.shipments_count}
-        text="La liste opérationnelle complète restera dans le module Expéditions pour garder une séparation métier propre."
-      />
-    </div>
-  );
+function OperationsTab({ workspace, loading }: { workspace: ClientWorkspace | null; loading: boolean }) {
+  if (loading) return <LoadingLines />;
+  if (!workspace?.packages.length) return <EmptyState title="Aucun colis" text="Les colis enregistrés pour ce client apparaîtront ici avec leur départ et leur destination." />;
+  return <div className="space-y-3">
+    <div className="grid grid-cols-2 gap-3"><SmallMetric label="Colis" value={workspace.summary.packages}/><SmallMetric label="En cours" value={workspace.summary.active_packages}/></div>
+    {workspace.packages.map(item=><article key={item.id} className="rounded-md border border-[#dfe3e7] bg-white p-4">
+      <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-[#273038]">{item.package_reference}</p><p className="mt-1 text-[12px] text-[#687584]">{item.tracking_id || "Suivi non renseigné"}</p></div><span className="rounded-full bg-[#eef8f3] px-2.5 py-1 text-[11px] font-semibold text-[#087a48]">{humanStatus(item.status)}</span></div>
+      <div className="mt-3 grid gap-2 text-[12px] text-[#5f6b76] sm:grid-cols-2"><span>Destination : {[item.destination_city,item.destination_country].filter(Boolean).join(", ") || "—"}</span><span>Poids : {item.weight_kg == null ? "—" : `${item.weight_kg} kg`}</span><span>Départ : {item.departure_code || "Non affecté"}</span><span>Mise à jour : {formatDate(item.updated_at)}</span></div>
+    </article>)}
+  </div>;
+}
+
+function MessagesTab({ workspace, loading }: { workspace: ClientWorkspace | null; loading: boolean }) {
+  if (loading) return <LoadingLines />;
+  if (!workspace?.messages.length) return <EmptyState title="Aucun message" text="Les échanges WhatsApp associés à cette fiche client apparaîtront ici." />;
+  return <div className="space-y-2">{workspace.messages.map(item=><article key={item.id} className={`max-w-[88%] rounded-lg px-3.5 py-3 ${item.direction === "outbound" ? "ml-auto bg-[#eaf8f1]" : "bg-[#f3f5f6]"}`}>
+    <div className="flex items-center justify-between gap-4 text-[11px] text-[#74808a]"><span>{item.direction === "outbound" ? "Agence" : item.sender_name || item.from_phone || "Client"}</span><time>{formatDate(item.created_at)}</time></div>
+    <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-5 text-[#303941]">{item.text_body || item.media_file_name || (item.message_type ? `Message ${item.message_type}` : "Message")}</p>
+    {item.send_status && item.direction === "outbound" && <p className="mt-1 text-right text-[10px] text-[#718079]">{humanStatus(item.send_status)}</p>}
+  </article>)}</div>;
+}
+
+function PaymentsTab({ workspace, loading, currency }: { workspace: ClientWorkspace | null; loading: boolean; currency?: string | null }) {
+  if (loading) return <LoadingLines />;
+  if (!workspace || (!workspace.documents.length && !workspace.payments.length)) return <EmptyState title="Aucune opération financière" text="Les factures, reçus, paiements et soldes de ce client apparaîtront ici." />;
+  return <div className="space-y-5">
+    <div className="grid grid-cols-2 gap-3"><SmallMetric label="Payé" value={formatMoney(workspace.summary.paid,currency)}/><SmallMetric label="Solde à payer" value={formatMoney(workspace.summary.outstanding,currency)}/></div>
+    <Section title="Factures et documents">{workspace.documents.map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#edf0f2] py-3 last:border-0"><div><p className="font-medium text-[#273038]">{item.document_number}</p><p className="mt-1 text-[12px] text-[#687584]">{humanStatus(item.document_type)} · {humanStatus(item.status)}</p></div><div className="text-right"><p className="font-semibold">{formatMoney(item.total,item.currency)}</p><p className="mt-1 text-[11px] text-[#687584]">Solde {formatMoney(item.balance_due,item.currency)}</p></div></div>)}</Section>
+    <Section title="Paiements reçus">{workspace.payments.length ? workspace.payments.map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#edf0f2] py-3 last:border-0"><div><p className="font-medium">{item.receipt_number}</p><p className="mt-1 text-[12px] text-[#687584]">{item.document_number} · {item.method}</p></div><div className="text-right"><p className="font-semibold text-[#087a48]">{formatMoney(item.amount,item.currency)}</p><p className="mt-1 text-[11px] text-[#687584]">{formatDate(item.paid_at)}</p></div></div>) : <p className="py-3 text-[13px] text-[#687584]">Aucun paiement reçu.</p>}</Section>
+  </div>;
 }
 
 function HistoryTab({
@@ -1257,6 +1295,7 @@ function ClientFormModal({
   client,
   saving,
   error,
+  parcelFreight,
   onClose,
   onSubmit,
 }: {
@@ -1264,10 +1303,14 @@ function ClientFormModal({
   client: ClientRecord | null;
   saving: boolean;
   error: string;
+  parcelFreight: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const title = mode === "edit" ? "Modifier le client" : "Nouveau client";
+  const [country, setCountry] = useState(client?.country || "");
+  const [city, setCity] = useState(client?.city || "");
+  const [creditEnabled, setCreditEnabled] = useState(Boolean(client?.credit_enabled));
   return (
     <OperationDrawer
       open
@@ -1275,14 +1318,37 @@ function ClientFormModal({
       description="Renseignez uniquement les informations réelles disponibles."
       close={onClose}
       width="max-w-3xl"
+      footer={
+        <>
+          <OperationButton type="button" onClick={onClose} disabled={saving}>Annuler</OperationButton>
+          <OperationButton type="submit" form="client-form" variant="primary" disabled={saving}>
+            {saving ? "Enregistrement..." : mode === "edit" ? "Enregistrer" : "Créer le client"}
+          </OperationButton>
+        </>
+      }
     >
-        <form onSubmit={onSubmit}>
+        <form id="client-form" onSubmit={onSubmit} className="grid gap-6">
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
               {error}
             </div>
           )}
-          <div className="grid gap-4 md:grid-cols-3">
+          {parcelFreight ? <div className="grid gap-5 md:grid-cols-2">
+            <Input label="Nom complet" name="name" required defaultValue={client?.name || client?.display_name || ""}/>
+            <Input label="Numéro de téléphone" name="phone" required type="tel" defaultValue={client?.phone || client?.whatsapp_phone || ""}/>
+            <GeographyFields required country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} className={inputClass} fieldClassName="grid min-w-0 gap-2"/>
+            <SelectInput label="Type de client" name="customer_type" defaultValue={client?.customer_type || "individual"} options={typeLabels}/>
+            <label className="flex min-h-14 items-center justify-between gap-4 rounded-[8px] border border-[#dfe3e7] bg-[#fafbfb] px-4 py-3 md:col-span-2">
+              <span><span className="block text-[13px] font-semibold text-[#303941]">Crédit client</span><span className="mt-0.5 block text-[12px] text-[#74808a]">Activez uniquement si l’agence autorise ce client à payer plus tard.</span></span>
+              <input name="credit_enabled" type="checkbox" role="switch" aria-label="Autoriser un crédit à ce client" checked={creditEnabled} onChange={event=>setCreditEnabled(event.target.checked)} className="h-4 w-4 shrink-0 accent-[#12a865]"/>
+            </label>
+            <fieldset disabled={!creditEnabled} className="contents disabled:opacity-45">
+              <Input label="Limite de crédit" name="credit_limit" type="number" min="0" defaultValue={String(client?.credit_limit || 0)}/>
+            </fieldset>
+            <input type="hidden" name="lifecycle_status" value={client?.lifecycle_status || "lead"}/>
+            <input type="hidden" name="source" value={client?.source || "manual"}/>
+            <input type="hidden" name="preferred_language" value={client?.preferred_language || "FR"}/>
+          </div> : <><div className="grid gap-5 md:grid-cols-2">
             <Input
               label="Nom affiché"
               name="display_name"
@@ -1313,16 +1379,7 @@ function ClientFormModal({
               name="email"
               defaultValue={client?.email || ""}
             />
-            <Input
-              label="Pays"
-              name="country"
-              defaultValue={client?.country || ""}
-            />
-            <Input
-              label="Ville"
-              name="city"
-              defaultValue={client?.city || ""}
-            />
+            <GeographyFields country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} className={inputClass} fieldClassName="grid min-w-0 gap-2"/>
             <Input
               label="Identifiant fiscal"
               name="tax_id"
@@ -1352,15 +1409,24 @@ function ClientFormModal({
               defaultValue={client?.preferred_language || "FR"}
             />
             <Input
-              label="Devise"
-              name="preferred_currency"
-              defaultValue={client?.preferred_currency || ""}
+              label="Montant attendu"
+              name="payment_amount_due"
+              type="number"
+              min="0"
+              defaultValue={String(client?.payment_amount_due || 0)}
             />
             <Input
-              label="Limite crédit"
-              name="credit_limit"
+              label="Montant payé"
+              name="payment_amount_paid"
               type="number"
-              defaultValue={String(client?.credit_limit || 0)}
+              min="0"
+              defaultValue={String(client?.payment_amount_paid || 0)}
+            />
+            <SelectInput
+              label="Devise du paiement"
+              name="payment_currency"
+              defaultValue={(client?.payment_currency || "USD") as keyof typeof currencyLabels}
+              options={currencyLabels}
             />
           </div>
           <Input
@@ -1368,44 +1434,22 @@ function ClientFormModal({
             name="address"
             defaultValue={client?.address || ""}
           />
-          <label className="flex items-center gap-2 text-[13px] font-medium text-[#334155]">
-            <input
-              name="credit_enabled"
-              type="checkbox"
-              defaultChecked={Boolean(client?.credit_enabled)}
-              className="rounded border-[#c9d0d8]"
-            />
-            Crédit autorisé
+          <label className="flex min-h-14 items-center justify-between gap-4 rounded-[8px] border border-[#dfe3e7] bg-[#fafbfb] px-4 py-3">
+            <span><span className="block text-[13px] font-semibold text-[#303941]">Crédit client</span><span className="mt-0.5 block text-[12px] text-[#74808a]">Activez uniquement si l’agence autorise ce client à payer plus tard.</span></span>
+            <input name="credit_enabled" type="checkbox" role="switch" aria-label="Autoriser un crédit à ce client" checked={creditEnabled} onChange={event=>setCreditEnabled(event.target.checked)} className="h-4 w-4 shrink-0 accent-[#12a865]"/>
           </label>
-          <label className="block text-[13px] font-medium text-[#334155]">
-            Notes internes
+          <fieldset disabled={!creditEnabled} className="disabled:opacity-45">
+            <Input label="Limite de crédit" name="credit_limit" type="number" min="0" defaultValue={String(client?.credit_limit || 0)}/>
+          </fieldset>
+          <OperationField label="Notes internes">
             <textarea
               name="notes"
               rows={4}
               defaultValue={client?.notes || ""}
-              className="mt-1 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[13px] outline-none focus:border-[#2f7df6]"
+              className="min-h-28 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[13px] outline-none focus:border-[#12a865]"
             />
-          </label>
-          <div className="flex justify-end gap-2 border-t border-[#eef0f3] pt-4">
-            <OperationButton
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Annuler
-            </OperationButton>
-            <OperationButton
-              type="submit"
-              variant="primary"
-              disabled={saving}
-            >
-              {saving
-                ? "Enregistrement..."
-                : mode === "edit"
-                  ? "Enregistrer"
-                  : "Créer le client"}
-            </OperationButton>
-          </div>
+          </OperationField>
+          </>}
         </form>
     </OperationDrawer>
   );
@@ -1557,24 +1601,29 @@ function Input({
   defaultValue = "",
   placeholder = "",
   type = "text",
+  required = false,
+  min,
 }: {
   label: string;
   name: string;
   defaultValue?: string;
   placeholder?: string;
   type?: string;
+  required?: boolean;
+  min?: string;
 }) {
   return (
-    <label className="block text-[13px] font-medium text-[#334155]">
-      {label}
+    <OperationField label={label} required={required}>
       <input
         name={name}
         type={type}
+        required={required}
+        min={min}
         defaultValue={defaultValue}
         placeholder={placeholder}
-        className="mt-1 h-9 w-full rounded-md border border-[#cfd5dd] px-3 text-[13px] outline-none focus:border-[#2f7df6]"
+        className={inputClass}
       />
-    </label>
+    </OperationField>
   );
 }
 
@@ -1590,12 +1639,11 @@ function SelectInput<T extends string>({
   options: Record<T, string>;
 }) {
   return (
-    <label className="block text-[13px] font-medium text-[#334155]">
-      {label}
+    <OperationField label={label}>
       <select
         name={name}
         defaultValue={defaultValue}
-        className="mt-1 h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#2f7df6]"
+        className={inputClass}
       >
         {Object.entries(options).map(([value, label]) => (
           <option key={value} value={value}>
@@ -1603,7 +1651,7 @@ function SelectInput<T extends string>({
           </option>
         ))}
       </select>
-    </label>
+    </OperationField>
   );
 }
 
@@ -1668,57 +1716,6 @@ function SmallMetric({
   );
 }
 
-function ModuleCounter({
-  icon: Icon,
-  title,
-  count,
-  text,
-}: {
-  icon: LucideIcon;
-  title: string;
-  count: number;
-  text: string;
-}) {
-  return (
-    <div className="rounded-md border border-[#d8dce2] p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#f1f3f5]">
-            <Icon size={17} />
-          </div>
-          <div>
-            <p className="font-semibold">{title}</p>
-            <p className="mt-1 text-[13px] leading-5 text-[#5f6b76]">{text}</p>
-          </div>
-        </div>
-        <span className="text-[22px] font-semibold">{count}</span>
-      </div>
-    </div>
-  );
-}
-
-function ModulePlaceholder({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: LucideIcon;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="flex min-h-[240px] flex-col items-center justify-center rounded-md border border-[#d8dce2] bg-[#fbfcfd] p-8 text-center">
-      <div className="flex h-11 w-11 items-center justify-center rounded-md bg-white shadow-sm">
-        <Icon size={19} />
-      </div>
-      <h3 className="mt-4 text-[16px] font-semibold">{title}</h3>
-      <p className="mt-2 max-w-sm text-[13px] leading-6 text-[#617083]">
-        {text}
-      </p>
-    </div>
-  );
-}
-
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
     <div className="flex min-h-[220px] flex-col items-center justify-center rounded-md border border-[#d8dce2] bg-[#fbfcfd] p-8 text-center">
@@ -1778,12 +1775,6 @@ function TimelineIcon({ type }: { type: string }) {
   return <History {...props} />;
 }
 
-function metricCardClass(tone: string) {
-  if (tone === "amber") return "border-[#e8d29a] bg-[#fff4d7] text-[#b76100]";
-  if (tone === "neutral") return "border-[#d7dbe0] bg-[#f7f8fa] text-[#1f2328]";
-  return "border-[#c8d2e5] bg-[#f1f5fb] text-[#0752b8]";
-}
-
 function clean(value: FormDataEntryValue | null) {
   const text = String(value || "").trim();
   return text || undefined;
@@ -1802,6 +1793,23 @@ function formatDate(value: string | null | undefined) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function humanStatus(value: string | null | undefined) {
+  if (!value) return "—";
+  const labels: Record<string, string> = {
+    QUOTE: "Devis", INVOICE: "Facture", CREDIT_NOTE: "Avoir",
+    RECEIVED: "Reçu", RECEIVED_AT_ORIGIN: "Reçu à l’origine",
+    WAREHOUSED: "En entrepôt", READY_FOR_BATCH: "Prêt au départ",
+    BATCHED: "Affecté au départ", SHIPPED: "Expédié", IN_TRANSIT: "En transit",
+    ARRIVED: "Arrivé", ARRIVED_DESTINATION: "Arrivé à destination",
+    READY_FOR_PICKUP: "Prêt au retrait", DELIVERED: "Livré",
+    PENDING: "En attente", SENT: "Envoyé", DELIVERED_MESSAGE: "Remis",
+    DRAFT: "Brouillon", ISSUED: "Émis", PARTIALLY_PAID: "Partiellement payé",
+    PAID: "Payé", UNPAID: "Non payé", PARTIAL: "Avance reçue", NOT_SET: "Non renseigné",
+    OVERDUE: "En retard", VOID: "Annulé", CONFIRMED: "Confirmé",
+  };
+  return labels[value] || value.toLowerCase().replaceAll("_", " ").replace(/^./, letter => letter.toUpperCase());
 }
 
 function formatMoney(

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   getProductProfile,
+  getOrganizationProductProfile,
   isPilotVisiblePath,
   pilotRedirectTarget,
   PRODUCT_PROFILES,
@@ -20,6 +21,12 @@ describe("Pilot V1 product profile", () => {
   it("allows the former surface only through an explicit profile", () => {
     process.env.NEXT_PUBLIC_PRODUCT_PROFILE = "CARGO_OS";
     expect(getProductProfile()).toBe(PRODUCT_PROFILES.CARGO_OS);
+  });
+
+  it("selects the product surface from the active agency", () => {
+    expect(getOrganizationProductProfile("PARCEL_FREIGHT")).toBe(PRODUCT_PROFILES.PARCEL_FREIGHT);
+    expect(getOrganizationProductProfile("VEHICLE_IMPORT")).toBe(PRODUCT_PROFILES.PILOT_V1);
+    expect(getOrganizationProductProfile("AGENCY")).toBe(PRODUCT_PROFILES.PILOT_V1);
   });
 
   it("allows only Pilot pages and their detail routes", () => {

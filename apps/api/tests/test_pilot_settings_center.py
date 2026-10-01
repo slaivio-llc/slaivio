@@ -57,7 +57,7 @@ def test_pilot_settings_ui_separates_channels_ai_privacy_and_notifications():
         "Notifications",
     ):
         assert label in page
-    for mode in ("Suggestion uniquement", "Automatique contrôlé", "IA en pause"):
+    for mode in ("Suggestion uniquement", "Mode automatique", "IA en pause"):
         assert mode in page
     for hidden_term in ("Workspaces", "Rôles & permissions", "Clé API", "Journal d’audit", "meta_phone_number_id", "UUID"):
         assert hidden_term not in page

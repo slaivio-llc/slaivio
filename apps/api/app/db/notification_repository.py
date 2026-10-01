@@ -175,6 +175,32 @@ def mark_notification_failed(
         return dict(row._mapping) if row else None
 
 
+def sync_package_notification_status(notification: dict, status: str, *, provider: str | None = None,
+                                     provider_message_id: str | None = None, error: str | None = None) -> None:
+    with engine.begin() as conn:
+        if not conn.execute(text("select to_regclass('public.package_notifications')")).scalar():
+            return
+        has_link = conn.execute(text("""
+            select exists(
+              select 1 from information_schema.columns
+              where table_schema='public' and table_name='package_notifications'
+                and column_name='notification_outbox_id'
+            )
+        """)).scalar()
+        if not has_link:
+            return
+        conn.execute(text("""
+            update package_notifications set status=:status,provider=coalesce(:provider,provider),
+              provider_message_id=coalesce(:provider_message_id,provider_message_id),
+              sent_at=case when :status='SENT' then coalesce(sent_at,now()) else sent_at end,
+              failed_at=case when :status='FAILED' then coalesce(failed_at,now()) else failed_at end,
+              error_message=case when :status='FAILED' then :error else error_message end
+            where org_id=:org_id and notification_outbox_id=cast(:notification_outbox_id as uuid)
+        """), {"status": status, "provider": provider, "provider_message_id": provider_message_id,
+                 "error": error, "org_id": notification["org_id"],
+                 "notification_outbox_id": str(notification["id"])})
+
+
 def get_notification_by_provider_message_id(
     provider_message_id: str,
 ):

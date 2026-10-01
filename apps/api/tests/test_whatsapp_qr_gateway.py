@@ -48,6 +48,24 @@ def test_linked_device_provider_sends_through_the_isolated_connection(monkeypatc
     })]
 
 
+def test_linked_device_provider_preserves_private_whatsapp_identity(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.services.qr_linked_device_whatsapp_provider.qr_gateway_request",
+        lambda method, path, payload=None: calls.append((method, path, payload)) or {
+            "success": True, "provider_message_id": "wamid-lid",
+        },
+    )
+    provider = QRLinkedDeviceWhatsAppProvider(number={
+        "provider": "QR_LINKED_DEVICE",
+        "provider_metadata": {"connection_id": "connection-1"},
+    })
+
+    provider.send_message("123456789012345@lid", "Bonjour")
+
+    assert calls[0][2]["to"] == "123456789012345@lid"
+
+
 def test_inbound_qr_media_is_uploaded_privately_without_base64_persistence(monkeypatch):
     uploads = []
     monkeypatch.setattr(

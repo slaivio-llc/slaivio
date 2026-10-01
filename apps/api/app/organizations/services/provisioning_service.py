@@ -88,6 +88,29 @@ def ensure_default_roles(org_id: str):
         conn.commit()
 
 
+def ensure_owner_permissions(org_id: str):
+    """Give a newly provisioned owner every tenant-level capability.
+
+    Permission migrations run before future organizations exist, so their
+    role grants cannot be treated as provisioning. Platform permissions stay
+    global and are deliberately excluded from organization roles.
+    """
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                insert into role_permissions (role_id, permission_id)
+                select role.id, permission.id
+                from organization_roles role
+                cross join permissions permission
+                where role.org_id = :org_id
+                  and role.role_code = 'OWNER'
+                  and permission.permission_code not like 'platform.%'
+                on conflict do nothing
+            """),
+            {"org_id": org_id},
+        )
+
+
 def ensure_client_role_permissions(org_id: str):
     with engine.connect() as conn:
         for role_code, permission_codes in CLIENT_ROLE_PERMISSIONS.items():
@@ -147,6 +170,7 @@ def provision_organization(
     if org:
         org_id = str(org["id"])
         ensure_default_roles(org_id)
+        ensure_owner_permissions(org_id)
         ensure_client_role_permissions(org_id)
         ensure_dossier_role_permissions(org_id)
         ensure_shipment_role_permissions(org_id)

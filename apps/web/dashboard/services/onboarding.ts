@@ -1,22 +1,24 @@
 import { api } from "@/services/api";
 
 export type AgencyProfilePayload = {
-  legal_name?: string | null;
+  legal_name: string;
   brand_name: string;
   country: string;
-  city?: string | null;
-  address?: string | null;
-  phone?: string | null;
-  email?: string | null;
-  website?: string | null;
-  default_language?: string | null;
-  default_currency?: string | null;
-  business_type?: string | null;
+  city: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  default_language: string;
+  default_currency: string;
+  business_type: "VEHICLE_IMPORT" | "PARCEL_FREIGHT";
 };
 
+export type AgencyProfile = AgencyProfilePayload & { id: string; org_id: string };
+
 export async function getOnboardingStatus() {
-  const response = await api.get("/api/onboarding/status");
-  return response.data.onboarding;
+  const response = await api.get<{ onboarding: Record<string, unknown>; profile: AgencyProfile | null }>("/api/onboarding/status");
+  return response.data;
 }
 
 export async function saveAgencyProfile(data: AgencyProfilePayload) {

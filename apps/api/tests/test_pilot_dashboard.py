@@ -42,6 +42,32 @@ def test_pilot_home_is_built_from_the_dg_scope(monkeypatch):
     }
 
 
+def test_parcel_freight_home_uses_package_statuses_and_destinations(monkeypatch):
+    monkeypatch.setattr(
+        home_repository,
+        "_optional_row",
+        lambda *_args, **_kwargs: {
+            "received": 8,
+            "shipped": 4,
+            "in_transit": 3,
+            "delivered": 12,
+            "waiting": 2,
+        },
+    )
+    responses = iter([
+        [{"destination": "Kinshasa", "total": 12, "delivered": 10, "delivery_rate": 83.3}],
+        [{"id": "p1", "reference": "COL-1", "status": "RECEIVED"}],
+    ])
+    monkeypatch.setattr(home_repository, "_optional_rows", lambda *_args, **_kwargs: next(responses))
+
+    result = home_repository._parcel_freight_home(object(), "agency-1", {"cargo_packages", "clients"})
+
+    assert result["stats"]["received"] == 8
+    assert result["stats"]["delivered"] == 12
+    assert result["destinations"][0]["destination"] == "Kinshasa"
+    assert result["recent_packages"][0]["reference"] == "COL-1"
+
+
 def test_pilot_dashboard_shows_only_daily_dossier_and_communication_work():
     page = read("apps/web/dashboard/components/dashboard/dashboard-overview.tsx")
     pilot = page.split("function PilotDashboard", 1)[1].split("function DashboardSection", 1)[0]
@@ -54,10 +80,11 @@ def test_pilot_dashboard_shows_only_daily_dossier_and_communication_work():
         "Relances en attente",
         "Dernières activités",
         "Clients récemment ajoutés",
-        "Nouveau dossier",
-        "Boîte de réception",
     ):
         assert label in pilot
+
+    assert "Nouveau dossier" not in pilot
+    assert "Boîte de réception" not in pilot
 
     for hidden_cargo_metric in ("Facturation", "Paiements", "Entrepôts", "Expéditions"):
         assert hidden_cargo_metric not in pilot
@@ -73,7 +100,7 @@ def test_pilot_dashboard_links_rows_to_real_dossier_pages():
     assert "relation.attention_required" in repository
     assert "conversation_assignments" in repository
     assert "followup_tasks" in repository
-    assert 'href="/app/dossiers?create=1"' in dashboard
+    assert 'href="/app/dossiers?create=1"' not in dashboard
     assert 'href="/app/dossiers?view=attention"' not in dashboard
     assert 'searchParams.get("create") === "1"' in dossiers
     assert 'requestedView === "recent" || requestedView === "archived"' in dossiers

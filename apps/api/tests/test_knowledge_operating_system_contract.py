@@ -38,9 +38,12 @@ def test_knowledge_dashboard_exposes_the_simple_pilot_workflow():
 def test_knowledge_worker_and_private_storage_are_explicit():
     worker = (ROOT / "apps/api/app/jobs/knowledge_maintenance.py").read_text(encoding="utf-8")
     api = (ROOT / "apps/api/app/api/knowledge.py").read_text(encoding="utf-8")
+    bucket = (ROOT / "infra/sql/114_pilot_knowledge_files_bucket.sql").read_text(encoding="utf-8")
     assert "maintenance()" in worker
     assert 'BUCKET = "knowledge-files"' in api
     assert "MAX_FILE_SIZE" in api and "MIMES" in api
+    assert "'knowledge-files'" in bucket and "public = false" in bucket
+    assert "20971520" in bucket
     assert "NEEDS_REVIEW" in api and "Aucun import n’est publié automatiquement" not in api
 
 

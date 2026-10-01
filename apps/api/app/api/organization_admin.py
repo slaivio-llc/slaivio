@@ -52,6 +52,21 @@ class PilotKnowledgeDefaults(BaseModel):
     default_language:Literal['FR','EN']='FR'
     default_review_days:int=Field(ge=7,le=730)
     expected_version:int=Field(ge=1)
+class ParcelOperationSettings(BaseModel):
+    package_number_pattern:str=Field(min_length=8,max_length=100)
+    prospect_followup_delay_hours:int=Field(ge=1,le=720)
+    incomplete_profile_followup_hours:int=Field(ge=1,le=720)
+    notify_next_departure:bool=True
+    notify_package_milestones:bool=True
+    require_payment_clearance:bool=True
+    expected_version:int=Field(ge=1)
+
+    @field_validator('package_number_pattern')
+    @classmethod
+    def validate_package_number_pattern(cls,value:str)->str:
+        value=value.strip()
+        if value.count('{000001}')!=1:raise ValueError('package_identifier_requires_sequence')
+        return value
 
 @router.get('/pilot',dependencies=[Depends(require_permission('pilot.settings.read'))])
 def get_pilot_settings(tenant=Depends(get_current_tenant)):
@@ -77,10 +92,16 @@ def post_pilot_wazzap_activation(body:PilotWazzapActivation,tenant=Depends(get_c
 def patch_pilot_knowledge(body:PilotKnowledgeDefaults,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
     return {'status':'ok','knowledge':pilot_repo.save_knowledge_defaults(tenant['org_id'],actor(manager),body.default_language,body.default_review_days,body.expected_version)}
 
+@router.patch('/pilot/parcel-operations',dependencies=[Depends(require_permission('pilot.settings.manage'))])
+def patch_parcel_operation_settings(body:ParcelOperationSettings,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+    row=pilot_repo.save_parcel_operation_settings(tenant['org_id'],actor(manager),body.model_dump(exclude={'expected_version'}),body.expected_version)
+    if not row:raise HTTPException(409,'parcel_operation_settings_modified')
+    return {'status':'ok','parcel_operations':row}
+
 @router.patch('/pilot/numbering/{document_type}',dependencies=[Depends(require_permission('pilot.settings.manage'))])
 def patch_pilot_numbering(document_type:str,body:NumberingSave,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
     document_type=document_type.upper()
-    if document_type not in {'CLIENT','DOSSIER'}:raise HTTPException(404,'pilot_identifier_type_not_found')
+    if document_type not in {'CLIENT','DOSSIER','PACKAGE'}:raise HTTPException(404,'pilot_identifier_type_not_found')
     row=repo.save_numbering(tenant['org_id'],actor(manager),document_type,body.prefix_format,body.expected_version)
     if not row:raise HTTPException(409,'numbering_was_modified')
     return {'status':'ok','numbering':row}

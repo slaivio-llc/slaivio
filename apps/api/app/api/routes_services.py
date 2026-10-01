@@ -7,7 +7,7 @@ from app.routes_services import repository as repo
 router=APIRouter(prefix="/route-catalog",tags=["routes-services"])
 def actor(t):return str(t.get('user_id') or 'system')
 def name(t):return str(t.get('actor_name') or "Membre de l'agence")
-class RouteCreate(BaseModel):route_code:str=Field(min_length=3,max_length=50);route_name:str=Field(min_length=3,max_length=160);origin_country:str;origin_city:str|None=None;destination_country:str;destination_city:str|None=None;transport_mode:str;eta_min_days:int=Field(ge=0,le=365);eta_max_days:int=Field(ge=0,le=365);timezone:str|None=None;metadata:dict={}
+class RouteCreate(BaseModel):route_code:str=Field(min_length=3,max_length=50);route_name:str=Field(min_length=3,max_length=160);origin_location_id:str|None=None;destination_location_id:str|None=None;destination_org_id:str|None=None;origin_country:str;origin_city:str|None=None;destination_country:str;destination_city:str|None=None;transport_mode:str;eta_min_days:int=Field(ge=0,le=365);eta_max_days:int=Field(ge=0,le=365);timezone:str|None=None;metadata:dict={}
 class ServiceCreate(BaseModel):route_id:str;service_code:str=Field(min_length=3,max_length=50);service_name:str=Field(min_length=3,max_length=160);shipping_mode:str;service_type:str="STANDARD";eta_min_days:int=Field(ge=0,le=365);eta_max_days:int=Field(ge=0,le=365);volumetric_divisor:float|None=Field(default=6000,gt=0);minimum_charge_minor:int=Field(default=0,ge=0);maximum_weight_kg:float|None=Field(default=None,gt=0);maximum_volume_cbm:float|None=Field(default=None,gt=0);currency_code:str=Field(default="USD",min_length=3,max_length=3);priority:int=100;metadata:dict={}
 class Component(BaseModel):component_code:str;component_name:str;calculation_type:str;amount_minor:int|None=Field(default=None,ge=0);percentage:float|None=Field(default=None,ge=0,le=100);currency_code:str=Field(default="USD",min_length=3,max_length=3);priority:int=100;min_quantity:float|None=None;max_quantity:float|None=None;effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc));effective_until:datetime|None=None;metadata:dict={}
 class Simulation(BaseModel):service_id:str;weight_kg:float|None=Field(default=None,ge=0);volume_cbm:float|None=Field(default=None,ge=0);declared_value:float|None=Field(default=0,ge=0);client_id:str|None=None;goods_category:str|None=None
@@ -15,9 +15,24 @@ class Stop(BaseModel):position:int=Field(ge=1);country_code:str|None=None;city:s
 class Departure(BaseModel):weekday:int=Field(ge=1,le=7);cutoff_time:str|None=None;departure_time:str|None=None;capacity_weight_kg:float|None=None;capacity_cbm:float|None=None
 class Policy(BaseModel):goods_category:str;decision:str;required_documents:list[str]=[];handling_instructions:str|None=None
 class Adjustment(BaseModel):adjustment_code:str;adjustment_name:str;adjustment_type:str;amount_minor:int|None=None;percentage:float|None=None;client_id:str|None=None;goods_category:str|None=None;min_weight_kg:float|None=None;effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc));effective_until:datetime|None=None;priority:int=100
+class GoodsRate(BaseModel):
+ goods_label:str=Field(min_length=2,max_length=160)
+ goods_category:str|None=Field(default=None,max_length=120)
+ billing_unit:str=Field(pattern="^(KG|CBM|PACKAGE|FLAT)$")
+ amount_minor:int=Field(ge=0)
+ currency_code:str=Field(min_length=3,max_length=3)
+ express:bool=False
+ min_quantity:float|None=Field(default=None,ge=0)
+ max_quantity:float|None=Field(default=None,gt=0)
+ effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc))
+ effective_until:datetime|None=None
+
+ @field_validator("currency_code")
+ @classmethod
+ def normalize_currency(cls,value:str)->str:return value.strip().upper()
 class RouteUpdate(BaseModel):
  row_version:int=Field(ge=1);route_name:str|None=None;description:str|None=None;workspace_id:str|None=None;owner_id:str|None=None;owner_name:str|None=None;status:str|None=None;direction:str|None=None
- origin_country:str|None=None;origin_city:str|None=None;origin_warehouse_id:str|None=None;origin_hub:str|None=None;destination_country:str|None=None;destination_city:str|None=None;destination_office_id:str|None=None;destination_hub:str|None=None
+ origin_country:str|None=None;origin_city:str|None=None;origin_location_id:str|None=None;origin_warehouse_id:str|None=None;origin_hub:str|None=None;destination_country:str|None=None;destination_city:str|None=None;destination_location_id:str|None=None;destination_org_id:str|None=None;destination_office_id:str|None=None;destination_hub:str|None=None
  transport_mode:str|None=None;eta_min_days:int|None=Field(default=None,ge=0,le=365);eta_max_days:int|None=Field(default=None,ge=0,le=365);announced_eta_days:float|None=None;processing_days:float|None=None;customs_days:float|None=None;final_delivery_days:float|None=None
  weekly_capacity_kg:float|None=None;weekly_capacity_cbm:float|None=None;departure_capacity_kg:float|None=None;departure_capacity_cbm:float|None=None;availability:str|None=None;public_visible:bool|None=None;default_route:bool|None=None;alternative_route_id:str|None=None;minimum_weight_kg:float|None=None;maximum_weight_kg:float|None=None;minimum_cbm:float|None=None;maximum_declared_value:float|None=None;change_reason:str|None=None
 class Leg(BaseModel):position:int=Field(ge=1);origin_country:str|None=None;origin_city:str|None=None;origin_hub:str|None=None;destination_country:str|None=None;destination_city:str|None=None;destination_hub:str|None=None;transport_mode:str;planned_duration_hours:int=Field(default=0,ge=0);carrier_name:str|None=None;metadata:dict={}
@@ -28,6 +43,8 @@ class RouteEngine(BaseModel):origin_country:str|None=None;origin_city:str|None=N
 class RouteView(BaseModel):name:str=Field(min_length=2,max_length=80);filters:dict={}
 @router.get("")
 def index(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return repo.list_all(tenant['org_id'])
+@router.get("/network-offices")
+def network_offices(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return {"items":repo.network_offices(tenant['org_id'])}
 @router.post("/routes")
 def route(body:RouteCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.manage"))):return repo.create_route(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
 @router.post("/services")
@@ -44,6 +61,10 @@ def departure(service_id:str,body:Departure,tenant=Depends(get_current_tenant),_
 def policy(service_id:str,body:Policy,tenant=Depends(get_current_tenant),_=Depends(require_permission("services.manage"))):return repo.configure(tenant['org_id'],actor(tenant),name(tenant),service_id,'policy',body.model_dump())
 @router.post("/services/{service_id}/adjustments")
 def adjustment(service_id:str,body:Adjustment,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.manage"))):return repo.configure(tenant['org_id'],actor(tenant),name(tenant),service_id,'adjustment',body.model_dump())
+@router.post("/services/{service_id}/goods-rates")
+def goods_rate(service_id:str,body:GoodsRate,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.manage"))):return repo.save_goods_rate(tenant['org_id'],actor(tenant),name(tenant),service_id,body.model_dump())
+@router.delete("/services/{service_id}/goods-rates/{rate_id}")
+def archive_goods_rate(service_id:str,rate_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.manage"))):return repo.archive_goods_rate(tenant['org_id'],actor(tenant),name(tenant),service_id,rate_id)
 @router.post("/simulate")
 def simulate(body:Simulation,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.simulate"))):return repo.simulate(tenant['org_id'],body.service_id,body.weight_kg,body.volume_cbm,body.declared_value,body.client_id,body.goods_category,actor(tenant))
 

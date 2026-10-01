@@ -1,12 +1,14 @@
 "use client";
 
-import { Check, Ellipsis, Menu, SlidersHorizontal, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, ListFilter, Menu, RefreshCcw, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
+  Children,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type ReactNode,
@@ -15,7 +17,7 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary: "border-transparent bg-[#12c76f] text-white hover:bg-[#0fb766]",
-  secondary: "border-[#d4d9df] bg-white text-[#30363d] hover:bg-[#f6f7f7]",
+  secondary: "border-[#d8dadd] bg-white text-[#30363d] shadow-[0_1px_1px_rgba(15,23,42,.03)] hover:border-[#c7cbcf] hover:bg-[#f7f7f6]",
   ghost: "border-transparent bg-transparent text-[#4f5964] hover:bg-[#f0f2f2]",
   danger: "border-[#efc7c7] bg-white text-[#b42318] hover:bg-[#fff5f5]",
 };
@@ -24,16 +26,35 @@ export function OperationButton({
   variant = "secondary",
   className = "",
   type,
+  children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+  const childList = Children.toArray(children);
+  const refresh = childList.some((child) => typeof child === "string" && child.trim() === "Actualiser");
+  const visibleChildren = childList.filter((child) => typeof child !== "string" || child.trim() !== "Actualiser");
   return (
     <button
+      {...props}
       type={type || (props.onClick ? "button" : "submit")}
       data-ui="operation-button"
       data-variant={variant}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-[6px] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${className}`}
-      {...props}
-    />
+      aria-label={refresh ? props["aria-label"] || "Actualiser" : props["aria-label"]}
+      title={refresh ? props.title || "Actualiser" : props.title}
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-[6px] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
+    >{refresh ? (visibleChildren.length > 0 ? visibleChildren : <RefreshCcw size={14} aria-hidden="true" />) : children}</button>
+  );
+}
+
+export function OperationBackLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      title={label}
+      className="inline-grid h-9 w-9 shrink-0 place-items-center rounded-[6px] border border-[#d8dadd] bg-white text-[#30363d] shadow-[0_1px_1px_rgba(15,23,42,.03)] transition-colors hover:border-[#c7cbcf] hover:bg-[#f7f7f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ed8bc]"
+    >
+      <ArrowLeft size={15} aria-hidden="true" />
+    </Link>
   );
 }
 
@@ -105,7 +126,7 @@ export function OperationTabMenu<T extends string>({
   }, [open]);
 
   return (
-    <div ref={root} className={`relative flex shrink-0 self-center ${className}`}>
+    <div ref={root} data-ui="operation-tab-menu-trigger" className={`relative flex shrink-0 self-center ${className}`}>
       <button
         type="button"
         aria-haspopup="menu"
@@ -113,13 +134,15 @@ export function OperationTabMenu<T extends string>({
         onClick={() => setOpen((current) => !current)}
         aria-label={selected ? `Autres vues, vue active : ${selected[1]}` : label}
         title={selected?.[1] || label}
-        className={`inline-flex h-8 w-8 items-center justify-center rounded-[6px] border transition-colors ${selected ? "border-[#b8ddca] bg-[#edf8f2] text-[#087a46]" : "border-transparent text-[#626d77] hover:border-[#d9dde1] hover:bg-[#f4f5f5] hover:text-[#2c333a]"}`}
+        className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-[6px] border px-2.5 text-[12px] font-medium shadow-[0_1px_1px_rgba(15,23,42,.03)] transition-colors ${selected ? "border-[#b8ddca] bg-[#edf8f2] text-[#087a46]" : "border-[#d8dadd] bg-white text-[#626d77] hover:border-[#c7cbcf] hover:bg-[#f7f7f6] hover:text-[#2c333a]"}`}
       >
-        <Ellipsis size={16} aria-hidden="true" />
+        <span>{selected?.[1] || label}</span>
+        <ChevronDown size={14} aria-hidden="true" />
       </button>
       {open && anchor && createPortal(
         <div
           ref={menu}
+          data-ui="operation-tab-menu"
           role="menu"
           className="fixed z-[90] min-w-[220px] overflow-hidden rounded-[8px] border border-[#d9dde1] bg-white p-1.5 shadow-[0_14px_36px_rgba(15,23,42,.16)]"
           style={{ top: anchor.bottom + 6, right: Math.max(8, window.innerWidth - anchor.right) }}
@@ -227,7 +250,7 @@ export function OperationFilterPopover({
     };
   }, [open, setOpen]);
 
-  const panelWidth = Math.min(380, typeof window === "undefined" ? 380 : window.innerWidth - 16);
+  const panelWidth = Math.min(312, typeof window === "undefined" ? 312 : window.innerWidth - 16);
   const left = anchor
     ? Math.max(8, Math.min(anchor.right - panelWidth, window.innerWidth - panelWidth - 8))
     : 8;
@@ -244,12 +267,14 @@ export function OperationFilterPopover({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className={open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : ""}
+        aria-label={activeCount > 0 ? `Filtres, ${activeCount} actifs` : "Filtres"}
+        title="Filtres"
+        className={`relative w-9 px-0 ${open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : ""}`}
       >
-        <SlidersHorizontal size={15} />
-        Filtres
+        <ListFilter size={16} aria-hidden="true" />
+        <span className="sr-only">Filtres</span>
         {activeCount > 0 && (
-          <span className="rounded-full bg-[#d9f3e5] px-1.5 py-0.5 text-[12px] font-bold text-[#087a46]">
+          <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#087a46] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {activeCount}
           </span>
         )}
@@ -259,29 +284,21 @@ export function OperationFilterPopover({
           ref={panel}
           role="dialog"
           aria-label={title}
-          className="fixed z-[95] flex overflow-hidden rounded-[10px] border border-[#d9dde1] bg-white shadow-[0_18px_48px_rgba(15,23,42,.18)]"
+          className="fixed z-[95] flex overflow-hidden rounded-[8px] border border-[#d9dde1] bg-white shadow-[0_12px_32px_rgba(15,23,42,.14)]"
           style={{ ...(openAbove ? { bottom: window.innerHeight - anchor.top + 7 } : { top: anchor.bottom + 7 }), left, width: panelWidth, maxHeight: maxPanelHeight, flexDirection: "column" }}
         >
-          <header className="flex min-h-12 items-center justify-between border-b border-[#e6e9ec] px-4">
-            <div>
-              <h3 className="text-[14px] font-semibold text-[#293139]">{title}</h3>
-              {activeCount > 0 && <p className="text-[11px] text-[#73808a]">{activeCount} critère{activeCount > 1 ? "s" : ""} actif{activeCount > 1 ? "s" : ""}</p>}
-            </div>
-            <button type="button" onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-[6px] text-[#65707a] hover:bg-[#f1f3f4]" aria-label="Fermer les filtres">
-              <X size={16} />
+          <header className="flex min-h-10 items-center justify-between border-b border-[#eceeef] px-3">
+            <h3 className="truncate text-[13px] font-semibold text-[#293139]">{title}</h3>
+            <button type="button" onClick={() => setOpen(false)} className="grid h-7 w-7 place-items-center rounded-[5px] text-[#65707a] hover:bg-[#f1f3f4]" aria-label="Fermer les filtres">
+              <X size={14} />
             </button>
           </header>
-          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4">
+          <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-3">
             {children}
           </div>
-          <footer className="flex items-center justify-between border-t border-[#e6e9ec] bg-[#fafbfb] px-4 py-3">
-            <button type="button" onClick={onReset} className="text-[12px] font-semibold text-[#606b75] hover:text-[#252b31]">
-              Réinitialiser
-            </button>
-            <OperationButton type="button" variant="primary" onClick={() => setOpen(false)}>
-              Afficher les résultats
-            </OperationButton>
-          </footer>
+          {activeCount > 0 && <footer className="border-t border-[#eceeef] px-3 py-2">
+            <button type="button" onClick={onReset} className="text-[12px] font-medium text-[#59646e] hover:text-[#087a46]">Effacer les filtres</button>
+          </footer>}
         </div>,
         document.body,
       )}
@@ -296,7 +313,7 @@ export function OperationMetricGrid({
   children: ReactNode;
   className?: string;
 }) {
-  return <div data-ui="metric-grid" className={`grid grid-cols-2 divide-x divide-y divide-[#eceff2] overflow-hidden rounded-[8px] border border-[#e2e6e9] bg-white md:grid-cols-4 md:divide-y-0 ${className}`}>{children}</div>;
+  return <div data-ui="metric-grid" className={`grid grid-cols-2 divide-x divide-y divide-[#eceff2] overflow-hidden rounded-[7px] border border-[#e2e6e9] bg-white md:grid-cols-4 md:divide-y-0 ${className}`}>{children}</div>;
 }
 
 export function OperationMetric({
@@ -304,13 +321,17 @@ export function OperationMetric({
   value,
   detail,
   tone = "default",
+  active = false,
+  onClick,
   className = "",
   ...props
-}: HTMLAttributes<HTMLDivElement> & {
+}: Omit<HTMLAttributes<HTMLDivElement>, "onClick"> & {
   label: string;
   value: ReactNode;
   detail?: ReactNode;
   tone?: "default" | "success" | "warning" | "danger";
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const colors = {
     default: "text-[#25292e]",
@@ -318,13 +339,13 @@ export function OperationMetric({
     warning: "text-[#a15c00]",
     danger: "text-[#b42318]",
   };
-  return (
-    <div className={`min-w-0 px-4 py-3.5 ${className}`} {...props}>
-      <p data-ui="metric-label" className="truncate text-[12px] font-medium text-[#6a737d]">{label}</p>
-      <p data-ui="metric-value" className={`mt-1 truncate text-[24px] font-semibold tracking-[-0.035em] ${colors[tone]}`}>{value}</p>
-      {detail && <p data-ui="metric-detail" className="mt-1 truncate text-[12px] text-[#7a838d]">{detail}</p>}
-    </div>
-  );
+  const content = <>
+      <p data-ui="metric-label" className="truncate text-[11px] font-medium text-[#6a737d]">{label}</p>
+      <p data-ui="metric-value" className={`mt-0.5 truncate text-[21px] font-semibold tracking-[-0.035em] ${colors[tone]}`}>{value}</p>
+      {detail && <p data-ui="metric-detail" className="mt-0.5 truncate text-[11px] text-[#7a838d]">{detail}</p>}
+  </>;
+  if (onClick) return <button type="button" aria-pressed={active} onClick={onClick} className={`min-w-0 px-3.5 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#12a865] ${active ? "bg-[#edf8f2] shadow-[inset_0_3px_0_#12a865]" : "hover:bg-[#f7faf8]"} ${className}`}>{content}</button>;
+  return <div className={`min-w-0 px-3.5 py-2.5 ${className}`} {...props}>{content}</div>;
 }
 
 export function OperationStatus({

@@ -3,6 +3,7 @@ from app.onboarding.repositories.onboarding_repository import (
     get_or_create_onboarding,
     record_onboarding_event,
     update_onboarding_state,
+    update_organization_business_type,
     upsert_agency_profile,
 )
 
@@ -21,6 +22,7 @@ def get_onboarding_status(org_id: str):
 
 
 def save_agency_profile(org_id: str, user_id: str, payload: dict):
+    business_type = payload["business_type"]
     profile = upsert_agency_profile(
         org_id=org_id,
         data={
@@ -30,12 +32,13 @@ def save_agency_profile(org_id: str, user_id: str, payload: dict):
             },
         },
     )
+    update_organization_business_type(org_id, business_type)
 
     record_onboarding_event(
         org_id=org_id,
         user_id=user_id,
         event_name="agency_profile_saved",
-        payload={"profile_id": profile["id"]},
+        payload={"profile_id": profile["id"], "business_type": business_type},
     )
 
     status = get_onboarding_status(org_id)

@@ -33,6 +33,36 @@ export type DashboardHome = {
   unread_count: number;
   whatsapp: { configured: boolean; status: string; phone?: string | null };
   pilot: PilotHome;
+  parcel_freight: ParcelFreightHome;
+  network: { available: boolean; name?: string | null; offices: number; countries: number };
+};
+
+export type ParcelFreightHome = {
+  stats: {
+    received: number;
+    shipped: number;
+    in_transit: number;
+    delivered: number;
+    waiting: number;
+  };
+  destinations: Array<{
+    destination: string;
+    total: number;
+    delivered: number;
+    delivery_rate: number;
+  }>;
+  recent_packages: Array<{
+    id: string;
+    reference: string;
+    client_name: string;
+    destination: string;
+    status: string;
+    updated_at: string;
+    href: string;
+    office_name?: string;
+  }>;
+  scope?: "office" | "network";
+  visible_office_ids?: string[];
 };
 
 export type PilotHomeStats = {
@@ -101,10 +131,11 @@ export type HomeSearchResult = {
   href: string;
 };
 
-export async function getDashboardHome(token?: string | null) {
+export async function getDashboardHome(token?: string | null, scope: "office" | "network" = "office") {
   return (await api.get<DashboardHome>("/dashboard/home", token ? {
     headers: { Authorization: `Bearer ${token}` },
-  } : undefined)).data;
+    params: { scope },
+  } : { params: { scope } })).data;
 }
 
 export async function updateHomeResource(key: string, body: { is_starred?: boolean; opened?: boolean }) {

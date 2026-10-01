@@ -1,5 +1,6 @@
 export const PRODUCT_PROFILES = {
   PILOT_V1: "PILOT_V1",
+  PARCEL_FREIGHT: "PARCEL_FREIGHT",
   CARGO_OS: "CARGO_OS",
 } as const;
 
@@ -36,6 +37,24 @@ export function getProductProfile(): ProductProfile {
 
 export function isPilotV1() {
   return getProductProfile() === PRODUCT_PROFILES.PILOT_V1;
+}
+
+/**
+ * Resolve the product surface for the active agency. Existing organizations
+ * keep the vehicle-import experience; only an explicit onboarding choice can
+ * enable the parcel and freight surface.
+ */
+export function getOrganizationProductProfile(
+  organizationType?: string | null,
+): ProductProfile {
+  const normalized = organizationType?.trim().toUpperCase();
+  if (normalized === PRODUCT_PROFILES.PARCEL_FREIGHT) return PRODUCT_PROFILES.PARCEL_FREIGHT;
+  if (normalized === "VEHICLE_IMPORT") return PRODUCT_PROFILES.PILOT_V1;
+  return getProductProfile();
+}
+
+export function usesCompactAgencyShell(profile: ProductProfile) {
+  return profile !== PRODUCT_PROFILES.CARGO_OS;
 }
 
 export function isPilotVisiblePath(pathname: string) {

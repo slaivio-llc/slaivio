@@ -29,6 +29,10 @@ export type NotificationChannel = "whatsapp" | "email" | "sms" | "internal";
 export type PackageRecord = {
   id: string;
   org_id: string;
+  destination_org_id?: string | null;
+  origin_location_id?: string | null;
+  destination_location_id?: string | null;
+  office_role?: "ORIGIN" | "DESTINATION";
   client_id: string | null;
   dossier_id: string | null;
   shipment_id: string | null;
@@ -205,7 +209,8 @@ export type PackageStats = {
 };
 
 export type PackagePayload = {
-  dossier_id: string;
+  dossier_id?: string | null;
+  client_id?: string | null;
   package_reference?: string | null;
   tracking_id?: string | null;
   source?: PackageSource;
@@ -256,6 +261,7 @@ export type PackagePayload = {
   supplier_tracking?:string|null;shipping_mark?:string|null;order_number?:string|null;external_reference?:string|null;
   subcategory?:string|null;goods_classification?:string|null;declared_weight_kg?:number|null;receiving_mode?:string|null;
   route_id?:string|null;shipping_service_id?:string|null;expected_at?:string|null;
+  origin_location_id?:string|null;destination_location_id?:string|null;destination_org_id?:string|null;created_from_conversation?:string|null;
   label_ocr_snapshot?:Record<string,unknown>;label_source_language?:string|null;label_translation_language?:string|null;
 };
 

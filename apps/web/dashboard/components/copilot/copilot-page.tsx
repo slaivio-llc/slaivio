@@ -18,7 +18,6 @@ import { listClients, type ClientRecord } from "@/services/clients";
 
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationTab } from "@/components/ui/operation-controls";
 import {
   approveCopilotWorkflow,
   getCopilotEscalations,
@@ -190,12 +189,7 @@ export function CopilotPage() {
       <OperationPageHeader
         title="Assistant Slaivio"
         description="Interrogez les données de l’agence, préparez une opération et gardez le contrôle avant toute action sensible."
-        tabs={<>
-          <OperationTab active={tab === "conversation"} onClick={() => setTab("conversation")}>Conversation</OperationTab>
-          <OperationTab active={tab === "capabilities"} onClick={() => setTab("capabilities")}>Ce que je peux faire</OperationTab>
-          <OperationTab active={tab === "actions"} onClick={() => setTab("actions")} count={workflows.length}>Actions à valider</OperationTab>
-          <OperationTab active={tab === "escalations"} onClick={() => setTab("escalations")} count={escalations.length}>Escalades</OperationTab>
-        </>}
+        actions={<select aria-label="Vue de l’assistant" className="h-9 rounded-[6px] border border-[#d5dade] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]" value={tab} onChange={(event) => setTab(event.target.value as typeof tab)}><option value="conversation">Conversation</option><option value="capabilities">Ce que je peux faire</option><option value="actions">Actions à valider ({workflows.length})</option><option value="escalations">Escalades ({escalations.length})</option></select>}
       />
 
       {error && <div className="mx-5 mt-4 flex items-center border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700"><ShieldAlert size={15} className="mr-2" />{error}<button className="ml-auto" onClick={() => setError("")} aria-label="Fermer"><X size={14} /></button></div>}

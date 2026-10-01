@@ -678,6 +678,20 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 .slaivio-pilot .pilot-settings-content {
   display: grid;
   min-width: 0;
+  row-gap: 28px;
+}
+
+.slaivio-pilot .knowledge-embedded [data-ui="operation-metrics"] > div,
+.slaivio-pilot .knowledge-embedded [data-ui="operation-toolbar"] > div {
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.slaivio-pilot .knowledge-embedded [data-ui="operation-content"] {
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 @media (min-width: 1024px) {
@@ -720,11 +734,6 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   background: var(--pilot-primary-soft);
   color: #075d38;
   font-weight: var(--sl-weight-semibold);
-}
-
-.slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
-  min-height: 76px;
-  padding-block: 16px;
 }
 
 .slaivio-pilot [data-ui="operation-page-header"] h1 {
@@ -792,8 +801,8 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 }
 
 .slaivio-pilot [data-ui="operation-search"]:focus-within {
-  border-color: var(--pilot-primary);
-  box-shadow: 0 0 0 3px rgba(8, 122, 70, 0.1);
+  border-color: #9fa8b1;
+  box-shadow: none;
 }
 
 .slaivio-pilot [data-ui="operation-table"] table thead {
@@ -813,9 +822,21 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   border-color: var(--pilot-border-subtle);
 }
 
-.slaivio-pilot :is(button, a, input, select, textarea, summary):focus-visible {
+.slaivio-pilot :is(button, a, summary):focus-visible {
   outline: 2px solid var(--sl-color-focus);
   outline-offset: 2px;
+}
+
+.slaivio-pilot :is(input, select, textarea):focus-visible {
+  outline: none;
+}
+
+.slaivio-operations :is(input, select, textarea):focus,
+.slaivio-operations :is(input, select, textarea):focus-visible,
+.slaivio-operations [data-ui="operation-search"]:focus-within {
+  outline: none !important;
+  border-color: #9fa8b1 !important;
+  box-shadow: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -855,11 +876,6 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 }
 
 @media (max-width: 640px) {
-  .slaivio-pilot [data-ui="operation-page-header"] > div:first-child {
-    min-height: 0;
-    padding-block: 14px;
-  }
-
   .slaivio-pilot [data-ui="operation-toolbar"] {
     padding-block: 10px;
   }
@@ -1033,6 +1049,50 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   min-height: 44px;
   align-items: flex-end;
   gap: 0.25rem;
+}
+
+/* Page views use one compact selector instead of permanent tab rows. */
+.operation-view-options > [data-ui="operation-tab"] {
+  min-height: 36px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  font-size: 13px;
+}
+
+.operation-view-options > [data-ui="operation-tab"][aria-current="page"] {
+  background: #edf8f2;
+  color: #087a46;
+}
+
+.operation-view-options > [data-ui="operation-tab"]:not([aria-current="page"]):hover {
+  background: #f3f5f5;
+}
+
+.operation-view-options > div {
+  width: 100%;
+}
+
+.operation-view-options > div > button {
+  width: 100%;
+  justify-content: space-between;
+}
+
+/* Refresh is a universal compact action in operational surfaces. */
+.slaivio-operations button:has(svg.lucide-refresh-ccw),
+.slaivio-operations button:has(svg.lucide-rotate-cw) {
+  width: 36px;
+  min-width: 36px;
+  padding-inline: 0;
+  font-size: 0 !important;
+  gap: 0;
+}
+
+.slaivio-operations button:has(svg.lucide-refresh-ccw) svg,
+.slaivio-operations button:has(svg.lucide-rotate-cw) svg {
+  margin: 0 !important;
 }
 
 .operation-actions > button,
@@ -1269,8 +1329,23 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
 .slaivio-operations form :is(input, select, textarea):focus,
 .operation-form-surface :is(input, select, textarea):focus {
-  border-color: var(--form-control-focus) !important;
-  box-shadow: 0 0 0 3px rgba(18, 168, 101, 0.12);
+  border-color: var(--form-control-border-hover) !important;
+  box-shadow: none;
+}
+
+/* Standalone data surfaces follow the same 1200px content rail as titles,
+   KPI separators and toolbars. Tables already inside OperationContent keep
+   the width supplied by their parent and are not padded twice. */
+.slaivio-operations [data-ui="operation-table"]:not([data-ui="operation-content"] [data-ui="operation-table"]) {
+  width: calc(100% - 3rem);
+  max-width: 1136px;
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .slaivio-operations [data-ui="operation-table"]:not([data-ui="operation-content"] [data-ui="operation-table"]) {
+    width: calc(100% - 4rem);
+  }
 }
 
 .slaivio-operations form :is(input, textarea)::placeholder,
@@ -1334,4 +1409,17 @@ html[data-theme="dark"] .operation-form-surface :is(input, select, textarea) {
   background-color: #12191f !important;
   border-color: #3b464f !important;
   color: #edf1f3 !important;
+}
+@keyframes slaivio-logo-breathe {
+  0%, 100% { transform: translateY(0) scale(0.96); opacity: 0.72; }
+  50% { transform: translateY(-6px) scale(1.04); opacity: 1; }
+}
+
+.slaivio-logo-loader {
+  animation: slaivio-logo-breathe 1.15s cubic-bezier(.4, 0, .2, 1) infinite;
+  filter: drop-shadow(0 10px 16px rgba(18, 199, 111, .14));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slaivio-logo-loader { animation: none; }
 }

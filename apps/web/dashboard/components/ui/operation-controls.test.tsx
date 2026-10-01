@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   OperationButton,
+  OperationBackLink,
   OperationActionMenu,
   OperationField,
   OperationFilterPopover,
@@ -14,6 +15,15 @@ import {
 } from "./operation-controls";
 
 describe("operational design primitives", () => {
+  it("keeps one compact back control for genuine detail pages", () => {
+    render(<OperationBackLink href="/app/dossiers" label="Retour aux dossiers" />);
+
+    const link = screen.getByRole("link", { name: "Retour aux dossiers" });
+    expect(link).toHaveAttribute("href", "/app/dossiers");
+    expect(link.className).toContain("h-9");
+    expect(link.className).toContain("w-9");
+  });
+
   it("exposes accessible tabs and agency-friendly fields", () => {
     render(<>
       <OperationTab active count={12}>En entrepôt</OperationTab>
@@ -71,7 +81,7 @@ describe("operational design primitives", () => {
     expect(screen.getByRole("button", { name: "Voir les analytics" })).toBeInTheDocument();
   });
 
-  it("opens the shared filter panel and exposes reset and apply actions", () => {
+  it("opens the compact shared filter panel and resets active criteria", () => {
     const reset = vi.fn();
     render(
       <OperationFilterPopover activeCount={2} onReset={reset} title="Filtrer les colis">
@@ -81,12 +91,11 @@ describe("operational design primitives", () => {
       </OperationFilterPopover>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Filtres 2/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Filtres.*2/i }));
     expect(screen.getByRole("dialog", { name: "Filtrer les colis" })).toBeInTheDocument();
-    expect(screen.getByText("2 critères actifs")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Réinitialiser" }));
+    expect(screen.queryByText("2 critères actifs")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Afficher les résultats" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Effacer les filtres" }));
     expect(reset).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "Afficher les résultats" }));
-    expect(screen.queryByRole("dialog", { name: "Filtrer les colis" })).not.toBeInTheDocument();
   });
 });

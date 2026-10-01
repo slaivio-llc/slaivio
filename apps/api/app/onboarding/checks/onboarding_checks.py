@@ -22,7 +22,12 @@ def evaluate_onboarding(org_id: str):
 
     profile = get_agency_profile(org_id)
 
-    if profile and profile.get("brand_name") and profile.get("country"):
+    if (
+        profile
+        and profile.get("brand_name")
+        and profile.get("country")
+        and profile.get("business_type") in {"VEHICLE_IMPORT", "PARCEL_FREIGHT"}
+    ):
         completed.append("AGENCY_PROFILE")
     else:
         missing.append("AGENCY_PROFILE")

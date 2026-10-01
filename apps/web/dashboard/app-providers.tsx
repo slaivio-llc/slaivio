@@ -60,5 +60,13 @@ function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
     };
   }, [getToken, isLoaded, isSignedIn]);
 
+  // Return children directly during SSR to avoid Clerk errors
+  if (typeof window === 'undefined') {
+    return <>{children}</>;
+  }
+
+  if (!ready) {
+    return <SlaivioLogoLoader label="Préparation de votre espace SLAIVIO" />;
+  }
   return <PilotOfflineProvider scopeKey={`${userId || "account"}:${orgId || "personal"}`}>{children}</PilotOfflineProvider>;
 }

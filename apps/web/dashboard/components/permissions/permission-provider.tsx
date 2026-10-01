@@ -63,6 +63,15 @@ export function usePermissions() {
   const context = useContext(PermissionContext);
 
   if (!context) {
+    // Return default context for SSR to prevent build errors
+    if (typeof window === 'undefined') {
+      return {
+        permissions: [],
+        loading: true,
+        available: false,
+        reload: async () => {},
+      };
+    }
     throw new Error("PermissionProvider missing");
   }
 

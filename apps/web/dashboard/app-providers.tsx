@@ -60,8 +60,5 @@ function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
     };
   }, [getToken, isLoaded, isSignedIn]);
 
-  if (!ready) {
-    return <SlaivioLogoLoader label="Préparation de votre espace SLAIVIO" />;
-  }
   return <PilotOfflineProvider scopeKey={`${userId || "account"}:${orgId || "personal"}`}>{children}</PilotOfflineProvider>;
 }

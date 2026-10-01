@@ -1,5 +1,7 @@
 import { StepRedirectCard } from "@/components/onboarding/StepRedirectCard";
 
+export const dynamic = 'force-dynamic';
+
 export default function WarehousesOnboardingStep() {
   return (
     <StepRedirectCard

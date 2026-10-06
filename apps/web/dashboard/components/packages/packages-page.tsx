@@ -1,5 +1,7 @@
 "use client";
 
+import { useResourceLink } from "@/components/ui/use-resource-link";
+
 import axios from "axios";
 import Image from "next/image";
 import {
@@ -333,6 +335,7 @@ export function PackagesPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [error, setError] = useState("");
+  const closeResourceLink = useResourceLink(getPackage, record => { setSelected(record); setActiveTab("summary"); }, setError);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<PackageFormMode>("create");
   const [formPackage, setFormPackage] = useState<PackageRecord | null>(null);
@@ -899,7 +902,7 @@ export function PackagesPage() {
           onTabChange={setActiveTab}
           timeline={timeline}
           timelineLoading={timelineLoading}
-          onClose={() => setSelected(null)}
+          onClose={() => { setSelected(null); closeResourceLink(); }}
           onEdit={() => openEdit(selected)}
           onUpdated={setSelected}
         />

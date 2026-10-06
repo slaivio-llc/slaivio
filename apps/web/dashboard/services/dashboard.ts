@@ -124,7 +124,7 @@ export type HomeAttentionItem = {
 };
 
 export type HomeSearchResult = {
-  kind: "client" | "shipment" | "dossier";
+  kind: "client" | "package" | "shipment" | "dossier" | "invoice";
   id: string;
   title: string;
   subtitle: string;

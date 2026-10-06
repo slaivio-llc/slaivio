@@ -43,6 +43,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
 
+import { WorkspaceSearch } from "@/components/layout/workspace-search";
+import { CargoAccountMenu } from "@/components/layout/cargo-account-menu";
 import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
 import { canAccessRoute, getAppNavigation, type AppRoute } from "@/config/app-navigation";
 import { getOrganizationProductProfile, getProductProfile, isPilotV1, usesCompactAgencyShell } from "@/config/product-profile";
@@ -71,6 +73,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [productProfile, setProductProfile] = useState(getProductProfile);
   const [workspaceKind,setWorkspaceKind]=useState("OFFICE");
   const pilot = usesCompactAgencyShell(productProfile);
+  const cargo = productProfile === "PARCEL_FREIGHT";
   const appNavigation = useMemo(() => getAppNavigation(productProfile, workspaceKind), [productProfile,workspaceKind]);
   const searchableAppRoutes = useMemo(() => appNavigation.flatMap((group) => group.routes), [appNavigation]);
   const pathname = usePathname();
@@ -164,7 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
-      if (!pilot && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      if ((!pilot || cargo) && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setSearchOpen(true);
         requestAnimationFrame(() => searchRef.current?.focus());
@@ -177,7 +180,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     window.addEventListener("keydown", onShortcut);
     return () => window.removeEventListener("keydown", onShortcut);
-  }, [pilot]);
+  }, [pilot, cargo]);
 
   useEffect(() => {
     const onSessionExpired = () => setSessionExpired(true);
@@ -293,7 +296,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </>}
         </nav>
 
-        {pilot && <div className="mt-auto flex shrink-0 items-center px-3 pb-3 lg:grid lg:px-0 lg:pb-0">
+        {cargo && permissionsAvailable && permissions.includes("organization.read") && <div className="mt-auto shrink-0 pb-3"><PilotRailButton label={dashboardLabel(locale, "Paramètres")} icon={<Settings size={19}/>} onClick={() => router.push("/app/settings")} active={pathname === "/app/settings"}/></div>}
+        {pilot && !cargo && <div className="mt-auto flex shrink-0 items-center px-3 pb-3 lg:grid lg:px-0 lg:pb-0">
           <PilotRailButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={19} />} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />
           <AccountTrigger onClick={() => togglePanel("account")} rail />
         </div>}
@@ -324,31 +328,37 @@ export function AppShell({ children }: { children: ReactNode }) {
             <kbd className="rounded border border-[#d8dade] bg-white px-1.5 py-0.5 text-[10px] text-[#737981]">Ctrl K</kbd>
           </button>}
 
+          {cargo && <button type="button" onClick={() => setSearchOpen(true)} aria-label={locale === "en" ? "Search Slaivio" : "Rechercher dans Slaivio"} className="mr-2 flex h-9 min-w-9 items-center gap-2 rounded-md border border-[#d7dade] bg-white px-2 text-sm text-[#656c74] hover:bg-[#f8faf9] sm:w-[min(360px,28vw)] sm:px-3"><Search size={16}/><span className="hidden min-w-0 flex-1 truncate text-left sm:block">{locale === "en" ? "Search Slaivio…" : "Rechercher dans Slaivio…"}</span><kbd className="hidden text-[10px] lg:block">Ctrl K</kbd></button>}
           <div className="ml-auto flex items-center gap-1.5">
-            {pilot && <OrganizationSwitcher header menuPlacement="down" />}
-            {pilot && <PilotReadinessPanel compact />}
+            {pilot && <div className={cargo ? "hidden sm:block" : ""}><OrganizationSwitcher header menuPlacement="down" /></div>}
+            {pilot && !cargo && <PilotReadinessPanel compact />}
             {!pilot && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {!pilot && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => togglePanel("help")} active={floatingPanel === "help"} showLabel />}
-            <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />
+            {!cargo && <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />}
             {!pilot && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={16} />} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />}
             {!pilot && <AccountTrigger onClick={() => togglePanel("account")} />}
+            {cargo && <HeaderButton label={locale === "en" ? "Help" : "Aide"} icon={<CircleHelp size={16}/>} onClick={() => { setFloatingPanel(null); setSupportView("topics"); }} />}
+            {cargo && permissionsAvailable && permissions.includes("notifications.read") && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={16}/>} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"}/>}
+            {cargo && <AccountTrigger onClick={() => togglePanel("account")} />}
           </div>
         </header>
 
         {floatingPanel && <button aria-label="Fermer le menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setFloatingPanel(null)} />}
         {floatingPanel === "help" && <div className="fixed right-[82px] top-[52px] z-50"><HelpMenu close={() => setFloatingPanel(null)} /></div>}
-        {floatingPanel === "notifications" && <div className={`fixed z-50 ${pilot ? "bottom-[70px] left-3 lg:left-[96px]" : "right-[48px] top-[52px]"}`}><NotificationsMenu pilot={pilot} close={() => setFloatingPanel(null)} /></div>}
+        {floatingPanel === "notifications" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-[70px] left-3 lg:left-[96px]" : "right-[48px] top-[52px]"}`}><NotificationsMenu pilot={pilot && !cargo} close={() => setFloatingPanel(null)} /></div>}
         {floatingPanel === "language" && <div className="fixed right-[82px] top-[52px] z-50"><LanguageMenu close={() => setFloatingPanel(null)}/></div>}
-        {floatingPanel === "account" && <div className={`fixed z-50 ${pilot ? "bottom-3 left-3 lg:left-[96px]" : "right-3 top-[52px]"}`}><AccountMenu close={() => setFloatingPanel(null)} openSupport={() => { setFloatingPanel(null); setSupportView("topics"); }} /></div>}
+        {floatingPanel === "account" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-3 left-3 lg:left-[96px]" : "right-3 top-[52px]"}`}>{cargo && clerkEnabled ? <CargoAccountMenu locale={locale} close={() => setFloatingPanel(null)} preferences={() => setFloatingPanel("language")}/> : <AccountMenu close={() => setFloatingPanel(null)} openSupport={() => { setFloatingPanel(null); setSupportView("topics"); }} />}</div>}
 
         {supportView && <SupportDialog locale={locale} view={supportView} setView={setSupportView} close={() => setSupportView(null)} />}
 
+        {cargo && <div className="border-b bg-white px-3 py-2 sm:hidden"><OrganizationSwitcher header menuPlacement="down" /></div>}
         {pilot && <PilotOfflineIndicator />}
         <main className="slaivio-operations min-h-0 min-w-0 flex-1 overflow-y-auto bg-white">
           {pilot ? <div className="min-h-full w-full bg-white">{children}</div> : children}
         </main>
       </section>
 
+      {cargo && searchOpen && <WorkspaceSearch locale={locale} close={() => setSearchOpen(false)}/>}
       {!pilot && searchOpen && (
         <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/25 px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Recherche Slaivio" onMouseDown={(event) => { if (event.currentTarget === event.target) setSearchOpen(false); }}>
           <div className="w-full max-w-xl overflow-hidden rounded-[8px] border border-[#cfd2d5] bg-white shadow-2xl">
@@ -424,7 +434,7 @@ function pilotRouteLabel(locale: "fr" | "en", fallback: string, href: string) {
   return labels[href]?.[locale] || dashboardLabel(locale, fallback, href);
 }
 
-function HeaderButton({ label, icon, onClick, active, showLabel = false }: { label: string; icon: ReactNode; onClick: () => void; active: boolean; showLabel?: boolean }) {
+function HeaderButton({ label, icon, onClick, active = false, showLabel = false }: { label: string; icon: ReactNode; onClick: () => void; active?: boolean; showLabel?: boolean }) {
   return (
     <button type="button" onClick={onClick} aria-label={label} aria-expanded={active} className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-[5px] px-2 text-[13px] ${active ? "bg-[#eceeef]" : "hover:bg-[#f0f1f1]"}`}>
       {icon}{showLabel && <span className="hidden sm:inline">{label}</span>}

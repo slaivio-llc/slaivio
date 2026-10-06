@@ -532,28 +532,6 @@ def update_resource_preference(org_id: str, user_id: str, resource_key: str, *, 
     return _safe(dict(row._mapping)) if row else None
 
 
-def search_home(org_id: str, query: str, limit: int = 12) -> list[dict]:
-    query = query.strip()
-    if len(query) < 2:
-        return []
-    with engine.connect() as conn:
-        return _rows(conn, """
-            select * from (
-                select 'client' kind, c.id::text id, coalesce(c.name, c.phone, 'Client') title,
-                       coalesce(c.phone, '') subtitle, '/app/clients' href, c.created_at
-                from clients c where c.org_id = :org_id and
-                  (coalesce(c.name, '') ilike :query or coalesce(c.phone, '') ilike :query or coalesce(c.email, '') ilike :query)
-                union all
-                select 'shipment', s.id::text, coalesce(s.tracking_id, 'Expédition'),
-                       concat_ws(' → ', s.origin_city, s.destination_city), '/app/shipments', s.created_at
-                from shipments s where s.org_id = :org_id and coalesce(s.tracking_id, '') ilike :query
-                union all
-                select 'dossier', d.id::text, coalesce(d.tracking_id, d.id::text),
-                       coalesce(d.status_global, ''), '/app/dossiers', d.created_at
-                from dossiers d where d.org_id = :org_id and
-                  (coalesce(d.tracking_id, '') ilike :query or d.id::text ilike :query)
-            ) results order by created_at desc limit :limit
-        """, {"org_id": org_id, "query": f"%{query}%", "limit": limit})
 
 
 def mark_all_notifications_read(org_id: str) -> int:

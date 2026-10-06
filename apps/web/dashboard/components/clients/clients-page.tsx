@@ -1,5 +1,7 @@
 "use client";
 
+import { useResourceLink } from "@/components/ui/use-resource-link";
+
 import axios from "axios";
 import {
   AlertCircle,
@@ -197,6 +199,7 @@ export function ClientsPage() {
     null,
   );
   const [error, setError] = useState("");
+  const closeResourceLink = useResourceLink(getClient, record => { setSelected(record); setActiveTab("summary"); }, setError);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<ClientFormMode>("create");
   const [formClient, setFormClient] = useState<ClientRecord | null>(null);
@@ -719,7 +722,7 @@ export function ClientsPage() {
           duplicatesLoading={duplicatesLoading}
           mergingDuplicateId={mergingDuplicateId}
           onMergeDuplicate={mergeDuplicate}
-          onClose={() => setSelected(null)}
+          onClose={() => { setSelected(null); closeResourceLink(); }}
           onEdit={() => openEdit(selected)}
           archived={Boolean(currentView.archived)}
           onArchive={archiveSelectedClient}

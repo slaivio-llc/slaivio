@@ -1,4 +1,5 @@
 "use client";
+import { useResourceLink } from "@/components/ui/use-resource-link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -69,6 +70,7 @@ export function FinancePage() {
     [error, setError] = useState(""),
     [create, setCreate] = useState(false),
     [selected, setSelected] = useState<FinanceDocument | null>(null);
+  const closeResourceLink = useResourceLink(getFinance, setSelected, setError);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -221,7 +223,7 @@ export function FinancePage() {
       {selected && (
         <Detail
           item={selected}
-          close={() => setSelected(null)}
+          close={() => { setSelected(null); closeResourceLink(); }}
           reload={async () => {
             setSelected(await getFinance(selected.id));
             load();

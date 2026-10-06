@@ -6,10 +6,12 @@ from app.dashboard.repository import get_dashboard_overview
 from app.dashboard.home_repository import (
     get_home,
     mark_all_notifications_read,
-    search_home,
     update_resource_preference,
 )
 from app.tenant.services.tenant_service import get_tenant_context
+from app.core.tenant_context import get_current_tenant
+from app.permissions.services.permission_service import list_permissions_for_user
+from app.dashboard.search_repository import search_home
 
 
 router = APIRouter()
@@ -84,11 +86,9 @@ def patch_home_resource(resource_key: str, body: ResourcePreferenceBody, manager
 
 
 @router.get("/dashboard/home/search")
-def dashboard_home_search(q: str = Query(min_length=2, max_length=100), manager=Depends(get_current_manager)):
-    tenant = _resolve_active_tenant(manager)
-    if not tenant.get("org_id"):
-        return {"status": "ok", "results": []}
-    return {"status": "ok", "results": search_home(tenant["org_id"], q)}
+def dashboard_home_search(q: str = Query(min_length=2, max_length=100), tenant=Depends(get_current_tenant)):
+    permissions = list_permissions_for_user(user_id=tenant['user_id'], org_id=tenant['org_id'])
+    return {"status": "ok", "results": search_home(tenant["org_id"], q, permissions)}
 
 
 @router.patch("/dashboard/home/notifications/read-all")

@@ -15,7 +15,7 @@ export function ClerkAuthPanel({ mode }: { mode: "sign-in" | "sign-up" }) {
         <p className="font-semibold">Authentification indisponible.</p>
         <p className="mt-2">
           La variable <span className="font-mono">NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</span> est absente du service frontend.
-          Ajoutez-la dans Railway puis redéployez l’application.
+          Ajoutez-la dans les variables d’environnement du frontend sur Vercel puis redéployez l’application.
         </p>
       </div>
     );

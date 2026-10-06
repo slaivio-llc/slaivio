@@ -2,6 +2,7 @@
 
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ReactNode, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { EntitlementProvider } from "@/components/entitlements/entitlement-provider";
 import { FeatureProvider } from "@/components/features/feature-provider";
@@ -18,6 +19,12 @@ export function AppProviders({
   children: ReactNode;
 }) {
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const pathname = usePathname();
+  // Marketing pages must never wait for a session or call private APIs.
+  // Keep authentication mounted only where it is actually used.
+  if (pathname === "/" || pathname === "/landing" || /^\/(fr|en)(\/|$)/.test(pathname)) {
+    return <>{children}</>;
+  }
   const content = (
     <PermissionProvider>
       <FeatureProvider>
@@ -38,13 +45,15 @@ export function AppProviders({
 }
 
 function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
-  // SSR: return children directly, no Clerk hooks during server render
-  if (typeof window === 'undefined') {
-    return <>{children}</>;
-  }
-
   const { getToken, isLoaded, isSignedIn, userId, orgId } = useAuth();
   const [ready, setReady] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (ready) { setTimedOut(false); return; }
+    const timer = window.setTimeout(() => setTimedOut(true), 15000);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -66,6 +75,14 @@ function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
   }, [getToken, isLoaded, isSignedIn]);
 
   if (!ready) {
+    if (timedOut) {
+      return <main role="alert" className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 px-6 text-sm">
+        <h1 className="text-xl font-semibold">Connexion temporairement indisponible</h1>
+        <p>Le service d’authentification ne répond pas. Réessayez dans quelques instants.</p>
+        <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-[#16855f] px-4 py-2 text-white">Réessayer</button>
+        <a href="/fr" className="text-center text-[#16855f]">Retour à l’accueil</a>
+      </main>;
+    }
     return <SlaivioLogoLoader label="Préparation de votre espace SLAIVIO" />;
   }
   return <PilotOfflineProvider scopeKey={`${userId || "account"}:${orgId || "personal"}`}>{children}</PilotOfflineProvider>;

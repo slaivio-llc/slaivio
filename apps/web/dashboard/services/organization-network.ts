@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 
 export type NetworkOffice = {
+  workspace_kind?: "OFFICE" | "WAREHOUSE";
   org_id: string;
   organization_name: string;
   organization_code?: string | null;
@@ -45,6 +46,7 @@ export async function setupOrganizationNetwork(body: {
 }
 
 export async function createNetworkOffice(body: {
+  workspace_kind?: "OFFICE" | "WAREHOUSE";
   organization_name: string; office_code: string; country: string; country_code: string; city: string;
   currency_code: string; timezone: string; address?: string | null;
   phone?: string | null; email?: string | null;

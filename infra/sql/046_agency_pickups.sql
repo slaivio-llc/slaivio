@@ -12,7 +12,7 @@ select o.id,v.code,v.name,v.description,true from organizations o cross join(val
 ) v(code,name,description) on conflict(org_id,role_code) do nothing;
 
 insert into role_permissions(role_id,permission_id)
-select r.id,p.id from organization_roles r join permissions p on
+select r.id,p.id from organization_roles r join permissions p on 
  (r.role_code in ('OWNER','MANAGER') and p.permission_code like 'pickups.%') or
  (r.role_code='COUNTER_AGENT' and p.permission_code in ('pickups.read','pickups.create','pickups.notify','pickups.verify','pickups.release','pickups.export')) or
  (r.role_code='CASHIER' and p.permission_code in ('pickups.read','pickups.verify','pickups.export')) or

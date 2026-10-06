@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -21,6 +23,7 @@ class NetworkSetup(BaseModel):
 
 
 class OfficeCreate(BaseModel):
+    workspace_kind: Literal['OFFICE', 'WAREHOUSE'] = 'OFFICE'
     organization_name: str = Field(min_length=2, max_length=120)
     office_code: str = Field(pattern=r"^[A-Za-z0-9_-]{2,30}$")
     country: str = Field(min_length=2, max_length=80)

@@ -573,9 +573,9 @@ export function PackagesPage() {
         form.get("validation_status") || "PENDING",
       ) as PackageValidationStatus,
       source: String(form.get("source") || "manual") as PackageSource,
-      package_type: String(form.get("package_type") || "carton") as PackageType,
+      package_type: (Object.keys(packageTypeLabels).includes(String(form.get("package_type") || "carton").trim().toLocaleLowerCase("fr")) ? String(form.get("package_type") || "carton").trim().toLocaleLowerCase("fr") : "other") as PackageType,
       description: clean(form.get("description")),
-      category: clean(form.get("category")),
+      category: clean(form.get("category")) || (Object.keys(packageTypeLabels).includes(String(form.get("package_type") || "carton").trim().toLocaleLowerCase("fr")) ? null : clean(form.get("package_type"))),
       warehouse_name: clean(form.get("warehouse_name")),
       warehouse_zone: clean(form.get("warehouse_zone")),
       warehouse_rack: clean(form.get("warehouse_rack")),
@@ -1393,7 +1393,7 @@ function PackageDetails({
       open
       close={onClose}
       title={item.package_reference || item.tracking_id || "Colis"}
-      description={`${item.client_name || "Client"} · ${item.dossier_reference || "Dossier non lié"}`}
+      description={`${item.client_name || "Client"} · ${item.destination_city || item.destination_country || "Destination à préciser"}`}
       width="max-w-[840px]"
       tabsVariant="segmented"
       headerLeading={<PackageThumbnail item={item} />}
@@ -1733,7 +1733,7 @@ function MeasuresTab({ item }: { item: PackageRecord }) {
         <Field label="Dimensions" value={dimensionsLabel(item)} />
         <Field
           label="Type colis"
-          value={packageTypeLabels[item.package_type] || item.package_type}
+          value={item.package_type==="other" && item.category ? item.category.charAt(0).toLocaleUpperCase("fr")+item.category.slice(1).toLocaleLowerCase("fr") : packageTypeLabels[item.package_type] || item.package_type}
         />
         <Field label="Catégorie" value={item.category || "-"} />
         <Field
@@ -3326,6 +3326,11 @@ function ParcelPackageCreateDrawer({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const [clients,setClients]=useState<ClientRecord[]>([]);
+  const [referenceError,setReferenceError]=useState("");
+  const [clientQuery,setClientQuery]=useState("");
+  const [clientError,setClientError]=useState("");
+  const [clientLoading,setClientLoading]=useState(true);
+  const [selectedClientId,setSelectedClientId]=useState("");
   const [routes,setRoutes]=useState<Route[]>([]);
   const [services,setServices]=useState<Service[]>([]);
   const [country,setCountry]=useState("");
@@ -3334,11 +3339,22 @@ function ParcelPackageCreateDrawer({
   const [loading,setLoading]=useState(true);
   useEffect(()=>{
     let active=true;
-    Promise.all([listClients({page_size:200,sort:"name_asc"}),getRouteCatalog()])
-      .then(([clientResponse,catalog])=>{if(active){setClients(clientResponse.items);setRoutes(catalog.routes.filter(route=>route.active!==false));setServices(catalog.services);}})
+    getRouteCatalog()
+      .then(catalog=>{if(active){setRoutes(catalog.routes.filter(route=>route.active!==false));setServices(catalog.services);}})
+      .catch(()=>{if(active)setReferenceError("Impossible de charger les routes. Fermez puis rouvrez le formulaire pour réessayer.");})
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[]);
+  useEffect(()=>{
+    let active=true;
+    setClientLoading(true);
+    setClientError("");
+    const timer=setTimeout(()=>{listClients({q:clientQuery.trim(),page_size:100,sort:"name_asc"})
+      .then(response=>{if(active)setClients(response.items);})
+      .catch(()=>{if(active)setClientError("Recherche client indisponible. Modifiez la recherche pour réessayer.");})
+      .finally(()=>{if(active)setClientLoading(false);});},250);
+    return()=>{active=false;clearTimeout(timer);};
+  },[clientQuery]);
   const countries=useMemo(()=>Array.from(new Set(routes.map(route=>route.destination_country).filter(Boolean))).sort(),[routes]);
   const cities=useMemo(()=>Array.from(new Set(routes.filter(route=>route.destination_country===country).map(route=>route.destination_city).filter((value):value is string=>Boolean(value)))).sort(),[routes,country]);
   const eligibleRoutes=useMemo(()=>routes.filter(route=>route.destination_country===country&&(!city||route.destination_city===city)),[routes,country,city]);
@@ -3348,17 +3364,19 @@ function ParcelPackageCreateDrawer({
   const selectedRoute=routes.find(route=>route.id===selectedService?.route_id);
   useEffect(()=>{setCity("");setServiceId("");},[country]);
   useEffect(()=>{setServiceId("");},[city]);
-  return <OperationDrawer open close={onClose} title="Nouveau colis" description="Enregistrez le colis reçu. SLAIVIO génère automatiquement son identifiant de suivi." width="max-w-[620px]">
+  return <OperationDrawer open close={onClose} title="Nouveau colis" description="Enregistrez le colis reçu. SLAIVIO génère automatiquement son identifiant de suivi." width="max-w-3xl">
     <form onSubmit={onSubmit} className="grid gap-5">
+      {referenceError&&<p role="alert" className="text-sm text-red-700">{referenceError}</p>}
+      {clientError&&<p role="alert" className="text-sm text-red-700">{clientError}</p>}
       <FormSection title="Client et marchandise" description="Le client peut avoir été créé automatiquement depuis WhatsApp ou manuellement à l’agence.">
-        <label><FormLabel>Client associé</FormLabel><select name="client_id" required className={inputClass} disabled={loading}><option value="">{loading?"Chargement…":"Sélectionner un client"}</option>{clients.map(client=><option key={client.id} value={client.id}>{client.display_name||client.name||client.phone} · {client.phone||client.whatsapp_phone||"Sans téléphone"}</option>)}</select></label>
-        <SelectInput name="package_type" label="Type de colis" defaultValue="carton" options={packageTypeLabels}/>
+        <div><FormLabel>Client associé</FormLabel><input type="search" value={clientQuery} onChange={event=>{setClientQuery(event.target.value);setSelectedClientId("");}} placeholder="Rechercher par nom ou téléphone" aria-label="Rechercher un client" className={`${inputClass} mb-2`}/><select name="client_id" required value={selectedClientId} onChange={event=>setSelectedClientId(event.target.value)} aria-label="Client associé" className={inputClass} disabled={clientLoading}><option value="">{clientLoading?"Recherche…":clients.length?"Sélectionner un client":"Aucun client trouvé"}</option>{clients.map(client=><option key={client.id} value={client.id}>{client.display_name||client.name||client.phone} · {client.phone||client.whatsapp_phone||"Sans téléphone"}</option>)}</select></div>
+        <label><FormLabel>Type de colis</FormLabel><input name="package_type" required list="parcel-types" className={inputClass} placeholder="Choisir ou saisir un type" onBlur={event=>{const value=event.target.value.trim().toLocaleLowerCase("fr");event.target.value=value.charAt(0).toLocaleUpperCase("fr")+value.slice(1);}}/><datalist id="parcel-types">{Object.values(packageTypeLabels).map(label=><option key={label} value={label}/>)}</datalist></label>
         <TextInput name="weight_kg" label="Poids du colis (kg)" type="number" step="0.01" required/>
       </FormSection>
       <FormSection title="Destination et transport" description="Les choix proviennent exclusivement des routes et services actifs configurés par l’agence.">
         <label><FormLabel>Pays de destination</FormLabel><select name="destination_country" required value={country} onChange={event=>setCountry(event.target.value)} className={inputClass}><option value="">Sélectionner un pays</option>{countries.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
-        <label><FormLabel>Ville de destination</FormLabel><select name="destination_city" required value={city} onChange={event=>setCity(event.target.value)} disabled={!country} className={inputClass}><option value="">Sélectionner une ville</option>{cities.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
-        <label><FormLabel>Mode et service de transport</FormLabel><select name="shipping_service_id" required value={serviceId} onChange={event=>setServiceId(event.target.value)} disabled={!city} className={inputClass}><option value="">Sélectionner un service</option>{eligibleServices.map(service=><option key={service.id} value={service.id}>{service.service_name} · {service.shipping_mode} · {service.eta_min_days}–{service.eta_max_days} jours</option>)}</select></label>
+        <label><FormLabel>Ville de destination</FormLabel><select name="destination_city" required={cities.length>0} value={city} onChange={event=>setCity(event.target.value)} disabled={!country} className={inputClass}><option value="">Sélectionner une ville</option>{cities.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
+        <label><FormLabel>Mode et service de transport</FormLabel><select name="shipping_service_id" required value={serviceId} onChange={event=>setServiceId(event.target.value)} disabled={!country||(cities.length>0&&!city)} className={inputClass}><option value="">Sélectionner un service</option>{eligibleServices.map(service=><option key={service.id} value={service.id}>{service.service_name} · {service.shipping_mode} · {service.eta_min_days}–{service.eta_max_days} jours</option>)}</select></label>
         <input type="hidden" name="route_id" value={selectedRoute?.id||""}/><input type="hidden" name="shipping_mode" value={selectedService?.shipping_mode||""}/>
       </FormSection>
       <FormSection title="Réception à l’entrepôt">
@@ -3367,7 +3385,7 @@ function ParcelPackageCreateDrawer({
         <p className="rounded-[8px] bg-[#f3f7f5] px-3 py-2.5 text-[12px] leading-5 text-[#53645c]">L’identifiant public de suivi sera généré selon le format défini par l’agence. Le client recevra les notifications des étapes validées.</p>
       </FormSection>
       {error&&<div role="alert" className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
-      <div className="flex justify-end gap-2 border-t border-[#e1e5e8] pt-4"><OperationButton type="button" onClick={onClose}>Annuler</OperationButton><OperationButton type="submit" variant="primary" disabled={saving||loading}>{saving?"Enregistrement…":"Créer le colis"}</OperationButton></div>
+      <div className="flex justify-end gap-2 border-t border-[#e1e5e8] pt-4"><OperationButton type="button" onClick={onClose}>Annuler</OperationButton><OperationButton type="submit" variant="primary" disabled={saving||loading||clientLoading||Boolean(clientError)||Boolean(referenceError)||!selectedClientId||!serviceId}>{saving?"Enregistrement…":"Créer le colis"}</OperationButton></div>
     </form>
   </OperationDrawer>;
 }

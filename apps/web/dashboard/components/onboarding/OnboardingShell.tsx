@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Check, Clock3, LifeBuoy } from "lucide-react";
 
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
-import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
+
 import type { OnboardingExperienceState } from "@/services/onboarding-experience";
 
 const visibleSteps = ["AGENCY_PROFILE", "OPERATIONS", "WHATSAPP", "AI_KNOWLEDGE", "REVIEW"];
@@ -56,9 +56,9 @@ export function OnboardingShell({ children, state, currentStep }: {
             const selected = step.step_key === active;
             const canOpen = complete || selected;
             const label = journeyLabels[state.business_type]?.[step.step_key as keyof typeof journeyLabels.VEHICLE_IMPORT] || step.step_name;
-            const content = <><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-semibold ${skipped ? "border-[#cbd2d7] bg-[#f4f6f7] text-[#69747c]" : complete ? "border-[#19a463] bg-[#19a463] text-white" : selected ? "border-[#4f46e5] bg-[#4f46e5] text-white" : "border-[#d9dee2] bg-[#f6f7f8] text-[#68737c]"}`}>{skipped ? <Clock3 size={13}/> : complete ? <Check size={14}/> : index + 1}</span><span className={`ml-2 whitespace-nowrap text-[13px] font-medium ${selected ? "text-[#4338ca]" : complete ? "text-[#34414a]" : "text-[#7b858e]"}`}>{label}</span></>;
+            const content = <><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-semibold ${skipped ? "border-[#cbd2d7] bg-[#f4f6f7] text-[#69747c]" : complete ? "border-[#19a463] bg-[#19a463] text-white" : selected ? "border-[#087f4f] bg-[#087f4f] text-white" : "border-[#d9dee2] bg-[#f6f7f8] text-[#68737c]"}`}>{skipped ? <Clock3 size={13}/> : complete ? <Check size={14}/> : index + 1}</span><span className={`ml-2 whitespace-nowrap text-[13px] font-medium ${selected ? "text-[#087f4f]" : complete ? "text-[#34414a]" : "text-[#7b858e]"}`}>{label}</span></>;
             return <li key={step.step_key} className="flex items-center">
-              {canOpen ? <Link href={routes[step.step_key]} className="flex items-center rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-[#4f46e5]/20">{content}</Link> : <span className="flex items-center px-1 py-1">{content}</span>}
+              {canOpen ? <Link href={routes[step.step_key]} className="flex items-center rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-[#087f4f]/20">{content}</Link> : <span className="flex items-center px-1 py-1">{content}</span>}
               {index < steps.length - 1 && (
                 <span className={`mx-3 h-px w-8 ${complete ? "bg-[#42b983]" : "bg-[#dfe3e6]"}`}/>
               )}
@@ -72,7 +72,7 @@ export function OnboardingShell({ children, state, currentStep }: {
 }
 
 export function OnboardingHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
-  return <header className="mb-9"><p className="text-[12px] font-semibold uppercase tracking-[.12em] text-[#4f46e5]">{eyebrow}</p><h1 className="mt-2 text-[28px] font-semibold tracking-[-.025em] text-[#111827] sm:text-[34px]">{title}</h1><p className="mt-3 max-w-[680px] text-[14px] leading-6 text-[#68737d]">{description}</p></header>;
+  return <header className="mb-9"><p className="text-[12px] font-semibold uppercase tracking-[.12em] text-[#087f4f]">{eyebrow}</p><h1 className="mt-2 text-[28px] font-semibold tracking-[-.025em] text-[#111827] sm:text-[34px]">{title}</h1><p className="mt-3 max-w-[680px] text-[14px] leading-6 text-[#68737d]">{description}</p></header>;
 }
 
 export function OnboardingFooter({ backHref, children }: { backHref?: string; children: ReactNode }) {
@@ -80,13 +80,13 @@ export function OnboardingFooter({ backHref, children }: { backHref?: string; ch
 }
 
 export function OnboardingLoading() {
-  return <SlaivioLogoLoader label="Chargement de votre configuration" />;
+  return <main className="min-h-screen bg-white px-6 py-12"><p role="status" className="mx-auto max-w-[900px] text-sm text-[#68737d]">Chargement de cette étape…</p></main>;
 }
 
 export function OnboardingError({ message, retry }: { message: string; retry: () => void }) {
   return <main className="grid min-h-screen place-items-center bg-white px-5"><div className="max-w-md text-center"><SlaivioBrand/><h1 className="mt-7 text-[20px] font-semibold text-[#202a32]">Configuration indisponible</h1><p className="mt-2 text-[13px] leading-5 text-[#717c84]">{message}</p><button type="button" onClick={retry} className={`${onboardingPrimaryButtonClass} mt-6`}>Réessayer</button></div></main>;
 }
 
-export const onboardingInputClass = "h-11 w-full rounded-[7px] border border-[#d7dde1] bg-white px-3 text-[14px] text-[#26323a] outline-none transition placeholder:text-[#a0a8ae] focus:border-[#635bdf] focus:ring-2 focus:ring-[#635bdf]/10";
-export const onboardingPrimaryButtonClass = "inline-flex h-10 items-center justify-center rounded-[7px] bg-[#5548e7] px-5 text-[13px] font-semibold text-white transition hover:bg-[#493dd4] disabled:cursor-not-allowed disabled:opacity-50";
+export const onboardingInputClass = "h-11 w-full rounded-[7px] border border-[#d7dde1] bg-white px-3 text-[14px] text-[#26323a] outline-none transition placeholder:text-[#a0a8ae] focus:border-[#12a865] focus:ring-2 focus:ring-[#12a865]/10";
+export const onboardingPrimaryButtonClass = "inline-flex h-10 items-center justify-center rounded-[7px] bg-[#087f4f] px-5 text-[13px] font-semibold text-white transition hover:bg-[#06683f] disabled:cursor-not-allowed disabled:opacity-50";
 export const onboardingSkipButtonClass = "inline-flex h-10 items-center justify-center rounded-[7px] px-4 text-[13px] font-semibold text-[#68737c] transition hover:bg-[#f3f5f6] hover:text-[#303b43] disabled:cursor-not-allowed disabled:opacity-50";

@@ -39,6 +39,7 @@ def get_current_tenant(
         "actor_role": active.get("role_code") or manager.get("role"),
         "group_id": active.get("group_id"),
         "network_name": active.get("network_name"),
+        "workspace_kind": active.get("workspace_kind") or "OFFICE",
         "country": active.get("country"),
         "city": active.get("city"),
     }

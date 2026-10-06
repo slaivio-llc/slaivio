@@ -706,6 +706,7 @@ export function ClientsPage() {
 
       {selected && (
         <ClientDetails
+          parcelFreight={parcelFreight}
           client={selected}
           loading={detailLoading}
           activeTab={activeTab}
@@ -858,6 +859,7 @@ function ClientsTable({
 }
 
 function ClientDetails({
+  parcelFreight,
   client,
   loading,
   activeTab,
@@ -895,6 +897,7 @@ function ClientDetails({
   onArchive: () => void;
   onRestore: () => void;
   clientAction: "archive" | "restore" | null;
+  parcelFreight: boolean;
 }) {
   const tabs: Array<{ key: DetailTab; label: string }> = [
     { key: "summary", label: "Résumé" },
@@ -910,7 +913,7 @@ function ClientDetails({
     <OperationDrawer
       open
       close={onClose}
-      width="max-w-[560px]"
+      width="max-w-3xl"
       title={client.display_name || client.name || client.company_name || "Sans nom"}
       description={`Fiche client · ${typeLabels[client.customer_type]} · ${sourceLabels[client.source]}`}
       headerActions={
@@ -966,18 +969,19 @@ function ClientDetails({
       tabsVariant="segmented"
       tabs={
         <OperationDrawerTabs
-          items={tabs.map((tab) => ({
+          items={(parcelFreight ? tabs.filter(tab=>["summary","operations","messages","payments","history"].includes(tab.key)) : tabs).map((tab) => ({
             ...tab,
             count: tab.key === "duplicates" ? duplicates.length : undefined,
           }))}
           value={activeTab}
+          primaryCount={5}
           primaryKeys={["summary", "operations", "messages", "payments", "history"]}
           onChange={(value) => onTabChange(value as DetailTab)}
         />
       }
       bodyClassName={loading ? "opacity-60" : ""}
     >
-            {activeTab === "summary" && <SummaryTab client={client} />}
+            {activeTab === "summary" && <SummaryTab client={client} parcelFreight={parcelFreight} workspace={workspace} />}
             {activeTab === "operations" && <OperationsTab workspace={workspace} loading={workspaceLoading} />}
             {activeTab === "messages" && <MessagesTab workspace={workspace} loading={workspaceLoading} />}
             {activeTab === "payments" && <PaymentsTab workspace={workspace} loading={workspaceLoading} currency={client.preferred_currency} />}
@@ -998,7 +1002,11 @@ function ClientDetails({
   );
 }
 
-function SummaryTab({ client }: { client: ClientRecord }) {
+function SummaryTab({ client, parcelFreight, workspace }: { client: ClientRecord; parcelFreight: boolean; workspace: ClientWorkspace | null }) {
+  if(parcelFreight) return <div className="grid gap-6 sm:grid-cols-2">
+    <Section title="Client"><InfoRow icon={Phone} label="Téléphone · WhatsApp" value={client.phone || client.whatsapp_phone || "Non renseigné"}/><Field label="Type" value={typeLabels[client.customer_type]}/><Field label="Pays" value={client.country || "Non renseigné"}/><Field label="Ville" value={client.city || "Non renseignée"}/></Section>
+    <Section title="Activité"><div className="grid grid-cols-2 gap-3"><SmallMetric label="Colis" value={workspace?.summary.packages ?? 0}/><SmallMetric label="En cours" value={workspace?.summary.active_packages ?? 0}/></div><Field label="Statut" value={statusLabels[client.lifecycle_status] || client.lifecycle_status}/></Section>
+  </div>;
   return (
     <div className="space-y-5">
       <Section title="Coordonnées">

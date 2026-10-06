@@ -2,6 +2,8 @@
 
 import { ArrowLeft, ListFilter } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { getTenantContext } from "@/services/tenant";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -22,14 +24,19 @@ export function OperationPageHeader({
   backHref?: string;
   backLabel?: string;
 }) {
+  const pathname=usePathname();
+  const [parcel,setParcel]=useState(false);
+  useEffect(()=>{let active=true;getTenantContext().then(context=>{if(active)setParcel(context.active_tenant?.organization_type==="PARCEL_FREIGHT");}).catch(()=>undefined);return()=>{active=false;};},[]);
+  const parentHref = parcel && ["/app/packages","/app/departures","/app/shipments","/app/warehouses","/app/routes","/app/services"].includes(pathname) ? "/app/operations" : parcel && ["/app/inbox","/app/followups","/app/knowledge"].includes(pathname) ? "/app/communication" : undefined;
+  const resolvedBackHref=backHref || parentHref;
   return (
     <header data-ui="operation-page-header" className="operation-page-header bg-white">
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-10 lg:pt-12">
         <div className={`flex flex-col gap-3 pb-6 sm:pb-8 lg:flex-row lg:items-center lg:justify-between ${divider ? "border-b border-[#dfe1e3]" : ""}`}>
           <div className="flex min-w-0 items-start gap-3">
-            {backHref && (
+            {resolvedBackHref && (
               <Link
-                href={backHref}
+                href={resolvedBackHref}
                 aria-label={backLabel}
                 title={backLabel}
                 className="mt-0.5 inline-grid h-9 w-9 shrink-0 place-items-center rounded-[6px] border border-[#d8dadd] bg-white text-[#3f4851] shadow-[0_1px_1px_rgba(15,23,42,.03)] transition hover:bg-[#f7f7f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ed8bc]"

@@ -69,8 +69,9 @@ const utilityRoutes: readonly AppRoute[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const locale = useDashboardLocale();
   const [productProfile, setProductProfile] = useState(getProductProfile);
+  const [workspaceKind,setWorkspaceKind]=useState("OFFICE");
   const pilot = usesCompactAgencyShell(productProfile);
-  const appNavigation = useMemo(() => getAppNavigation(productProfile), [productProfile]);
+  const appNavigation = useMemo(() => getAppNavigation(productProfile, workspaceKind), [productProfile,workspaceKind]);
   const searchableAppRoutes = useMemo(() => appNavigation.flatMap((group) => group.routes), [appNavigation]);
   const pathname = usePathname();
   const router = useRouter();
@@ -91,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     let active = true;
     getTenantContext()
       .then((context) => {
-        if (active) setProductProfile(getOrganizationProductProfile(context.active_tenant?.organization_type));
+        if (active) {setProductProfile(getOrganizationProductProfile(context.active_tenant?.organization_type));setWorkspaceKind(context.active_tenant?.workspace_kind || "OFFICE");}
       })
       .catch(() => undefined);
     return () => { active = false; };

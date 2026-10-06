@@ -15,7 +15,7 @@ def list_user_tenants(
                     m.role_code,
                     coalesce(o.organization_name, o.name, o.id) as organization_name,
                     coalesce(o.organization_code, o.id) as organization_code,
-                    o.organization_type
+                    o.organization_type, o.agency_type as workspace_kind
                     ,o.status as organization_status,
                     o.group_id::text as group_id,
                     o.parent_org_id,
@@ -100,7 +100,7 @@ def get_active_tenant(
                     m.role_code,
                     coalesce(o.organization_name, o.name, o.id) as organization_name,
                     coalesce(o.organization_code, o.id) as organization_code,
-                    o.organization_type
+                    o.organization_type, o.agency_type as workspace_kind
                     ,o.status as organization_status,
                     o.group_id::text as group_id,
                     o.parent_org_id,

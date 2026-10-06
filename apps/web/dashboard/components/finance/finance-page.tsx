@@ -125,7 +125,7 @@ export function FinancePage() {
             <PermissionGuard permission="finance.create">
               <button className={primary} onClick={() => setCreate(true)}>
                 <Plus size={15} />
-                Nouveau document
+                Créer une facture
               </button>
             </PermissionGuard>
           </>
@@ -245,7 +245,7 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
-    listClients({ page_size: 100 }).then((r) => setClients(r.items));
+    listClients({ page_size: 100 }).then((r) => setClients(r.items)).catch(()=>setError("Chargement des clients impossible. Rouvrez le formulaire pour réessayer."));
   }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -270,34 +270,24 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
   return (
     <OperationDrawer
       open
-      title="Nouveau document"
-      description="Créez un devis, une facture ou un avoir pour un client de l’agence."
+      title="Créer une facture"
+      description="Facturez les prestations de transport d’un client, puis enregistrez ses paiements et remettez son reçu."
       close={close}
       width="max-w-3xl"
     >
       <form onSubmit={submit} className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <select required name="document_type" className={input}>
-            <option value="QUOTE">Devis</option>
-            <option value="INVOICE">Facture</option>
-            <option value="CREDIT_NOTE">Avoir</option>
-          </select>
-          <select required name="client_id" className={input}>
+          <input type="hidden" name="document_type" value="INVOICE"/>
+          <label className="grid gap-1 text-[13px]">Client<select required name="client_id" className={input}>
             <option value="">Sélectionner un client</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.display_name || c.name || c.company_name || c.phone}
               </option>
             ))}
-          </select>
-          <input
-            required
-            name="currency"
-            defaultValue="USD"
-            maxLength={3}
-            className={input}
-          />
-          <input name="due_date" type="date" className={input} />
+          </select></label>
+          <label className="grid gap-1 text-[13px]">Devise<select required name="currency" defaultValue="USD" className={input}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code}>{code}</option>)}</select></label>
+          <label className="grid gap-1 text-[13px]">Échéance (optionnelle)<input name="due_date" type="date" className={input} /></label>
         </div>
         <div>
           <div className="mb-2 flex justify-between">

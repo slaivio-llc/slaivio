@@ -70,7 +70,7 @@ def get_or_create_onboarding(org_id: str):
 def upsert_agency_profile(org_id: str, data: dict):
     return fetch_one(
         """
-        insert into agency_profile (
+        with profile_write as (insert into agency_profile (
             org_id,
             legal_name,
             brand_name,
@@ -115,7 +115,25 @@ def upsert_agency_profile(org_id: str, data: dict):
             business_type = excluded.business_type,
             metadata = excluded.metadata,
             updated_at = now()
-        returning *
+        returning *),
+        organization_write as (
+            update organizations organization
+            set organization_name=profile.brand_name, legal_name=profile.legal_name,
+                country=profile.country, city=profile.city, address=profile.address,
+                phone=profile.phone, email=profile.email, website=profile.website,
+                organization_type=profile.business_type,
+                row_version=coalesce(organization.row_version,1)+1, updated_at=now()
+            from profile_write profile where organization.id=profile.org_id
+            returning organization.id
+        ),
+        settings_write as (
+            insert into organization_settings(org_id,language_code,currency_code)
+            select org_id,coalesce(default_language,'fr'),coalesce(default_currency,'USD') from profile_write
+            on conflict(org_id) do update set language_code=excluded.language_code,
+                currency_code=excluded.currency_code,updated_at=now()
+            returning org_id
+        )
+        select * from profile_write
         """,
         {
             "org_id": org_id,

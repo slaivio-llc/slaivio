@@ -110,7 +110,7 @@ export function OperationDrawer({
   headerMeta,
   footer,
   bodyClassName = "",
-  width = "max-w-[720px]",
+  width = "max-w-3xl",
 }: {
   open: boolean;
   title: string;
@@ -161,7 +161,7 @@ export function OperationDrawer({
         data-ui="operation-drawer"
         className={`flex max-h-[calc(100dvh-24px)] w-full ${width} flex-col overflow-hidden rounded-[12px] border border-[#d8dce0] bg-white shadow-[0_24px_72px_rgba(15,23,42,.22)] transition duration-200 ease-out sm:max-h-[calc(100dvh-48px)] ${visible ? "scale-100 opacity-100" : "scale-[.98] opacity-0"}`}
       >
-        <header data-ui="operation-drawer-header" className="shrink-0 border-b border-[#dfe3e7] bg-white px-6 py-5">
+        <header data-ui="operation-drawer-header" className="shrink-0 bg-white px-6 py-5">
           <div className="flex min-h-10 items-center gap-4">
             {headerLeading && <div className="shrink-0">{headerLeading}</div>}
             <div className="min-w-0 flex-1">
@@ -192,8 +192,8 @@ export function OperationDrawer({
         </header>
         {tabs && (
           <div className={tabsVariant === "segmented"
-            ? "operation-drawer-segmented-tabs flex min-h-[52px] shrink-0 items-end gap-6 overflow-visible border-b border-[#dfe3e7] bg-white px-6"
-            : "operation-tabs flex min-h-[42px] shrink-0 items-end gap-6 overflow-visible border-b border-[#dfe1e3] px-5"}
+            ? "operation-drawer-segmented-tabs flex min-h-[52px] shrink-0 items-end gap-6 overflow-visible flex-wrap bg-white px-6"
+            : "operation-tabs flex min-h-[42px] shrink-0 items-end gap-6 overflow-visible flex-wrap px-5"}
           >
             {tabs}
           </div>

@@ -92,11 +92,11 @@ export function WarehousesPage() {
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader
-      title="Entrepôts"
+      title="Stockage et emplacements"
       description="Pilotez le stock, les emplacements, les transferts et les contrôles physiques."
       actions={<>
         <PermissionGuard permission="warehouses.export"><OperationButton onClick={download}><Download size={15} />Exporter</OperationButton></PermissionGuard>
-        <PermissionGuard permission="warehouses.create"><OperationButton variant="primary" onClick={() => setCreateOpen(true)}><Plus size={15} />Nouvel entrepôt</OperationButton></PermissionGuard>
+        <PermissionGuard permission="warehouses.create"><OperationButton variant="primary" onClick={() => setCreateOpen(true)}><Plus size={15} />Ajouter un site de stockage interne</OperationButton></PermissionGuard>
       </>}
     />
     <main>
@@ -126,7 +126,7 @@ export function WarehousesPage() {
               </tr>)}</tbody>
             </table>
           </OperationTable>
-        ) : <EmptyState title="Aucun entrepôt configuré" description="Créez le premier site réel de votre agence pour commencer à organiser le stock." />}
+        ) : <EmptyState title="Aucun entrepôt configuré" description="Les emplacements appartiennent à cet espace. Les autres bureaux et entrepôts sont accessibles depuis le sélecteur du haut." />}
       </OperationContent>
     </main>
     <CreateWarehouseDrawer open={createOpen} close={() => setCreateOpen(false)} done={() => { setCreateOpen(false); load(); }} />
@@ -171,7 +171,7 @@ function CreateWarehouseDrawer({ open, close, done }: { open: boolean; close: ()
     }
   }
 
-  return <OperationDrawer open={open} title="Nouvel entrepôt" description="Configurez un site physique de votre agence." close={close}>
+  return <OperationDrawer open={open} title="Nouvel entrepôt" description="Organisez le stockage dans cet espace. Pour créer un autre bureau ou entrepôt avec sa propre équipe, utilisez le sélecteur d’espace." close={close}>
     <form onSubmit={submit} className="grid gap-5">
       <FormSection title="Identification" description="Le nom et le code utilisés par votre équipe dans les opérations.">
         <div className="grid gap-4 sm:grid-cols-2">

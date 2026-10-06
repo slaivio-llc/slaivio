@@ -158,7 +158,10 @@ def test_luza_network_offices_are_created_from_the_switcher_and_invitations_prov
     assert '@router.post("/invitations"' in network_api
     assert "list_invitation_office_grants" in membership_service
     assert "network_memberships" in membership_service
-    assert "Ajouter un bureau" in switcher
+    assert "Créer un espace" in switcher
+    assert 'name="workspace_kind"' in switcher
+    assert '<option value="OFFICE">' in switcher
+    assert '<option value="WAREHOUSE">' in switcher
     assert "createNetworkOffice" in switcher
     assert "Les routes et services restent dans leurs modules opérationnels" in settings
     assert "inviteNetworkMember" in settings

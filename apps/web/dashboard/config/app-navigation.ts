@@ -171,9 +171,14 @@ export const cargoOsNavigation: readonly AppNavigationGroup[] = [
   },
 ];
 
-export function getAppNavigation(profile: ProductProfile = getProductProfile()) {
+export function getAppNavigation(profile: ProductProfile = getProductProfile(), workspaceKind: string = "OFFICE") {
   if (profile === PRODUCT_PROFILES.PILOT_V1) return pilotV1Navigation;
-  if (profile === PRODUCT_PROFILES.PARCEL_FREIGHT) return parcelFreightNavigation;
+  if (profile === PRODUCT_PROFILES.PARCEL_FREIGHT) {
+    if (workspaceKind === "WAREHOUSE") return parcelFreightNavigation
+      .filter(group => group.label !== "Finance")
+      .map(group => ({...group, routes: group.routes.map(route => route.href === "/app/warehouses" ? {...route, label: "Stockage et emplacements"} : route)}));
+    return parcelFreightNavigation.map(group => ({...group, routes: group.routes.filter(route => route.href !== "/app/warehouses")}));
+  }
   return cargoOsNavigation;
 }
 

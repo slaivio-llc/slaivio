@@ -37,7 +37,6 @@ describe("product navigation", () => {
       "/app/packages",
       "/app/departures",
       "/app/shipments",
-      "/app/warehouses",
       "/app/routes",
       "/app/communication",
       "/app/inbox",
@@ -47,6 +46,15 @@ describe("product navigation", () => {
     ]);
     expect(routes.some((route) => route.href === "/app/broadcasts")).toBe(false);
     expect(routes.some((route) => route.href === "/app/tracking")).toBe(false);
+  });
+
+  it("distinguishes warehouse operations from office finance", () => {
+    const office = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT, "OFFICE").flatMap(group => group.routes);
+    const warehouse = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT, "WAREHOUSE").flatMap(group => group.routes);
+    expect(office.some(route => route.href === "/app/warehouses")).toBe(false);
+    expect(office.some(route => route.href === "/app/finance")).toBe(true);
+    expect(warehouse.some(route => route.href === "/app/warehouses")).toBe(true);
+    expect(warehouse.some(route => route.href === "/app/finance")).toBe(false);
   });
 
   it("continues to filter visible routes by permission", () => {

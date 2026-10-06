@@ -43,7 +43,7 @@ def context(org_id: str, user_id: str) -> dict:
         if not current.get("group_id"):
             office = conn.execute(text("""
                 select id org_id,coalesce(organization_name,name,id) organization_name,
-                  organization_code,country,city,address,phone,email,true is_current,
+                  organization_code,agency_type workspace_kind,country,city,address,phone,email,true is_current,
                   'ORIGIN' office_role
                 from organizations where id=:org_id
             """), {"org_id": org_id}).mappings().one()
@@ -57,7 +57,7 @@ def context(org_id: str, user_id: str) -> dict:
         all_offices = bool(access and access["access_scope"] == "ALL_OFFICES")
         offices = _rows(conn.execute(text("""
             select office.id org_id,coalesce(office.organization_name,office.name,office.id) organization_name,
-              office.organization_code,office.country,office.city,office.address,office.phone,office.email,
+              office.agency_type workspace_kind,office.organization_code,office.country,office.city,office.address,office.phone,office.email,
               office.id=:org_id is_current,
               case when office.id=:org_id then 'CURRENT' else 'NETWORK' end office_role,
               count(package.id) filter(where package.deleted_at is null)::int package_count,
@@ -75,14 +75,21 @@ def context(org_id: str, user_id: str) -> dict:
             order by office.id=:org_id desc,office.country,office.city,organization_name
         """), {"group_id": current["group_id"], "org_id": org_id, "user_id": user_id, "all_offices": all_offices}))
         countries = {str(office.get("country") or "").strip() for office in offices if office.get("country")}
+        totals = conn.execute(text("""
+            select count(*)::int packages,
+              count(*) filter(where status='IN_TRANSIT')::int in_transit
+            from cargo_packages
+            where deleted_at is null
+              and (org_id=any(cast(:office_ids as text[])) or destination_org_id=any(cast(:office_ids as text[])))
+        """), {"office_ids": [office['org_id'] for office in offices]}).mappings().one()
         return {
             "network": {"group_id": current["group_id"], "name": current["network_name"]},
             "access": dict(access) if access else {"network_role": "MEMBER", "access_scope": "ASSIGNED_OFFICES"},
             "offices": offices,
             "summary": {
                 "offices": len(offices), "countries": len(countries),
-                "packages": sum(int(office.get("package_count") or 0) for office in offices),
-                "in_transit": sum(int(office.get("in_transit_count") or 0) for office in offices),
+                "packages": totals['packages'],
+                "in_transit": totals['in_transit'],
             },
         }
 
@@ -129,11 +136,32 @@ def setup(org_id: str, actor_id: str, network_name: str, country_code: str, coun
 
 
 def create_office(org_id: str, actor: dict, payload: dict) -> dict:
+    workspace_kind = payload.get("workspace_kind", "OFFICE")
+    if workspace_kind not in {"OFFICE", "WAREHOUSE"}:
+        raise HTTPException(422, "invalid_workspace_kind")
     actor_id = str(actor.get("user_id") or actor.get("id") or "")
-    with engine.connect() as conn:
+    with engine.begin() as conn:
+        conn.execute(text("select id from organizations where id=:org_id for update"), {"org_id": org_id})
         current = _current_network(conn, org_id)
-        if not current or not current.get("group_id"):
-            raise HTTPException(409, "configure_network_before_creating_office")
+        if not current or current.get("organization_type") not in {'PARCEL_FREIGHT', 'CARGO'}:
+            raise HTTPException(409, "parcel_workspace_required")
+        if not current.get("group_id"):
+            owner = conn.execute(text("""select 1 from organization_memberships
+                where org_id=:org_id and clerk_user_id=:actor and status='ACTIVE' and role_code='OWNER'
+            """), {"org_id": org_id, "actor": actor_id}).first()
+            if not owner:
+                raise HTTPException(403, "network_office_creation_denied")
+            group_id = str(uuid4())
+            conn.execute(text("""insert into organization_groups(id,group_code,group_name)
+                values(cast(:id as uuid),:code,:name)"""),
+                {"id": group_id, "code": f"NET-{group_id}", "name": current['network_name']})
+            conn.execute(text("update organizations set group_id=cast(:group_id as uuid),agency_type='OFFICE',updated_at=now() where id=:org_id"),
+                {"group_id": group_id, "org_id": org_id})
+            conn.execute(text("""insert into organization_network_memberships(group_id,clerk_user_id,network_role,access_scope,created_by)
+                values(cast(:group_id as uuid),:actor,'OWNER','ALL_OFFICES',:actor)"""),
+                {"group_id": group_id, "actor": actor_id})
+            _event(conn, group_id, org_id, "NETWORK_CREATED", actor_id, {})
+            current = dict(current, group_id=group_id)
         access = conn.execute(text("""
             select network_role,access_scope from organization_network_memberships
             where group_id=cast(:group_id as uuid) and clerk_user_id=:actor and status='ACTIVE'
@@ -153,23 +181,24 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
             on conflict(group_id,country_code) do update set default_currency_code=excluded.default_currency_code,
               default_timezone=excluded.default_timezone,updated_at=now() returning id::text
         """), {"group_id": current["group_id"], "country": payload["country"], "country_code": payload["country_code"],
-                 "currency": payload["currency_code"], "timezone": payload["timezone"]}).mappings().one()
+                 "currency": payload["currency_code"], "timezone": payload["timezone"], "workspace_kind": workspace_kind}).mappings().one()
         conn.execute(text("""
             update organizations set group_id=cast(:group_id as uuid),country_id=cast(:country_id as uuid),
-              parent_org_id=:parent,organization_type='PARCEL_FREIGHT',agency_type='OFFICE',
+              parent_org_id=:parent,organization_type='PARCEL_FREIGHT',agency_type=:workspace_kind,
               organization_code=:code,country=:country,city=:city,address=:address,phone=:phone,email=:email,updated_at=now()
             where id=:office_id
         """), {"group_id": current["group_id"], "country_id": country["id"], "parent": org_id,
                  "code": payload["office_code"].upper(), "country": payload["country"], "city": payload["city"],
                  "address": payload.get("address"), "phone": payload.get("phone"), "email": payload.get("email"),
-                 "office_id": office_id})
+                 "office_id": office_id, "workspace_kind": workspace_kind})
         conn.execute(text("""
             insert into organization_locations(org_id,name,code,location_type,country,city,address,phone,email,timezone)
-            values(:office_id,:name,:code,'OFFICE',:country,:city,:address,:phone,:email,:timezone)
+            values(:office_id,:name,:code,:workspace_kind,:country,:city,:address,:phone,:email,:timezone)
             on conflict(org_id,code) do nothing
         """), {"office_id": office_id, "name": payload["organization_name"], "code": payload["office_code"].upper(),
                  "country": payload["country"], "city": payload["city"], "address": payload.get("address"),
-                 "phone": payload.get("phone"), "email": payload.get("email"), "timezone": payload["timezone"]})
+                 "phone": payload.get("phone"), "email": payload.get("email"), "timezone": payload["timezone"],
+                 "workspace_kind": workspace_kind})
         conn.execute(text("""
             insert into organization_settings(org_id,timezone,currency_code,country_code,language_code)
             values(:office_id,:timezone,upper(:currency),upper(:country_code),'fr')
@@ -177,6 +206,16 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
         """), {"office_id": office_id, "timezone": payload["timezone"], "currency": payload["currency_code"], "country_code": payload["country_code"]})
         conn.execute(text("insert into organization_billing_profiles(org_id) values(:office_id) on conflict(org_id) do nothing"), {"office_id": office_id})
         conn.execute(text("insert into parcel_operation_settings(org_id) values(:office_id) on conflict(org_id) do nothing"), {"office_id": office_id})
+        if workspace_kind == 'WAREHOUSE':
+            conn.execute(text("""insert into warehouses(org_id,group_id,country_id,warehouse_code,warehouse_name,
+                warehouse_type,country_code,city,address,contact_phone)
+                values(:office_id,cast(:group_id as uuid),cast(:country_id as uuid),:code,:name,
+                'ORIGIN',:country_code,:city,:address,:phone)"""), {
+                "office_id": office_id, "group_id": current['group_id'], "country_id": country['id'],
+                "code": f"{payload['office_code'].upper()}-{uuid4().hex[:8].upper()}",
+                "name": payload['organization_name'], "country_code": payload['country_code'],
+                "city": payload['city'], "address": payload.get('address'), "phone": payload.get('phone'),
+            })
         conn.execute(text("insert into knowledge_settings(org_id) values(:office_id) on conflict(org_id) do nothing"), {"office_id": office_id})
         conn.execute(text("insert into ai_settings(org_id) values(:office_id) on conflict(org_id) do nothing"), {"office_id": office_id})
         conn.execute(text("""

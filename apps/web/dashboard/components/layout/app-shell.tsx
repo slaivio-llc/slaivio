@@ -49,7 +49,7 @@ import { OrganizationSwitcher } from "@/components/tenant/organization-switcher"
 import { canAccessRoute, getAppNavigation, type AppRoute } from "@/config/app-navigation";
 import { getOrganizationProductProfile, getProductProfile, isPilotV1, usesCompactAgencyShell } from "@/config/product-profile";
 import { SESSION_EXPIRED_EVENT } from "@/services/api";
-import { listNotifications, notificationAction, type CenterItem } from "@/services/notification-center";
+import { listNotifications, markAllRead, notificationAction, type CenterItem } from "@/services/notification-center";
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
 import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 import { PilotOfflineIndicator } from "@/components/offline/pilot-offline-indicator";
@@ -618,6 +618,11 @@ function HelpMenu({ close }: { close: () => void }) {
 }
 
 function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?: boolean }) {
+  const router = useRouter();
+  const { permissions } = usePermissions();
+  const canManage = permissions.includes("notifications.manage");
+  const [busy, setBusy] = useState(false);
+  const [revision, setRevision] = useState(0);
   const [items, setItems] = useState<CenterItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -625,19 +630,50 @@ function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?
   const [query, setQuery] = useState("");
 
   useEffect(() => {
+    let active = true;
     listNotifications({ status: tab === "unread" ? "UNREAD" : "READ", page_size: 20 })
-      .then((result) => setItems(result.items))
-      .catch(() => setError("Notifications indisponibles."))
-      .finally(() => setLoading(false));
-  }, [tab]);
+      .then((result) => { if (active) setItems(result.items); })
+      .catch(() => { if (active) setError("Notifications indisponibles."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [tab, revision]);
 
   const filtered = items.filter((item) => `${item.title} ${item.message}`.toLocaleLowerCase("fr").includes(query.toLocaleLowerCase("fr")));
 
   async function markRead(item: CenterItem) {
-    if (!item.read_at) {
-      await notificationAction(item, "read").catch(() => undefined);
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      if (!item.read_at && canManage) await notificationAction(item, "read");
+      router.push(item.href || "/app/notifications");
+      close();
+    } catch {
+      setError("Impossible de marquer la notification comme lue. Réessayez.");
+    } finally {
+      setBusy(false);
     }
-    close();
+  }
+
+  function switchTab(next: "unread" | "read") {
+    if (next === tab) return;
+    setError("");
+    setLoading(true);
+    setTab(next);
+  }
+
+  async function readEverything() {
+    setBusy(true);
+    setError("");
+    try {
+      await markAllRead();
+      setLoading(true);
+      setRevision((value) => value + 1);
+    } catch {
+      setError("Impossible de marquer les notifications comme lues. Réessayez.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -645,10 +681,11 @@ function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?
       <div className="flex h-12 shrink-0 items-center border-b border-[#e5e6e7] px-4">
         <div className="text-[13px] font-semibold">Notifications</div>
         <div className="ml-auto flex rounded-[5px] bg-[#f0f1f1] p-0.5">
-          <button type="button" onClick={() => { setLoading(true); setTab("unread"); }} className={`h-7 rounded-[4px] px-2.5 text-[11px] ${tab === "unread" ? "bg-white shadow-sm" : ""}`}>Non lues</button>
-          <button type="button" onClick={() => { setLoading(true); setTab("read"); }} className={`h-7 rounded-[4px] px-2.5 text-[11px] ${tab === "read" ? "bg-white shadow-sm" : ""}`}>Lues</button>
+          <button type="button" aria-pressed={tab === "unread"} onClick={() => switchTab("unread")} className={`h-7 rounded-[4px] px-2.5 text-[11px] ${tab === "unread" ? "bg-white shadow-sm" : ""}`}>Non lues</button>
+          <button type="button" aria-pressed={tab === "read"} onClick={() => switchTab("read")} className={`h-7 rounded-[4px] px-2.5 text-[11px] ${tab === "read" ? "bg-white shadow-sm" : ""}`}>Lues</button>
         </div>
       </div>
+      {canManage && <button type="button" disabled={busy || loading} onClick={readEverything} className="px-4 py-2 text-left text-xs text-emerald-700 disabled:opacity-50">Tout marquer comme lu</button>}
       <div className="border-b border-[#eceeef] p-3">
         <label className="flex h-8 items-center gap-2 rounded-[5px] border border-[#d7dade] bg-[#f8f8f7] px-2 focus-within:border-[#7771ed]">
           <Search size={14} className="text-[#737a82]" />
@@ -662,13 +699,13 @@ function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?
               {[0, 1, 2].map((dot) => <span key={dot} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#169c68]" style={{ animationDelay: `${dot * 140}ms` }} />)}
             </span>
           </div>
-        ) : error ? <p className="p-6 text-center text-[12px] text-red-600">{error}</p> : !filtered.length ? (
+        ) : error ? <div role="alert" className="p-6 text-center text-[12px]"><p className="text-red-600">{error}</p><button type="button" onClick={() => { setError(""); setLoading(true); setRevision((value) => value + 1); }} className="mt-3 rounded border px-3 py-2">Réessayer</button></div> : !filtered.length ? (
           <div className="flex h-full flex-col items-center justify-center px-8 text-center"><CheckCheck size={24} className="text-[#a1a7ad]" /><p className="mt-3 text-[13px] font-medium">Aucune notification {tab === "unread" ? "non lue" : "lue"}</p><p className="mt-1 text-[11px] leading-5 text-[#858b92]">Les mises à jour opérationnelles apparaîtront ici.</p></div>
         ) : filtered.map((item) => (
-          <Link key={`${item.source}-${item.id}`} href={notificationTarget(item, pilot)} onClick={() => markRead(item)} className="flex gap-3 border-b border-[#eceeef] px-4 py-3 hover:bg-[#f7f8f8]">
+          <button type="button" disabled={busy} key={`${item.source}-${item.id}`} onClick={() => markRead(item)} className="flex w-full gap-3 border-b border-[#eceeef] px-4 py-3 text-left hover:bg-[#f7f8f8] disabled:opacity-50">
             <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.priority === "CRITICAL" ? "bg-red-500" : item.priority === "HIGH" ? "bg-amber-500" : "bg-[#5b55e7]"}`} />
             <span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold">{item.title}</span><span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-[#666e77]">{item.message}</span><span className="mt-1.5 block text-[10px] text-[#959ba1]">{new Date(item.created_at).toLocaleString("fr-FR")}</span></span>
-          </Link>
+          </button>
         ))}
       </div>
       <div className="grid shrink-0 grid-cols-2 border-t border-[#e5e6e7] p-2">
@@ -677,21 +714,6 @@ function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?
       </div>
     </div>
   );
-}
-
-function notificationTarget(item: CenterItem, pilot = false) {
-  const category = `${item.category ?? ""} ${item.title} ${item.message}`.toUpperCase();
-  if (pilot) {
-    if (category.includes("FOLLOWUP") || category.includes("RELANCE")) return "/app/followups";
-    if (category.includes("KNOWLEDGE") || category.includes("CONNAISS")) return "/app/knowledge";
-    if (category.includes("DOSSIER") || category.includes("CLIENT")) return "/app/dossiers";
-    return "/app/inbox";
-  }
-  if (category.includes("PACKAGE")) return "/app/packages";
-  if (category.includes("SHIPMENT")) return "/app/shipments";
-  if (category.includes("PAYMENT") || category.includes("FINANCE")) return "/app/finance";
-  if (category.includes("COMPLIANCE") || category.includes("DOCUMENT")) return "/app/documents";
-  return "/app/notifications";
 }
 
 const menuClass = "flex min-h-9 w-full items-center gap-2.5 px-4 text-left text-[12px] text-[#353b42] hover:bg-[#f2f3f3]";

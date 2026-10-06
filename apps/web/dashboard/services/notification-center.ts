@@ -1,5 +1,5 @@
 import {api} from './api';
-export type CenterItem={id:string;source:'IN_APP'|'DELIVERY';category:string;title:string;message:string;priority:string;created_at:string;read_at?:string;archived_at?:string;resource_id?:string;delivery_status?:string;error_message?:string};
+export type CenterItem={id:string;source:'IN_APP'|'DELIVERY';category:string;title:string;message:string;priority:string;created_at:string;read_at?:string;archived_at?:string;resource_id?:string;resource_kind?:string;href?:string;delivery_status?:string;error_message?:string};
 export type CenterResponse={items:CenterItem[];total:number;page:number;page_size:number;stats:{total:number;unread:number;failed:number;urgent:number}};
 export type NotificationPreference={category:string;in_app:boolean;email:boolean;whatsapp:boolean;quiet_hours_start?:string;quiet_hours_end?:string;digest_frequency:string};
 export async function listNotifications(params:Record<string,unknown>={}){return (await api.get<CenterResponse>('/notification-center',{params})).data}

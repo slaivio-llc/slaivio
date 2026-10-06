@@ -18,6 +18,15 @@ Remplacements effectués pour le profil colis/fret :
 
 ## DASH-01 : reste à livrer et valider
 
+### Complément notifications
+
+- Navigation client/dossier résolue côté API depuis les références enregistrées et les permissions de l'utilisateur dans le bureau actif. Suppression du routage par mots-clés dans les messages du menu global.
+- Les références historiques `shipment_id` ne sont pas assimilées aux identifiants des expéditions Cargo : ouverture du centre tant que leur migration explicite n'est pas livrée.
+- Menu global : tout marquer comme lu sous permission `notifications.manage`, erreurs visibles avec nouvelle tentative, protection contre les réponses de requêtes périmées et le chargement infini au clic sur l'onglet déjà actif.
+- Une marque personnelle « non lu » prime désormais sur l'ancien état global `is_read`. Le total paginé exclut les notifications reportées comme la liste.
+- Tests unitaires de navigation, contexte de permission et construction SQL ajoutés. Pas de validation navigateur ou PostgreSQL réel dans ce lot.
+- Limite : les droits vérifiés ici contrôlent les liens, pas une nouvelle politique de confidentialité du contenu. La visibilité actuelle reste celle du centre du bureau (`notifications.read`). Le filtrage fin des notifications métier, les badges, les références colis/expéditions, les traductions FR/EN du menu et la séparation alertes/journal de livraison restent à livrer.
+
 - Périmètre organisation/pays/tous les bureaux partagé par tous les modules : pas de faux sélecteur consolidé tant que les API n'appliquent pas le même contrat de scope et les mêmes droits.
 - Recherche des paiements et recherche des colis par identité client ; normalisation internationale des téléphones et accents ; pagination complète et mesures de performance/indexation sur données réalistes.
 - Notifications limitées à l'attention utile : le moteur existant n'a pas encore été remplacé. Badges, liens objet systématiques, priorité et traductions restent à auditer.

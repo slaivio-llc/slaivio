@@ -3,7 +3,7 @@ from app.db.database import engine
 
 def _rows(r):return [dict(x._mapping) for x in r]
 def list_center(org_id,user_id,status=None,category=None,priority=None,source=None,q=None,page=1,page_size=50):
-    filters=[];p={'o':org_id,'u':user_id,'limit':page_size,'offset':(page-1)*page_size}
+    filters=['(snoozed_until is null or snoozed_until<=now())'];p={'o':org_id,'u':user_id,'limit':page_size,'offset':(page-1)*page_size}
     if status=='UNREAD':filters.append('read_at is null')
     elif status=='READ':filters.append('read_at is not null')
     if status!='ARCHIVED':filters.append('archived_at is null')
@@ -15,12 +15,14 @@ def list_center(org_id,user_id,status=None,category=None,priority=None,source=No
     where=' and '.join(filters) or 'true'
     base="""select * from (
       select e.id,e.org_id,'IN_APP' source,e.event_type category,e.title,e.message,e.priority,e.created_at,
-       coalesce(s.read_at,case when e.is_read then e.created_at end) read_at,s.archived_at,s.snoozed_until,
+       case when s.notification_id is not null then s.read_at when e.is_read then e.created_at end read_at,s.archived_at,s.snoozed_until,
+       case when e.shipment_id is not null then 'LEGACY_SHIPMENT' when e.dossier_id is not null then 'DOSSIER' when e.client_id is not null then 'CLIENT' end resource_kind,
        coalesce(e.shipment_id::text,e.dossier_id::text,e.client_id::text) resource_id,null::text delivery_status,null::text error_message
       from manager_events e left join notification_user_states s on s.org_id=e.org_id and s.user_id=:u and s.source='IN_APP' and s.notification_id=e.id where e.org_id=:o
       union all
       select n.id,n.org_id,'DELIVERY',n.notification_type,concat(upper(n.channel),' · ',coalesce(n.recipient_phone,'Destinataire')),n.message,
        case when n.status='FAILED' then 'HIGH' else 'NORMAL' end,n.created_at,s.read_at,s.archived_at,s.snoozed_until,
+       case when n.dossier_id is not null then 'DOSSIER' when n.client_id is not null then 'CLIENT' end,
        coalesce(n.dossier_id::text,n.client_id::text),n.status,n.error_message
       from notification_outbox n left join notification_user_states s on s.org_id=n.org_id and s.user_id=:u and s.source='DELIVERY' and s.notification_id=n.id where n.org_id=:o
     ) unified"""

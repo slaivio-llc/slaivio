@@ -37,6 +37,12 @@ Remplacements effectués pour le profil colis/fret :
 
 ## Lots suivants, sans mélanger leur état de livraison
 
+Le lot contexte temporel + accueil opérationnel est désormais implémenté côté API et
+interface Cargo. Voir `cargo-dashboard-validation.md` pour les règles, les scénarios
+de recette et les limites. Il remplace l'ancien composant fret, sans prétendre livrer
+toutes les capacités de DASH-02/DASH-03 : vues partagées, création globale, exports,
+scope global, reporting réseau indépendant du bureau et drill-down KPI restent ouverts.
+
 1. DASH-02 — identité de page, période, comparaison, fraîcheur et contexte.
 2. DASH-03 — indicateurs d'état et flux temporels distincts, liens vers les vues correspondantes.
 3. DASH-04 — attention détectable, explicable, actionnable.

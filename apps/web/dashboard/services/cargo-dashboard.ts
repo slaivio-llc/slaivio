@@ -10,6 +10,8 @@ export type CargoDashboardData = {
   previous_flows: Record<"received" | "shipped" | "delivered", number> | null;
   states: Record<"in_transit" | "ready_for_pickup" | "blocked" | "warehoused", number>;
   attention: CargoParcel[]; recent: CargoParcel[];
+  trend?: {day:string;received:number}[];
+  finance?: {scope:'office';org_id:string;currencies:{currency:string;collected:string;outstanding:string;overdue:string}[]} | null;
   upcoming?: CargoParcel[];
   departures?: {id:string;org_id:string;departure_code:string;scheduled_at:string;cutoff_at:string|null;status:string}[] | null;
   drilldown?: {metric:string;page:number;page_size:number;total:number;items:CargoParcel[]} | null;

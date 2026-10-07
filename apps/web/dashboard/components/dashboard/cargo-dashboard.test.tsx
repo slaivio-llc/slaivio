@@ -33,7 +33,7 @@ describe('cargo overview',()=>{
     expect(await screen.findByText('Period flows')).toBeInTheDocument();
     expect(screen.getByText('Current state')).toBeInTheDocument();
     expect(screen.getByText('Independent of the selected period')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('UTC');
+    expect(screen.getAllByRole('status').some(element=>element.textContent?.includes('UTC'))).toBe(true);
     expect(screen.queryByLabelText('Scope')).not.toBeInTheDocument();
   });
   it('does not replace a failed request with zero metrics',async()=>{

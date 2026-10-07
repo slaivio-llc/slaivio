@@ -23,6 +23,13 @@ Le cache sessionStorage global de l'accueil n'est plus lu ni alimenté.
   effectués ; interrogation conditionnée à `departures.read`, même périmètre propriétaire.
   L'accès proposé ouvre le module du bureau actif, pas une fiche de départ distante.
 - Une erreur n'est pas un jeu de valeurs à zéro. Les réponses périmées sont annulées.
+- Finance du bureau actif uniquement, sous `finance.read` : encaissements confirmés
+  dans la période, soldes actuels et impayés échus, par devise sans conversion.
+- Évolution quotidienne des réceptions, groupée dans le fuseau du rapport.
+- Export CSV de la synthèse affichée avec contexte, dates et protection des cellules
+  contre les formules ; ce n'est pas un export exhaustif de colis.
+- Actualisation à 60 secondes, seulement en ligne et onglet visible. Hors connexion,
+  les données en mémoire sont marquées comme non actualisées ; aucun cache persistant.
 
 ## Autorisation et consolidation
 
@@ -59,7 +66,7 @@ Un fuseau de reporting unique du réseau et le scope global partagé restent à 
 ## Limites explicites
 
 Ce lot n'achève pas toute la spécification DASH-02 à DASH-10. Restent notamment :
-vues partagées, création globale, exports,
-finance multi-devises, indicateurs support/IA, rafraîchissement temps réel, synchronisation
-hors ligne, séries temporelles et mesures de performance sur PostgreSQL réel.
+vues partagées, création globale, exports détaillés/PDF,
+consolidation financière multi-bureaux, indicateurs support/IA, événements temps réel,
+synchronisation hors ligne, séries expédition/livraison et mesures de performance sur PostgreSQL réel.
 Les tests unitaires SQL utilisent des doubles : ils ne certifient pas le schéma déployé.

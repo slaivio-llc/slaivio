@@ -57,5 +57,5 @@ def resolve_period(preset='30d', comparison='previous', timezone_name='UTC',
         return {'start': a.isoformat(), 'end': b.isoformat(),
                 'start_utc': datetime.combine(a, time.min, zone).astimezone(timezone.utc),
                 'end_utc': datetime.combine(b+timedelta(days=1), time.min, zone).astimezone(timezone.utc)}
-    return {'timezone': timezone_name, 'preset': preset, 'comparison': comparison,
+    return {'timezone': timezone_name, 'preset': preset, 'comparison': comparison, 'as_of_date': today,
             'current': interval(first, last), 'previous': interval(*previous) if previous else None}

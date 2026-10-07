@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.db.database import engine
 from app.dashboard.periods import resolve_period
+from app.dashboard.finance_summary import finance_summary
 
 FLOW_COLUMNS = {'received': 'received_at', 'shipped': 'dispatched_at', 'delivered': 'delivered_at'}
 STATE_FILTERS = {
@@ -122,6 +123,11 @@ def cargo_overview(tenant, permissions, **options):
                 order by scheduled_at,id limit 10
             '''), params).mappings()]
         interval_params = {**params, 'start': period['current']['start_utc'], 'end': period['current']['end_utc']}
+        trend = [dict(item) for item in conn.execute(text(f'''
+            select (received_at at time zone :timezone)::date day,count(*)::int received
+            {base} and received_at>=:start and received_at<:end
+            group by 1 order by 1
+        '''), {**interval_params,'timezone':period['timezone']}).mappings()]
         recent = [dict(item) for item in conn.execute(text(f"""
             select {details} {base} and received_at>=:start and received_at<:end
             order by received_at desc,p.id limit 8
@@ -134,8 +140,9 @@ def cargo_overview(tenant, permissions, **options):
         """), interval_params).mappings()]
         for item in attention + recent + upcoming:
             item['href'] = f"/app/packages?open={item['id']}" if scope == 'office' or item['org_id'] == tenant['org_id'] else None
-        return {'workspace': dict(office), 'scope': scope, 'office_count': len(office_ids),
+        finance = finance_summary(conn, tenant['org_id'], permissions, period)
+        return {'workspace': dict(office), 'scope': scope, 'office_count': len(office_ids), 'finance': finance,
                 'period': period, 'generated_at': datetime.now(timezone.utc),
                 'flows': current, 'previous_flows': previous, 'states': states,
                 'attention': attention, 'recent': recent, 'destinations': destinations,
-                'drilldown': drilldown, 'upcoming': upcoming, 'departures': departures}
+                'drilldown': drilldown, 'upcoming': upcoming, 'departures': departures, 'trend': trend}

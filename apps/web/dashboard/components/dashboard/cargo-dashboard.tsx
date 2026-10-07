@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { RefreshCcw } from "lucide-react";
+import { dashboardCsv } from "@/services/cargo-dashboard-export";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -31,9 +32,20 @@ export function CargoDashboard() {
   const [failure, setFailure] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
+  const [online, setOnline] = useState(true);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener('online', update); window.addEventListener('offline', update);
+    const timer = window.setInterval(() => {
+      if (navigator.onLine && document.visibilityState === 'visible') setRevision(value => value + 1);
+    }, 60000);
+    return () => { window.clearInterval(timer); window.removeEventListener('online', update); window.removeEventListener('offline', update); };
+  }, []);
   const data = result?.key === queryKey ? result.data : null;
   const error = failure === queryKey;
   useEffect(() => {
+    if (!online) return;
     const controller = new AbortController();
     const params = new URLSearchParams(queryKey);
     const query: CargoQuery = { preset: params.get("preset") || "30d", comparison: params.get("comparison") || "previous", scope: params.get("scope") || "office" };
@@ -43,7 +55,14 @@ export function CargoDashboard() {
     }).catch(() => { if (!controller.signal.aborted) setFailure(queryKey); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [queryKey, revision]);
+  }, [queryKey, revision, online]);
+  function exportSummary() {
+    if (!data || error) return;
+    const url = URL.createObjectURL(new Blob([dashboardCsv(data)], {type:'text/csv;charset=utf-8'}));
+    const link = document.createElement('a'); link.href=url; link.download='cargo-dashboard-summary.csv';
+    document.body.appendChild(link); link.click(); link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url),1000);
+  }
   function refresh() { setLoading(true); setFailure(null); setRevision(value => value + 1); }
   function openMetric(metric: string | null, page = 1) {
     const params = new URLSearchParams(queryKey);
@@ -75,8 +94,9 @@ export function CargoDashboard() {
       <button type="button" className={`${control} w-9 px-0 grid place-items-center`} onClick={refresh} disabled={loading} aria-label={t("Actualiser", "Refresh")}><RefreshCcw size={16} className={loading ? "animate-spin" : ""}/></button>
     </header>
     <PeriodForm key={queryKey} search={new URLSearchParams(queryKey)} apply={apply} locale={locale} network={permissions.includes("network.overview")} />
+    <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500"><span role="status">{online ? t('Actualisation toutes les 60 secondes lorsque cet onglet est visible.','Refresh every 60 seconds while this tab is visible.') : t('Hors connexion : les dernières données affichées ne sont plus actualisées.','Offline: displayed data is no longer refreshed.')}</span><button type="button" className={control} onClick={exportSummary} disabled={!data || error}>{t('Exporter la synthèse CSV','Export summary CSV')}</button></div>
     {error && <div role="alert" className="rounded-md border border-amber-300 p-4 text-sm">{t("Données indisponibles : vérifiez vos droits, les dates et la connexion. Les valeurs ne sont pas remplacées par des zéros.", "Data unavailable: check permissions, dates and connection. Values are not replaced with zeros.")} <button type="button" onClick={refresh} className="font-semibold underline">{t("Réessayer", "Retry")}</button></div>}
-    {!data && !error && <p role="status" className="py-8 text-sm text-slate-500">{t("Chargement des opérations…", "Loading operations…")}</p>}
+    {!data && !error && <p role="status" className="py-8 text-sm text-slate-500">{online ? t("Chargement des opérations…", "Loading operations…") : t('Aucune donnée disponible hors connexion.','No data available offline.')}</p>}
     {data && <>
       <p className="text-xs text-slate-500" role="status">{error ? t("Dernières données connues", "Last known data") : t("Calculé le", "Calculated at")} {new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium", timeZone: data.period.timezone }).format(new Date(data.generated_at))} · {data.period.timezone} · {t("Périmètre : cet accueil uniquement", "Scope: this overview only")}</p>
       <section><h2 className="font-semibold">{t("Flux de la période", "Period flows")}</h2><p className="mt-1 text-xs text-slate-500">{day(data.period.current.start)} — {day(data.period.current.end)}{data.period.previous && ` · ${t("Comparaison", "Comparison")} : ${day(data.period.previous.start)} — ${day(data.period.previous.end)}`}</p>
@@ -100,6 +120,17 @@ export function CargoDashboard() {
         {!data.destinations.length && <p className="text-sm text-slate-500">{t("Aucune réception pour cette période.", "No receipts in this period.")}</p>}
         <div className="grid gap-3 sm:grid-cols-2">{data.destinations.map(item => <div key={`${item.country}:${item.city}`} className="rounded-md bg-slate-50 p-3 text-sm"><strong>{[item.country,item.city].filter(Boolean).join(' / ') || t('Destination non renseignée','Destination not provided')}</strong><p className="mt-1 text-slate-600">{number(item.received)} {t('reçus','received')} · {number(item.delivered)} {t('livrés à ce jour','delivered to date')}</p></div>)}</div>
       </Panel>
+      <Panel title={t('Évolution des réceptions','Receipt trend')}>
+        <p className="mb-3 text-xs text-slate-500">{t('Réceptions par jour dans le fuseau affiché. Les jours sans réception sont omis.','Daily receipts in the displayed timezone. Days without receipts are omitted.')}</p>
+        <div className="max-h-72 overflow-auto"><ul className="grid gap-2">{(data.trend || []).map(item=><li key={item.day} className="grid grid-cols-[8rem_minmax(0,1fr)_3rem] items-center gap-3 text-xs"><span>{day(item.day)}</span><span className="h-3 rounded bg-slate-100" aria-hidden="true"><span className="block h-3 rounded bg-emerald-600" style={{width:`${100*item.received/Math.max(1,...(data.trend || []).map(row=>row.received))}%`}}/></span><span className="text-right tabular-nums">{number(item.received)}</span></li>)}</ul></div>
+        {!data.trend?.length && <p className="text-sm text-slate-500">{t('Aucune réception pour cette période.','No receipts in this period.')}</p>}
+      </Panel>
+      {data.finance && <Panel title={t('Finance · bureau actif uniquement','Finance · active office only')}>
+        <p className="mb-3 text-xs text-slate-500">{t('Encaissements confirmés de la période ; soldes et retards actuels. Aucune conversion ni addition entre devises.','Confirmed receipts in the period; current outstanding and overdue balances. No currency conversion or cross-currency totals.')}</p>
+        <div className="grid gap-3 sm:grid-cols-2">{data.finance.currencies.map(entry => <div key={entry.currency} className="rounded-md border border-slate-200 p-3"><h3 className="font-semibold">{entry.currency}</h3><dl className="mt-2 grid grid-cols-2 gap-2 text-sm">{(['collected','outstanding','overdue'] as const).map(key => <div key={key} className="col-span-2 flex justify-between gap-3"><dt>{key==='collected'?t('Encaissé','Collected'):key==='outstanding'?t('À payer','Outstanding'):t('En retard','Overdue')}</dt><dd className="font-medium tabular-nums">{entry[key]} {entry.currency}</dd></div>)}</dl></div>)}</div>
+        {!data.finance.currencies.length && <p className="text-sm text-slate-500">{t('Aucun encaissement ni solde correspondant.','No matching receipts or balances.')}</p>}
+        <Link href="/app/finance" className="mt-3 inline-block text-sm font-medium text-emerald-700">{t('Ouvrir la finance du bureau','Open office finance')}</Link>
+      </Panel>}
       <Panel title={t('Arrivées attendues · 7 prochains jours · 10 premières','Expected arrivals · next 7 days · first 10')}>
         <p className="mb-3 text-xs text-slate-500">{t('Dates estimées enregistrées sur les colis, indépendantes de la période analysée. Ce ne sont pas des confirmations d’arrivée.','Estimated parcel arrival dates, independent of the reporting period. These are not arrival confirmations.')}</p>
         {(data.upcoming || []).map(item => <div key={item.id} className="mb-2 rounded-md border border-slate-100 p-2"><span className="text-xs font-medium">{item.eta_at && new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeStyle:'short',timeZone:data.period.timezone}).format(new Date(item.eta_at))}</span><ParcelList items={[item]} locale={locale}/></div>)}

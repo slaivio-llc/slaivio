@@ -22,9 +22,17 @@ def list_center(org_id,user_id,status=None,category=None,priority=None,source=No
       union all
       select n.id,n.org_id,'DELIVERY',n.notification_type,concat(upper(n.channel),' · ',coalesce(n.recipient_phone,'Destinataire')),n.message,
        case when n.status='FAILED' then 'HIGH' else 'NORMAL' end,n.created_at,s.read_at,s.archived_at,s.snoozed_until,
-       case when n.dossier_id is not null then 'DOSSIER' when n.client_id is not null then 'CLIENT' end,
-       coalesce(n.dossier_id::text,n.client_id::text),n.status,n.error_message
-      from notification_outbox n left join notification_user_states s on s.org_id=n.org_id and s.user_id=:u and s.source='DELIVERY' and s.notification_id=n.id where n.org_id=:o
+       case when expedition.id is not null then 'EXPEDITION' when package.id is not null then 'PACKAGE' when n.dossier_id is not null then 'DOSSIER' when n.client_id is not null then 'CLIENT' end,
+       coalesce(expedition.id::text,package.id::text,n.dossier_id::text,n.client_id::text),n.status,n.error_message
+      from notification_outbox n
+      left join package_notifications pn on pn.org_id=n.org_id and pn.notification_outbox_id=n.id
+      left join cargo_packages package on package.org_id=n.org_id and package.id=pn.package_id and package.deleted_at is null
+      left join cargo_expeditions expedition on expedition.org_id=n.org_id and expedition.archived_at is null
+        and split_part(n.notification_type,':',1)='EXPEDITION_ASSIGNED'
+        and split_part(n.notification_type,':',2)=expedition.id::text
+        and split_part(n.notification_type,':',3)=package.id::text
+        and array_length(string_to_array(n.notification_type,':'),1)=3
+      left join notification_user_states s on s.org_id=n.org_id and s.user_id=:u and s.source='DELIVERY' and s.notification_id=n.id where n.org_id=:o
     ) unified"""
     with engine.connect() as c:
         total=c.execute(text(f'select count(*) from ({base}) x where {where}'),p).scalar_one()

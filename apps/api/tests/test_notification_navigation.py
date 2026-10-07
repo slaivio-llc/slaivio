@@ -10,6 +10,8 @@ from app.api import notification_center
 @pytest.mark.parametrize('kind,permission,expected', [
     ('CLIENT', 'clients.read', '/app/clients?open=abc'),
     ('DOSSIER', 'dossiers.read', '/app/dossiers/abc'),
+    ('PACKAGE', 'packages.read', '/app/packages?open=abc'),
+    ('EXPEDITION', 'shipments.read', '/app/shipments/abc'),
 ])
 def test_reference_requires_resource_permission(kind, permission, expected):
     item = {'resource_kind': kind, 'resource_id': 'abc'}
@@ -53,3 +55,20 @@ def test_query_keeps_personal_unread_override_and_excludes_snoozed_from_total(mo
     assert 'where (snoozed_until is null or snoozed_until<=now())' in query
     assert params['o'] == 'office-a'
     assert params['u'] == 'agent-a'
+
+
+def test_cargo_links_join_existing_records_in_same_office(monkeypatch):
+    engine = MagicMock()
+    monkeypatch.setattr(repository, 'engine', engine)
+    connection = engine.connect.return_value.__enter__.return_value
+    connection.execute.return_value.scalar_one.return_value = 0
+    connection.execute.return_value.mappings.return_value.one.return_value = {}
+    repository.list_center('office-a', 'agent-a')
+    query = str(connection.execute.call_args_list[0].args[0])
+    assert 'pn.org_id=n.org_id and pn.notification_outbox_id=n.id' in query
+    assert 'package.org_id=n.org_id and package.id=pn.package_id' in query
+    assert 'package.deleted_at is null' in query
+    assert 'expedition.org_id=n.org_id and expedition.archived_at is null' in query
+    assert "split_part(n.notification_type,':',1)='EXPEDITION_ASSIGNED'" in query
+    assert "split_part(n.notification_type,':',3)=package.id::text" in query
+    assert "array_length(string_to_array(n.notification_type,':'),1)=3" in query

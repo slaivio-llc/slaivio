@@ -8,6 +8,8 @@ def notification_href(item: dict, permissions: list[str]) -> str:
     targets = {
         'DOSSIER': ('dossiers.read', '/app/dossiers/'),
         'CLIENT': ('clients.read', '/app/clients?open='),
+        'PACKAGE': ('packages.read', '/app/packages?open='),
+        'EXPEDITION': ('shipments.read', '/app/shipments/'),
     }
     target = targets.get(kind)
     if identifier and target and target[0] in permissions:

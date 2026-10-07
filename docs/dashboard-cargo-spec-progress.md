@@ -22,6 +22,8 @@ Remplacements effectués pour le profil colis/fret :
 
 - Navigation client/dossier résolue côté API depuis les références enregistrées et les permissions de l'utilisateur dans le bureau actif. Suppression du routage par mots-clés dans les messages du menu global.
 - Les références historiques `shipment_id` ne sont pas assimilées aux identifiants des expéditions Cargo : ouverture du centre tant que leur migration explicite n'est pas livrée.
+- Notifications de livraison Cargo : liaison à la fiche colis via `package_notifications.notification_outbox_id`. Pour `EXPEDITION_ASSIGNED:<expedition_id>:<package_id>`, ouverture de l'expédition existante, non archivée, du même bureau ; la référence colis doit aussi correspondre. Aucun UUID fourni dans le type d'événement n'est converti sans validation : les comparaisons restent textuelles.
+- Les cibles colis et expédition nécessitent respectivement `packages.read` et `shipments.read`. Un colis supprimé ou une expédition archivée n'est pas proposé comme cible ; les références client/dossier existantes restent le repli, sous permission.
 - Menu global : tout marquer comme lu sous permission `notifications.manage`, erreurs visibles avec nouvelle tentative, protection contre les réponses de requêtes périmées et le chargement infini au clic sur l'onglet déjà actif.
 - Une marque personnelle « non lu » prime désormais sur l'ancien état global `is_read`. Le total paginé exclut les notifications reportées comme la liste.
 - Tests unitaires de navigation, contexte de permission et construction SQL ajoutés. Pas de validation navigateur ou PostgreSQL réel dans ce lot.

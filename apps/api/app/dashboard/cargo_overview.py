@@ -6,11 +6,31 @@ from sqlalchemy import text
 from app.db.database import engine
 from app.dashboard.periods import resolve_period
 
+FLOW_COLUMNS = {'received': 'received_at', 'shipped': 'dispatched_at', 'delivered': 'delivered_at'}
+STATE_FILTERS = {
+    'in_transit': "status in ('IN_TRANSIT','SHIPPED','DEPARTED','ARRIVED_HUB','IN_LOCAL_TRANSIT')",
+    'ready_for_pickup': "status='READY_FOR_PICKUP'",
+    'blocked': "status='BLOCKED'",
+    'warehoused': "status in ('RECEIVED','RECEIVED_AT_ORIGIN','WAREHOUSED','WAREHOUSE_PROCESSING')",
+}
+
+
+def metric_predicate(metric):
+    if metric in FLOW_COLUMNS:
+        column = FLOW_COLUMNS[metric]
+        return f'{column}>=:start and {column}<:end'
+    if metric in STATE_FILTERS:
+        return STATE_FILTERS[metric]
+    raise HTTPException(422, 'invalid_metric')
+
 
 def cargo_overview(tenant, permissions, **options):
     if 'packages.read' not in permissions:
         raise HTTPException(403, 'packages_read_required')
     scope = options.pop('scope', 'office')
+    metric = options.pop('metric', None)
+    page = options.pop('page', 1)
+    metric_filter = metric_predicate(metric) if metric else None
     if scope == 'network' and 'network.overview' not in permissions:
         raise HTTPException(403, 'network_overview_required')
     with engine.connect() as conn:
@@ -63,19 +83,44 @@ def cargo_overview(tenant, permissions, **options):
 
         current = flow(period['current'])
         previous = flow(period['previous']) if period['previous'] else None
-        states = row(f"""select
-            count(*) filter(where status in ('IN_TRANSIT','SHIPPED','DEPARTED','ARRIVED_HUB','IN_LOCAL_TRANSIT'))::int in_transit,
-            count(*) filter(where status='READY_FOR_PICKUP')::int ready_for_pickup,
-            count(*) filter(where status='BLOCKED')::int blocked,
-            count(*) filter(where status in ('RECEIVED','RECEIVED_AT_ORIGIN','WAREHOUSED','WAREHOUSE_PROCESSING'))::int warehoused
-            {base}""")
+        state_columns = ','.join(f'count(*) filter(where {condition})::int {key}'
+                                 for key, condition in STATE_FILTERS.items())
+        states = row(f'select {state_columns} {base}')
         details = """p.id::text, p.org_id, p.package_reference reference, p.status,
             p.destination_country, p.destination_city, p.eta_at, p.updated_at"""
+        drilldown = None
+        if metric_filter:
+            drill_params = {**params, 'start': period['current']['start_utc'],
+                            'end': period['current']['end_utc'], 'offset': (page-1)*25}
+            total = row(f'select count(*)::int total {base} and ({metric_filter})', drill_params)['total']
+            matches = [dict(item) for item in conn.execute(text(f'''
+                select {details} {base} and ({metric_filter})
+                order by p.updated_at desc,p.id limit 25 offset :offset
+            '''), drill_params).mappings()]
+            for item in matches:
+                item['href'] = f"/app/packages?open={item['id']}" if scope == 'office' or item['org_id'] == tenant['org_id'] else None
+            drilldown = {'metric': metric, 'page': page, 'page_size': 25, 'total': total, 'items': matches}
         attention = [dict(item) for item in conn.execute(text(f"""
             select {details}, case when status='BLOCKED' then 'blocked' else 'overdue' end reason
             {base} and (status='BLOCKED' or (eta_at<now() and status not in ('DELIVERED','CANCELLED','RETURNED')))
             order by (status='BLOCKED') desc, eta_at asc nulls last, p.id limit 10
         """), params).mappings()]
+        upcoming = [dict(item) for item in conn.execute(text(f"""
+            select {details} {base}
+              and eta_at>=now() and eta_at<now()+interval '7 days'
+              and status not in ('DELIVERED','CANCELLED','RETURNED')
+            order by eta_at,p.id limit 10
+        """), params).mappings()]
+        departures = None
+        if 'departures.read' in permissions:
+            departures = [dict(item) for item in conn.execute(text('''
+                select id::text,org_id,departure_code,scheduled_at,cutoff_at,status
+                from cargo_departures
+                where org_id=any(cast(:org_ids as text[]))
+                  and status in ('OPEN','CLOSED','LOADING')
+                  and scheduled_at>=now() and scheduled_at<now()+interval '7 days'
+                order by scheduled_at,id limit 10
+            '''), params).mappings()]
         interval_params = {**params, 'start': period['current']['start_utc'], 'end': period['current']['end_utc']}
         recent = [dict(item) for item in conn.execute(text(f"""
             select {details} {base} and received_at>=:start and received_at<:end
@@ -87,9 +132,10 @@ def cargo_overview(tenant, permissions, **options):
             {base} and received_at>=:start and received_at<:end
             group by destination_country,destination_city order by count(*) desc,1,2 limit 8
         """), interval_params).mappings()]
-        for item in attention + recent:
+        for item in attention + recent + upcoming:
             item['href'] = f"/app/packages?open={item['id']}" if scope == 'office' or item['org_id'] == tenant['org_id'] else None
         return {'workspace': dict(office), 'scope': scope, 'office_count': len(office_ids),
                 'period': period, 'generated_at': datetime.now(timezone.utc),
                 'flows': current, 'previous_flows': previous, 'states': states,
-                'attention': attention, 'recent': recent, 'destinations': destinations}
+                'attention': attention, 'recent': recent, 'destinations': destinations,
+                'drilldown': drilldown, 'upcoming': upcoming, 'departures': departures}

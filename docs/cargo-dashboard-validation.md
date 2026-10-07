@@ -15,6 +15,13 @@ Le cache sessionStorage global de l'accueil n'est plus lu ni alimenté.
 - Attention : 10 colis bloqués ou ETA dépassée sans état final ; réceptions : 8 dernières de la période.
 - Destinations : 8 premières par réceptions, pays et ville séparés. Livraisons à ce jour de cette cohorte, pas taux de ponctualité.
 - Données FR/EN, formats de dates et nombres internationaux, calcul horodaté.
+- KPI cliquables : liste de correspondances paginée (25 par page), sélection unique,
+  métrique et page dans l'URL, mêmes bornes UTC et périmètre que les compteurs.
+- Arrivées estimées dans les 7 jours suivants, 10 premières, hors états terminés.
+  Ce widget utilise les ETA renseignées, pas une promesse de livraison.
+- Départs à venir sur 7 jours (10 premiers), hors brouillons/annulations/départs déjà
+  effectués ; interrogation conditionnée à `departures.read`, même périmètre propriétaire.
+  L'accès proposé ouvre le module du bureau actif, pas une fiche de départ distante.
 - Une erreur n'est pas un jeu de valeurs à zéro. Les réponses périmées sont annulées.
 
 ## Autorisation et consolidation
@@ -52,7 +59,7 @@ Un fuseau de reporting unique du réseau et le scope global partagé restent à 
 ## Limites explicites
 
 Ce lot n'achève pas toute la spécification DASH-02 à DASH-10. Restent notamment :
-vues partagées, création globale, exports, drill-down des KPI vers des listes filtrées,
+vues partagées, création globale, exports,
 finance multi-devises, indicateurs support/IA, rafraîchissement temps réel, synchronisation
 hors ligne, séries temporelles et mesures de performance sur PostgreSQL réel.
 Les tests unitaires SQL utilisent des doubles : ils ne certifient pas le schéma déployé.

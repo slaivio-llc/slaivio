@@ -10,6 +10,24 @@ from app.dashboard import cargo_overview as repo
 NOW = datetime(2026, 10, 7, 12, tzinfo=timezone.utc)
 
 
+@pytest.mark.parametrize('metric', list(repo.FLOW_COLUMNS) + list(repo.STATE_FILTERS))
+def test_drilldown_uses_exact_metric_definition(metric):
+    predicate = repo.metric_predicate(metric)
+    if metric in repo.FLOW_COLUMNS:
+        assert predicate == f'{repo.FLOW_COLUMNS[metric]}>=:start and {repo.FLOW_COLUMNS[metric]}<:end'
+    else:
+        assert predicate == repo.STATE_FILTERS[metric]
+
+
+def test_invalid_metric_is_rejected_before_database(monkeypatch):
+    engine = MagicMock()
+    monkeypatch.setattr(repo, 'engine', engine)
+    with pytest.raises(HTTPException) as error:
+        repo.cargo_overview({'org_id':'a','user_id':'b'}, ['packages.read'], metric='status OR true')
+    assert error.value.status_code == 422
+    engine.connect.assert_not_called()
+
+
 @pytest.mark.parametrize('preset,start,end', [
     ('today','2026-10-07','2026-10-07'), ('yesterday','2026-10-06','2026-10-06'),
     ('7d','2026-10-01','2026-10-07'), ('30d','2026-09-08','2026-10-07'),
@@ -87,6 +105,21 @@ def test_office_queries_use_dates_not_status_for_flow(monkeypatch):
     assert 'received_at>=:start and received_at<:end' in str(flow)
     assert 'dispatched_at>=:start and dispatched_at<:end' in str(flow)
     assert params['start'].tzinfo is not None
+    assert not any('from cargo_departures' in str(call.args[0]) for call in conn.execute.call_args_list)
+
+
+def test_departures_require_permission_and_share_office_scope(monkeypatch):
+    engine=MagicMock()
+    monkeypatch.setattr(repo,'engine',engine)
+    conn=engine.connect.return_value.__enter__.return_value
+    conn.execute.return_value.mappings.return_value.first.return_value={
+        'id':'office-a','name':'Agency','timezone':'UTC','organization_type':'PARCEL_FREIGHT','group_id':None}
+    conn.execute.return_value.mappings.return_value.one.return_value={}
+    repo.cargo_overview({'org_id':'office-a','user_id':'agent'},['packages.read','departures.read'])
+    sql,params=next(call.args for call in conn.execute.call_args_list if 'from cargo_departures' in str(call.args[0]))
+    assert "status in ('OPEN','CLOSED','LOADING')" in str(sql)
+    assert 'org_id=any(cast(:org_ids as text[]))' in str(sql)
+    assert params['org_ids']==['office-a']
 
 
 def test_database_failure_is_not_reported_as_zero(monkeypatch):
@@ -95,6 +128,28 @@ def test_database_failure_is_not_reported_as_zero(monkeypatch):
     engine.connect.side_effect=RuntimeError('database unavailable')
     with pytest.raises(RuntimeError):
         repo.cargo_overview({'org_id':'office-a','user_id':'agent'},['packages.read'])
+
+
+def test_drilldown_pagination_and_upcoming_are_scoped(monkeypatch):
+    engine=MagicMock()
+    monkeypatch.setattr(repo,'engine',engine)
+    conn=engine.connect.return_value.__enter__.return_value
+    conn.execute.return_value.mappings.return_value.first.return_value={
+        'id':'office-a','name':'Agency','timezone':'UTC','organization_type':'PARCEL_FREIGHT','group_id':None}
+    conn.execute.return_value.mappings.return_value.one.return_value={'total':31}
+    result=repo.cargo_overview({'org_id':'office-a','user_id':'agent'},['packages.read'], metric='received',page=2)
+    assert result['drilldown']['total']==31
+    assert result['drilldown']['page']==2
+    queries=[(str(call.args[0]),call.args[1]) for call in conn.execute.call_args_list]
+    matches=[(sql,params) for sql,params in queries if 'limit 25 offset' in sql]
+    assert len(matches)==1
+    sql,params=matches[0]
+    assert 'received_at>=:start and received_at<:end' in sql
+    assert params['offset']==25
+    assert params['org_ids']==['office-a']
+    upcoming=[sql for sql,_ in queries if "interval '7 days'" in sql][0]
+    assert "status not in ('DELIVERED','CANCELLED','RETURNED')" in upcoming
+    assert 'p.deleted_at is null' in upcoming
 
 
 def test_network_scope_requires_active_authorized_offices(monkeypatch):

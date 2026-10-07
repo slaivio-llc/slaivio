@@ -14,6 +14,20 @@ const data={workspace:{id:'a',name:'Agency',country:'CD',city:'Kinshasa'},scope:
 beforeEach(()=>{mocks.get.mockReset();mocks.replace.mockReset();mocks.query='';});
 afterEach(cleanup);
 describe('cargo overview',()=>{
+  it('opens a KPI with its metric in the URL without losing the period',async()=>{
+    mocks.query='preset=7d&comparison=none';mocks.get.mockResolvedValue(data);render(<CargoDashboard/>);
+    await screen.findByText('Period flows');
+    fireEvent.click(screen.getByRole('button',{name:/Parcels received/}));
+    expect(mocks.replace).toHaveBeenCalledWith('/app?preset=7d&comparison=none&metric=received&page=1',{scroll:false});
+  });
+  it('selects only one KPI and exposes the paginated matching parcels',async()=>{
+    mocks.query='metric=blocked&page=1';mocks.get.mockResolvedValue({...data,drilldown:{metric:'blocked',page:1,page_size:25,total:30,items:[]}});render(<CargoDashboard/>);
+    await screen.findByText('Period flows');
+    expect(screen.getAllByRole('button',{pressed:true})).toHaveLength(1);
+    expect(screen.getByRole('region',{name:'Parcels matching selected metric'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Next'}));
+    expect(mocks.replace).toHaveBeenCalledWith('/app?metric=blocked&page=2',{scroll:false});
+  });
   it('separates flows from current state and shows the reporting timezone',async()=>{
     mocks.get.mockResolvedValue(data);render(<CargoDashboard/>);
     expect(await screen.findByText('Period flows')).toBeInTheDocument();

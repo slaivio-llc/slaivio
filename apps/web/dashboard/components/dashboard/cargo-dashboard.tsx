@@ -37,7 +37,7 @@ export function CargoDashboard() {
     const controller = new AbortController();
     const params = new URLSearchParams(queryKey);
     const query: CargoQuery = { preset: params.get("preset") || "30d", comparison: params.get("comparison") || "previous", scope: params.get("scope") || "office" };
-    for (const key of ["start", "end", "compare_start", "compare_end"] as const) if (params.get(key)) query[key] = params.get(key)!;
+    for (const key of ["start", "end", "compare_start", "compare_end", "metric", "page"] as const) if (params.get(key)) query[key] = params.get(key)!;
     getCargoDashboard(query, controller.signal).then((next) => {
       if (!controller.signal.aborted) { setResult({ key: queryKey, data: next }); setFailure(null); }
     }).catch(() => { if (!controller.signal.aborted) setFailure(queryKey); })
@@ -45,6 +45,14 @@ export function CargoDashboard() {
     return () => controller.abort();
   }, [queryKey, revision]);
   function refresh() { setLoading(true); setFailure(null); setRevision(value => value + 1); }
+  function openMetric(metric: string | null, page = 1) {
+    const params = new URLSearchParams(queryKey);
+    if (metric) { params.set('metric', metric); params.set('page', String(page)); }
+    else { params.delete('metric'); params.delete('page'); }
+    if (params.toString() === queryKey) return;
+    setLoading(true); setFailure(null);
+    router.replace(`${pathname}?${params}`, { scroll: false });
+  }
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -74,11 +82,16 @@ export function CargoDashboard() {
       <section><h2 className="font-semibold">{t("Flux de la période", "Period flows")}</h2><p className="mt-1 text-xs text-slate-500">{day(data.period.current.start)} — {day(data.period.current.end)}{data.period.previous && ` · ${t("Comparaison", "Comparison")} : ${day(data.period.previous.start)} — ${day(data.period.previous.end)}`}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">{([['received',t('Colis reçus','Parcels received')],['shipped',t('Colis expédiés','Parcels dispatched')],['delivered',t('Colis livrés','Parcels delivered')]] as const).map(([key,label]) => {
           const previous = data.previous_flows?.[key]; const value = data.flows[key];
-          return <Metric key={key} label={label} value={number(value)} detail={previous === undefined ? t("Date du jalon enregistrée", "Recorded milestone date") : `${t("Précédent", "Previous")}: ${number(previous)} · ${previous === 0 ? t("Variation non calculable", "Change not calculable") : `${new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1,signDisplay:'always'}).format((value-previous)/previous)}`}`}/>;
+          return <Metric key={key} active={search.get("metric") === key} onClick={() => openMetric(key)} label={label} value={number(value)} detail={previous === undefined ? t("Date du jalon enregistrée", "Recorded milestone date") : `${t("Précédent", "Previous")}: ${number(previous)} · ${previous === 0 ? t("Variation non calculable", "Change not calculable") : `${new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1,signDisplay:'always'}).format((value-previous)/previous)}`}`}/>;
         })}</div><p className="mt-2 text-xs text-slate-500">{t("Les jalons sans date ne sont pas comptés. Un changement de statut n’est pas une date de réception.", "Milestones without dates are excluded. A status is not a receipt date.")}</p>
       </section>
-      <section><h2 className="font-semibold">{t("Situation actuelle", "Current state")}</h2><p className="mt-1 text-xs text-slate-500">{t("Indépendante de la période sélectionnée", "Independent of the selected period")}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{([['warehoused',t('En entrepôt','In warehouse')],['in_transit',t('En acheminement','In transit')],['ready_for_pickup',t('À retirer','Ready for pickup')],['blocked',t('Bloqués','Blocked')]] as const).map(([key,label]) => <Metric key={key} label={label} value={number(data.states[key])} detail={t('État au moment du calcul','State at calculation time')}/>)}</div></section>
+      <section><h2 className="font-semibold">{t("Situation actuelle", "Current state")}</h2><p className="mt-1 text-xs text-slate-500">{t("Indépendante de la période sélectionnée", "Independent of the selected period")}</p><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{([['warehoused',t('En entrepôt','In warehouse')],['in_transit',t('En acheminement','In transit')],['ready_for_pickup',t('À retirer','Ready for pickup')],['blocked',t('Bloqués','Blocked')]] as const).map(([key,label]) => <Metric key={key} active={search.get("metric") === key} onClick={() => openMetric(key)} label={label} value={number(data.states[key])} detail={t('État au moment du calcul','State at calculation time')}/>)}</div></section>
       <div className="grid gap-5 lg:grid-cols-2">
+        {data.drilldown && <section className="rounded-lg border border-emerald-300 p-4 lg:col-span-2" aria-label={t('Colis de l’indicateur sélectionné','Parcels matching selected metric')}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">{t('Résultats de l’indicateur','Metric results')} · {number(data.drilldown.total)} {t('colis','parcels')}</h2><button type="button" className={control} onClick={() => openMetric(null)}>{t('Fermer','Close')}</button></div>
+          <ParcelList items={data.drilldown.items} locale={locale}/>
+          <div className="mt-4 flex items-center justify-end gap-3"><button type="button" className={control} disabled={data.drilldown.page <= 1} onClick={() => openMetric(data.drilldown!.metric, data.drilldown!.page-1)}>{t('Précédent','Previous')}</button><span className="text-xs">{data.drilldown.page} / {Math.max(1, Math.ceil(data.drilldown.total/data.drilldown.page_size))}</span><button type="button" className={control} disabled={data.drilldown.page*data.drilldown.page_size >= data.drilldown.total} onClick={() => openMetric(data.drilldown!.metric, data.drilldown!.page+1)}>{t('Suivant','Next')}</button></div>
+        </section>}
         <Panel title={t("À traiter maintenant · 10 premiers", "Needs attention · first 10")}><ParcelList items={data.attention} locale={locale}/></Panel>
         <Panel title={t("Dernières réceptions de la période · 8 premières", "Latest receipts in period · first 8")}><ParcelList items={data.recent} locale={locale}/></Panel>
       </div>
@@ -87,6 +100,16 @@ export function CargoDashboard() {
         {!data.destinations.length && <p className="text-sm text-slate-500">{t("Aucune réception pour cette période.", "No receipts in this period.")}</p>}
         <div className="grid gap-3 sm:grid-cols-2">{data.destinations.map(item => <div key={`${item.country}:${item.city}`} className="rounded-md bg-slate-50 p-3 text-sm"><strong>{[item.country,item.city].filter(Boolean).join(' / ') || t('Destination non renseignée','Destination not provided')}</strong><p className="mt-1 text-slate-600">{number(item.received)} {t('reçus','received')} · {number(item.delivered)} {t('livrés à ce jour','delivered to date')}</p></div>)}</div>
       </Panel>
+      <Panel title={t('Arrivées attendues · 7 prochains jours · 10 premières','Expected arrivals · next 7 days · first 10')}>
+        <p className="mb-3 text-xs text-slate-500">{t('Dates estimées enregistrées sur les colis, indépendantes de la période analysée. Ce ne sont pas des confirmations d’arrivée.','Estimated parcel arrival dates, independent of the reporting period. These are not arrival confirmations.')}</p>
+        {(data.upcoming || []).map(item => <div key={item.id} className="mb-2 rounded-md border border-slate-100 p-2"><span className="text-xs font-medium">{item.eta_at && new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeStyle:'short',timeZone:data.period.timezone}).format(new Date(item.eta_at))}</span><ParcelList items={[item]} locale={locale}/></div>)}
+        {!data.upcoming?.length && <p className="text-sm text-slate-500">{t('Aucune arrivée estimée dans les 7 prochains jours.','No estimated arrival in the next 7 days.')}</p>}
+      </Panel>
+      {data.departures && <Panel title={t('Départs planifiés · 7 prochains jours · 10 premiers','Scheduled departures · next 7 days · first 10')}>
+        <ul className="grid gap-3 sm:grid-cols-2">{data.departures.map(item => <li key={item.id} className="rounded-md border border-slate-200 p-3"><strong className="text-sm">{item.departure_code}</strong><p className="mt-1 text-sm">{new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeStyle:'short',timeZone:data.period.timezone}).format(new Date(item.scheduled_at))}</p><p className="text-xs text-slate-500">{item.status}</p>{item.cutoff_at && <p className="mt-1 text-xs text-slate-600">{t('Clôture des dépôts','Drop-off cutoff')} : {new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeStyle:'short',timeZone:data.period.timezone}).format(new Date(item.cutoff_at))}</p>}</li>)}</ul>
+        {!data.departures.length && <p className="text-sm text-slate-500">{t('Aucun départ planifié dans les 7 prochains jours.','No scheduled departure in the next 7 days.')}</p>}
+        <Link href="/app/departures" className="mt-3 inline-block text-sm font-medium text-emerald-700">{t('Ouvrir les départs du bureau actif','Open active office departures')}</Link>
+      </Panel>}
     </>}
   </main>;
 }
@@ -105,7 +128,7 @@ function PeriodForm({search,apply,locale,network}:{search:URLSearchParams;apply:
   </form>;
 }
 function DateField({name,label,search}:{name:string;label:string;search:URLSearchParams}) {return <label className="grid gap-1 text-xs">{label}<input type="date" name={name} required defaultValue={search.get(name)||''} className={control}/></label>;}
-function Metric({label,value,detail}:{label:string;value:string;detail:string}) {return <div className="rounded-lg border border-slate-200 p-4"><h3 className="text-sm text-slate-600">{label}</h3><p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p><p className="mt-2 text-xs text-slate-500">{detail}</p></div>;}
+function Metric({label,value,detail,active,onClick}:{label:string;value:string;detail:string;active:boolean;onClick:()=>void}) {return <button type="button" aria-pressed={active} onClick={onClick} className={`rounded-lg border p-4 text-left focus-visible:outline-emerald-600 ${active ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200 hover:border-emerald-400'}`}><span className="block text-sm text-slate-600">{label}</span><span className="mt-2 block text-2xl font-semibold tabular-nums">{value}</span><span className="mt-2 block text-xs text-slate-500">{detail}</span></button>;}
 function Panel({title,children}:{title:string;children:ReactNode}) {return <section className="min-w-0 rounded-lg border border-slate-200 p-4"><h2 className="mb-4 text-sm font-semibold">{title}</h2>{children}</section>;}
 function ParcelList({items,locale}:{items:CargoParcel[];locale:string}) {
   if (!items.length) return <p className="text-sm text-slate-500">{locale==='fr'?'Aucun colis correspondant.':'No matching parcels.'}</p>;

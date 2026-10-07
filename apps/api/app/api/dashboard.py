@@ -23,12 +23,13 @@ def cargo_dashboard(preset: str = '30d', comparison: str = 'previous',
                     start: date | None = None, end: date | None = None,
                     compare_start: date | None = None, compare_end: date | None = None,
                     scope: str = Query('office', pattern='^(office|network)$'),
+                    metric: str | None = None, page: int = Query(1, ge=1, le=100000),
                     tenant=Depends(get_current_tenant)):
     from app.dashboard.cargo_overview import cargo_overview
     permissions = list_permissions_for_user(user_id=tenant['user_id'], org_id=tenant['org_id'])
     return cargo_overview(tenant, permissions, preset=preset, comparison=comparison,
                           start=start, end=end, compare_start=compare_start, compare_end=compare_end,
-                          scope=scope)
+                          scope=scope, metric=metric, page=page)
 
 
 class ResourcePreferenceBody(BaseModel):

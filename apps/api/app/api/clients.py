@@ -1,6 +1,7 @@
 import csv
 import io
 from datetime import date
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
@@ -27,6 +28,7 @@ from app.clients.repository import (
 )
 from app.core.tenant_context import get_current_tenant
 from app.core.permissions import require_permission
+from app.clients.phone import normalize_contact_phone
 
 
 router = APIRouter()
@@ -59,6 +61,8 @@ def csv_safe_value(value):
 
 
 class ClientPayload(BaseModel):
+    idempotency_key: UUID | None = None
+    phone_region: str | None = Field(default=None, pattern=r'^[A-Z]{2}$')
     name: str | None = Field(default=None, max_length=160)
     display_name: str | None = Field(default=None, max_length=180)
     company_name: str | None = Field(default=None, max_length=180)
@@ -101,6 +105,7 @@ class ClientPayload(BaseModel):
 
 
 class ClientPatchPayload(BaseModel):
+    phone_region: str | None = Field(default=None, pattern=r'^[A-Z]{2}$')
     row_version: int = Field(ge=1)
     name: str | None = Field(default=None, max_length=160)
     display_name: str | None = Field(default=None, max_length=180)
@@ -269,10 +274,13 @@ def clients_create(body: ClientPayload, tenant=Depends(get_current_tenant)):
         payload['country'] = payload.get('country') or tenant.get('country')
         payload['city'] = payload.get('city') or tenant.get('city')
     try:
+        if tenant.get('organization_type') in ('PARCEL_FREIGHT', 'CARGO'):
+            payload['phone'] = normalize_contact_phone(body.phone, body.phone_region)
+            payload['whatsapp_phone'] = payload['phone']
         client = create_client(tenant["org_id"], _user_id(tenant), payload)
     except ValueError as exc:
-        if str(exc) == "duplicate_client":
-            raise HTTPException(status_code=409, detail="duplicate_client") from exc
+        if str(exc) in {"duplicate_client", "client_creation_key_conflict", "client_creation_no_longer_available"}:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         if str(exc) in {"invalid_phone", "invalid_email"}:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         raise
@@ -482,6 +490,9 @@ def clients_update(client_id: str, body: ClientPatchPayload, tenant=Depends(get_
             raise HTTPException(409, 'stale_client_version')
         _validate_cargo_identity({**existing, **payload})
     try:
+        if tenant.get('organization_type') in ('PARCEL_FREIGHT', 'CARGO') and 'phone' in payload:
+            payload['phone'] = normalize_contact_phone(body.phone, body.phone_region)
+            payload['whatsapp_phone'] = payload['phone']
         client = update_client(tenant["org_id"], client_id, _user_id(tenant), payload)
     except ValueError as exc:
         if str(exc) == "duplicate_client":

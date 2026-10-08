@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.db.database import engine
+from app.clients.creation_requests import remember_request, replay_request, request_fingerprint
 
 
 CLIENT_STATUSES = {"lead", "active", "pending", "inactive", "blocked"}
@@ -377,12 +378,20 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
     company_name = (payload.get("company_name") or "").strip() or None
     display_name = (payload.get("display_name") or name or company_name or phone or email or "").strip()
 
-    duplicate = _find_duplicate(org_id, phone or whatsapp_phone, email)
-    if duplicate:
-        raise ValueError("duplicate_client")
-
     try:
         with engine.begin() as conn:
+            request_key = payload.get('idempotency_key')
+            fingerprint = request_fingerprint(payload) if request_key else None
+            if request_key:
+                replay_id = replay_request(conn, org_id, user_id, str(request_key), fingerprint)
+                if replay_id:
+                    replay = get_client(org_id, replay_id)
+                    if not replay:
+                        raise ValueError('client_creation_no_longer_available')
+                    return replay
+            duplicate = _find_duplicate(org_id, phone or whatsapp_phone, email)
+            if duplicate:
+                raise ValueError('duplicate_client')
             network_client_id = None
             network_phone = phone or whatsapp_phone
             if network_phone:
@@ -451,6 +460,8 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
                 },
             ).fetchone()
             if row is not None:
+                if request_key:
+                    remember_request(conn, org_id, user_id, str(request_key), fingerprint, str(row[0]))
                 _audit_client(
                     conn, org_id=org_id, user_id=user_id, client_id=str(row[0]),
                     action="client.created", changed_fields=list(payload.keys()),

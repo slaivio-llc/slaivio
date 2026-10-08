@@ -164,6 +164,8 @@ export type ClientsResponse = {
 };
 
 export type ClientPayload = {
+  phone_region?: string;
+  idempotency_key?: string;
   row_version?: number;
   name?: string;
   display_name?: string;

@@ -2,6 +2,7 @@
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { CargoDirectory } from "@/components/clients/cargo-directory";
+import { InternationalPhone } from "@/components/clients/international-phone";
 import { cargoClientPayload } from "@/services/cargo-client-payload";
 
 import axios from "axios";
@@ -207,6 +208,8 @@ export function ClientsPage() {
   const [formClient, setFormClient] = useState<ClientRecord | null>(null);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const creationRequest = useRef<{payload: string; key: string} | null>(null);
+  const submissionInFlight = useRef(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importResult, setImportResult] = useState<ClientImportResult | null>(
     null,
@@ -417,6 +420,7 @@ export function ClientsPage() {
   }
 
   function openCreate() {
+    creationRequest.current = null;
     setFormMode("create");
     setFormClient(null);
     setFormError("");
@@ -432,7 +436,8 @@ export function ClientsPage() {
 
   async function submitClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
     setFormError("");
     setSaving(true);
     const form = new FormData(event.currentTarget);
@@ -465,6 +470,13 @@ export function ClientsPage() {
     };
 
     try {
+      if (formMode === 'create') {
+        const signature = JSON.stringify(payload);
+        if (!creationRequest.current || creationRequest.current.payload !== signature) {
+          creationRequest.current = {payload: signature, key: crypto.randomUUID()};
+        }
+        payload.idempotency_key = creationRequest.current.key;
+      }
       const saved =
         formMode === "edit" && formClient
           ? await updateClient(formClient.id, payload)
@@ -479,6 +491,7 @@ export function ClientsPage() {
     } catch (err) {
       setFormError(apiErrorMessage(err));
     } finally {
+      submissionInFlight.current = false;
       setSaving(false);
     }
   }
@@ -1359,7 +1372,7 @@ function ClientFormModal({
           {parcelFreight ? <div className="grid gap-5">
             <label className="grid gap-2 text-sm">Type de client<select name="customer_type" value={cargoType} onChange={e=>setCargoType(e.target.value)} className={inputClass}><option value="individual">Particulier</option><option value="business">Entreprise</option></select></label>
             {cargoType === "business" ? <Input key="company" label="Nom de l’entreprise" name="company_name" required defaultValue={client?.company_name || ""}/> : <Input key="person" label="Nom complet" name="name" required defaultValue={client?.name || ""}/>}
-            <Input label="Téléphone international" name="phone" required={cargoType !== "business"} type="tel" placeholder="+243…" defaultValue={client?.phone || ""}/>
+            <InternationalPhone required={cargoType !== "business"} defaultValue={client?.phone || ""} className={inputClass}/>
             <p className="text-xs text-slate-500">Rattaché au bureau actif. WhatsApp utilise ce même numéro lorsqu’une conversation est disponible.</p>
             <details><summary className="cursor-pointer text-sm font-medium">Informations supplémentaires</summary><div className="mt-4 grid gap-4">
               <Input label="E-mail" name="email" type="email" defaultValue={client?.email || ""}/>
@@ -1857,7 +1870,11 @@ function apiErrorMessage(error: unknown) {
     )
       return "Une des fiches a été modifiée, archivée ou fusionnée. Rechargez la liste.";
     if (detail === "invalid_phone")
-      return "Le numéro doit contenir entre 7 et 15 chiffres.";
+      return "Le numéro de téléphone n’est pas valide. Vérifiez le pays et l’indicatif.";
+    if (detail === "client_creation_key_conflict")
+      return "Cette tentative correspond à une autre saisie. Fermez puis rouvrez le formulaire avant de réessayer.";
+    if (detail === "client_creation_no_longer_available")
+      return "Le client créé a été archivé ou fusionné. Rechargez le répertoire avant de continuer.";
     if (detail === "invalid_email") return "L’adresse email n’est pas valide.";
     if (detail === "name_company_phone_or_email_required")
       return "Ajoutez au moins un nom, une entreprise, un téléphone ou un email.";

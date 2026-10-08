@@ -11,6 +11,7 @@ export function cargoClientPayload(form: FormData, rowVersion?: number): ClientP
     company_name: business ? name : '',
     display_name: name,
     phone: value('phone'),
+    phone_region: value('phone_region') || undefined,
     whatsapp_phone: value('phone'),
     email: value('email'),
     address: value('address'),

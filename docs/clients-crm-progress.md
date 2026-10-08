@@ -76,6 +76,30 @@ pas des données à coder en dur. Ce fichier ne remplace pas la source.
 
 ## Validation avant clôture
 
+### Lot suivant : téléphone et créations rejouables
+
+- Formulaire Cargo : pays/indicatifs recherchables, numéro local ou international,
+  valeur E.164, numéro facultatif pour une entreprise. Bibliothèques
+  libphonenumber-js et phonenumbers ; aucun indicatif codé en dur.
+- API Cargo : validation réelle lors de la création et lorsqu'un numéro est modifié.
+  Les imports et autres chemins historiques ne sont pas encore unifiés sur ce validateur.
+- Clé de création conservée lors d'une nouvelle tentative identique ; garde synchrone
+  contre les doubles soumissions dans le navigateur.
+- Verrou transactionnel PostgreSQL par bureau/utilisateur/clé, empreinte de la saisie,
+  rejeu du client déjà créé et refus de réutiliser une clé avec une autre saisie.
+  Un client archivé n'est pas recréé lors d'un rejeu.
+- Migration préalable obligatoire : `126_client_creation_requests.sql`. Installation
+  des nouvelles dépendances frontend/backend puis redéploiement. Migration non exécutée
+  sur une base distante par cette intervention.
+- Limites : clé conservée durant la session du formulaire, pas après rechargement complet ;
+  les autres écrans créant des clients doivent encore adopter cette clé.
+- Tests concurrence avec PostgreSQL réel, 360, contacts entreprise et réseau restent ouverts.
+- Validation de ce lot : 46 tests Python et 16 tests Vitest passent, TypeScript sans erreur,
+  Ruff sur les nouveaux modules Python et ESLint sur les composants modifiés passent.
+- Environnement local : Node 21 produit des avertissements de compatibilité ; refaire
+  la recette sous Node 22. npm signale 16 vulnérabilités (2 modérées, 11 élevées,
+  3 critiques) dans l'arbre des dépendances ; qualification et remédiation restent à faire.
+
 Validation ciblée du 8 octobre : 31 tests Python (répertoire, RBAC, isolation),
 5 tests Vitest (répertoire et payload du formulaire). Création et modification Cargo
 partagent les contraintes d'identité ; une modification partielle conserve les champs

@@ -6,8 +6,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientsPage } from "./clients-page";
 import * as clientService from "@/services/clients";
 import * as tenantService from "@/services/tenant";
+import { api } from '@/services/api';
 
 let grantedPermissions: string[] = [];
+
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({push: vi.fn(), replace: vi.fn()}),
+  usePathname: () => '/app/clients',
+}));
+
+vi.mock('@/services/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/api')>();
+  return {...actual, api: {...actual.api, get: vi.fn().mockResolvedValue({data:{items:[],total:0,page:1,total_pages:0}})}};
+});
 
 vi.mock("@/components/permissions/permission-provider", () => ({
   usePermissions: () => ({ permissions: grantedPermissions, available: true }),
@@ -80,13 +92,15 @@ const listResponse = {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(api.get).mockResolvedValue({data:{items:[],total:0,page:1,total_pages:0}});
   grantedPermissions = [
     "clients.read", "clients.create", "clients.update", "clients.archive",
     "clients.import", "clients.export", "clients.merge",
   ];
   vi.mocked(clientService.listClients).mockResolvedValue(listResponse);
   vi.mocked(tenantService.getTenantContext).mockResolvedValue({
-    active_tenant: { organization_type: "PARCEL_FREIGHT" },
+    active_tenant: { organization_type: "VEHICLE_IMPORT" },
     tenants: [],
   });
   vi.mocked(clientService.listArchivedClients).mockResolvedValue({ ...listResponse, items: [] });
@@ -104,6 +118,28 @@ beforeEach(() => {
 });
 
 describe("ClientsPage production interactions", () => {
+  it('reuses the creation key after a network failure without losing the form', async () => {
+    vi.mocked(tenantService.getTenantContext).mockResolvedValue({
+      active_tenant: {organization_type: 'PARCEL_FREIGHT'}, tenants: [],
+    });
+    vi.mocked(clientService.createClient).mockRejectedValue(new Error('network'));
+    render(<ClientsPage/>);
+    const button = screen.getByRole('button', {name: /Nouveau client/i});
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+    fireEvent.change(screen.getByLabelText(/^Nom complet/), {target:{value:'Jean'}});
+    fireEvent.change(screen.getByLabelText('Téléphone *'), {target:{value:'+33612345678'}});
+    const form = document.querySelector<HTMLFormElement>('#client-form')!;
+    fireEvent.submit(form);
+    await waitFor(() => expect(clientService.createClient).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole('button', {name:/Créer le client/i})).toBeEnabled());
+    fireEvent.submit(form);
+    await waitFor(() => expect(clientService.createClient).toHaveBeenCalledTimes(2));
+    const calls = vi.mocked(clientService.createClient).mock.calls;
+    expect(calls[0][0].idempotency_key).toBeTruthy();
+    expect(calls[1][0].idempotency_key).toBe(calls[0][0].idempotency_key);
+    expect(screen.getByLabelText(/^Nom complet/)).toHaveValue('Jean');
+  });
   it("keeps the archived view locked without clients.archive", async () => {
     grantedPermissions = ["clients.read"];
     render(<ClientsPage />);
@@ -129,7 +165,11 @@ describe("ClientsPage production interactions", () => {
   });
 
   it("uses the shared client form without a currency field", async () => {
+    vi.mocked(tenantService.getTenantContext).mockResolvedValue({
+      active_tenant: {organization_type: 'PARCEL_FREIGHT'}, tenants: [],
+    });
     render(<ClientsPage />);
+    await waitFor(() => expect(screen.getByRole('button', {name: /Nouveau client/i})).toBeEnabled());
     await userEvent.click(await screen.findByRole("button", { name: /Nouveau client/i }));
 
     expect(await screen.findByRole("dialog", { name: "Nouveau client" })).toBeInTheDocument();
@@ -143,6 +183,7 @@ describe("ClientsPage production interactions", () => {
       tenants: [],
     });
     render(<ClientsPage />);
+    await waitFor(() => expect(screen.getByRole('button', {name: /Nouveau client/i})).toBeEnabled());
     await userEvent.click(await screen.findByRole("button", { name: /Nouveau client/i }));
 
     expect(await screen.findByLabelText("Montant attendu")).toBeInTheDocument();

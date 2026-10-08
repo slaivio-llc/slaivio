@@ -76,6 +76,33 @@ pas des données à coder en dur. Ce fichier ne remplace pas la source.
 
 ## Validation avant clôture
 
+### Lot Customer 360 et contacts entreprise
+
+- Cargo utilise une fiche dédiée : Aperçu, Colis, Expéditions, Finance,
+  Communications et Activité. Les anciennes fiches véhicules restent séparées.
+- Chaque section possède une projection SQL tenant/client et son droit métier
+  contrôlé côté API. Pagination de 25 éléments ; erreurs distinctes des listes vides.
+- Finance : documents et reçus reliés à la source Finance ; montants facturés séparés
+  par devise sur l'ensemble des factures émises, hors devis/brouillons/annulations.
+- Colis et expéditions ouvrent leurs objets source. Aucun faux compteur à zéro dans
+  l'aperçu ; téléphone unique et référence client affichés.
+- Le workspace historique ne charge plus finance/messages/colis sans leur permission.
+  Le GET détail Cargo expose une projection d'identité, sans anciens montants financiers.
+- Contacts entreprise : ajout, modification, contact principal unique et archivage.
+  Verrou de la société et contrôle de version avant modification ; journal client mis à jour.
+- Appliquer `127_client_company_contacts.sql` après 126 avant le déploiement.
+  Aucune migration de production n'a été exécutée ici.
+- **Ce lot ne clôt pas tout le cahier des charges** : répertoire réseau consolidé,
+  raccourcis de création Colis/Inbox avec brouillon conservé, sélection du destinataire
+  entreprise dans Inbox, colonnes optionnelles et export aligné sur les filtres Cargo,
+  historique métier transversal complet et internationalisation UI restent ouverts.
+- L'activité de la nouvelle fiche affiche pour l'instant les actions CRM autorisées,
+  pas encore toute la chronologie colis/paiements/communications.
+- Recette PostgreSQL concurrente et navigateur connecté toujours nécessaire ; les tests
+  unitaires SQL utilisent des doubles de connexion et ne valident pas le schéma déployé.
+- Vérification locale de ce lot : 57 tests Python ciblés et 21 tests frontend passent ;
+  TypeScript, Ruff ciblé, ESLint ciblé et `git diff --check` sans erreur.
+
 ### Lot suivant : téléphone et créations rejouables
 
 - Formulaire Cargo : pays/indicatifs recherchables, numéro local ou international,

@@ -1149,18 +1149,24 @@ def client_timeline(org_id: str, client_id: str, *, limit: int = 50) -> list[dic
     return events[: min(max(limit, 1), 100)]
 
 
-def client_workspace(org_id: str, client_id: str) -> dict | None:
+def client_workspace(org_id: str, client_id: str, *, permissions: set[str] | None = None) -> dict | None:
     """Return the operational 360° view without leaking data across agencies."""
     client = get_client(org_id, client_id)
     if not client:
         return None
+
+    permissions = permissions or set()
+    if 'finance.read' not in permissions:
+        for key in ('credit_enabled', 'credit_limit', 'current_balance', 'total_spent',
+                    'payment_amount_due', 'payment_amount_paid', 'payment_currency', 'payment_status'):
+            client.pop(key, None)
 
     packages: list[dict] = []
     messages: list[dict] = []
     documents: list[dict] = []
     payments: list[dict] = []
     with engine.connect() as conn:
-        if (_table_exists(conn, "cargo_packages") and
+        if ('packages.read' in permissions and _table_exists(conn, "cargo_packages") and
                 _table_exists(conn, "departure_package_allocations") and
                 _table_exists(conn, "cargo_departures")):
             packages = [_safe(dict(row._mapping)) for row in conn.execute(text("""
@@ -1187,7 +1193,7 @@ def client_workspace(org_id: str, client_id: str) -> dict | None:
                 limit 100
             """), {"org_id": org_id, "client_id": client_id}).fetchall()]
 
-        if _table_exists(conn, "messages"):
+        if 'inbox.read' in permissions and _table_exists(conn, "messages"):
             messages = [_safe(dict(row._mapping)) for row in conn.execute(text("""
                 select id::text, direction, text_body, message_type, send_status,
                        error_message, from_phone, to_phone, sender_name, is_group,
@@ -1200,7 +1206,7 @@ def client_workspace(org_id: str, client_id: str) -> dict | None:
                 limit 100
             """), {"org_id": org_id, "client_id": client_id}).fetchall()]
 
-        if _table_exists(conn, "finance_documents"):
+        if 'finance.read' in permissions and _table_exists(conn, "finance_documents"):
             documents = [_safe(dict(row._mapping)) for row in conn.execute(text("""
                 select id::text, document_type, document_number, status, currency,
                        total, amount_paid, balance_due, issue_date, due_date, created_at
@@ -1210,7 +1216,7 @@ def client_workspace(org_id: str, client_id: str) -> dict | None:
                 limit 100
             """), {"org_id": org_id, "client_id": client_id}).fetchall()]
 
-        if _table_exists(conn, "finance_payments") and _table_exists(conn, "finance_documents"):
+        if 'finance.read' in permissions and _table_exists(conn, "finance_payments") and _table_exists(conn, "finance_documents"):
             payments = [_safe(dict(row._mapping)) for row in conn.execute(text("""
                 select payment.id::text, payment.receipt_number, payment.amount,
                        payment.currency, payment.method, payment.reference,

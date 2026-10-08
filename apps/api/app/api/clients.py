@@ -29,6 +29,8 @@ from app.clients.repository import (
 from app.core.tenant_context import get_current_tenant
 from app.core.permissions import require_permission
 from app.clients.phone import normalize_contact_phone
+from app.clients.customer360 import SECTION_PERMISSIONS, read_section
+from app.permissions.services.permission_service import assert_permission, list_permissions_for_user
 
 
 router = APIRouter()
@@ -448,6 +450,11 @@ def clients_duplicates(
 
 @router.get("/clients/{client_id}", dependencies=[Depends(require_permission("clients.read"))])
 def clients_show(client_id: str, tenant=Depends(get_current_tenant)):
+    if tenant.get('organization_type') in ('PARCEL_FREIGHT', 'CARGO'):
+        result = read_section(tenant['org_id'], client_id, 'overview')
+        if result is None:
+            raise HTTPException(404, 'client_not_found')
+        return {'status': 'ok', 'client': result['client']}
     client = get_client(tenant["org_id"], client_id)
     if not client:
         raise HTTPException(status_code=404, detail="client_not_found")
@@ -459,6 +466,11 @@ def clients_show(client_id: str, tenant=Depends(get_current_tenant)):
     dependencies=[Depends(require_permission("clients.read"))],
 )
 def clients_timeline(client_id: str, tenant=Depends(get_current_tenant)):
+    if tenant.get('organization_type') in ('PARCEL_FREIGHT', 'CARGO'):
+        result = read_section(tenant['org_id'], client_id, 'activity')
+        if result is None:
+            raise HTTPException(404, 'client_not_found')
+        return {'status': 'ok', **result}
     client = get_client(tenant["org_id"], client_id)
     if not client:
         raise HTTPException(status_code=404, detail="client_not_found")
@@ -470,10 +482,47 @@ def clients_timeline(client_id: str, tenant=Depends(get_current_tenant)):
     dependencies=[Depends(require_permission("clients.read"))],
 )
 def clients_workspace(client_id: str, tenant=Depends(get_current_tenant)):
-    workspace = client_workspace(tenant["org_id"], client_id)
+    permissions = set(list_permissions_for_user(_user_id(tenant), tenant['org_id']))
+    workspace = client_workspace(tenant["org_id"], client_id, permissions=permissions)
     if not workspace:
         raise HTTPException(status_code=404, detail="client_not_found")
     return {"status": "ok", "workspace": workspace}
+
+
+@router.get('/clients/{client_id}/crm/{section}', dependencies=[Depends(require_permission('clients.read'))])
+def customer_section(client_id: UUID, section: str, page: int = Query(1, ge=1, le=100000),
+                     tenant=Depends(get_current_tenant)):
+    if section not in SECTION_PERMISSIONS:
+        raise HTTPException(404, 'unknown_client_section')
+    assert_permission(_user_id(tenant), tenant['org_id'], SECTION_PERMISSIONS[section])
+    result = read_section(tenant['org_id'], str(client_id), section, page)
+    if result is None:
+        raise HTTPException(404, 'client_not_found')
+    return result
+
+
+class CompanyContactPayload(BaseModel):
+    id: UUID | None = None
+    row_version: int | None = Field(default=None, ge=1)
+    name: str = Field(default='', max_length=160)
+    role_label: str | None = Field(default=None, max_length=120)
+    phone: str | None = Field(default=None, max_length=40)
+    phone_region: str | None = Field(default=None, pattern=r'^[A-Z]{2}$')
+    email: str | None = Field(default=None, max_length=180)
+    is_primary: bool = False
+    archive: bool = False
+
+
+@router.get('/clients/{client_id}/contacts', dependencies=[Depends(require_permission('clients.read'))])
+def company_contacts(client_id: UUID, tenant=Depends(get_current_tenant)):
+    from app.clients.company_contacts import list_contacts
+    return {'items': list_contacts(tenant['org_id'], str(client_id))}
+
+
+@router.post('/clients/{client_id}/contacts', dependencies=[Depends(require_permission('clients.update'))])
+def company_contact_save(client_id: UUID, body: CompanyContactPayload, tenant=Depends(get_current_tenant)):
+    from app.clients.company_contacts import save_contact
+    return save_contact(tenant['org_id'], str(client_id), _user_id(tenant), body.model_dump(mode='json'))
 
 
 @router.patch(

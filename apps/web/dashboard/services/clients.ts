@@ -5,6 +5,7 @@ export type ClientCustomerType = "individual" | "business" | "agent" | "partner"
 export type ClientSource = "manual" | "whatsapp" | "website" | "referral" | "import" | "api";
 
 export type ClientRecord = {
+  client_reference?: string | null;
   id: string;
   org_id: string;
   display_name: string | null;

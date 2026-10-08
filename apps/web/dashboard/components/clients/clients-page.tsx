@@ -2,6 +2,7 @@
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { CargoDirectory } from "@/components/clients/cargo-directory";
+import { Customer360 } from '@/components/clients/customer360';
 import { InternationalPhone } from "@/components/clients/international-phone";
 import { cargoClientPayload } from "@/services/cargo-client-payload";
 
@@ -373,6 +374,10 @@ export function ClientsPage() {
     setWorkspace(null);
     setDuplicates([]);
     try {
+      if (parcelFreight) {
+        setSelected(await getClient(client.id));
+        return;
+      }
       const [detail, detectedDuplicates] = await Promise.all([
         getClient(client.id),
         findClientDuplicates({ client_id: client.id }),
@@ -731,7 +736,10 @@ export function ClientsPage() {
         </>}
       </div>
 
-      {selected && (
+      {selected && parcelFreight && <Customer360 key={selected.id} client={selected}
+        close={()=>{setSelected(null);closeResourceLink();}} edit={()=>openEdit(selected)}
+        archive={archiveSelectedClient} busy={clientAction!==null}/>}
+      {selected && !parcelFreight && (
         <ClientDetails
           parcelFreight={parcelFreight}
           client={selected}

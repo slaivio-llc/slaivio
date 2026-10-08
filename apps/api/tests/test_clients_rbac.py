@@ -21,6 +21,9 @@ from starlette.requests import Request
 
 
 EXPECTED_ROUTE_PERMISSIONS = {
+    ('/clients/{client_id}/crm/{section}', 'GET'): 'clients.read',
+    ('/clients/{client_id}/contacts', 'GET'): 'clients.read',
+    ('/clients/{client_id}/contacts', 'POST'): 'clients.update',
     ("/clients/directory", "GET"): "clients.read",
     ("/clients", "GET"): "clients.read",
     ("/clients", "POST"): "clients.create",

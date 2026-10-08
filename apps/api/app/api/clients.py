@@ -1,5 +1,6 @@
 import csv
 import io
+from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
@@ -32,6 +33,19 @@ router = APIRouter()
 MAX_CLIENT_IMPORT_BYTES = 5 * 1024 * 1024
 MAX_CLIENT_IMPORT_ROWS = 10_000
 MAX_CLIENT_EXPORT_ROWS = 50_000
+
+
+@router.get('/clients/directory', dependencies=[Depends(require_permission('clients.read'))])
+def client_directory(q: str = Query('', max_length=120), customer_type: str | None = None,
+                     start: date | None = None, end: date | None = None,
+                     page: int = Query(1,ge=1,le=100000), sort: str = 'name_asc',
+                     tenant=Depends(get_current_tenant)):
+    from app.clients.directory import directory, SORTS
+    if customer_type not in (None,'individual','business') or sort not in SORTS:
+        raise HTTPException(422,'invalid_directory_filter')
+    if start and end and start>end:
+        raise HTTPException(422,'invalid_date_range')
+    return directory(tenant['org_id'],q,customer_type,start,end,page,sort)
 
 
 def csv_safe_value(value):
@@ -249,8 +263,13 @@ def clients_archived(
     dependencies=[Depends(require_permission("clients.create"))],
 )
 def clients_create(body: ClientPayload, tenant=Depends(get_current_tenant)):
+    payload = body.model_dump()
+    if tenant.get('organization_type') in ('PARCEL_FREIGHT','CARGO'):
+        _validate_cargo_identity(payload)
+        payload['country'] = payload.get('country') or tenant.get('country')
+        payload['city'] = payload.get('city') or tenant.get('city')
     try:
-        client = create_client(tenant["org_id"], _user_id(tenant), body.model_dump())
+        client = create_client(tenant["org_id"], _user_id(tenant), payload)
     except ValueError as exc:
         if str(exc) == "duplicate_client":
             raise HTTPException(status_code=409, detail="duplicate_client") from exc
@@ -258,6 +277,17 @@ def clients_create(body: ClientPayload, tenant=Depends(get_current_tenant)):
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         raise
     return {"status": "ok", "client": client}
+
+
+def _validate_cargo_identity(payload: dict) -> None:
+    customer_type = payload.get('customer_type')
+    if customer_type not in ('individual', 'business'):
+        raise HTTPException(422, 'invalid_cargo_customer_type')
+    identity = payload.get('company_name' if customer_type == 'business' else 'name')
+    if not (identity or '').strip():
+        raise HTTPException(422, 'client_name_required')
+    if customer_type == 'individual' and not (payload.get('phone') or '').strip():
+        raise HTTPException(422, 'client_phone_required')
 
 
 @router.get("/clients/export", dependencies=[Depends(require_permission("clients.export"))])
@@ -444,6 +474,13 @@ def clients_workspace(client_id: str, tenant=Depends(get_current_tenant)):
 )
 def clients_update(client_id: str, body: ClientPatchPayload, tenant=Depends(get_current_tenant)):
     payload = body.model_dump(exclude_unset=True)
+    if tenant.get('organization_type') in ('PARCEL_FREIGHT', 'CARGO'):
+        existing = get_client(tenant['org_id'], client_id)
+        if not existing:
+            raise HTTPException(404, 'client_not_found')
+        if existing.get('row_version') != body.row_version:
+            raise HTTPException(409, 'stale_client_version')
+        _validate_cargo_identity({**existing, **payload})
     try:
         client = update_client(tenant["org_id"], client_id, _user_id(tenant), payload)
     except ValueError as exc:

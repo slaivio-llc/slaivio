@@ -21,6 +21,7 @@ from starlette.requests import Request
 
 
 EXPECTED_ROUTE_PERMISSIONS = {
+    ("/clients/directory", "GET"): "clients.read",
     ("/clients", "GET"): "clients.read",
     ("/clients", "POST"): "clients.create",
     ("/clients/stats", "GET"): "clients.read",

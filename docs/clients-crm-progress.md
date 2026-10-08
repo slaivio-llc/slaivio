@@ -1,6 +1,6 @@
 # Module 02 — Clients / CRM : reprise et critères
 
-Statut : **spécification reçue, audit du code et implémentation à faire**.
+Statut : **premier lot répertoire/création implémenté ; module non terminé**.
 Source intégrale : [module-02-clients-crm.md](spec/module-02-clients-crm.md),
 copiée depuis la pièce jointe du 7 octobre 2026. Les exemples sont illustratifs,
 pas des données à coder en dur. Ce fichier ne remplace pas la source.
@@ -14,6 +14,25 @@ pas des données à coder en dur. Ce fichier ne remplace pas la source.
 - Pays et bureau sont distincts. Dériver le pays du bureau lorsque cela a du sens.
 - Préserver le parcours véhicules : pas de suppression générale des dossiers ou données historiques.
 - Les modules Colis, Finance et Communication restent propriétaires de leurs données.
+
+## Lot du 8 octobre 2026
+
+- Répertoire Cargo dédié sans KPI financiers/opérationnels ; véhicules conservés.
+- `/clients/directory` sous `clients.read` : projection limitée, tri contrôlé,
+  recherche nom/téléphone/référence, filtres type/date, pagination serveur de 50.
+- Portée du bureau actif seulement ; colonne bureau répétitive masquée. Pas de faux
+  filtre multi-bureaux. Dates de création en UTC explicitement indiquées.
+- Vues Tous/Entreprises, lignes mobiles, vides/recherche/erreurs distincts.
+- Formulaire Cargo limité à particulier/entreprise, nom, téléphone, e-mail et adresse
+  supplémentaires. Téléphone facultatif pour une entreprise ; contrôles à la création API.
+- Localisation dérivée du bureau lors de la création sans données de localisation.
+- Modification : pas de remise à zéro des crédits, montants, notes ou langue masqués.
+- Toujours ouvert : sélecteur téléphonique international et normalisation par pays,
+  idempotence serveur, doublons contextuels, vue réseau, gestion des colonnes, overflow
+  import/export, contacts entreprise et refonte complète Customer 360.
+- Les détails existants restent utilisés : ce lot ne certifie pas encore leurs permissions
+  section par section ni la suppression de toutes les anciennes notions Dossier.
+- Tests unitaires et frontend ajoutés ; recette PostgreSQL et navigateur réel à faire.
 
 ## 02.01 — Répertoire
 
@@ -56,6 +75,12 @@ pas des données à coder en dur. Ce fichier ne remplace pas la source.
 - [ ] Mobile, accessibilité, états chargement/erreur et dates/nombres internationaux.
 
 ## Validation avant clôture
+
+Validation ciblée du 8 octobre : 31 tests Python (répertoire, RBAC, isolation),
+5 tests Vitest (répertoire et payload du formulaire). Création et modification Cargo
+partagent les contraintes d'identité ; une modification partielle conserve les champs
+omis, et une version périmée est rejetée. Ces tests ne remplacent pas une recette
+sur PostgreSQL réel ni un parcours navigateur connecté.
 
 Tests API/UI, concurrence de création, doublons et numéros locaux/internationaux,
 droits par section, isolation réseau, archive sans perte d'historique, liens intermodules,

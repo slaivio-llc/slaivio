@@ -1,6 +1,8 @@
 "use client";
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
+import { CargoDirectory } from "@/components/clients/cargo-directory";
+import { cargoClientPayload } from "@/services/cargo-client-payload";
 
 import axios from "axios";
 import {
@@ -218,6 +220,8 @@ export function ClientsPage() {
     "archive" | "restore" | null
   >(null);
   const [parcelFreight, setParcelFreight] = useState(true);
+  const [profileReady, setProfileReady] = useState(false);
+  const [directoryRevision, setDirectoryRevision] = useState(0);
   const listRequestId = useRef(0);
 
   const currentView = views.find((view) => view.key === activeView) || views[0];
@@ -226,17 +230,19 @@ export function ClientsPage() {
   const page = pagination.page || 1;
 
   useEffect(() => {
+    if (!profileReady || parcelFreight) return;
     const timeout = window.setTimeout(() => loadClients(1), 220);
     return () => window.clearTimeout(timeout);
     // The listed filters intentionally define when the debounced request runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, status, customerType, source, sort, activeView]);
+  }, [query, status, customerType, source, sort, activeView,profileReady,parcelFreight]);
 
   useEffect(() => {
-    loadStats();
+    let active = true;
     getTenantContext()
-      .then((context) => setParcelFreight(context.active_tenant?.organization_type === "PARCEL_FREIGHT"))
-      .catch(() => setParcelFreight(true));
+      .then((context) => { if(!active)return;const cargo=['PARCEL_FREIGHT','CARGO'].includes(context.active_tenant?.organization_type);setParcelFreight(cargo);setProfileReady(true);if(!cargo)void getClientStats().then(value=>{if(active)setStats(value);}).catch(()=>undefined); })
+      .catch(() => { if(active)setError("Impossible de vérifier le bureau actif. Rechargez la page."); });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -247,6 +253,7 @@ export function ClientsPage() {
   }, [activeTab, selected]);
 
   async function loadStats() {
+    if (parcelFreight) return;
     try {
       setStats(await getClientStats());
     } catch {
@@ -255,6 +262,7 @@ export function ClientsPage() {
   }
 
   async function loadClients(nextPage = page) {
+    if (parcelFreight) { setDirectoryRevision(value=>value+1);return; }
     const requestId = ++listRequestId.current;
     setLoading(true);
     setError("");
@@ -424,11 +432,12 @@ export function ClientsPage() {
 
   async function submitClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     setFormError("");
     setSaving(true);
     const form = new FormData(event.currentTarget);
-    const payload: ClientPayload = {
-      display_name: clean(form.get("display_name")) || (parcelFreight ? clean(form.get("name")) : undefined),
+    const payload: ClientPayload = parcelFreight ? cargoClientPayload(form,formClient?.row_version) : {
+      display_name: clean(form.get("display_name")) || (parcelFreight ? clean(form.get("name")) || clean(form.get("company_name")) : undefined),
       name: clean(form.get("name")),
       company_name: clean(form.get("company_name")),
       tax_id: clean(form.get("tax_id")),
@@ -447,8 +456,8 @@ export function ClientsPage() {
       source: String(form.get("source") || "manual") as ClientSource,
       preferred_language: clean(form.get("preferred_language")) || "FR",
       notes: clean(form.get("notes")),
-      credit_enabled: form.get("credit_enabled") === "on",
-      credit_limit: Number(form.get("credit_limit") || 0),
+      credit_enabled: parcelFreight ? undefined : form.get("credit_enabled") === "on",
+      credit_limit: parcelFreight ? undefined : Number(form.get("credit_limit") || 0),
       payment_amount_due: parcelFreight ? undefined : Number(form.get("payment_amount_due") || 0),
       payment_amount_paid: parcelFreight ? undefined : Number(form.get("payment_amount_paid") || 0),
       payment_currency: parcelFreight ? undefined : clean(form.get("payment_currency")) || "USD",
@@ -545,7 +554,7 @@ export function ClientsPage() {
       <div className="overflow-hidden bg-white">
         <OperationPageHeader
           title="Clients"
-          description="Suivez chaque contact depuis sa première demande jusqu’à la réception et la livraison de ses colis."
+          description="Retrouvez et gérez les clients de votre organisation."
           actions={
             <>
               <PermissionGuard permission="clients.import">
@@ -564,7 +573,7 @@ export function ClientsPage() {
                 </OperationButton>
               </PermissionGuard>
               <PermissionGuard permission="clients.create">
-                <OperationButton variant="primary" onClick={openCreate}>
+                <OperationButton variant="primary" onClick={openCreate} disabled={!profileReady}>
                   <span className="text-lg leading-none">+</span>
                   Nouveau client
                 </OperationButton>
@@ -573,7 +582,8 @@ export function ClientsPage() {
           }
         />
 
-        <OperationMetrics>
+        {profileReady && parcelFreight && error && <p role="alert" className="mx-auto max-w-[1200px] px-8 text-sm text-red-700">{error}</p>}
+        {!profileReady ? <p role="status" className="px-8 py-6">{error || 'Vérification du bureau actif…'}</p> : parcelFreight ? <CargoDirectory revision={directoryRevision} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-5">
             {statCards.map((card) => (
               <button
@@ -705,6 +715,7 @@ export function ClientsPage() {
           </div>
           </OperationContent>
         </section>
+        </>}
       </div>
 
       {selected && (
@@ -1319,6 +1330,7 @@ function ClientFormModal({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const title = mode === "edit" ? "Modifier le client" : "Nouveau client";
+  const [cargoType, setCargoType] = useState(client?.customer_type === 'business' ? 'business' : 'individual');
   const [country, setCountry] = useState(client?.country || "");
   const [city, setCity] = useState(client?.city || "");
   const [creditEnabled, setCreditEnabled] = useState(Boolean(client?.credit_enabled));
@@ -1344,21 +1356,17 @@ function ClientFormModal({
               {error}
             </div>
           )}
-          {parcelFreight ? <div className="grid gap-5 md:grid-cols-2">
-            <Input label="Nom complet" name="name" required defaultValue={client?.name || client?.display_name || ""}/>
-            <Input label="Numéro de téléphone" name="phone" required type="tel" defaultValue={client?.phone || client?.whatsapp_phone || ""}/>
-            <GeographyFields required country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} className={inputClass} fieldClassName="grid min-w-0 gap-2"/>
-            <SelectInput label="Type de client" name="customer_type" defaultValue={client?.customer_type || "individual"} options={typeLabels}/>
-            <label className="flex min-h-14 items-center justify-between gap-4 rounded-[8px] border border-[#dfe3e7] bg-[#fafbfb] px-4 py-3 md:col-span-2">
-              <span><span className="block text-[13px] font-semibold text-[#303941]">Crédit client</span><span className="mt-0.5 block text-[12px] text-[#74808a]">Activez uniquement si l’agence autorise ce client à payer plus tard.</span></span>
-              <input name="credit_enabled" type="checkbox" role="switch" aria-label="Autoriser un crédit à ce client" checked={creditEnabled} onChange={event=>setCreditEnabled(event.target.checked)} className="h-4 w-4 shrink-0 accent-[#12a865]"/>
-            </label>
-            <fieldset disabled={!creditEnabled} className="contents disabled:opacity-45">
-              <Input label="Limite de crédit" name="credit_limit" type="number" min="0" defaultValue={String(client?.credit_limit || 0)}/>
-            </fieldset>
+          {parcelFreight ? <div className="grid gap-5">
+            <label className="grid gap-2 text-sm">Type de client<select name="customer_type" value={cargoType} onChange={e=>setCargoType(e.target.value)} className={inputClass}><option value="individual">Particulier</option><option value="business">Entreprise</option></select></label>
+            {cargoType === "business" ? <Input key="company" label="Nom de l’entreprise" name="company_name" required defaultValue={client?.company_name || ""}/> : <Input key="person" label="Nom complet" name="name" required defaultValue={client?.name || ""}/>}
+            <Input label="Téléphone international" name="phone" required={cargoType !== "business"} type="tel" placeholder="+243…" defaultValue={client?.phone || ""}/>
+            <p className="text-xs text-slate-500">Rattaché au bureau actif. WhatsApp utilise ce même numéro lorsqu’une conversation est disponible.</p>
+            <details><summary className="cursor-pointer text-sm font-medium">Informations supplémentaires</summary><div className="mt-4 grid gap-4">
+              <Input label="E-mail" name="email" type="email" defaultValue={client?.email || ""}/>
+              <Input label="Adresse" name="address" defaultValue={client?.address || ""}/>
+            </div></details>
             <input type="hidden" name="lifecycle_status" value={client?.lifecycle_status || "lead"}/>
             <input type="hidden" name="source" value={client?.source || "manual"}/>
-            <input type="hidden" name="preferred_language" value={client?.preferred_language || "FR"}/>
           </div> : <><div className="grid gap-5 md:grid-cols-2">
             <Input
               label="Nom affiché"

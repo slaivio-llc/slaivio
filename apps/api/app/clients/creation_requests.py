@@ -3,6 +3,7 @@ import hashlib
 import json
 
 from sqlalchemy import text
+from app.clients.schema_checks import require_table
 
 
 def request_fingerprint(payload: dict) -> str:
@@ -12,6 +13,7 @@ def request_fingerprint(payload: dict) -> str:
 
 
 def replay_request(conn, org_id: str, actor_id: str, key: str, fingerprint: str):
+    require_table(conn, 'client_creation_requests')
     # Serialize equal keys until the surrounding client transaction commits.
     conn.execute(text('select pg_advisory_xact_lock(hashtextextended(:scope, 0))'),
                  {'scope': f'client-create:{org_id}:{actor_id}:{key}'})

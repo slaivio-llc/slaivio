@@ -18,12 +18,15 @@ const sections = [
 ];
 type Item = {id:string;reference?:string;status?:string;occurred_at?:string;text_body?:string;
   document_id?:string;document_type?:string;
+  title?:string;resource_id?:string;resource_type?:string;
   direction?:string;action?:string;currency?:string;total?:number;balance_due?:number;
   destination_city?:string;destination_country?:string;tracking_id?:string};
 type Result = {client?:ClientRecord;items?:Item[];total?:number;page_size?:number;
   balances?:{currency:string;paid:number;outstanding:number}[]};
 const actionNames:Record<string,string> = {'client.created':'Client créé','client.updated':'Fiche modifiée',
-  'client.archived':'Client archivé','client.restored':'Client restauré','client.merged':'Doublon fusionné','client.merged_into':'Client fusionné'};
+  'client.archived':'Client archivé','client.restored':'Client restauré','client.merged':'Doublon fusionné','client.merged_into':'Client fusionné',
+  'message.inbound':'Message reçu','message.outbound':'Message sortant enregistré',
+  'PAYMENT_RECEIVED':'Paiement reçu','PAYMENT_REVERSED':'Paiement annulé','ISSUED':'Document émis','CREATED':'Document créé'};
 const date = (value?:string|null) => value ? new Date(value).toLocaleString('fr-FR') : 'Non renseignée';
 const money = (value:number|string|undefined,currency:string) => new Intl.NumberFormat('fr-FR',{style:'currency',currency}).format(Number(value||0));
 
@@ -76,7 +79,8 @@ export function Customer360({client,close,edit,archive,busy}: {
             return <li key={item.id} className="flex flex-wrap items-start justify-between gap-3 py-4 text-sm">
               <div className="min-w-0 flex-1">
                 {href ? <Link href={href} className="font-medium text-emerald-800 underline underline-offset-4">{item.reference}</Link> :
-                  <p className="font-medium">{section==='activity'?actionNames[item.action||'']||'Fiche mise à jour':item.direction==='outbound'?'Message sortant':'Message entrant'}</p>}
+                  <p className="font-medium">{section==='activity'?item.title||actionNames[item.action||'']||item.action?.replaceAll('_',' ')||'Activité enregistrée':item.direction==='outbound'?'Message sortant':'Message entrant'}</p>}
+                {section==='activity' && item.reference && <p className="mt-1 text-xs text-slate-500">{item.reference}</p>}
                 {item.text_body && <p className="mt-2 whitespace-pre-wrap break-words">{item.text_body}</p>}
                 {item.tracking_id && <p className="mt-1 text-slate-500">Suivi : {item.tracking_id}</p>}
                 {(item.destination_city||item.destination_country) && <p className="mt-1 text-slate-500">{[item.destination_city,item.destination_country].filter(Boolean).join(', ')}</p>}

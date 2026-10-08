@@ -9,8 +9,8 @@ SORTS = {'name_asc': 'display_name asc nulls last,c.id',
          'activity_desc': 'c.last_activity_at desc nulls last,c.id'}
 
 
-def directory(org_id, q='', customer_type=None, start=None, end=None, page=1, sort='name_asc'):
-    params = {'org_id':org_id,'offset':(page-1)*50}
+def directory(org_id, q='', customer_type=None, start=None, end=None, page=1, sort='name_asc', *, page_size=50):
+    params = {'org_id':org_id,'offset':(page-1)*page_size,'limit':page_size}
     filters = ['c.org_id=:org_id','c.deleted_at is null']
     if q.strip():
         query = q.strip()
@@ -35,6 +35,6 @@ def directory(org_id, q='', customer_type=None, start=None, end=None, page=1, so
               c.phone,c.customer_type,c.last_activity_at,c.created_at,
               coalesce(o.organization_name,o.name) office_name
             from clients c join organizations o on o.id=c.org_id
-            where {where} order by {SORTS[sort]} limit 50 offset :offset
+            where {where} order by {SORTS[sort]} limit :limit offset :offset
         '''),params).mappings()]
-    return {'items':items,'page':page,'page_size':50,'total':total,'total_pages':ceil(total/50)}
+    return {'items':items,'page':page,'page_size':page_size,'total':total,'total_pages':ceil(total/page_size)}

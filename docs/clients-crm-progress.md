@@ -76,6 +76,25 @@ pas des données à coder en dur. Ce fichier ne remplace pas la source.
 
 ## Validation avant clôture
 
+### Incident de création et finitions du 8 octobre
+
+- Journal Railway : `client_creation_requests` absent. Le correctif d'environnement est
+  l'exécution de 126 sur la base utilisée par le backend, puis 127 pour les contacts.
+  Aucun SQL distant exécuté pendant cette intervention.
+- Détection préventive des tables 126/127 : réponse 503 explicite, aucune écriture ni
+  désactivation d'idempotence si le schéma manque. Commande de contrôle en lecture seule :
+  `python -m app.clients.schema_checks` depuis `apps/api`.
+- Procédure détaillée : [crm-deployment.md](crm-deployment.md).
+- Activité : événements CRM, colis, expéditions, finance et messages agrégés selon les
+  permissions métier. Événements d'expédition limités à la période de rattachement du colis.
+- Export Cargo dédié : mêmes filtres et tri que le répertoire, projection sans montants,
+  audit, cellules CSV protégées, refus explicite au-delà de 10 000 clients.
+- Validation locale : 64 tests Python et 21 tests frontend passent ; TypeScript et Ruff
+  ciblé passent. Ce n'est pas une validation de la migration ni de la concurrence PostgreSQL.
+- Encore ouverts : vue réseau consolidée, création intégrée depuis Colis/Inbox avec
+  brouillon conservé, choix du contact destinataire dans Inbox, colonnes optionnelles,
+  internationalisation UI, recette navigateur/base réelle et audit des dépendances.
+
 ### Lot Customer 360 et contacts entreprise
 
 - Cargo utilise une fiche dédiée : Aperçu, Colis, Expéditions, Finance,

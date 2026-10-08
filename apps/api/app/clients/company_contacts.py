@@ -4,10 +4,12 @@ from fastapi import HTTPException
 from app.db.database import engine
 from app.clients.phone import normalize_contact_phone
 from app.clients.repository import normalize_email, _audit_client
+from app.clients.schema_checks import require_table
 
 
 def list_contacts(org_id: str, client_id: str):
     with engine.connect() as conn:
+        require_table(conn, 'client_company_contacts')
         exists = conn.execute(text('''select 1 from clients where org_id=:org and id=cast(:client as uuid)
             and customer_type='business' and deleted_at is null'''), {'org': org_id, 'client': client_id}).scalar()
         if not exists:
@@ -31,6 +33,7 @@ def save_contact(org_id: str, client_id: str, actor: str, payload: dict):
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
     with engine.begin() as conn:
+        require_table(conn, 'client_company_contacts')
         # Serialize all primary changes within a company, including first contact creation.
         company = conn.execute(text('''select id from clients where org_id=:org and id=cast(:client as uuid)
             and customer_type='business' and deleted_at is null for update'''), params).first()

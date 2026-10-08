@@ -39,8 +39,9 @@ def test_replay_scoped_and_locked():
     conn.execute.return_value.mappings.return_value.first.return_value = {'payload_hash': 'hash', 'client_id': 'client'}
     assert replay_request(conn, 'office', 'actor', 'key', 'hash') == 'client'
     calls = conn.execute.call_args_list
-    assert 'pg_advisory_xact_lock' in str(calls[0].args[0])
-    assert calls[1].args[1] == {'org_id': 'office', 'actor_id': 'actor', 'key': 'key'}
+    assert 'to_regclass' in str(calls[0].args[0])
+    assert 'pg_advisory_xact_lock' in str(calls[1].args[0])
+    assert calls[2].args[1] == {'org_id': 'office', 'actor_id': 'actor', 'key': 'key'}
     with pytest.raises(ValueError, match='client_creation_key_conflict'):
         replay_request(conn, 'office', 'actor', 'key', 'different')
 

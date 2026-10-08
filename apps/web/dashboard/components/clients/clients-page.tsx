@@ -581,7 +581,7 @@ export function ClientsPage() {
                   Importer
                 </OperationButton>
               </PermissionGuard>
-              <PermissionGuard permission="clients.export">
+              {!parcelFreight && <PermissionGuard permission="clients.export">
                 <OperationButton
                   onClick={handleExport}
                   disabled={exporting}
@@ -589,7 +589,7 @@ export function ClientsPage() {
                   <Download size={14} />
                   {exporting ? "Export..." : "Exporter"}
                 </OperationButton>
-              </PermissionGuard>
+              </PermissionGuard>}
               <PermissionGuard permission="clients.create">
                 <OperationButton variant="primary" onClick={openCreate} disabled={!profileReady}>
                   <span className="text-lg leading-none">+</span>
@@ -601,7 +601,7 @@ export function ClientsPage() {
         />
 
         {profileReady && parcelFreight && error && <p role="alert" className="mx-auto max-w-[1200px] px-8 text-sm text-red-700">{error}</p>}
-        {!profileReady ? <p role="status" className="px-8 py-6">{error || 'Vérification du bureau actif…'}</p> : parcelFreight ? <CargoDirectory revision={directoryRevision} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
+        {!profileReady ? <p role="status" className="px-8 py-6">{error || 'Vérification du bureau actif…'}</p> : parcelFreight ? <CargoDirectory canExport={permissionsAvailable && permissions.includes('clients.export')} revision={directoryRevision} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-5">
             {statCards.map((card) => (
               <button
@@ -1863,6 +1863,8 @@ function formatMoney(
 function apiErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
+    if (detail?.code === 'crm_migration_required')
+      return 'La base CRM n’est pas à jour. Appliquez les migrations SQL 126 puis 127 dans la base utilisée par le backend. Vos saisies sont conservées.';
     const target = `${API_BASE_URL || "API_BASE_URL non configurée"}${error.config?.url || ""}`;
     if (detail === "duplicate_client")
       return "Un client avec ce téléphone ou cet email existe déjà dans cette agence.";

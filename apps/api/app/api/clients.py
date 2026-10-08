@@ -62,6 +62,31 @@ def csv_safe_value(value):
     return rendered
 
 
+@router.get('/clients/directory/export', dependencies=[Depends(require_permission('clients.export'))])
+def client_directory_export(request: Request, q: str = Query('', max_length=120),
+                            customer_type: str | None = None, start: date | None = None,
+                            end: date | None = None, sort: str = 'name_asc',
+                            tenant=Depends(get_current_tenant)):
+    from app.clients.directory import directory, SORTS
+    if customer_type not in (None, 'individual', 'business') or sort not in SORTS:
+        raise HTTPException(422, 'invalid_directory_filter')
+    if start and end and start > end:
+        raise HTTPException(422, 'invalid_date_range')
+    result = directory(tenant['org_id'], q, customer_type, start, end, 1, sort, page_size=10001)
+    if result['total'] > 10000:
+        raise HTTPException(413, 'client_export_too_large')
+    columns = ['client_reference', 'display_name', 'customer_type', 'phone', 'office_name', 'created_at', 'last_activity_at']
+    output = io.StringIO(newline='')
+    writer = csv.DictWriter(output, fieldnames=columns)
+    writer.writeheader()
+    for item in result['items']:
+        writer.writerow({key: csv_safe_value(item.get(key)) for key in columns})
+    _audit_client_bulk_operation(tenant=tenant, request=request, action='clients.exported',
+                                 metadata={'row_count': len(result['items']), 'scope': 'directory'})
+    return StreamingResponse(iter(['\ufeff' + output.getvalue()]), media_type='text/csv; charset=utf-8',
+                             headers={'Content-Disposition': 'attachment; filename=clients.csv'})
+
+
 class ClientPayload(BaseModel):
     idempotency_key: UUID | None = None
     phone_region: str | None = Field(default=None, pattern=r'^[A-Z]{2}$')
@@ -467,7 +492,8 @@ def clients_show(client_id: str, tenant=Depends(get_current_tenant)):
 )
 def clients_timeline(client_id: str, tenant=Depends(get_current_tenant)):
     if tenant.get('organization_type') in ('PARCEL_FREIGHT', 'CARGO'):
-        result = read_section(tenant['org_id'], client_id, 'activity')
+        permissions = set(list_permissions_for_user(_user_id(tenant), tenant['org_id']))
+        result = read_section(tenant['org_id'], client_id, 'activity', permissions=permissions)
         if result is None:
             raise HTTPException(404, 'client_not_found')
         return {'status': 'ok', **result}
@@ -495,7 +521,11 @@ def customer_section(client_id: UUID, section: str, page: int = Query(1, ge=1, l
     if section not in SECTION_PERMISSIONS:
         raise HTTPException(404, 'unknown_client_section')
     assert_permission(_user_id(tenant), tenant['org_id'], SECTION_PERMISSIONS[section])
-    result = read_section(tenant['org_id'], str(client_id), section, page)
+    if section == 'activity':
+        permissions = set(list_permissions_for_user(_user_id(tenant), tenant['org_id']))
+        result = read_section(tenant['org_id'], str(client_id), section, page, permissions=permissions)
+    else:
+        result = read_section(tenant['org_id'], str(client_id), section, page)
     if result is None:
         raise HTTPException(404, 'client_not_found')
     return result

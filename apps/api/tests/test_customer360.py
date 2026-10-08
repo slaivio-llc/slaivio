@@ -10,6 +10,19 @@ from app.clients import company_contacts as contacts
 from app.clients import repository
 
 
+def test_activity_only_reads_sources_allowed_by_business_permissions():
+    base = crm.activity_source(set())
+    assert 'audit_logs' in base
+    for table in ('package_events', 'expedition_events', 'finance_events', 'from messages'):
+        assert table not in base
+    full = crm.activity_source({'packages.read', 'shipments.read', 'finance.read', 'inbox.read'})
+    for table in ('package_events', 'expedition_events', 'finance_events', 'from messages'):
+        assert table in full
+    assert 'e.occurred_at>=ep.added_at' in full
+    assert 'e.occurred_at<=ep.removed_at' in full
+    assert "'package-'" in full and "'finance-'" in full
+
+
 @pytest.mark.parametrize('section,permission', list(crm.SECTION_PERMISSIONS.items()))
 def test_section_checks_its_business_permission_before_query(monkeypatch, section, permission):
     query = MagicMock()
@@ -78,8 +91,8 @@ def test_contact_edit_checks_version_before_changing_primary(monkeypatch):
             'id':str(uuid4()),'row_version':2,'name':'Contact','is_primary':True,
         })
     assert error.value.status_code == 409
-    assert len(conn.execute.call_args_list) == 2
-    assert 'for update' in str(conn.execute.call_args_list[0].args[0])
+    assert len(conn.execute.call_args_list) == 3
+    assert 'for update' in str(conn.execute.call_args_list[1].args[0])
 
 
 def test_contact_rejects_non_company_or_wrong_office(monkeypatch):
@@ -90,5 +103,5 @@ def test_contact_rejects_non_company_or_wrong_office(monkeypatch):
     with pytest.raises(HTTPException) as error:
         contacts.save_contact('office', str(uuid4()), 'actor', {'name':'Contact'})
     assert error.value.status_code == 404
-    assert len(conn.execute.call_args_list) == 1
+    assert len(conn.execute.call_args_list) == 2
     assert "customer_type='business'" in str(conn.execute.call_args.args[0])

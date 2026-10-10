@@ -130,6 +130,32 @@ def test_database_failure_is_not_reported_as_zero(monkeypatch):
         repo.cargo_overview({'org_id':'office-a','user_id':'agent'},['packages.read'])
 
 
+@pytest.mark.parametrize('scope', ['office', 'network'])
+def test_trend_uses_explicit_day_alias_and_preserves_timezone_scope(monkeypatch, scope):
+    engine = MagicMock()
+    monkeypatch.setattr(repo, 'engine', engine)
+    conn = engine.connect.return_value.__enter__.return_value
+    conn.execute.return_value.mappings.return_value.first.return_value = {
+        'id': 'office-a', 'name': 'Agency', 'timezone': 'Africa/Kinshasa',
+        'organization_type': 'PARCEL_FREIGHT', 'group_id': 'group-a'}
+    conn.execute.return_value.scalars.return_value = ['office-a', 'office-b']
+    conn.execute.return_value.mappings.return_value.one.return_value = {}
+    repo.cargo_overview({'org_id': 'office-a', 'user_id': 'agent'},
+                       ['packages.read', 'network.overview'], scope=scope)
+    queries = [(str(call.args[0]), call.args[1]) for call in conn.execute.call_args_list
+               if 'at time zone :timezone' in str(call.args[0])]
+    assert len(queries) == 1
+    sql, params = queries[0]
+    # DAY cannot be used as a bare alias here; keep the frontend's "day" key.
+    assert '::date AS "day"' in sql
+    assert 'received_at>=:start and received_at<:end' in sql
+    assert 'p.deleted_at is null' in sql
+    assert params['timezone'] == 'Africa/Kinshasa'
+    assert params['start'].tzinfo is not None
+    assert params['end'] > params['start']
+    assert params['org_ids'] == (['office-a'] if scope == 'office' else ['office-a', 'office-b'])
+
+
 def test_drilldown_pagination_and_upcoming_are_scoped(monkeypatch):
     engine=MagicMock()
     monkeypatch.setattr(repo,'engine',engine)

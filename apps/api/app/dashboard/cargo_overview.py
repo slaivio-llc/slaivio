@@ -124,7 +124,7 @@ def cargo_overview(tenant, permissions, **options):
             '''), params).mappings()]
         interval_params = {**params, 'start': period['current']['start_utc'], 'end': period['current']['end_utc']}
         trend = [dict(item) for item in conn.execute(text(f'''
-            select (received_at at time zone :timezone)::date day,count(*)::int received
+            select (received_at at time zone :timezone)::date AS "day",count(*)::int received
             {base} and received_at>=:start and received_at<:end
             group by 1 order by 1
         '''), {**interval_params,'timezone':period['timezone']}).mappings()]

@@ -1,5 +1,50 @@
 # Module 02 — Clients / CRM : reprise et critères
 
+## État consolidé au 10 octobre 2026 (prioritaire sur les lots historiques ci-dessous)
+
+Implémenté : répertoire Cargo dédié, recherche/filtres/pagination/export, téléphone
+international, création rejouable, Customer 360 avec permissions par section,
+chronologie métier et contacts entreprise. Les parcours véhicules restent séparés.
+
+Le dernier lot ajoute :
+
+- Création depuis Colis dans le formulaire client partagé : brouillon du colis conservé,
+  client créé sélectionné immédiatement, fermeture du sous-formulaire sans fermer le colis.
+- Création depuis Inbox Cargo avec téléphone prérempli et source WhatsApp, puis
+  rattachement par l'action de contexte existante. En cas d'échec du rattachement,
+  le client reste créé et peut être sélectionné sans être recréé.
+- Dans Inbox Cargo, lien vers la fiche client et ses colis à la place du dossier véhicules.
+- Répertoire multi-bureaux : bureau actif, bureau autorisé ou tous les bureaux autorisés.
+  Le serveur exige une appartenance active au même réseau et `clients.read` localement ;
+  un droit réseau seul ne donne pas accès aux fiches. Chaque bureau exporté exige
+  également `clients.export`. Ouvrir une fiche distante change explicitement le bureau actif.
+
+Non clos : choix explicite du contact destinataire entreprise dans Inbox, colonnes
+optionnelles, internationalisation de l'interface, unification des imports historiques
+avec le validateur téléphonique, audit des dépendances et recette réelle PostgreSQL/navigateur.
+Ne pas présenter le cahier des charges intégral comme terminé sur la seule base des tests unitaires.
+
+### Recette de livraison
+
+1. Appliquer 126 puis 127 sur la base du backend (si non appliquées), puis exécuter
+   `python -m app.clients.schema_checks` depuis `apps/api`. Voir [crm-deployment.md](crm-deployment.md).
+2. Créer un particulier et une entreprise ; provoquer un échec réseau et réessayer.
+   Vérifier qu'une seule fiche existe et que les valeurs saisies sont conservées.
+3. Dans un colis commencé, créer un client : vérifier sélection immédiate et brouillon
+   inchangé ; Échap doit fermer uniquement le formulaire client.
+4. Depuis une conversation non rattachée, créer le client puis vérifier le lien et
+   le numéro prérempli ; vérifier que le parcours véhicules conserve ses dossiers.
+5. Avec deux bureaux autorisés, rechercher dans tous les bureaux, ouvrir un client
+   distant et vérifier le bureau actif. Tester aussi un membre sans accès à ce bureau.
+6. Vérifier droits Finance/Communications, contacts entreprise, export et archive.
+   Tester mobile et clavier. Les tests SQL simulés ne remplacent pas cette recette.
+
+Les migrations distantes et cette recette déployée n'ont pas été exécutées ici.
+
+Validation locale du lot : 69 tests backend ciblés et 26 tests frontend réussis ;
+vérification TypeScript, Ruff sur le nouveau contrôle de portée et tests associés,
+et contrôle des espaces Git. Les tests backend utilisent des connexions simulées.
+
 Statut : **premier lot répertoire/création implémenté ; module non terminé**.
 Source intégrale : [module-02-clients-crm.md](spec/module-02-clients-crm.md),
 copiée depuis la pièce jointe du 7 octobre 2026. Les exemples sont illustratifs,

@@ -1,6 +1,8 @@
 "use client";
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
+import { InlineClientCreator } from '@/components/clients/inline-client-creator';
+import { PermissionGuard } from '@/components/permissions/permission-guard';
 
 import axios from "axios";
 import Image from "next/image";
@@ -3334,6 +3336,7 @@ function ParcelPackageCreateDrawer({
   const [clientError,setClientError]=useState("");
   const [clientLoading,setClientLoading]=useState(true);
   const [selectedClientId,setSelectedClientId]=useState("");
+  const [createdClient,setCreatedClient]=useState<ClientRecord|null>(null);
   const [routes,setRoutes]=useState<Route[]>([]);
   const [services,setServices]=useState<Service[]>([]);
   const [country,setCountry]=useState("");
@@ -3353,11 +3356,11 @@ function ParcelPackageCreateDrawer({
     setClientLoading(true);
     setClientError("");
     const timer=setTimeout(()=>{listClients({q:clientQuery.trim(),page_size:100,sort:"name_asc"})
-      .then(response=>{if(active)setClients(response.items);})
+      .then(response=>{if(active)setClients(createdClient?[createdClient,...response.items.filter(item=>item.id!==createdClient.id)]:response.items);})
       .catch(()=>{if(active)setClientError("Recherche client indisponible. Modifiez la recherche pour réessayer.");})
       .finally(()=>{if(active)setClientLoading(false);});},250);
     return()=>{active=false;clearTimeout(timer);};
-  },[clientQuery]);
+  },[clientQuery,createdClient]);
   const countries=useMemo(()=>Array.from(new Set(routes.map(route=>route.destination_country).filter(Boolean))).sort(),[routes]);
   const cities=useMemo(()=>Array.from(new Set(routes.filter(route=>route.destination_country===country).map(route=>route.destination_city).filter((value):value is string=>Boolean(value)))).sort(),[routes,country]);
   const eligibleRoutes=useMemo(()=>routes.filter(route=>route.destination_country===country&&(!city||route.destination_city===city)),[routes,country,city]);
@@ -3373,6 +3376,10 @@ function ParcelPackageCreateDrawer({
       {clientError&&<p role="alert" className="text-sm text-red-700">{clientError}</p>}
       <FormSection title="Client et marchandise" description="Le client peut avoir été créé automatiquement depuis WhatsApp ou manuellement à l’agence.">
         <div><FormLabel>Client associé</FormLabel><input type="search" value={clientQuery} onChange={event=>{setClientQuery(event.target.value);setSelectedClientId("");}} placeholder="Rechercher par nom ou téléphone" aria-label="Rechercher un client" className={`${inputClass} mb-2`}/><select name="client_id" required value={selectedClientId} onChange={event=>setSelectedClientId(event.target.value)} aria-label="Client associé" className={inputClass} disabled={clientLoading}><option value="">{clientLoading?"Recherche…":clients.length?"Sélectionner un client":"Aucun client trouvé"}</option>{clients.map(client=><option key={client.id} value={client.id}>{client.display_name||client.name||client.phone} · {client.phone||client.whatsapp_phone||"Sans téléphone"}</option>)}</select></div>
+        <PermissionGuard permission="clients.create"><InlineClientCreator onCreated={client=>{
+          setCreatedClient(client);setClients(items=>[client,...items.filter(item=>item.id!==client.id)]);
+          setSelectedClientId(client.id);setClientError('');
+        }}/></PermissionGuard>
         <label><FormLabel>Type de colis</FormLabel><input name="package_type" required list="parcel-types" className={inputClass} placeholder="Choisir ou saisir un type" onBlur={event=>{const value=event.target.value.trim().toLocaleLowerCase("fr");event.target.value=value.charAt(0).toLocaleUpperCase("fr")+value.slice(1);}}/><datalist id="parcel-types">{Object.values(packageTypeLabels).map(label=><option key={label} value={label}/>)}</datalist></label>
         <TextInput name="weight_kg" label="Poids du colis (kg)" type="number" step="0.01" required/>
       </FormSection>

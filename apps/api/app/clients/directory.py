@@ -9,9 +9,12 @@ SORTS = {'name_asc': 'display_name asc nulls last,c.id',
          'activity_desc': 'c.last_activity_at desc nulls last,c.id'}
 
 
-def directory(org_id, q='', customer_type=None, start=None, end=None, page=1, sort='name_asc', *, page_size=50):
+def directory(org_id, q='', customer_type=None, start=None, end=None, page=1, sort='name_asc', *, page_size=50, office_ids=None):
     params = {'org_id':org_id,'offset':(page-1)*page_size,'limit':page_size}
     filters = ['c.org_id=:org_id','c.deleted_at is null']
+    if office_ids is not None:
+        params['office_ids'] = office_ids
+        filters[0] = 'c.org_id=any(cast(:office_ids as text[]))'
     if q.strip():
         query = q.strip()
         params['q'] = '%' + query.replace('!','!!').replace('%','!%').replace('_','!_') + '%'
@@ -31,7 +34,7 @@ def directory(org_id, q='', customer_type=None, start=None, end=None, page=1, so
     with engine.connect() as conn:
         total=conn.execute(text(f'select count(*) from clients c where {where}'),params).scalar_one()
         items=[dict(row) for row in conn.execute(text(f'''
-            select c.id::text,c.client_reference,coalesce(c.display_name,c.company_name,c.name) display_name,
+            select c.id::text,c.org_id,c.client_reference,coalesce(c.display_name,c.company_name,c.name) display_name,
               c.phone,c.customer_type,c.last_activity_at,c.created_at,
               coalesce(o.organization_name,o.name) office_name
             from clients c join organizations o on o.id=c.org_id

@@ -601,7 +601,7 @@ export function ClientsPage() {
         />
 
         {profileReady && parcelFreight && error && <p role="alert" className="mx-auto max-w-[1200px] px-8 text-sm text-red-700">{error}</p>}
-        {!profileReady ? <p role="status" className="px-8 py-6">{error || 'Vérification du bureau actif…'}</p> : parcelFreight ? <CargoDirectory canExport={permissionsAvailable && permissions.includes('clients.export')} revision={directoryRevision} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
+{!profileReady ? <p role="status" className="px-8 py-6">{error || 'Vérification du bureau actif…'}</p> : parcelFreight ? <CargoDirectory canViewNetwork={permissionsAvailable && permissions.includes('network.read')} canExport={permissionsAvailable && permissions.includes('clients.export')} revision={directoryRevision} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-5">
             {statCards.map((card) => (
               <button
@@ -1333,7 +1333,7 @@ function NotesTab({ client }: { client: ClientRecord }) {
   );
 }
 
-function ClientFormModal({
+export function ClientFormModal({
   mode,
   client,
   saving,
@@ -1341,9 +1341,11 @@ function ClientFormModal({
   parcelFreight,
   onClose,
   onSubmit,
+  initialPhone = '',
 }: {
   mode: ClientFormMode;
   client: ClientRecord | null;
+  initialPhone?: string;
   saving: boolean;
   error: string;
   parcelFreight: boolean;
@@ -1380,7 +1382,7 @@ function ClientFormModal({
           {parcelFreight ? <div className="grid gap-5">
             <label className="grid gap-2 text-sm">Type de client<select name="customer_type" value={cargoType} onChange={e=>setCargoType(e.target.value)} className={inputClass}><option value="individual">Particulier</option><option value="business">Entreprise</option></select></label>
             {cargoType === "business" ? <Input key="company" label="Nom de l’entreprise" name="company_name" required defaultValue={client?.company_name || ""}/> : <Input key="person" label="Nom complet" name="name" required defaultValue={client?.name || ""}/>}
-            <InternationalPhone required={cargoType !== "business"} defaultValue={client?.phone || ""} className={inputClass}/>
+            <InternationalPhone required={cargoType !== "business"} defaultValue={client?.phone || initialPhone} className={inputClass}/>
             <p className="text-xs text-slate-500">Rattaché au bureau actif. WhatsApp utilise ce même numéro lorsqu’une conversation est disponible.</p>
             <details><summary className="cursor-pointer text-sm font-medium">Informations supplémentaires</summary><div className="mt-4 grid gap-4">
               <Input label="E-mail" name="email" type="email" defaultValue={client?.email || ""}/>
@@ -1860,7 +1862,7 @@ function formatMoney(
   return `${amount.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${currency || "$"}`;
 }
 
-function apiErrorMessage(error: unknown) {
+export function apiErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
     if (detail?.code === 'crm_migration_required')

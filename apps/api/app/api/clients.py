@@ -30,6 +30,7 @@ from app.core.tenant_context import get_current_tenant
 from app.core.permissions import require_permission
 from app.clients.phone import normalize_contact_phone
 from app.clients.customer360 import SECTION_PERMISSIONS, read_section
+from app.clients.directory_scope import offices_for_user, resolve_scope
 from app.permissions.services.permission_service import assert_permission, list_permissions_for_user
 
 
@@ -43,13 +44,20 @@ MAX_CLIENT_EXPORT_ROWS = 50_000
 def client_directory(q: str = Query('', max_length=120), customer_type: str | None = None,
                      start: date | None = None, end: date | None = None,
                      page: int = Query(1,ge=1,le=100000), sort: str = 'name_asc',
-                     tenant=Depends(get_current_tenant)):
+                     tenant=Depends(get_current_tenant), office_id: str | None = None):
     from app.clients.directory import directory, SORTS
     if customer_type not in (None,'individual','business') or sort not in SORTS:
         raise HTTPException(422,'invalid_directory_filter')
     if start and end and start>end:
         raise HTTPException(422,'invalid_date_range')
-    return directory(tenant['org_id'],q,customer_type,start,end,page,sort)
+    scope = resolve_scope(tenant, office_id)
+    result = directory(tenant['org_id'],q,customer_type,start,end,page,sort, **({'office_ids':scope} if scope is not None else {}))
+    return {**result, 'active_org_id': tenant['org_id']}
+
+
+@router.get('/clients/directory/offices', dependencies=[Depends(require_permission('clients.read'))])
+def client_directory_offices(tenant=Depends(get_current_tenant)):
+    return {'items': offices_for_user(tenant)}
 
 
 def csv_safe_value(value):
@@ -66,13 +74,18 @@ def csv_safe_value(value):
 def client_directory_export(request: Request, q: str = Query('', max_length=120),
                             customer_type: str | None = None, start: date | None = None,
                             end: date | None = None, sort: str = 'name_asc',
-                            tenant=Depends(get_current_tenant)):
+                            tenant=Depends(get_current_tenant), office_id: str | None = None):
     from app.clients.directory import directory, SORTS
     if customer_type not in (None, 'individual', 'business') or sort not in SORTS:
         raise HTTPException(422, 'invalid_directory_filter')
     if start and end and start > end:
         raise HTTPException(422, 'invalid_date_range')
-    result = directory(tenant['org_id'], q, customer_type, start, end, 1, sort, page_size=10001)
+    scope = resolve_scope(tenant, office_id)
+    if scope is not None:
+        for org in scope:
+            assert_permission(_user_id(tenant), org, 'clients.export')
+    result = directory(tenant['org_id'], q, customer_type, start, end, 1, sort, page_size=10001,
+                       **({'office_ids':scope} if scope is not None else {}))
     if result['total'] > 10000:
         raise HTTPException(413, 'client_export_too_large')
     columns = ['client_reference', 'display_name', 'customer_type', 'phone', 'office_name', 'created_at', 'last_activity_at']

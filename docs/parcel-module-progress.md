@@ -46,6 +46,19 @@ Source : [spécification fournie](spec/module-03-parcels.md). État au 11 octobr
 
 ## Restant — ne pas déclarer Module 03 terminé
 
+Décision utilisateur du 11 octobre 2026 : passer au module 04 sans déclarer Colis terminé. Les points ci-dessous sont conservés ; la remise et ses contrôles financiers seront repris avec le module Finance. Le report ne signifie pas que tous les autres restes dépendent de Finance.
+
+### Reprise obligatoire avec Finance
+
+- Établir une relation explicite et vérifiable colis → factures/lignes → paiements affectés. Ne pas déduire le paiement d’un colis du seul solde global du client ni additionner des devises différentes.
+- Définir les conditions de remise par agence et les éventuelles dérogations autorisées, motivées et auditées. Un état financier inconnu ne doit jamais être présenté comme payé.
+- Au moment de confirmer une remise, recontrôler état physique, version, autorisation et condition financière ; éviter les doubles remises et doubles notifications lors des nouvelles tentatives.
+- Pour une remise groupée, vérifier chaque colis et présenter les blocages individuellement ; enregistrer l’historique et annuler les relances devenues inutiles.
+- Auditer et aligner également les anciennes API, notamment `delivery_proof`, et pas uniquement masquer leurs boutons. L’ancienne commande reste un risque connu tant que cette unification n’est pas faite.
+- Recette attendue : non payé, avance, payé, paiement annulé, factures multiples, devises différentes, dérogation, concurrence entre agents et réseau interrompu après confirmation.
+
+### Restes transversaux conservés
+
 1. **03.01 Registre** : implémenté dans ce lot ; recette PostgreSQL et navigateur connecté à faire avec les vrais volumes et permissions de l’agence.
 2. **03.02 Fiabilité de réception** : idempotence transactionnelle des nouvelles tentatives ; remplacer le blocage historique des références fournisseur répétées par un avertissement contextualisé avec confirmation tracée (une même référence peut désigner plusieurs colis). Vérifier import/API/IA séparément.
 3. **03.03 Fiche** : consultation et correction limitée implémentées ; réaffectation client et changement de service après facturation encore à sécuriser et exposer. Les anciens menus d’édition, anomalies, finance et paramètres ne sont pas repris dans la nouvelle fiche fret.

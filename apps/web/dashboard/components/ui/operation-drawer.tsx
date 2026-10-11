@@ -1,7 +1,7 @@
 "use client";
 
 import { Archive, RotateCcw, SquarePen, Trash2, X } from "lucide-react";
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { OperationTabMenu } from "@/components/ui/operation-controls";
 
 export type OperationDrawerTabItem = {
@@ -111,6 +111,7 @@ export function OperationDrawer({
   footer,
   bodyClassName = "",
   width = "max-w-3xl",
+  placement = "center",
 }: {
   open: boolean;
   title: string;
@@ -125,8 +126,13 @@ export function OperationDrawer({
   footer?: ReactNode;
   bodyClassName?: string;
   width?: string;
+  placement?: "center" | "right";
 }) {
   const [visible, setVisible] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(close);
+  useEffect(() => { closeRef.current = close; }, [close]);
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() => setVisible(true));
@@ -140,16 +146,29 @@ export function OperationDrawer({
   }, [open]);
   useEffect(() => {
     if (!open) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus({ preventScroll: true });
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== dialogRef.current || event.defaultPrevented) return;
+      if (event.key === "Escape") { event.preventDefault(); closeRef.current(); }
+      if (event.key === "Tab") {
+        const controls = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]') || [])
+          .filter(element => element.getAttribute('type') !== 'hidden' && !element.closest('[hidden],[aria-hidden="true"],fieldset:disabled'));
+        const first = controls[0]; const last = controls[controls.length-1];
+        if (!first) { event.preventDefault(); panelRef.current?.focus(); }
+        else if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panelRef.current)) { event.preventDefault(); first.focus(); }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close, open]);
+    return () => { window.removeEventListener("keydown", onKeyDown); if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true }); };
+  }, [open]);
   if (!open) return null;
   return (
     <div
-      className={`fixed inset-0 z-[65] flex items-center justify-center bg-[#17212b]/35 p-3 backdrop-blur-[1px] transition-opacity duration-200 sm:p-6 ${visible ? "opacity-100" : "opacity-0"}`}
+      ref={dialogRef}
+      className={`fixed inset-0 z-[65] flex bg-[#17212b]/25 transition-opacity duration-200 ${placement === "right" ? "items-stretch justify-end" : "items-center justify-center p-3 sm:p-6"} ${visible ? "opacity-100" : "opacity-0"}`}
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) close();
       }}
@@ -158,8 +177,10 @@ export function OperationDrawer({
       aria-label={title}
     >
       <section
+        ref={panelRef}
+        tabIndex={-1}
         data-ui="operation-drawer"
-        className={`flex max-h-[calc(100dvh-24px)] w-full ${width} flex-col overflow-hidden rounded-[12px] border border-[#d8dce0] bg-white shadow-[0_24px_72px_rgba(15,23,42,.22)] transition duration-200 ease-out sm:max-h-[calc(100dvh-48px)] ${visible ? "scale-100 opacity-100" : "scale-[.98] opacity-0"}`}
+        className={`flex w-full ${width} flex-col overflow-hidden border border-[#d8dce0] bg-white shadow-[0_24px_72px_rgba(15,23,42,.15)] transition duration-200 ease-out ${placement === "right" ? "h-dvh sm:rounded-l-2xl" : "max-h-[calc(100dvh-24px)] rounded-xl sm:max-h-[calc(100dvh-48px)]"} ${visible ? "scale-100 opacity-100" : "scale-[.98] opacity-0"}`}
       >
         <header data-ui="operation-drawer-header" className="shrink-0 bg-white px-6 py-5">
           <div className="flex min-h-10 items-center gap-4">

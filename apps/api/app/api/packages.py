@@ -1,8 +1,10 @@
 import csv
 import hashlib
 import io
+from datetime import date
+from typing import Literal
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
@@ -48,6 +50,34 @@ from app.packages.repository import (
 
 
 router = APIRouter()
+
+
+@router.get("/packages/register", dependencies=[Depends(require_permission("packages.read"))])
+def packages_register(q: str = Query("", max_length=120),
+                      stage: Literal["received", "shipped", "arrived", "ready", "delivered", "other"] | None = None,
+                      start: date | None = None, end: date | None = None,
+                      page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+    from app.packages.register import parcel_register
+    if start and end and start > end:
+        raise HTTPException(422, "invalid_date_range")
+    return parcel_register(tenant["org_id"], q=q, stage=stage, start=start, end=end, page=page)
+
+
+@router.get("/packages/register/{package_id}", dependencies=[Depends(require_permission("packages.read"))])
+def packages_register_overview(package_id: UUID, tenant=Depends(get_current_tenant)):
+    from app.packages.register import parcel_overview
+    result = parcel_overview(tenant["org_id"], str(package_id))
+    if not result:
+        raise HTTPException(404, "package_not_found")
+    return result
+
+
+@router.get("/packages/register/{package_id}/history", dependencies=[Depends(require_permission("packages.read"))])
+def packages_register_history(package_id: UUID, page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+    from app.packages.register import parcel_history, parcel_overview
+    if not parcel_overview(tenant["org_id"], str(package_id)):
+        raise HTTPException(404, "package_not_found")
+    return parcel_history(tenant["org_id"], str(package_id), page)
 
 
 def _dispatch_queued_status(background_tasks: BackgroundTasks, org_id: str, package: dict | None):

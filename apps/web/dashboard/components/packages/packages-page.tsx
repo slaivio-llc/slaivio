@@ -2,6 +2,8 @@
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { ParcelPackageCreateDrawer } from './parcel-receipt-drawer';
+import { ParcelRegisterPage } from './parcel-register-page';
+import { getTenantContext } from '@/services/tenant';
 import { PermissionGuard } from '@/components/permissions/permission-guard';
 
 import axios from "axios";
@@ -294,6 +296,22 @@ type DetailTab =
   | "settings";
 
 export function PackagesPage() {
+  const [parcel, setParcel] = useState<boolean | null>(null);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError(false);
+    getTenantContext().then(context => { if (active) setParcel(context.active_tenant?.organization_type === "PARCEL_FREIGHT"); })
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [retry]);
+  if (error) return <div role="alert" className="p-8 text-sm">Impossible de charger les colis. <button type="button" className="underline" onClick={() => setRetry(value => value+1)}>Réessayer</button></div>;
+  if (parcel === null) return <TableSkeleton rows={6} columns={4} label="Chargement des colis" />;
+  return parcel ? <ParcelRegisterPage /> : <LegacyPackagesPage />;
+}
+
+function LegacyPackagesPage() {
   const [packages, setPackages] = useState<PackageRecord[]>([]);
   const [stats, setStats] = useState<PackageStats>(emptyStats);
   const [pagination, setPagination] = useState<Pagination>({

@@ -8,8 +8,8 @@ import { OperationButton } from "@/components/ui/operation-controls";
 import { listClients, type ClientRecord } from "@/services/clients";
 import { catalog, type Route, type Service } from "@/services/route-catalog";
 import type { ReferenceItem } from "@/services/references";
+import { operationInputClass as field } from "@/components/ui/operation-styles";
 
-const field = "h-9 w-full rounded-lg border border-[#dce1e6] bg-white px-3 text-sm disabled:bg-[#f6f7f8]";
 
 export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: {
   warehouses: ReferenceItem[];
@@ -68,8 +68,8 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
   const canSubmit = Boolean(selectedClient && service && route && !loading && !catalogError && !saving);
 
   return <OperationDrawer open close={() => { if (!saving) onClose(); }} title="Enregistrer un colis"
-    description="Réception dans le bureau actif. La référence interne est générée automatiquement."
-    width="max-w-3xl" footer={<div className="flex justify-end gap-2">
+    description="Enregistrez la réception, puis affectez le colis à un départ."
+    placement="right" width="max-w-2xl" footer={<div className="flex justify-end gap-2">
       <OperationButton type="button" disabled={saving} onClick={onClose}>Annuler</OperationButton>
       <OperationButton form="parcel-receipt" type="submit" variant="primary" disabled={!canSubmit}>
         {saving ? "Enregistrement…" : "Enregistrer le colis"}
@@ -82,7 +82,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
     }}>
       <input type="hidden" name="receipt_flow" value="parcel" />
       <fieldset disabled={saving} className="grid gap-3">
-        <legend className="mb-3 text-sm font-semibold">1. Client</legend>
+        <legend className="mb-3 text-sm font-semibold">Client</legend>
         <label className="grid gap-1.5 text-sm">Rechercher un client
           <input type="search" value={query} onChange={event => setQuery(event.target.value)} className={field} placeholder="Nom ou téléphone" />
         </label>
@@ -100,7 +100,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
         <PermissionGuard permission="clients.create"><InlineClientCreator onCreated={client => { setSelectedClient(client); setClientError(""); }} /></PermissionGuard>
       </fieldset>
       <fieldset disabled={saving || loading} className="grid gap-3">
-        <legend className="mb-3 text-sm font-semibold">2. Transport</legend>
+        <legend className="mb-3 text-sm font-semibold">Transport</legend>
         {catalogError && <p role="alert" className="text-sm text-red-700">{catalogError} <button type="button" className="underline" onClick={() => setReload(value => value + 1)}>Réessayer</button></p>}
         {!loading && !catalogError && !services.length && <p className="text-sm text-[#68727d]">Configurez un service et sa route dans Routes et Services avant de recevoir un colis.</p>}
         <label className="grid gap-1.5 text-sm">Service utilisé
@@ -115,17 +115,16 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
             {route && <option value={route.id}>{route.route_name} · {route.origin_city || route.origin_country} → {route.destination_city || route.destination_country}</option>}
           </select>
         </label>
-        <p className="text-xs text-[#68727d]">L’affectation à un départ se fera ensuite, dans une expédition compatible.</p>
       </fieldset>
       <fieldset disabled={saving} className="grid gap-3 sm:grid-cols-2">
-        <legend className="mb-3 text-sm font-semibold">3. Informations du colis</legend>
+        <legend className="mb-3 text-sm font-semibold">Colis</legend>
         <label className="grid gap-1.5 text-sm">Référence fournisseur (facultatif)<input name="supplier_tracking" maxLength={180} className={field} /></label>
         <label className="grid gap-1.5 text-sm">Poids en kg (si connu)<input name="weight_kg" type="number" min="0.001" step="0.001" className={field} placeholder="Non pesé" /></label>
         <label className="grid gap-1.5 text-sm sm:col-span-2">Description (facultatif)<input name="description" maxLength={260} className={field} /></label>
       </fieldset>
       <fieldset disabled={saving} className="grid gap-3">
-        <legend className="mb-3 text-sm font-semibold">4. Réception</legend>
-        <p className="text-sm text-[#68727d]">État initial : reçu. Le bureau actif, la date et l’agent sont enregistrés automatiquement.</p>
+        <legend className="mb-3 text-sm font-semibold">Réception</legend>
+        <p className="text-xs text-[#68727d]">Référence, date et agent enregistrés automatiquement dans le bureau actif.</p>
         <label className="grid gap-1.5 text-sm">Emplacement de stockage (facultatif)<input name="warehouse_location" maxLength={160} className={field} placeholder="Ex. zone A, étagère B3" /></label>
       </fieldset>
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}

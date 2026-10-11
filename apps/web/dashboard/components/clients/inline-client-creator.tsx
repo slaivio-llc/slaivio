@@ -2,9 +2,11 @@
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Plus } from 'lucide-react';
 import { ClientFormModal, apiErrorMessage } from './clients-page';
 import { cargoClientPayload } from '@/services/cargo-client-payload';
 import { createClient, type ClientRecord } from '@/services/clients';
+import { operationMenuItemClass } from '@/components/ui/operation-styles';
 
 /** Nested creation never unmounts the calling form or submits its draft. */
 export function InlineClientCreator({onCreated,initialPhone='',source='manual'}:{onCreated:(client:ClientRecord)=>void;initialPhone?:string;source?:'manual'|'whatsapp'}) {
@@ -38,7 +40,7 @@ export function InlineClientCreator({onCreated,initialPhone='',source='manual'}:
     finally {pending.current=false;setSaving(false);}
   }
   return <>
-    <button ref={trigger} type="button" className="mt-2 rounded border border-slate-300 px-3 py-2 text-sm text-emerald-800" onClick={()=>{request.current=null;setError('');setOpen(true);}}>Nouveau client</button>
+    <button ref={trigger} type="button" className={`${operationMenuItemClass} !w-fit !text-emerald-800`} onClick={()=>{request.current=null;setError('');setOpen(true);}}><Plus size={14} aria-hidden="true"/>Nouveau client</button>
     {open && createPortal(<ClientFormModal mode="create" client={null} initialPhone={initialPhone} parcelFreight saving={saving} error={error}
       onClose={()=>{if(!pending.current){setOpen(false);trigger.current?.focus();}}} onSubmit={submit}/>,document.body)}
   </>;

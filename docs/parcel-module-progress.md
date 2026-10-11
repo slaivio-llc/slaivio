@@ -22,11 +22,23 @@ Source : [spécification fournie](spec/module-03-parcels.md). État au 11 octobr
 - L’historique et la mise en file de notification existants restent transactionnels ; aucun envoi WhatsApp synchrone n’est ajouté.
 - Le bouton empêche un double clic immédiat. Cela ne constitue PAS encore une idempotence réseau/serveur.
 
+## Deuxième lot réalisé : registre, consultation et cohérence visuelle
+
+- Le fret monte désormais `ParcelRegisterPage`, sans monter les effets/statistiques de l’écran historique conservé pour les autres parcours.
+- Registre à quatre colonnes (référence, client, service, état), recherche automatique et filtres état/date, pagination de 50 éléments, rafraîchissement iconique. Aucun second sélecteur de bureau, ni KPI/scan/analytics hérité.
+- Nouvelles projections `/packages/register`, `/packages/register/{id}` et `/history` : permission `packages.read`, périmètre bureau propriétaire ou destination, recherche paramétrée, dates validées, UUID contrôlés, aucune modification du schéma lors de la lecture.
+- Liste sans montants financiers ni coordonnées privées. Historique sans metadata, corps des notifications ou montants de calcul de prix. Les descriptions opérationnelles restent disponibles aux agents autorisés.
+- Fiche latérale en consultation avec Vue d’ensemble et Historique paginé ; poids inconnu explicite, service/route, bureau de réception et liens vers les véritables pages client/expédition. Pas de lien vers le CRM d’un autre bureau.
+- Les anciennes valeurs d’état restent stockées. La présentation regroupe la préparation sous Reçu et distingue affectation, départ, arrivée et remise ; états hors cycle toujours retrouvables avec Autres états.
+- Formulaires Colis et Client fret dans un panneau latéral cohérent ; champs partagés de 36 px, libellés allégés, pied d’action fixe. Focus retenu dans le panneau, Échap sur le panneau supérieur, retour du focus à la fermeture.
+- Menu compte fret compact (identité sans répétition, profil, langue, déconnexion). Sélecteur d’espace allégé : nom normalisé, emplacement, état actif, création/administration selon droits ; recherche à partir de sept espaces. Suffixe entrepôt sans duplication.
+- Le chantier n’est pas une validation visuelle de toutes les pages historiques.
+
 ## Restant — ne pas déclarer Module 03 terminé
 
-1. **03.01 Registre** : remplacer pour le fret le tableau/KPI/menus hérités par référence, client, état et éventuellement service ; recherche et filtres simples ; projection API minimale, pagination, états erreur/vide/chargement. Préserver le périmètre des bureaux autorisés et les liens Customer360.
+1. **03.01 Registre** : implémenté dans ce lot ; recette PostgreSQL et navigateur connecté à faire avec les vrais volumes et permissions de l’agence.
 2. **03.02 Fiabilité de réception** : idempotence transactionnelle des nouvelles tentatives ; remplacer le blocage historique des références fournisseur répétées par un avertissement contextualisé avec confirmation tracée (une même référence peut désigner plusieurs colis). Vérifier import/API/IA séparément.
-3. **03.03 Fiche** : Vue d’ensemble + Historique, service/route visibles, références distinguées, édition limitée ; réaffectation client et modification du service après facturation explicitement contrôlées.
+3. **03.03 Fiche** : consultation implémentée ; édition limitée, réaffectation client et changement de service après facturation encore à sécuriser et exposer. Les anciens menus d’édition, anomalies, finance et paramètres ne sont pas repris dans la nouvelle fiche fret.
 4. **Tarification** : ne pas inventer de prix. Raccorder le calcul aux données suffisantes, afficher « Tarif à définir » lorsque le calcul est impossible, puis vérifier l’éligibilité aux expéditions.
 5. **03.04 Cycle de vie** : auditer les transitions existantes et leurs événements ; garantir qu’une affectation n’est pas un départ et qu’une arrivée n’est pas une livraison. Préserver les anciens événements sans proposer tous les états hérités comme parcours normal.
 6. **03.05 Retrait** : actions métier disponibles/remis, concurrence et idempotence, conditions financières par agence, remise groupée contrôlée individuellement, correction auditée ; relances annulées après remise.
@@ -40,3 +52,11 @@ Source : [spécification fournie](spec/module-03-parcels.md). État au 11 octobr
 - 4 tests d’interaction du nouveau formulaire passants.
 - TypeScript et ESLint ciblé exécutés ; validation navigateur authentifiée et base réelle encore nécessaires.
 - Pas de migration SQL ajoutée ou appliquée dans ce lot.
+
+## Validation et déploiement du deuxième lot
+
+- 70 tests backend ciblés passants (dont 11 nouveaux tests registre ; dépôts simulés, pas une recette sur PostgreSQL).
+- 32 tests frontend passants, dont non-régression Clients, création imbriquée, nouveau registre, formulaire et menus.
+- TypeScript et ESLint ciblé passants. Pas de session navigateur authentifiée ni de contrôle visuel aux trois largeurs effectués.
+- Déployer le backend avec les nouvelles routes de lecture avant le frontend. Aucune nouvelle migration SQL.
+- Photos, édition métier, retrait/remise et idempotence serveur restent à implémenter/valider avant de déclarer le module prêt pour une agence.

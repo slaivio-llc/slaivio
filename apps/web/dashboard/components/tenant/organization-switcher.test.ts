@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { formatOfficeDisplayName, formatOrganizationDisplayName } from "./organization-switcher";
+import { formatOfficeDisplayName, formatOrganizationDisplayName, formatWarehouseDisplayName } from "./organization-switcher";
 
 describe("organization display name", () => {
+  it("normalizes warehouse names without duplicating their suffix", () => {
+    expect(formatWarehouseDisplayName("LUZA CHINE")).toBe("luza chine's warehouse");
+    expect(formatWarehouseDisplayName("LUZA CHINE'S WAREHOUSE")).toBe("luza chine's warehouse");
+  });
   it("normalizes the organization label without changing the stored name", () => {
     expect(formatOrganizationDisplayName("OTIE CARGO")).toBe("otie cargo's org");
     expect(formatOrganizationDisplayName("  Otie   Cargo  ")).toBe("otie cargo's org");

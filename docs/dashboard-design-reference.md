@@ -53,3 +53,13 @@ Validation locale : 37 tests ciblés passent (Clients, Accueil, primitives,
 navigation et contrat typographique), ainsi que TypeScript et ESLint ciblé.
 La recette visuelle sur sessions connectées et la revue de chaque module historique
 ne sont pas couvertes par ces tests et restent nécessaires.
+
+## Déclinaison Colis et menus — 11 octobre 2026
+
+- Registre fret sans KPI ni menus de vues avancées hérités, contenu limité au même conteneur que l’en-tête.
+- Panneaux Colis et création Client fret : latéraux à droite, largeur maximale 672 px, pied d’action fixe ; les autres dialogues conservent leur placement central par défaut.
+- `operation-styles.ts` partage champs 36 px, arrondis, focus discret et menus compacts entre réception, Clients, menu compte fret et sélecteur d’espace.
+- Nom d’espace normalisé conservé ; suppression des titres répétés et rôles techniques dans les options. La création d’espace reste conditionnée par les permissions.
+- Menu compte fret limité à identité, profil/sécurité, langue et déconnexion. Une identité sans nom n’affiche plus deux fois l’email.
+- Le clavier conserve le focus dans le panneau actif et Échap ne ferme pas son parent lorsqu’un panneau enfant est ouvert.
+- Ce lot n’uniformise pas encore tous les modules historiques. Vérifier le rendu connecté sur desktop et mobile avant recette finale.

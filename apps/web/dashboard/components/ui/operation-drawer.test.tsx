@@ -5,6 +5,18 @@ import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "./o
 import { businessLabel } from "./business-labels";
 
 describe("OperationDrawer", () => {
+  it("supports a right-side panel and keeps keyboard focus inside it", () => {
+    const close = vi.fn();
+    render(<OperationDrawer open title="Réception" close={close} placement="right"><button type="button">Enregistrer</button></OperationDrawer>);
+    const dialog = screen.getByRole("dialog", { name: "Réception" });
+    expect(dialog).toHaveClass("justify-end");
+    expect(dialog.querySelector('section')).toHaveClass("h-dvh");
+    screen.getByRole("button", { name: "Enregistrer" }).focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Fermer" })).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
   it("uses the shared segmented navigation for detail panels", () => {
     const change = vi.fn();
     render(

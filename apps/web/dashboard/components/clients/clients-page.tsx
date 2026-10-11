@@ -5,6 +5,7 @@ import { CargoDirectory } from "@/components/clients/cargo-directory";
 import { Customer360 } from '@/components/clients/customer360';
 import { InternationalPhone } from "@/components/clients/international-phone";
 import { cargoClientPayload } from "@/services/cargo-client-payload";
+import { operationInputClass as inputClass } from "@/components/ui/operation-styles";
 
 import axios from "axios";
 import {
@@ -153,8 +154,6 @@ const primaryButtonClass =
   "inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#12c76f] px-4 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#0fb966]";
 const pagerButtonClass =
   "flex h-8 w-8 items-center justify-center rounded-md border border-[#cfd5dd] bg-white text-[#334155] shadow-sm disabled:opacity-40";
-const inputClass =
-  "h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]";
 
 type Pagination = {
   page: number;
@@ -1361,9 +1360,10 @@ export function ClientFormModal({
     <OperationDrawer
       open
       title={title}
-      description="Renseignez uniquement les informations réelles disponibles."
+      description={parcelFreight ? undefined : "Renseignez les informations disponibles."}
       close={onClose}
-      width="max-w-3xl"
+      placement={parcelFreight ? "right" : "center"}
+      width={parcelFreight ? "max-w-2xl" : "max-w-3xl"}
       footer={
         <>
           <OperationButton type="button" onClick={onClose} disabled={saving}>Annuler</OperationButton>

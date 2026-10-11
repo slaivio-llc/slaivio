@@ -988,6 +988,9 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
         ), {"org_id": org_id}).scalar()
         if not dossier_id and organization_type != "PARCEL_FREIGHT":
             raise ValueError("dossier_required")
+        if organization_type == "PARCEL_FREIGHT" and not dossier_id and payload.get("source", "manual") == "manual":
+            from app.packages.receipt import prepare_manual_receipt
+            payload = prepare_manual_receipt(payload)
         dossier = _dossier_for_create(conn, org_id, dossier_id) if dossier_id else None
         if dossier_id and not dossier:
             raise ValueError("dossier_not_found")
@@ -1178,7 +1181,7 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
                 "order_number": payload.get("order_number"), "external_reference": payload.get("external_reference"),
                 "subcategory": payload.get("subcategory"), "goods_classification": payload.get("goods_classification") or "ORDINARY_GOODS",
                 "declared_weight_kg": payload.get("declared_weight_kg"), "receiving_mode": payload.get("receiving_mode"),
-                "received_by": user_id if payload.get("received_at") else None,
+                "received_by": user_id if payload.get("received_at") or payload.get("status") in {"RECEIVED", "RECEIVED_AT_ORIGIN"} else None,
                 "route_id": route_id,
                 "shipping_service_id": shipping_service_id, "expected_at": payload.get("expected_at"),
                 "expectation_status": "MATCHED" if payload.get("expected_at") else None,

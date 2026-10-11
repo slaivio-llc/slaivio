@@ -1,7 +1,7 @@
 "use client";
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
-import { InlineClientCreator } from '@/components/clients/inline-client-creator';
+import { ParcelPackageCreateDrawer } from './parcel-receipt-drawer';
 import { PermissionGuard } from '@/components/permissions/permission-guard';
 
 import axios from "axios";
@@ -49,8 +49,6 @@ import { EmptyState as SharedEmptyState, TableSkeleton } from "@/components/ui/p
 import { FormGeographyFields } from "@/components/ui/geography-fields";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { listDossiers, type DossierRecord } from "@/services/dossiers";
-import { listClients, type ClientRecord } from "@/services/clients";
-import { catalog as getRouteCatalog, type Route, type Service } from "@/services/route-catalog";
 import { getReferenceCatalog, type ReferenceItem } from "@/services/references";
 import {
   addShipmentPackage,
@@ -561,6 +559,7 @@ export function PackagesPage() {
       ) || null,
       client_id: clean(form.get("client_id")) || formPackage?.client_id || null,
       tracking_id: clean(form.get("tracking_id")),
+      ...(form.has("supplier_tracking") ? { supplier_tracking: clean(form.get("supplier_tracking")) } : {}),
       status: String(form.get("status") || "RECEIVED_AT_ORIGIN") as PackageStatus,
       package_condition: String(
         form.get("package_condition") || "UNKNOWN",
@@ -3317,88 +3316,6 @@ function PackageFormModal({
   );
 }
 
-function ParcelPackageCreateDrawer({
-  warehouses,
-  saving,
-  error,
-  onClose,
-  onSubmit,
-}: {
-  warehouses: ReferenceItem[];
-  saving: boolean;
-  error: string;
-  onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
-  const [clients,setClients]=useState<ClientRecord[]>([]);
-  const [referenceError,setReferenceError]=useState("");
-  const [clientQuery,setClientQuery]=useState("");
-  const [clientError,setClientError]=useState("");
-  const [clientLoading,setClientLoading]=useState(true);
-  const [selectedClientId,setSelectedClientId]=useState("");
-  const [createdClient,setCreatedClient]=useState<ClientRecord|null>(null);
-  const [routes,setRoutes]=useState<Route[]>([]);
-  const [services,setServices]=useState<Service[]>([]);
-  const [country,setCountry]=useState("");
-  const [city,setCity]=useState("");
-  const [serviceId,setServiceId]=useState("");
-  const [loading,setLoading]=useState(true);
-  useEffect(()=>{
-    let active=true;
-    getRouteCatalog()
-      .then(catalog=>{if(active){setRoutes(catalog.routes.filter(route=>route.active!==false));setServices(catalog.services);}})
-      .catch(()=>{if(active)setReferenceError("Impossible de charger les routes. Fermez puis rouvrez le formulaire pour réessayer.");})
-      .finally(()=>{if(active)setLoading(false);});
-    return()=>{active=false;};
-  },[]);
-  useEffect(()=>{
-    let active=true;
-    setClientLoading(true);
-    setClientError("");
-    const timer=setTimeout(()=>{listClients({q:clientQuery.trim(),page_size:100,sort:"name_asc"})
-      .then(response=>{if(active)setClients(createdClient?[createdClient,...response.items.filter(item=>item.id!==createdClient.id)]:response.items);})
-      .catch(()=>{if(active)setClientError("Recherche client indisponible. Modifiez la recherche pour réessayer.");})
-      .finally(()=>{if(active)setClientLoading(false);});},250);
-    return()=>{active=false;clearTimeout(timer);};
-  },[clientQuery,createdClient]);
-  const countries=useMemo(()=>Array.from(new Set(routes.map(route=>route.destination_country).filter(Boolean))).sort(),[routes]);
-  const cities=useMemo(()=>Array.from(new Set(routes.filter(route=>route.destination_country===country).map(route=>route.destination_city).filter((value):value is string=>Boolean(value)))).sort(),[routes,country]);
-  const eligibleRoutes=useMemo(()=>routes.filter(route=>route.destination_country===country&&(!city||route.destination_city===city)),[routes,country,city]);
-  const routeIds=useMemo(()=>new Set(eligibleRoutes.map(route=>route.id)),[eligibleRoutes]);
-  const eligibleServices=useMemo(()=>services.filter(service=>routeIds.has(service.route_id)),[services,routeIds]);
-  const selectedService=services.find(service=>service.id===serviceId);
-  const selectedRoute=routes.find(route=>route.id===selectedService?.route_id);
-  useEffect(()=>{setCity("");setServiceId("");},[country]);
-  useEffect(()=>{setServiceId("");},[city]);
-  return <OperationDrawer open close={onClose} title="Nouveau colis" description="Enregistrez le colis reçu. SLAIVIO génère automatiquement son identifiant de suivi." width="max-w-3xl">
-    <form onSubmit={onSubmit} className="grid gap-5">
-      {referenceError&&<p role="alert" className="text-sm text-red-700">{referenceError}</p>}
-      {clientError&&<p role="alert" className="text-sm text-red-700">{clientError}</p>}
-      <FormSection title="Client et marchandise" description="Le client peut avoir été créé automatiquement depuis WhatsApp ou manuellement à l’agence.">
-        <div><FormLabel>Client associé</FormLabel><input type="search" value={clientQuery} onChange={event=>{setClientQuery(event.target.value);setSelectedClientId("");}} placeholder="Rechercher par nom ou téléphone" aria-label="Rechercher un client" className={`${inputClass} mb-2`}/><select name="client_id" required value={selectedClientId} onChange={event=>setSelectedClientId(event.target.value)} aria-label="Client associé" className={inputClass} disabled={clientLoading}><option value="">{clientLoading?"Recherche…":clients.length?"Sélectionner un client":"Aucun client trouvé"}</option>{clients.map(client=><option key={client.id} value={client.id}>{client.display_name||client.name||client.phone} · {client.phone||client.whatsapp_phone||"Sans téléphone"}</option>)}</select></div>
-        <PermissionGuard permission="clients.create"><InlineClientCreator onCreated={client=>{
-          setCreatedClient(client);setClients(items=>[client,...items.filter(item=>item.id!==client.id)]);
-          setSelectedClientId(client.id);setClientError('');
-        }}/></PermissionGuard>
-        <label><FormLabel>Type de colis</FormLabel><input name="package_type" required list="parcel-types" className={inputClass} placeholder="Choisir ou saisir un type" onBlur={event=>{const value=event.target.value.trim().toLocaleLowerCase("fr");event.target.value=value.charAt(0).toLocaleUpperCase("fr")+value.slice(1);}}/><datalist id="parcel-types">{Object.values(packageTypeLabels).map(label=><option key={label} value={label}/>)}</datalist></label>
-        <TextInput name="weight_kg" label="Poids du colis (kg)" type="number" step="0.01" required/>
-      </FormSection>
-      <FormSection title="Destination et transport" description="Les choix proviennent exclusivement des routes et services actifs configurés par l’agence.">
-        <label><FormLabel>Pays de destination</FormLabel><select name="destination_country" required value={country} onChange={event=>setCountry(event.target.value)} className={inputClass}><option value="">Sélectionner un pays</option>{countries.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
-        <label><FormLabel>Ville de destination</FormLabel><select name="destination_city" required={cities.length>0} value={city} onChange={event=>setCity(event.target.value)} disabled={!country} className={inputClass}><option value="">Sélectionner une ville</option>{cities.map(value=><option key={value} value={value}>{value}</option>)}</select></label>
-        <label><FormLabel>Mode et service de transport</FormLabel><select name="shipping_service_id" required value={serviceId} onChange={event=>setServiceId(event.target.value)} disabled={!country||(cities.length>0&&!city)} className={inputClass}><option value="">Sélectionner un service</option>{eligibleServices.map(service=><option key={service.id} value={service.id}>{service.service_name} · {service.shipping_mode} · {service.eta_min_days}–{service.eta_max_days} jours</option>)}</select></label>
-        <input type="hidden" name="route_id" value={selectedRoute?.id||""}/><input type="hidden" name="shipping_mode" value={selectedService?.shipping_mode||""}/>
-      </FormSection>
-      <FormSection title="Réception à l’entrepôt">
-        <label><FormLabel>Entrepôt de réception</FormLabel><select name="warehouse_name" className={inputClass}><option value="">Entrepôt principal</option>{warehouses.map(warehouse=><option key={warehouse.id} value={warehouse.label}>{warehouse.label}</option>)}</select></label>
-        <input type="hidden" name="status" value="RECEIVED_AT_ORIGIN"/><input type="hidden" name="source" value="manual"/>
-        <p className="rounded-[8px] bg-[#f3f7f5] px-3 py-2.5 text-[12px] leading-5 text-[#53645c]">L’identifiant public de suivi sera généré selon le format défini par l’agence. Le client recevra les notifications des étapes validées.</p>
-      </FormSection>
-      {error&&<div role="alert" className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</div>}
-      <div className="flex justify-end gap-2 border-t border-[#e1e5e8] pt-4"><OperationButton type="button" onClick={onClose}>Annuler</OperationButton><OperationButton type="submit" variant="primary" disabled={saving||loading||clientLoading||Boolean(clientError)||Boolean(referenceError)||!selectedClientId||!serviceId}>{saving?"Enregistrement…":"Créer le colis"}</OperationButton></div>
-    </form>
-  </OperationDrawer>;
-}
 
 function PackageEditDrawer({
   item,
@@ -4122,6 +4039,12 @@ function apiErrorMessage(error: unknown) {
   if (error.response.status === 403)
     return "Vous n’avez pas accès à cette organisation.";
   if (error.response.status === 404) return "Ressource introuvable.";
+  const detail = error.response.data?.detail;
+  if (detail === "supplier_tracking_already_exists")
+    return "Cette référence fournisseur existe déjà. Recherchez le colis avant de poursuivre ; vos informations sont conservées.";
+  if (detail === "shipping_service_not_found_for_route" || detail === "route_not_found")
+    return "Le service ou la route n’est plus disponible dans ce bureau. Vérifiez sa configuration.";
+  if (detail === "invalid_receipt_weight") return "Le poids doit être positif, ou laissé vide si le colis n’est pas encore pesé.";
   if (error.response.status === 422)
     return "Données invalides. Vérifiez les champs obligatoires.";
   return `Erreur API (${error.response.status}).`;

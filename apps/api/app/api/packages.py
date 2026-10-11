@@ -504,6 +504,7 @@ def packages_create(body: PackagePayload, background_tasks: BackgroundTasks, ten
         if str(exc) == "supplier_tracking_already_exists":
             raise HTTPException(status_code=409, detail="supplier_tracking_already_exists") from exc
         if str(exc) in {
+            "client_id_required", "route_id_required", "shipping_service_id_required", "invalid_receipt_weight",
             "route_not_found", "shipping_service_not_found_for_route",
             "destination_office_outside_organization_network",
             "origin_location_not_found", "destination_location_not_found",

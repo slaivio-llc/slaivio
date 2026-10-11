@@ -41,15 +41,31 @@ describe('cargo overview',()=>{
     expect(await screen.findByRole('alert')).toHaveTextContent('Data unavailable');
     expect(screen.queryByText('Period flows')).not.toBeInTheDocument();
   });
-  it('applies custom dates to the URL only on submit',async()=>{
+  it('applies custom dates automatically only when the range is complete',async()=>{
     mocks.get.mockResolvedValue(data);render(<CargoDashboard/>);
     await screen.findByText('Period flows');
     fireEvent.change(screen.getByLabelText('Period'),{target:{value:'custom'}});
     fireEvent.change(screen.getByLabelText('From'),{target:{value:'2026-09-01'}});
-    fireEvent.change(screen.getByLabelText('To'),{target:{value:'2026-09-30'}});
     expect(mocks.replace).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button',{name:'Apply'}));
+    fireEvent.change(screen.getByLabelText('To'),{target:{value:'2026-09-30'}});
+    expect(screen.queryByRole('button',{name:'Apply'})).not.toBeInTheDocument();
     expect(mocks.replace).toHaveBeenCalledWith('/app?preset=custom&comparison=previous&start=2026-09-01&end=2026-09-30',{scroll:false});
+  });
+  it('applies presets directly and removes stale custom dates and pagination',async()=>{
+    mocks.query='preset=custom&comparison=none&start=2026-09-01&end=2026-09-30&metric=received&page=2';
+    mocks.get.mockResolvedValue(data);render(<CargoDashboard/>);
+    await screen.findByText('Period flows');
+    fireEvent.change(screen.getByLabelText('Period'),{target:{value:'7d'}});
+    expect(mocks.replace).toHaveBeenCalledWith('/app?preset=7d&comparison=none',{scroll:false});
+  });
+  it('keeps invalid date ranges local instead of querying the API',async()=>{
+    mocks.get.mockResolvedValue(data);render(<CargoDashboard/>);
+    await screen.findByText('Period flows');
+    fireEvent.change(screen.getByLabelText('Period'),{target:{value:'custom'}});
+    fireEvent.change(screen.getByLabelText('From'),{target:{value:'2026-09-30'}});
+    fireEvent.change(screen.getByLabelText('To'),{target:{value:'2026-09-01'}});
+    expect(mocks.replace).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('End date');
   });
   it('aborts the request when leaving the page',async()=>{
     mocks.get.mockResolvedValue(data);const view=render(<CargoDashboard/>);

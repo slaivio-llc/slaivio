@@ -16,7 +16,7 @@ import {
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: "border-transparent bg-[#12c76f] text-white hover:bg-[#0fb766]",
+  primary: "border-transparent bg-[#087a46] text-white hover:bg-[#06673b]",
   secondary: "border-[#d8dadd] bg-white text-[#30363d] shadow-[0_1px_1px_rgba(15,23,42,.03)] hover:border-[#c7cbcf] hover:bg-[#f7f7f6]",
   ghost: "border-transparent bg-transparent text-[#4f5964] hover:bg-[#f0f2f2]",
   danger: "border-[#efc7c7] bg-white text-[#b42318] hover:bg-[#fff5f5]",
@@ -40,7 +40,7 @@ export function OperationButton({
       data-variant={variant}
       aria-label={refresh ? props["aria-label"] || "Actualiser" : props["aria-label"]}
       title={refresh ? props.title || "Actualiser" : props.title}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-[6px] border px-3 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
     >{refresh ? (visibleChildren.length > 0 ? visibleChildren : <RefreshCcw size={14} aria-hidden="true" />) : children}</button>
   );
 }
@@ -236,6 +236,21 @@ export function OperationFilterPopover({
 
   useEffect(() => {
     if (!open) return;
+    const trigger = root.current?.querySelector<HTMLButtonElement>('button');
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+        trigger?.focus();
+      }
+    };
+    panel.current?.querySelector<HTMLElement>('select, input, button')?.focus();
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [open, setOpen]);
+
+  useEffect(() => {
+    if (!open) return;
     const close = (event: MouseEvent) => {
       if (!root.current?.contains(event.target as Node) && !panel.current?.contains(event.target as Node)) {
         setOpen(false);
@@ -284,7 +299,8 @@ export function OperationFilterPopover({
           ref={panel}
           role="dialog"
           aria-label={title}
-          className="fixed z-[95] flex overflow-hidden rounded-[8px] border border-[#d9dde1] bg-white shadow-[0_12px_32px_rgba(15,23,42,.14)]"
+          data-ui="operation-filter-panel"
+          className="fixed z-[95] flex overflow-hidden rounded-xl border border-[#e4e7eb] bg-white shadow-[0_8px_28px_rgba(15,23,42,.10)]"
           style={{ ...(openAbove ? { bottom: window.innerHeight - anchor.top + 7 } : { top: anchor.bottom + 7 }), left, width: panelWidth, maxHeight: maxPanelHeight, flexDirection: "column" }}
         >
           <header className="flex min-h-10 items-center justify-between border-b border-[#eceeef] px-3">

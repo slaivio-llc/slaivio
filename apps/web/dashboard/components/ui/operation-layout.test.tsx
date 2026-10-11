@@ -5,6 +5,10 @@ import { OperationButton, OperationMetric, OperationMetricGrid, OperationTab } f
 import { OperationPageHeader } from "./operation-page-header";
 import { OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "./operation-primitives";
 
+vi.mock('@/services/tenant', () => ({
+  getTenantContext: () => Promise.resolve({ active_tenant: { organization_type: 'VEHICLE_IMPORT' } }),
+}));
+
 describe("Pilot visual foundation", () => {
   it("exposes one shared structure for operational pages", () => {
     const change = vi.fn();
@@ -26,8 +30,8 @@ describe("Pilot visual foundation", () => {
 
     const pageHeader = screen.getByRole("heading", { name: "Dossiers" }).closest("header");
     expect(pageHeader).toHaveAttribute("data-ui", "operation-page-header");
-    expect(pageHeader?.firstElementChild).toHaveClass("mx-auto", "w-full", "max-w-[1200px]", "px-6", "sm:px-8", "lg:pt-12");
-    expect(pageHeader?.firstElementChild?.firstElementChild).toHaveClass("pb-6", "sm:pb-8");
+    expect(pageHeader?.firstElementChild).toHaveClass("mx-auto", "w-full", "max-w-[1200px]", "px-6", "sm:px-8", "sm:pt-8");
+    expect(pageHeader?.firstElementChild?.firstElementChild).toHaveClass("pb-6");
     expect(pageHeader?.firstElementChild?.firstElementChild).not.toHaveClass("border-b");
     expect(screen.queryByRole("menu", { name: "Vues du module" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Choisir une vue" }));

@@ -228,16 +228,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         className={`fixed inset-0 z-40 bg-black/25 lg:hidden ${mobileOpen ? "block" : "hidden"}`}
       />
 
-      <aside data-ui="sidebar" className={`slaivio-sidebar fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col border-r border-[#dfe1e3] bg-white transition-[width,transform] duration-200 lg:relative lg:z-auto lg:translate-x-0 ${pilot ? "lg:w-[88px]" : sidebarCollapsed ? "lg:w-[56px]" : "lg:w-[272px]"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className={`flex shrink-0 items-center ${pilot ? "h-[76px] px-4 lg:justify-center lg:px-0" : `h-[60px] border-b border-[#e3e4e5] ${sidebarCollapsed ? "lg:justify-center lg:px-1" : "px-4"}`}`}>
-          <Link href="/app" className={`flex items-center ${!pilot&&sidebarCollapsed?"lg:hidden":""}`} onClick={() => setMobileOpen(false)}>
-            {pilot ? (
-              <>
-                <span className="hidden lg:block"><SlaivioBrand compact iconOnly rail /></span>
-                <span className="lg:hidden"><SlaivioBrand compact /></span>
-              </>
-            ) : <SlaivioBrand compact iconOnly={sidebarCollapsed} />}
-          </Link>
+      <aside data-ui="sidebar" className={`slaivio-sidebar fixed inset-y-0 left-0 z-50 flex w-[248px] flex-col border-r border-[#e8eaed] bg-white transition-[width,transform] duration-200 lg:relative lg:z-auto lg:translate-x-0 ${pilot ? "lg:w-[232px]" : sidebarCollapsed ? "lg:w-[56px]" : "lg:w-[248px]"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className={`flex shrink-0 items-center ${pilot ? "h-[72px] px-3" : `h-[60px] border-b border-[#e3e4e5] ${sidebarCollapsed ? "lg:justify-center lg:px-1" : "px-4"}`}`}>
+          {pilot ? <div className="min-w-0 flex-1"><OrganizationSwitcher menuPlacement="down" /></div> : <Link href="/app" className={`flex items-center ${sidebarCollapsed?"lg:hidden":""}`} onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly={sidebarCollapsed}/></Link>}
           <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="ml-auto rounded-[4px] p-1.5 text-[#555] hover:bg-[#f0f1f1] lg:hidden">
             <X size={17} />
           </button>
@@ -246,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>}
         </div>
 
-        <nav className={`min-h-0 flex-1 overflow-y-auto lg:overflow-hidden ${pilot ? "px-3 py-3 lg:px-0 lg:py-2" : `py-2.5 ${sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
+        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot ? "px-3 py-3" : `py-2.5 ${sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
           {pilot ? (
             <div>
               <PilotRailLink href="/app" icon={<Home size={19} />} active={pathname === "/app"} label={dashboardLabel(locale, "Accueil", "/app")} />
@@ -330,7 +323,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {cargo && <button type="button" onClick={() => setSearchOpen(true)} aria-label={locale === "en" ? "Search Slaivio" : "Rechercher dans Slaivio"} className="mr-2 flex h-9 min-w-9 items-center gap-2 rounded-md border border-[#d7dade] bg-white px-2 text-sm text-[#656c74] hover:bg-[#f8faf9] sm:w-[min(360px,28vw)] sm:px-3"><Search size={16}/><span className="hidden min-w-0 flex-1 truncate text-left sm:block">{locale === "en" ? "Search Slaivio…" : "Rechercher dans Slaivio…"}</span><kbd className="hidden text-[10px] lg:block">Ctrl K</kbd></button>}
           <div className="ml-auto flex items-center gap-1.5">
-            {pilot && <div className={cargo ? "hidden sm:block" : ""}><OrganizationSwitcher header menuPlacement="down" /></div>}
             {pilot && !cargo && <PilotReadinessPanel compact />}
             {!pilot && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {!pilot && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => togglePanel("help")} active={floatingPanel === "help"} showLabel />}
@@ -351,7 +343,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {supportView && <SupportDialog locale={locale} view={supportView} setView={setSupportView} close={() => setSupportView(null)} />}
 
-        {cargo && <div className="border-b bg-white px-3 py-2 sm:hidden"><OrganizationSwitcher header menuPlacement="down" /></div>}
         {pilot && <PilotOfflineIndicator />}
         <main className="slaivio-operations min-h-0 min-w-0 flex-1 overflow-y-auto bg-white">
           {pilot ? <div className="min-h-full w-full bg-white">{children}</div> : children}
@@ -412,16 +403,16 @@ function PilotRailLink({ href, icon, active, label }: { href: string; icon: Reac
       data-active={active ? "true" : "false"}
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`group flex min-h-[42px] items-center gap-2.5 rounded-none px-2.5 text-[14px] lg:min-h-[68px] lg:w-full lg:flex-col lg:justify-center lg:gap-1.5 lg:px-1 lg:text-[11px] ${active ? "bg-[#e4f4ee] font-[630] text-[#145f49]" : "font-[460] text-[#4b545c] hover:bg-[#f2f4f4] hover:text-[#20252b]"}`}
+      className={`group mb-1 flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] ${active ? "bg-[#edf4f0] font-medium text-[#145f49]" : "font-normal text-[#4b545c] hover:bg-[#f5f6f7] hover:text-[#20252b]"}`}
     >
       <span className={active ? "text-[#16855f]" : "text-[#656c74] group-hover:text-[#3f474f]"}>{icon}</span>
-      <span className="truncate lg:w-full lg:whitespace-normal lg:px-1 lg:text-center lg:leading-[14px]">{label}</span>
+      <span className="truncate">{label}</span>
     </Link>
   );
 }
 
 function PilotRailButton({ icon, active, label, onClick }: { icon: ReactNode; active: boolean; label: string; onClick: () => void }) {
-  return <button type="button" onClick={onClick} aria-label={label} aria-expanded={active} title={label} className={`group flex h-11 w-11 items-center justify-center rounded-none lg:h-[52px] lg:w-full ${active ? "bg-[#e4f4ee] text-[#145f49]" : "text-[#656c74] hover:bg-[#f2f4f4] hover:text-[#20252b]"}`}>{icon}</button>;
+  return <button type="button" onClick={onClick} aria-label={label} aria-expanded={active} title={label} className={`group mx-3 flex h-10 w-[calc(100%-24px)] items-center gap-3 rounded-lg px-3 text-[13px] ${active ? "bg-[#e4f4ee] text-[#145f49]" : "text-[#656c74] hover:bg-[#f2f4f4] hover:text-[#20252b]"}`}>{icon}<span>{label}</span></button>;
 }
 
 function pilotRouteLabel(locale: "fr" | "en", fallback: string, href: string) {

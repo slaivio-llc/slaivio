@@ -56,15 +56,15 @@
   --sl-weight-semibold: 600;
   --sl-weight-bold: 700;
 
-  --sl-control-height: 40px;
+  --sl-control-height: 36px;
   --sl-control-height-compact: 32px;
   --sl-control-height-large: 44px;
-  --sl-radius-control: 6px;
+  --sl-radius-control: 8px;
   --sl-radius-surface: 8px;
   --sl-radius-card: 12px;
   --sl-radius-modal: 12px;
   --sl-radius-pill: 999px;
-  --sl-shadow-popover: 0 16px 42px rgba(15, 23, 42, 0.14);
+  --sl-shadow-popover: 0 8px 28px rgba(15, 23, 42, 0.10);
   --sl-shadow-drawer: -24px 0 56px rgba(15, 23, 42, 0.16);
   --sl-content-max: 1536px;
   --sl-form-max: 720px;
@@ -739,7 +739,7 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 .slaivio-pilot [data-ui="operation-page-header"] h1 {
   color: var(--pilot-text);
   font-size: var(--sl-text-page-title) !important;
-  font-weight: var(--sl-weight-bold);
+  font-weight: var(--sl-weight-semibold);
   letter-spacing: -0.02em;
   line-height: 28px;
 }
@@ -901,10 +901,10 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
 @media (min-width: 1024px) {
   .slaivio-pilot .slaivio-sidebar [data-ui="sidebar-link"] {
-    min-height: 68px;
-    border-radius: 0;
-    font-size: 11px !important;
-    line-height: 14px;
+    min-height: 40px;
+    border-radius: var(--sl-radius-control);
+    font-size: 13px !important;
+    line-height: 20px;
   }
 }
 
@@ -1098,8 +1098,8 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 .operation-actions > button,
 .operation-actions > a,
 .operation-actions > details > summary {
-  min-height: 36px;
-  border-radius: 6px !important;
+  min-height: var(--sl-control-height);
+  border-radius: var(--sl-radius-control) !important;
   font-size: 13px !important;
   font-weight: var(--operation-weight-semibold, 620);
 }
@@ -1279,8 +1279,8 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 }
 
 .operation-drawer-footer button {
-  min-height: 40px;
-  border-radius: 8px !important;
+  min-height: var(--sl-control-height);
+  border-radius: var(--sl-radius-control) !important;
   padding-inline: 16px;
   font-size: 14px !important;
   font-weight: var(--operation-weight-semibold, 620);
@@ -1288,8 +1288,8 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
 .slaivio-operations form button,
 .operation-form-surface form button {
-  min-height: 40px;
-  border-radius: 8px !important;
+  min-height: var(--sl-control-height);
+  border-radius: var(--sl-radius-control) !important;
   font-size: 14px !important;
   font-weight: var(--operation-weight-semibold, 620);
 }

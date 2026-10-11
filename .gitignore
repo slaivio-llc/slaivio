@@ -29,3 +29,6 @@ Thumbs.db
 
 # --- Base de données locale (si utilisée) ---
 *.sqlite3
+
+# Local reference-video inspection tools and extracted frames
+.tmp/

@@ -5,14 +5,17 @@ const mocks=vi.hoisted(()=>({get:vi.fn()}));
 vi.mock('@/services/api',()=>({api:{get:(...args:unknown[])=>mocks.get(...args)}}));
 vi.mock('@/services/tenant',()=>({switchTenant:vi.fn()}));
 beforeEach(()=>{mocks.get.mockReset();});afterEach(cleanup);
-it('requests only the chosen network scope and shows the source office',async()=>{
-  mocks.get.mockImplementation((path:string)=>Promise.resolve({data:path.endsWith('/offices')?
-    {items:[{org_id:'a',name:'Kinshasa'},{org_id:'b',name:'Bruxelles'}]}:
-    {items:[{id:'client-b',org_id:'b',client_reference:'CLI-2',display_name:'Marie',office_name:'Bruxelles',customer_type:'individual',phone:null,last_activity_at:null}],active_org_id:'a',total:1,page:1,total_pages:1}}));
-  render(<CargoDirectory revision={0} open={vi.fn()} canViewNetwork/>);
-  fireEvent.change(await screen.findByRole('combobox',{name:'Bureau'}),{target:{value:'all'}});
-  await waitFor(()=>expect(mocks.get).toHaveBeenCalledWith('/clients/directory',expect.objectContaining({params:expect.objectContaining({office_id:'all'})})));
-  expect(await screen.findByText('CLI-2 · Bruxelles')).toBeInTheDocument();
+it('applies filters on selection without an Apply button or office scope',async()=>{
+  mocks.get.mockResolvedValue({data:{items:[],total:0,page:1,total_pages:0}});
+  render(<CargoDirectory revision={0} open={vi.fn()}/>);
+  await screen.findByText('Aucun client pour le moment');
+  fireEvent.click(screen.getByRole('button',{name:'Filtres'}));
+  fireEvent.change(screen.getByLabelText('Type'),{target:{value:'business'}});
+  await waitFor(()=>expect(mocks.get).toHaveBeenLastCalledWith('/clients/directory',expect.objectContaining({params:expect.objectContaining({customer_type:'business',page:1})})));
+  expect(mocks.get.mock.calls.at(-1)?.[1].params).not.toHaveProperty('office_id');
+  expect(screen.queryByRole('button',{name:'Appliquer'})).not.toBeInTheDocument();
+  fireEvent.keyDown(window,{key:'Escape'});
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 it('does not load network offices without network permission',async()=>{
   mocks.get.mockResolvedValue({data:{items:[],total:0,page:1,total_pages:0}});

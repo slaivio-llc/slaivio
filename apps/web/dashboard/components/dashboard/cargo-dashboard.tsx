@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCcw } from "lucide-react";
+import { Download, RefreshCcw } from "lucide-react";
 import { dashboardCsv } from "@/services/cargo-dashboard-export";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useDashboardLocale } from "@/components/i18n/dashboard-language";
@@ -18,7 +18,7 @@ const presets = [
   ["last_quarter", "Trimestre précédent", "Last quarter"], ["year", "Cette année", "This year"],
   ["last_year", "Année précédente", "Last year"], ["custom", "Personnalisée", "Custom"],
 ];
-const control = "h-9 min-w-0 max-w-full rounded-md border border-slate-300 bg-white px-2 text-sm focus-visible:outline-emerald-600";
+const control = "h-9 min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-2 text-sm focus-visible:outline-emerald-600";
 
 export function CargoDashboard() {
   const locale = useDashboardLocale();
@@ -72,33 +72,29 @@ export function CargoDashboard() {
     setLoading(true); setFailure(null);
     router.replace(`${pathname}?${params}`, { scroll: false });
   }
-  function apply(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const params = new URLSearchParams();
-    for (const key of ["preset", "comparison", "scope", "start", "end", "compare_start", "compare_end"]) {
-      const value = String(form.get(key) || "");
-      if (value) params.set(key, value);
-    }
+  function apply(params: URLSearchParams) {
+    if (params.toString() === queryKey) return;
     setLoading(true); setFailure(null);
-    if (params.toString() === queryKey) refresh();
-    else router.replace(`${pathname}?${params}`, { scroll: false });
+    router.replace(`${pathname}?${params}`, { scroll: false });
   }
   const number = (value: number) => new Intl.NumberFormat(locale).format(value);
   const day = (value: string) => new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value}T12:00:00Z`));
-  return <main className="mx-auto grid w-full max-w-[1200px] gap-6 bg-white px-6 py-8 sm:px-8 lg:py-12">
+  return <main className="mx-auto grid w-full max-w-[1200px] gap-6 bg-white px-6 py-8 sm:px-8">
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-[22px] font-semibold">{t("Accueil", "Overview")}</h1><p className="mt-2 text-sm text-slate-600">{t("Vos opérations, leur évolution et les colis nécessitant votre attention.", "Your operations, trends and parcels requiring attention.")}</p>
         {data && <p className="mt-3 text-sm font-medium">{data.workspace.name} · {data.scope === "network" ? t(`${data.office_count} bureaux autorisés`, `${data.office_count} authorized offices`) : [data.workspace.country, data.workspace.city].filter(Boolean).join(" / ") || t("Bureau actif", "Active office")}</p>}
       </div>
+      <div className="flex items-center gap-2">
+        <button type="button" className={`${control} grid w-9 place-items-center px-0`} onClick={exportSummary} disabled={!data||error} aria-label={t('Exporter la synthèse CSV','Export summary CSV')} title={t('Exporter la synthèse CSV','Export summary CSV')}><Download size={16} aria-hidden="true"/></button>
       <button type="button" className={`${control} w-9 px-0 grid place-items-center`} onClick={refresh} disabled={loading} aria-label={t("Actualiser", "Refresh")}><RefreshCcw size={16} className={loading ? "animate-spin" : ""}/></button>
+      </div>
     </header>
     <PeriodForm key={queryKey} search={new URLSearchParams(queryKey)} apply={apply} locale={locale} network={permissions.includes("network.overview")} />
-    <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500"><span role="status">{online ? t('Actualisation toutes les 60 secondes lorsque cet onglet est visible.','Refresh every 60 seconds while this tab is visible.') : t('Hors connexion : les dernières données affichées ne sont plus actualisées.','Offline: displayed data is no longer refreshed.')}</span><button type="button" className={control} onClick={exportSummary} disabled={!data || error}>{t('Exporter la synthèse CSV','Export summary CSV')}</button></div>
+    {!online && <p role="status" className="text-xs text-amber-700">{t('Hors connexion : les données affichées ne sont plus actualisées.','Offline: displayed data is no longer refreshed.')}</p>}
     {error && <div role="alert" className="rounded-md border border-amber-300 p-4 text-sm">{t("Données indisponibles : vérifiez vos droits, les dates et la connexion. Les valeurs ne sont pas remplacées par des zéros.", "Data unavailable: check permissions, dates and connection. Values are not replaced with zeros.")} <button type="button" onClick={refresh} className="font-semibold underline">{t("Réessayer", "Retry")}</button></div>}
     {!data && !error && <p role="status" className="py-8 text-sm text-slate-500">{online ? t("Chargement des opérations…", "Loading operations…") : t('Aucune donnée disponible hors connexion.','No data available offline.')}</p>}
     {data && <>
-      <p className="text-xs text-slate-500" role="status">{error ? t("Dernières données connues", "Last known data") : t("Calculé le", "Calculated at")} {new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium", timeZone: data.period.timezone }).format(new Date(data.generated_at))} · {data.period.timezone} · {t("Périmètre : cet accueil uniquement", "Scope: this overview only")}</p>
+      <p className="text-xs text-slate-500" role="status">{error ? t("Dernières données connues", "Last known data") : t("Calculé le", "Calculated at")} {new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium", timeZone: data.period.timezone }).format(new Date(data.generated_at))} · {data.period.timezone}</p>
       <section><h2 className="font-semibold">{t("Flux de la période", "Period flows")}</h2><p className="mt-1 text-xs text-slate-500">{day(data.period.current.start)} — {day(data.period.current.end)}{data.period.previous && ` · ${t("Comparaison", "Comparison")} : ${day(data.period.previous.start)} — ${day(data.period.previous.end)}`}</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">{([['received',t('Colis reçus','Parcels received')],['shipped',t('Colis expédiés','Parcels dispatched')],['delivered',t('Colis livrés','Parcels delivered')]] as const).map(([key,label]) => {
           const previous = data.previous_flows?.[key]; const value = data.flows[key];
@@ -145,20 +141,36 @@ export function CargoDashboard() {
   </main>;
 }
 
-function PeriodForm({search,apply,locale,network}:{search:URLSearchParams;apply:(event:FormEvent<HTMLFormElement>)=>void;locale:string;network:boolean}) {
-  const [preset,setPreset]=useState(search.get('preset')||'30d');
-  const [comparison,setComparison]=useState(search.get('comparison')||'previous');
+function PeriodForm({search,apply,locale,network}:{search:URLSearchParams;apply:(params:URLSearchParams)=>void;locale:string;network:boolean}) {
+  const [values,setValues]=useState(()=>({
+    preset:search.get('preset')||'30d',comparison:search.get('comparison')||'previous',
+    scope:search.get('scope')||'office',start:search.get('start')||'',end:search.get('end')||'',
+    compare_start:search.get('compare_start')||'',compare_end:search.get('compare_end')||''
+  }));
   const t=(fr:string,en:string)=>locale==='fr'?fr:en;
-  return <form onSubmit={apply} className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 p-4">
-    <label className="grid gap-1 text-xs">{t('Période','Period')}<select name="preset" value={preset} onChange={e=>setPreset(e.target.value)} className={control}>{presets.map(([key,fr,en])=><option key={key} value={key}>{t(fr,en)}</option>)}</select></label>
-    <label className="grid gap-1 text-xs">{t('Comparer','Compare')}<select name="comparison" value={comparison} onChange={e=>setComparison(e.target.value)} className={control}>{[['none','Sans comparaison','No comparison'],['previous','Période précédente','Previous period'],['year','Année précédente','Previous year'],['custom','Personnalisée','Custom']].map(([key,fr,en])=><option key={key} value={key}>{t(fr,en)}</option>)}</select></label>
-    {network && <label className="grid gap-1 text-xs">{t('Périmètre','Scope')}<select name="scope" defaultValue={search.get('scope')||'office'} className={control}><option value="office">{t('Bureau actif','Active office')}</option><option value="network">{t('Bureaux autorisés','Authorized offices')}</option></select></label>}
-    {preset==='custom' && <><DateField name="start" label={t('Du','From')} search={search}/><DateField name="end" label={t('Au','To')} search={search}/></>}
-    {comparison==='custom' && <><DateField name="compare_start" label={t('Comparer du','Compare from')} search={search}/><DateField name="compare_end" label={t('Comparer au','Compare to')} search={search}/></>}
-    <button className="h-9 rounded-md bg-emerald-700 px-4 text-sm font-medium text-white" type="submit">{t('Appliquer','Apply')}</button>
-  </form>;
+  const invalid = (values.preset==='custom' && values.start && values.end && values.start>values.end)
+    || (values.comparison==='custom' && values.compare_start && values.compare_end && values.compare_start>values.compare_end);
+  function change(key:keyof typeof values,value:string) {
+    const next={...values,[key]:value};
+    setValues(next);
+    if(next.preset==='custom' && (!next.start||!next.end||next.start>next.end))return;
+    if(next.comparison==='custom' && (!next.compare_start||!next.compare_end||next.compare_start>next.compare_end))return;
+    const params=new URLSearchParams();
+    params.set('preset',next.preset);params.set('comparison',next.comparison);
+    if(network)params.set('scope',next.scope);
+    if(next.preset==='custom'){params.set('start',next.start);params.set('end',next.end);}
+    if(next.comparison==='custom'){params.set('compare_start',next.compare_start);params.set('compare_end',next.compare_end);}
+    apply(params);
+  }
+  return <div className="flex flex-wrap items-end gap-2" role="group" aria-label={t('Période et comparaison','Period and comparison')}>
+    <label className="grid gap-1 text-xs text-slate-500">{t('Période','Period')}<select value={values.preset} onChange={e=>change('preset',e.target.value)} className={control}>{presets.map(([key,fr,en])=><option key={key} value={key}>{t(fr,en)}</option>)}</select></label>
+    <label className="grid gap-1 text-xs text-slate-500">{t('Comparer','Compare')}<select value={values.comparison} onChange={e=>change('comparison',e.target.value)} className={control}>{[['none','Sans comparaison','No comparison'],['previous','Période précédente','Previous period'],['year','Année précédente','Previous year'],['custom','Personnalisée','Custom']].map(([key,fr,en])=><option key={key} value={key}>{t(fr,en)}</option>)}</select></label>
+    {network && <label className="grid gap-1 text-xs text-slate-500">{t('Périmètre','Scope')}<select value={values.scope} onChange={e=>change('scope',e.target.value)} className={control}><option value="office">{t('Bureau actif','Active office')}</option><option value="network">{t('Bureaux autorisés','Authorized offices')}</option></select></label>}
+    {values.preset==='custom' && <><label className="grid gap-1 text-xs">{t('Du','From')}<input type="date" value={values.start} onChange={e=>change('start',e.target.value)} className={control}/></label><label className="grid gap-1 text-xs">{t('Au','To')}<input type="date" value={values.end} min={values.start||undefined} onChange={e=>change('end',e.target.value)} className={control}/></label></>}
+    {values.comparison==='custom' && <><label className="grid gap-1 text-xs">{t('Comparer du','Compare from')}<input type="date" value={values.compare_start} onChange={e=>change('compare_start',e.target.value)} className={control}/></label><label className="grid gap-1 text-xs">{t('Comparer au','Compare to')}<input type="date" value={values.compare_end} min={values.compare_start||undefined} onChange={e=>change('compare_end',e.target.value)} className={control}/></label></>}
+    {invalid && <p role="alert" className="w-full text-xs text-red-700">{t('La date de fin doit suivre la date de début.','End date must not precede start date.')}</p>}
+  </div>;
 }
-function DateField({name,label,search}:{name:string;label:string;search:URLSearchParams}) {return <label className="grid gap-1 text-xs">{label}<input type="date" name={name} required defaultValue={search.get(name)||''} className={control}/></label>;}
 function Metric({label,value,detail,active,onClick}:{label:string;value:string;detail:string;active:boolean;onClick:()=>void}) {return <button type="button" aria-pressed={active} onClick={onClick} className={`rounded-lg border p-4 text-left focus-visible:outline-emerald-600 ${active ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200 hover:border-emerald-400'}`}><span className="block text-sm text-slate-600">{label}</span><span className="mt-2 block text-2xl font-semibold tabular-nums">{value}</span><span className="mt-2 block text-xs text-slate-500">{detail}</span></button>;}
 function Panel({title,children}:{title:string;children:ReactNode}) {return <section className="min-w-0 rounded-lg border border-slate-200 p-4"><h2 className="mb-4 text-sm font-semibold">{title}</h2>{children}</section>;}
 function ParcelList({items,locale}:{items:CargoParcel[];locale:string}) {

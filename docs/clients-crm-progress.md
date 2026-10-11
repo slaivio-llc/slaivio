@@ -1,5 +1,14 @@
 # Module 02 — Clients / CRM : reprise et critères
 
+## Ajustement UX du 11 octobre 2026
+
+Décision utilisateur prioritaire : le choix du bureau se fait uniquement dans le
+sélecteur général. Le répertoire Clients n'affiche plus de sélecteur multi-bureaux
+et ne change plus de bureau lorsqu'une fiche est ouverte. Les endpoints réseau
+et leurs contrôles d'accès ne sont pas supprimés. Filtres automatiques et squelette
+de chargement remplacent l'ancienne validation manuelle et le message interne.
+Voir [dashboard-design-reference.md](dashboard-design-reference.md).
+
 ## État consolidé au 10 octobre 2026 (prioritaire sur les lots historiques ci-dessous)
 
 Implémenté : répertoire Cargo dédié, recherche/filtres/pagination/export, téléphone

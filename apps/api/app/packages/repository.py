@@ -1461,20 +1461,24 @@ def add_package_media(org_id: str, package_id: str, user_id: str, payload: dict)
 
 
 def add_private_package_media(org_id: str, package_id: str, user_id: str, payload: dict) -> dict | None:
-    if not get_package(org_id,package_id): return None
     with engine.begin() as conn:
+        row = conn.execute(text("select org_id from cargo_packages where id=:id and org_id=:org_id and deleted_at is null for update"), {"id":package_id,"org_id":org_id}).mappings().first()
+        if not row: raise HTTPException(404, "package_not_found")
         conn.execute(text("""insert into package_media(org_id,package_id,media_url,media_type,caption,uploaded_by_id,
           object_path,file_name,mime_type,size_bytes,checksum_sha256,category)
           values(:org_id,:package_id,'PRIVATE',:media_type,:caption,:user_id,:object_path,:file_name,:mime_type,:size_bytes,:checksum_sha256,:category)"""),
           {"org_id":org_id,"package_id":package_id,"user_id":user_id,**payload})
         _insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="PACKAGE_MEDIA_ADDED",title="Média ajouté",description=payload["file_name"],actor_id=user_id,metadata={"category":payload["category"]})
+        conn.execute(text("update cargo_packages set row_version=row_version+1,updated_at=now(),updated_by=:user_id where id=:id and org_id=:org_id"), {"id":package_id,"org_id":org_id,"user_id":user_id})
     return get_package(org_id,package_id)
 
 
 def get_package_media(org_id: str, package_id: str, media_id: str) -> dict | None:
     with engine.connect() as conn:
-        return _one(conn.execute(text("""select id::text,object_path,file_name,mime_type from package_media
-          where org_id=:org_id and package_id=:package_id and id=:media_id and object_path is not null"""),
+        return _one(conn.execute(text("""select m.id::text,m.object_path,m.file_name,m.mime_type from package_media m
+          join cargo_packages p on p.id=m.package_id and p.org_id=m.org_id
+          where (p.org_id=:org_id or p.destination_org_id=:org_id) and p.deleted_at is null
+          and m.package_id=:package_id and m.id=:media_id and m.object_path is not null"""),
           {"org_id":org_id,"package_id":package_id,"media_id":media_id}).fetchone())
 
 

@@ -34,15 +34,25 @@ Source : [spécification fournie](spec/module-03-parcels.md). État au 11 octobr
 - Menu compte fret compact (identité sans répétition, profil, langue, déconnexion). Sélecteur d’espace allégé : nom normalisé, emplacement, état actif, création/administration selon droits ; recherche à partir de sept espaces. Suffixe entrepôt sans duplication.
 - Le chantier n’est pas une validation visuelle de toutes les pages historiques.
 
+## Troisième lot réalisé : correction, photos privées et disponibilité
+
+- Correction dédiée avec motif obligatoire et version attendue : description, référence fournisseur, emplacement et poids lorsqu’il reste modifiable. Aucun changement de statut, client, service ou montant accepté par cette commande.
+- Verrou transactionnel et historique avant/après ; une fiche obsolète provoque un conflit explicite sans écraser la saisie. Les colis livrés, annulés ou retournés sont exclus de cette correction.
+- Le poids est verrouillé dès qu’une expédition, un tarif, un instantané de tarification ou une situation de paiement impose une réévaluation. Le bureau destinataire ne corrige que l’emplacement.
+- Photos privées paginées dans la fiche : ajout depuis le bureau propriétaire, consultation par les bureaux autorisés, URL signée obtenue seulement à l’ouverture et non transmise au proxy d’images. Contrôle d’accès avant stockage, taille/format limités et signature de fichier image vérifiée (pas une analyse antivirus ni un décodage intégral).
+- Téléversement multiple avec bilan des réussites/échecs partiels ; aucun renvoi automatique. Une réponse perdue nécessite une vérification de la liste avant renvoi.
+- Action « Disponible pour retrait » après arrivée, confirmation explicite, version contrôlée, événement et notification en file dans la même transaction. Répéter la confirmation d’un colis déjà disponible ne produit pas de nouvelle notification.
+- La nouvelle fiche ne propose pas la remise : l’ancienne commande `delivery_proof` peut clôturer sans contrôle financier suffisant. Il faut établir un rattachement fiable entre colis, factures et paiements avant de l’exposer dans le nouveau parcours.
+
 ## Restant — ne pas déclarer Module 03 terminé
 
 1. **03.01 Registre** : implémenté dans ce lot ; recette PostgreSQL et navigateur connecté à faire avec les vrais volumes et permissions de l’agence.
 2. **03.02 Fiabilité de réception** : idempotence transactionnelle des nouvelles tentatives ; remplacer le blocage historique des références fournisseur répétées par un avertissement contextualisé avec confirmation tracée (une même référence peut désigner plusieurs colis). Vérifier import/API/IA séparément.
-3. **03.03 Fiche** : consultation implémentée ; édition limitée, réaffectation client et changement de service après facturation encore à sécuriser et exposer. Les anciens menus d’édition, anomalies, finance et paramètres ne sont pas repris dans la nouvelle fiche fret.
+3. **03.03 Fiche** : consultation et correction limitée implémentées ; réaffectation client et changement de service après facturation encore à sécuriser et exposer. Les anciens menus d’édition, anomalies, finance et paramètres ne sont pas repris dans la nouvelle fiche fret.
 4. **Tarification** : ne pas inventer de prix. Raccorder le calcul aux données suffisantes, afficher « Tarif à définir » lorsque le calcul est impossible, puis vérifier l’éligibilité aux expéditions.
 5. **03.04 Cycle de vie** : auditer les transitions existantes et leurs événements ; garantir qu’une affectation n’est pas un départ et qu’une arrivée n’est pas une livraison. Préserver les anciens événements sans proposer tous les états hérités comme parcours normal.
-6. **03.05 Retrait** : actions métier disponibles/remis, concurrence et idempotence, conditions financières par agence, remise groupée contrôlée individuellement, correction auditée ; relances annulées après remise.
-7. **03.06–03.07 Photos/localisation** : ajout dès réception, stockage privé par défaut, partage client explicite et autorisé. Le premier lot ne propose pas encore de téléversement photo dans le nouveau formulaire.
+6. **03.05 Retrait** : disponibilité implémentée ; remise, conditions financières par agence, remise groupée contrôlée individuellement, correction auditée et annulation des relances restent à réaliser. Unifier les contrôles des anciennes commandes/API avant activation complète.
+7. **03.06–03.07 Photos/localisation** : ajout privé et emplacement dans la fiche implémentés ; ajout dès le formulaire de réception et partage client explicite restent à réaliser. Le stockage objet et la transaction SQL ne sont pas atomiques : prévoir nettoyage des fichiers orphelins et idempotence des ajouts.
 8. **Recette réelle** : PostgreSQL, comptes avec permissions limitées, plusieurs bureaux, catalogue modifié pendant la saisie, connexion interrompue après validation, livraison WhatsApp réelle, mobile et accès clavier. Vérifier l’alignement visuel avec le socle partagé.
 
 ## Validation du premier lot
@@ -60,3 +70,11 @@ Source : [spécification fournie](spec/module-03-parcels.md). État au 11 octobr
 - TypeScript et ESLint ciblé passants. Pas de session navigateur authentifiée ni de contrôle visuel aux trois largeurs effectués.
 - Déployer le backend avec les nouvelles routes de lecture avant le frontend. Aucune nouvelle migration SQL.
 - Photos, édition métier, retrait/remise et idempotence serveur restent à implémenter/valider avant de déclarer le module prêt pour une agence.
+
+## Validation et déploiement du troisième lot
+
+- 64 tests backend ciblés passants, dont 25 pour les corrections/disponibilité et 7 pour les photos. Dépôts simulés, pas de recette PostgreSQL réelle.
+- 22 tests frontend passants : réception, registre, conflits de version, confirmation, corrections, photos et panneau latéral.
+- TypeScript et ESLint ciblé passants. Pas de validation navigateur connecté, stockage réel ou livraison WhatsApp réelle.
+- Aucune migration ajoutée. Déployer le backend avant le frontend ; le bucket privé `package-media` et le circuit existant d’envoi des notifications doivent être configurés.
+- Ne pas activer une remise automatique ni annoncer le module terminé avant résolution des points ci-dessus.

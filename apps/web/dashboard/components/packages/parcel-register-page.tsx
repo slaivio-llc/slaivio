@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, Search, SquarePen, PackageCheck } from "lucide-react";
 import { api } from "@/services/api";
 import { createPackage } from "@/services/packages";
 import { getParcelOverview, type ParcelEntry, type ParcelOverview, type ParcelHistoryResult, type RegisterResult } from "@/services/parcel-register";
@@ -15,6 +15,7 @@ import { operationInputClass as field } from "@/components/ui/operation-styles";
 import { TableSkeleton } from "@/components/ui/page-state";
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { ParcelPackageCreateDrawer } from "./parcel-receipt-drawer";
+import { ParcelEditForm, ParcelPhotos, parcelError } from "./parcel-operations";
 
 const stages = [["received", "Reçus"], ["shipped", "Expédiés"], ["arrived", "Arrivés"], ["ready", "À retirer"], ["delivered", "Livrés"], ["other", "Autres états"]];
 const linkClass = "font-medium text-emerald-800 hover:underline focus-visible:outline-emerald-600";
@@ -118,14 +119,35 @@ export function ParcelRegisterPage() {
     </section>
     {createOpen && <ParcelPackageCreateDrawer warehouses={[]} saving={saving} error={saveError} onClose={() => setCreateOpen(false)} onSubmit={receive} />}
     {opening && <OperationDrawer open close={() => setOpening(null)} title="Colis" placement="right" width="max-w-2xl">{detailError ? <p role="alert" className="text-sm">Impossible d’ouvrir ce colis. Fermez la fiche et réessayez.</p> : <TableSkeleton rows={4} columns={2} label="Chargement du colis" />}</OperationDrawer>}
-    {selected && <ParcelDetails key={selected.id} item={selected} close={() => { setSelected(null); clearLink(); }} />}
+    {selected && <ParcelDetails key={selected.id} item={selected} changed={updated=>{setSelected(updated);setRevision(value=>value+1);}} close={() => { setSelected(null); clearLink(); }} />}
   </div>;
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return <div className="min-w-0"><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1.5 break-words text-sm text-slate-800">{children || "Non renseigné"}</dd></div>;
 }
-function ParcelDetails({ item, close }: { item: ParcelOverview; close: () => void }) {
+function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: () => void; changed: (item: ParcelOverview) => void }) {
+  const [editing,setEditing]=useState(false);
+  const [confirmReady,setConfirmReady]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [mutationError,setMutationError]=useState("");
+  const [notice,setNotice]=useState("");
+  const pending=useRef(false);
+  async function refresh() {
+    try { changed(await getParcelOverview(item.id)); }
+    catch { setNotice("Opération enregistrée, mais la fiche n’a pas pu être actualisée. Fermez puis rouvrez-la."); }
+  }
+  async function command(action:"edit"|"ready",changes?:Record<string,unknown>,reason?:string) {
+    if(pending.current||busy)return;
+    pending.current=true;setBusy(true);setMutationError("");setNotice("");
+    let committed=false;
+    try {
+      if(action==="edit")await api.patch(`/packages/register/${item.id}`,{...changes,reason,expected_version:item.row_version});
+      else await api.post(`/packages/register/${item.id}/ready`,{expected_version:item.row_version});
+      committed=true;setEditing(false);setConfirmReady(false);await refresh();
+    } catch(cause) {setMutationError(committed?"Opération enregistrée. Actualisez la fiche.":parcelError(cause));}
+    finally{pending.current=false;setBusy(false);}
+  }
   const [tab, setTab] = useState("overview");
   const [history, setHistory] = useState<ParcelHistoryResult | null>(null);
   const [page, setPage] = useState(1);
@@ -138,12 +160,20 @@ function ParcelDetails({ item, close }: { item: ParcelOverview; close: () => voi
       .then(response => { if (!controller.signal.aborted) setHistory(response.data); })
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
-  }, [tab, item.id, page, retry]);
-  return <OperationDrawer open close={close} placement="right" width="max-w-2xl" title={item.reference || "Colis"} headerMeta={<Status item={item} />}
-    tabs={<div className="flex gap-5">{[["overview", "Vue d’ensemble"], ["history", "Historique"]].map(([key, label]) => <button type="button" key={key} aria-pressed={tab === key} onClick={() => setTab(key)} className={`border-b-2 py-3 text-sm font-medium ${tab === key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-500"}`}>{label}</button>)}</div>}>
-    {tab === "overview" ? <div className="grid gap-8"><section><h3 className="mb-4 text-sm font-semibold">Colis et client</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Client"><ClientLink item={item} /></Fact><Fact label="Référence fournisseur">{item.supplier_tracking || item.external_reference}</Fact><Fact label="Poids">{item.weight_kg == null ? "Non pesé" : `${new Intl.NumberFormat("fr").format(item.weight_kg)} kg`}</Fact><Fact label="Description">{item.description}</Fact></dl></section>
+  }, [tab, item.id, item.row_version, page, retry]);
+  return <OperationDrawer open close={()=>{if(!busy)close();}} placement="right" width="max-w-2xl" title={item.reference || "Colis"} headerMeta={<Status item={item} />} headerActions={!editing&&item.stage!=="delivered"&&!["CANCELLED","RETURNED"].includes(item.status)?<PermissionGuard permission="packages.update"><OperationButton className="w-9 px-0" aria-label="Modifier le colis" title="Modifier" disabled={busy} onClick={()=>{setEditing(true);setConfirmReady(false);setMutationError("");}}><SquarePen size={15}/></OperationButton></PermissionGuard>:undefined}
+    tabs={<div className="flex gap-5">{[["overview", "Vue d’ensemble"], ["history", "Historique"]].map(([key, label]) => <button type="button" key={key} aria-pressed={tab === key} disabled={busy||editing} onClick={() => setTab(key)} className={`border-b-2 py-3 text-sm font-medium ${tab === key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-500"}`}>{label}</button>)}</div>}>
+    {notice&&<p role="status" className="mb-4 text-sm text-emerald-800">{notice}</p>}
+    {editing?<ParcelEditForm item={item} saving={busy} error={mutationError} cancel={()=>setEditing(false)} save={(changes,reason)=>void command("edit",changes,reason)}/>:
+    tab === "overview" ? <div className="grid gap-8"><section><h3 className="mb-4 text-sm font-semibold">Colis et client</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Client"><ClientLink item={item} /></Fact><Fact label="Référence fournisseur">{item.supplier_tracking || item.external_reference}</Fact><Fact label="Poids">{item.weight_kg == null ? "Non pesé" : `${new Intl.NumberFormat("fr").format(item.weight_kg)} kg`}</Fact><Fact label="Description">{item.description}</Fact></dl></section>
       <section><h3 className="mb-4 text-sm font-semibold">Transport</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Service">{item.service_name}</Fact><Fact label="Route">{item.route_name}</Fact><Fact label="Destination">{[item.destination_city,item.destination_country].filter(Boolean).join(", ")}</Fact><Fact label="Expédition">{item.shipment_id ? <PermissionGuard permission="shipments.read" fallback={<span>{item.shipment_reference || "Affecté"}</span>}><Link className={linkClass} href={`/app/shipments/${encodeURIComponent(item.shipment_id)}`}>{item.shipment_reference || "Voir l’expédition"}</Link></PermissionGuard> : "Pas encore affecté"}</Fact></dl></section>
-      <section><h3 className="mb-4 text-sm font-semibold">Réception</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Bureau de réception">{item.office_name}</Fact><Fact label="Date de réception">{formatDate(item.received_at)}</Fact><Fact label="Emplacement">{[item.warehouse_zone,item.warehouse_rack,item.warehouse_location].filter(Boolean).join(" · ")}</Fact></dl></section></div>
+      <section><h3 className="mb-4 text-sm font-semibold">Réception</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Bureau de réception">{item.office_name}</Fact><Fact label="Date de réception">{formatDate(item.received_at)}</Fact><Fact label="Emplacement">{[item.warehouse_zone,item.warehouse_rack,item.warehouse_location].filter(Boolean).join(" · ")}</Fact></dl></section>
+      {item.stage==="arrived"&&<PermissionGuard permission="packages.update"><section className="rounded-xl border border-slate-200 p-4">
+        {confirmReady?<><h3 className="text-sm font-semibold">Confirmer la disponibilité</h3><p className="mt-2 text-sm text-slate-600">Le colis est physiquement disponible au point de retrait. Le client sera averti si les notifications sont activées.</p><div className="mt-4 flex justify-end gap-2"><OperationButton disabled={busy} onClick={()=>setConfirmReady(false)}>Annuler</OperationButton><OperationButton variant="primary" disabled={busy} onClick={()=>void command("ready")}>{busy?"Confirmation…":"Confirmer"}</OperationButton></div></>:<OperationButton disabled={busy} onClick={()=>{setMutationError("");setConfirmReady(true);}}><PackageCheck size={15}/>Disponible pour retrait</OperationButton>}
+        {mutationError&&<p role="alert" className="mt-3 text-sm text-red-700">{mutationError}</p>}
+      </section></PermissionGuard>}
+      <ParcelPhotos item={item} changed={refresh} busyChanged={setBusy} disabled={busy}/>
+      </div>
       : error ? <p role="alert" className="text-sm">Historique indisponible. <button type="button" className="underline" onClick={() => setRetry(value => value+1)}>Réessayer</button></p>
       : !history ? <TableSkeleton rows={4} columns={1} label="Chargement de l’historique" />
       : <><ol className="space-y-6">{history.items.map(event => <li key={event.id} className="border-l-2 border-slate-200 pl-4"><p className="text-sm font-medium">{event.title}</p><time className="mt-1 block text-xs text-slate-500" dateTime={event.created_at}>{formatDate(event.created_at)}</time>{event.description && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{event.description}</p>}</li>)}</ol>{!history.items.length && <p className="text-sm text-slate-500">Aucun événement enregistré.</p>}<div className="mt-6 flex justify-end gap-2"><OperationButton disabled={page === 1} onClick={() => setPage(value => value-1)}>Précédent</OperationButton><OperationButton disabled={page >= history.total_pages} onClick={() => setPage(value => value+1)}>Suivant</OperationButton></div></>}

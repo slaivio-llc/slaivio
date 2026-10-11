@@ -68,10 +68,24 @@ def parcel_overview(org_id: str, package_id: str):
             p.description,p.weight_kg,p.warehouse_location,p.warehouse_zone,p.warehouse_rack,
             p.origin_city,p.origin_country,p.destination_city,p.destination_country,
             p.received_at,p.created_at,p.shipment_id::text,p.shipment_reference,r.route_name,
-            p.received_by,p.row_version
+            p.received_by,p.row_version,
+            (p.org_id=:org_id and p.shipment_id is null and p.fees_total is null
+              and coalesce(p.pricing_snapshot,'{{}}'::jsonb)='{{}}'::jsonb
+              and coalesce(p.payment_status,'UNKNOWN')='UNKNOWN') weight_editable
             {JOINS} where {SCOPE} and p.id=cast(:package_id as uuid)"""),
             {"org_id": org_id, "package_id": package_id}).mappings().first()
         return present(row, org_id) if row else None
+
+
+def parcel_photos(org_id, package_id, page=1):
+    params = {"org_id": org_id, "package_id": package_id, "offset": (page-1)*20}
+    where = f"{SCOPE} and p.id=cast(:package_id as uuid) and m.org_id=p.org_id and m.media_type='IMAGE' and m.object_path is not null"
+    with engine.connect() as conn:
+        total = conn.execute(text(f"select count(*) from package_media m join cargo_packages p on p.id=m.package_id where {where}"), params).scalar_one()
+        rows = conn.execute(text(f"""select m.id::text,m.file_name,m.caption,m.created_at
+            from package_media m join cargo_packages p on p.id=m.package_id
+            where {where} order by m.created_at desc,m.id desc limit 20 offset :offset"""), params).mappings()
+        return {"items": [dict(row) for row in rows], "total": total, "page": page, "total_pages": ceil(total/20)}
 
 
 def parcel_history(org_id: str, package_id: str, page=1):

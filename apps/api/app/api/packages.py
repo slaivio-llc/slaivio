@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.responses import Response, StreamingResponse
 
 from app.core.tenant_context import get_current_tenant
@@ -52,6 +52,36 @@ from app.packages.repository import (
 router = APIRouter()
 
 
+class ParcelEditPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    expected_version: int = Field(ge=1)
+    reason: str = Field(min_length=3, max_length=500)
+    description: str | None = Field(default=None, max_length=260)
+    supplier_tracking: str | None = Field(default=None, max_length=180)
+    warehouse_location: str | None = Field(default=None, max_length=160)
+    weight_kg: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+
+
+class ParcelVersionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: int = Field(ge=1)
+
+
+@router.patch("/packages/register/{package_id}", dependencies=[Depends(require_permission("packages.update"))])
+def packages_register_edit(package_id: UUID, body: ParcelEditPayload, tenant=Depends(get_current_tenant)):
+    from app.packages.operations import edit_parcel
+    data = body.model_dump(exclude_unset=True)
+    changes = {key: (None if value == "" else value) for key, value in data.items() if key not in {"reason", "expected_version"}}
+    return edit_parcel(tenant["org_id"], str(package_id), _user_id(tenant), body.expected_version, body.reason, changes)
+
+
+@router.post("/packages/register/{package_id}/ready", dependencies=[Depends(require_permission("packages.update"))])
+def packages_register_ready(package_id: UUID, body: ParcelVersionPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
+    from app.packages.operations import mark_ready
+    result = mark_ready(tenant["org_id"], str(package_id), _user_id(tenant), body.expected_version)
+    return _dispatch_queued_status(background_tasks, tenant["org_id"], result)
+
+
 @router.get("/packages/register", dependencies=[Depends(require_permission("packages.read"))])
 def packages_register(q: str = Query("", max_length=120),
                       stage: Literal["received", "shipped", "arrived", "ready", "delivered", "other"] | None = None,
@@ -78,6 +108,14 @@ def packages_register_history(package_id: UUID, page: int = Query(1, ge=1), tena
     if not parcel_overview(tenant["org_id"], str(package_id)):
         raise HTTPException(404, "package_not_found")
     return parcel_history(tenant["org_id"], str(package_id), page)
+
+
+@router.get("/packages/register/{package_id}/photos", dependencies=[Depends(require_permission("packages.read"))])
+def packages_register_photos(package_id: UUID, page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+    from app.packages.register import parcel_photos, parcel_overview
+    if not parcel_overview(tenant["org_id"], str(package_id)):
+        raise HTTPException(404, "package_not_found")
+    return parcel_photos(tenant["org_id"], str(package_id), page)
 
 
 def _dispatch_queued_status(background_tasks: BackgroundTasks, org_id: str, package: dict | None):
@@ -687,10 +725,19 @@ async def packages_scan_ocr(file:UploadFile=File(...),language:str=Form("fr"),ba
 
 @router.post("/packages/{package_id}/media/upload", dependencies=[Depends(require_permission("packages.update"))])
 async def packages_media_upload(package_id:str,file:UploadFile=File(...),category:str=Form(default="RECEPTION"),caption:str|None=Form(default=None),tenant=Depends(get_current_tenant)):
+    # Reject an unauthorized target before reading or writing any uploaded data.
+    from app.packages.register import parcel_overview
+    package = parcel_overview(tenant["org_id"], package_id)
+    if not package: raise HTTPException(404, "package_not_found")
+    if package["org_id"] != tenant["org_id"]: raise HTTPException(403, "package_media_owner_required")
     allowed={"image/jpeg","image/png","image/webp","video/mp4","audio/mpeg","audio/mp4","audio/ogg"}
     if file.content_type not in allowed: raise HTTPException(status_code=415,detail="unsupported_media_type")
     content=await file.read(26_214_401)
     if not content or len(content)>26_214_400: raise HTTPException(status_code=413,detail="media_too_large")
+    if file.content_type.startswith("image/"):
+        matches = {"image/jpeg": content.startswith(b"\xff\xd8\xff"), "image/png": content.startswith(b"\x89PNG\r\n\x1a\n"),
+                   "image/webp": content.startswith(b"RIFF") and content[8:12] == b"WEBP"}
+        if not matches.get(file.content_type): raise HTTPException(415, "invalid_image_content")
     safe_name=Path(file.filename or "media").name; object_path=f"{tenant['org_id']}/{package_id}/{uuid4().hex}-{safe_name}"
     try: upload_private_document(object_path,content,file.content_type,"package-media")
     except RuntimeError as exc: raise HTTPException(status_code=503,detail=str(exc)) from exc

@@ -5,7 +5,7 @@ import { api } from "@/services/api";
 import { getParcelOverview } from "@/services/parcel-register";
 import { ParcelRegisterPage } from "./parcel-register-page";
 
-vi.mock("@/services/api", () => ({ api: { get: vi.fn() } }));
+vi.mock("@/services/api", () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 vi.mock("@/services/packages", () => ({ createPackage: vi.fn() }));
 vi.mock("@/services/parcel-register", () => ({ getParcelOverview: vi.fn() }));
 vi.mock("@/services/tenant", () => ({ getTenantContext: () => Promise.resolve({ active_tenant: { organization_type: "PARCEL_FREIGHT" } }) }));
@@ -17,12 +17,42 @@ vi.mock("./parcel-receipt-drawer", () => ({ ParcelPackageCreateDrawer: () => <di
 const item = { id: "parcel", org_id: "office", reference: "COL-0042", client_id: "client", client_name: "Marie", local_client: true, status: "RECEIVED_AT_ORIGIN", stage: "received", status_label: "Reçu", service_name: "Cargo aérien", office_name: "Guangzhou" };
 const response = { items: [item], total: 1, page: 1, total_pages: 1 };
 beforeEach(() => {
+  vi.mocked(api.post).mockReset();
+  vi.mocked(api.patch).mockReset();
   vi.mocked(api.get).mockReset();
-  vi.mocked(api.get).mockResolvedValue({ data: response });
+  vi.mocked(api.get).mockImplementation(async url => ({ data: String(url).endsWith("/photos") ? { items: [], page: 1, total_pages: 1, total: 0 } : response }));
   vi.mocked(getParcelOverview).mockResolvedValue({ ...item, weight_kg: null, supplier_tracking: "EXT-42", shipment_id: null, received_at: null } as Awaited<ReturnType<typeof getParcelOverview>>);
 });
 
 describe("Registre fret", () => {
+  it("confirme la disponibilité avec la version de la fiche puis la recharge", async () => {
+    const arrived = { ...item, status: "ARRIVED_DESTINATION", stage: "arrived", row_version: 4 } as Awaited<ReturnType<typeof getParcelOverview>>;
+    vi.mocked(getParcelOverview).mockResolvedValueOnce(arrived).mockResolvedValue({ ...arrived, status: "READY_FOR_PICKUP", stage: "ready", row_version: 5 });
+    vi.mocked(api.post).mockResolvedValue({ data: { changed: true } });
+    render(<ParcelRegisterPage/>);
+    fireEvent.click(await screen.findByRole("button", { name: "COL-0042" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Disponible pour retrait" }));
+    expect(api.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirmer" }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/packages/register/parcel/ready", { expected_version: 4 }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Confirmer" })).not.toBeInTheDocument());
+    expect(api.post).toHaveBeenCalledTimes(1);
+  });
+
+  it("conserve la correction lorsque le serveur détecte une version obsolète", async () => {
+    vi.mocked(getParcelOverview).mockResolvedValue({ ...item, row_version: 7, weight_editable: true } as Awaited<ReturnType<typeof getParcelOverview>>);
+    vi.mocked(api.patch).mockRejectedValue({ isAxiosError: true, response: { data: { detail: "package_version_conflict" } } });
+    render(<ParcelRegisterPage/>);
+    fireEvent.click(await screen.findByRole("button", { name: "COL-0042" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Modifier le colis" }));
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Fragile" } });
+    fireEvent.change(screen.getByLabelText("Motif de la correction"), { target: { value: "Contrôle réception" } });
+    fireEvent.submit(screen.getByRole("form"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("modifié par un autre agent");
+    expect(screen.getByLabelText("Description")).toHaveValue("Fragile");
+    expect(api.patch).toHaveBeenCalledWith("/packages/register/parcel", { description: "Fragile", reason: "Contrôle réception", expected_version: 7 });
+  });
+
   it("montre un registre compact, sans KPI ni ancien menu de vues", async () => {
     render(<ParcelRegisterPage />);
     await screen.findByRole("button", { name: "COL-0042" });

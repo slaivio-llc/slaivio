@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canAccessRoute, getAppNavigation } from "./app-navigation";
+import { canAccessRoute, getAppNavigation, getCompactPrimaryRoutes } from "./app-navigation";
 import { PRODUCT_PROFILES } from "./product-profile";
 
 describe("product navigation", () => {
@@ -58,6 +58,17 @@ describe("product navigation", () => {
       .find((group) => group.label === "Opérations");
     expect(operations?.routes.some((route) => route.href === "/app/routes")).toBe(false);
     expect(operations?.routes.some((route) => route.href === "/app/services")).toBe(false);
+  });
+
+  it("keeps organization, services, and routes visible in the compact parcel agency navigation", () => {
+    const routes = getCompactPrimaryRoutes(
+      getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT).flatMap((group) => group.routes),
+      PRODUCT_PROFILES.PARCEL_FREIGHT,
+    );
+
+    expect(routes.map((route) => route.href)).toContain("/app/settings");
+    expect(routes.map((route) => route.href)).toContain("/app/services");
+    expect(routes.map((route) => route.href)).toContain("/app/routes");
   });
 
   it("distinguishes warehouse operations from office finance", () => {

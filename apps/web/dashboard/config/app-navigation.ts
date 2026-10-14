@@ -198,6 +198,25 @@ export function getAppNavigation(profile: ProductProfile = getProductProfile(), 
   return cargoOsNavigation;
 }
 
+export function getCompactPrimaryRoutes(
+  routes: readonly AppRoute[],
+  profile: ProductProfile,
+): AppRoute[] {
+  const visibleHrefs = profile === PRODUCT_PROFILES.PARCEL_FREIGHT
+    ? new Set([
+        "/app/clients",
+        "/app/settings",
+        "/app/services",
+        "/app/routes",
+        "/app/operations",
+        "/app/communication",
+        "/app/finance",
+      ])
+    : new Set(["/app/dossiers", "/app/inbox", "/app/followups", "/app/knowledge"]);
+
+  return routes.filter((route) => visibleHrefs.has(route.href));
+}
+
 export const appNavigation = getAppNavigation();
 export const searchableAppRoutes = appNavigation.flatMap((group) => group.routes);
 

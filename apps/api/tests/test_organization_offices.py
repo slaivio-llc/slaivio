@@ -132,6 +132,19 @@ def test_canonical_office_migration_preserves_operational_references():
     assert "delete from agency_offices" not in sql.lower()
 
 
+def test_office_sync_trigger_targets_the_existing_partial_unique_index():
+    from pathlib import Path
+
+    migrations = Path(__file__).parents[3] / "infra" / "sql"
+    for migration_name in (
+        "129_organization_offices_canonical.sql",
+        "132_fix_office_location_sync_conflict.sql",
+    ):
+        sql = (migrations / migration_name).read_text(encoding="utf-8").lower()
+        assert "on conflict (organization_location_id)" in sql
+        assert "where organization_location_id is not null" in sql
+
+
 def test_office_context_filters_to_selected_office_before_grants():
     context = {
         "office_access_scope": "ALL_OFFICES",

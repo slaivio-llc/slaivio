@@ -47,7 +47,7 @@ import { WorkspaceSearch } from "@/components/layout/workspace-search";
 import { CargoAccountMenu } from "@/components/layout/cargo-account-menu";
 import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
 import { OfficeContextSelector } from "@/components/tenant/office-context-selector";
-import { canAccessRoute, getAppNavigation, type AppRoute } from "@/config/app-navigation";
+import { canAccessRoute, getAppNavigation, getCompactPrimaryRoutes, type AppRoute } from "@/config/app-navigation";
 import { getOrganizationProductProfile, getProductProfile, isPilotV1, usesCompactAgencyShell } from "@/config/product-profile";
 import { SESSION_EXPIRED_EVENT } from "@/services/api";
 import { listNotifications, markAllRead, notificationAction, type CenterItem } from "@/services/notification-center";
@@ -111,10 +111,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   const pilotPrimaryRoutes = useMemo(() => {
-    const primaryHrefs = productProfile === "PARCEL_FREIGHT"
-      ? new Set(["/app/clients", "/app/operations", "/app/communication", "/app/finance"])
-      : new Set(["/app/dossiers", "/app/inbox", "/app/followups", "/app/knowledge"]);
-    return groupedRoutes.flatMap((group) => group.routes).filter((route) => primaryHrefs.has(route.href));
+    return getCompactPrimaryRoutes(
+      groupedRoutes.flatMap((group) => group.routes),
+      productProfile,
+    );
   }, [groupedRoutes, productProfile]);
 
   const results = useMemo(() => {

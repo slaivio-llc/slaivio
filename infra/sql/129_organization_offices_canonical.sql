@@ -108,7 +108,9 @@ begin
       new.whatsapp, nullif(new.opening_hours ->> 'text', ''),
       new.status = 'ACTIVE', new.id
     )
-    on conflict (organization_location_id) do update set
+    on conflict (organization_location_id)
+      where organization_location_id is not null
+    do update set
       country = excluded.country,
       city = excluded.city,
       address = excluded.address,

@@ -4,10 +4,11 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
+from datetime import date
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from app.core.tenant_context import get_current_tenant
 from app.core.permissions import require_permission
@@ -38,6 +39,37 @@ from app.expeditions.repository import (
 
 
 router = APIRouter()
+
+
+class PlannedShipmentPayload(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    route_id: UUID
+    request_key: UUID
+    planned_departure_at: AwareDatetime | None = None
+
+
+@router.get('/shipments/register', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_register(q: str = Query('', max_length=120),
+                      stage: Literal['planned','departed','arrived','other'] | None = None,
+                      start: date | None = None, end: date | None = None,
+                      page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+    from app.expeditions.register import listing
+    if start and end and start > end:
+        raise HTTPException(422, 'invalid_date_range')
+    return listing(tenant['org_id'], q=q, stage=stage, start=start, end=end, page=page)
+
+
+@router.get('/shipments/register/routes', dependencies=[Depends(require_permission('shipments.create'))])
+def shipment_creation_routes(tenant=Depends(get_current_tenant)):
+    from app.expeditions.register import routes
+    return {'items': routes(tenant['org_id'])}
+
+
+@router.post('/shipments/register', dependencies=[Depends(require_permission('shipments.create'))])
+def create_planned_shipment(payload: PlannedShipmentPayload, tenant=Depends(get_current_tenant)):
+    from app.expeditions.register import create
+    org_id, actor_id = _tenant_ids(tenant)
+    return create(org_id, actor_id, str(payload.route_id), payload.planned_departure_at, str(payload.request_key))
 
 
 class ExpeditionPayload(BaseModel):

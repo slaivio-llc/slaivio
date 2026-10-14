@@ -1,10 +1,10 @@
 # Module 04 — Expéditions & Départs : cadrage et suivi
 
-État au 11 octobre 2026. Source conservée intégralement : [cahier des charges](spec/module-04-expeditions-departs.md).
+État au 14 octobre 2026. Source conservée intégralement : [cahier des charges](spec/module-04-expeditions-departs.md).
 
 ## État réel
 
-Le cahier des charges est reçu et lu. Ce passage de module ajoute de la documentation, pas une nouvelle implémentation métier. Les mentions « terminé » du document décrivent sa conception ; elles ne certifient ni le code ni la recette. Les [restes de Colis](parcel-module-progress.md) restent ouverts, en particulier la remise liée à Finance.
+Le premier lot registre/création est implémenté ; le module reste en cours. Les mentions « terminé » du document décrivent sa conception ; elles ne certifient ni le code ni la recette. Les [restes de Colis](parcel-module-progress.md) restent ouverts, en particulier la remise liée à Finance.
 
 Le document contient 04.01, 04.02 et 04.04. Il cite 04.03 sans fournir une section détaillée autonome ; les règles départ/arrivée décrites dans 04.02 restent applicables, sans inventer de nouvelles exigences.
 
@@ -49,3 +49,30 @@ Le document contient 04.01, 04.02 et 04.04. Il cite 04.03 sans fournir une secti
 ## Validation de ce passage
 
 Documentation uniquement. Pas de migration exécutée, pas de modification de données, pas de test fonctionnel ni déploiement revendiqué.
+
+## Premier lot — 14 octobre 2026 : registre et création fret
+
+- `ShipmentsPage` monte le nouveau registre uniquement pour PARCEL_FREIGHT. L’ancien écran et ses effets restent réservés aux autres parcours.
+- Registre à quatre colonnes : référence avec nombre de colis, trajet, état, départ prévu/réel. Liste dédiée sur mobile ; filtre d’état et période de création UTC, recherche automatique, pagination de 50. Une période incomplète n’est pas envoyée.
+- Projection limitée au bureau propriétaire actif, sans finances ni coordonnées client. Compteur calculé depuis les affectations actives et colis non supprimés. Les anciens états sont regroupés pour l’affichage sans réécrire leur valeur ; états ambigus conservés sous Autre état.
+- Formulaire latéral : origine, destination/route configurée, départ prévu facultatif. Heure saisie dans le fuseau du navigateur et transmise avec décalage ; fuseau du bureau à intégrer ultérieurement si différent.
+- Création dans `cargo_expeditions`, pas dans une troisième table métier ; état serveur PREPARING (affiché Prévue), contexte issu de la route revalidée et verrouillée, référence générée côté serveur, événement transactionnel. Aucun colis déplacé ni message envoyé à la création.
+- Nouvelles routes `/shipments/register` et `/shipments/register/routes`, permissions serveur read/create. Pas d’appel `_ensure_schema` dans ces nouvelles opérations.
+- Idempotence : clé UUID de demande utilisée comme identité de la création, verrou transactionnel et empreinte du contenu initial dans l’événement ; une répétition identique du même acteur/bureau retrouve le résultat. Autre contenu ou autre acteur/bureau : conflit. La clé est conservée pendant les réessais du formulaire, pas après fermeture/rechargement : vérifier le registre avant de recommencer après une réponse perdue.
+- Les migrations existantes (notamment 024 et évolutions routes) doivent déjà être appliquées. Aucune migration nouvelle ni exécution sur une base distante dans ce lot.
+
+### Limites et suite immédiate
+
+- Les liens ouvrent encore la fiche détaillée historique. La remplacer par Aperçu / Colis / Communications / Manifeste au prochain lot, avec commandes métier dédiées.
+- Les filtres origine/destination restent à ajouter au registre, avec options issues du périmètre consultable et masquage lorsqu’ils sont redondants.
+- La visibilité du bureau destinataire n’est pas encore ajoutée : ne pas confondre identifiant de site et identifiant d’organisation. La lecture actuelle conserve volontairement le périmètre propriétaire existant.
+- Départs et ses automatisations ne sont pas encore retirés. Migrer leurs liens et unifier les commandes avant suppression des doublons de navigation.
+- Affectations massives, départ/arrivée atomiques, snapshot de manifeste, PDF/Excel et audiences contextuelles restent à implémenter/valider. La création seule ne les garantit pas.
+- Pas de recette PostgreSQL réelle, navigateur authentifié ou WhatsApp dans ce lot. Déployer le backend avant le frontend.
+
+### Validation locale du premier lot
+
+- 47 tests Python ciblés passants : 13 nouveaux tests registre/création, acceptation LUZA et opérations Colis. Tests de dépôt simulés ; ne prouvent pas les verrous sur une vraie base PostgreSQL.
+- 16 tests frontend passants en exécution séquentielle : 5 nouveaux tests du registre/création, 7 de non-régression Colis et 4 du panneau partagé. Le contexte de bureau est simulé explicitement dans les nouveaux tests.
+- TypeScript et ESLint ciblé passants ; `git diff --check` sans erreur de contenu. Avertissement Python préexistant sur `datetime.utcnow()` dans le générateur de référence existant.
+- À vérifier sur application connectée : rendu 1440/1024/390 px, droits create/read séparés, route suspendue pendant la saisie, dates dans plusieurs fuseaux et répétition concurrente d’une création sur PostgreSQL.

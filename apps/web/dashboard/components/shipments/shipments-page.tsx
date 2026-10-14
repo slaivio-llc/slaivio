@@ -1,6 +1,8 @@
 "use client";
 
 import axios from "axios";
+import { getTenantContext } from "@/services/tenant";
+import { FreightShipmentRegister } from "./freight-register";
 import {
   AlertCircle,
   ArrowRight,
@@ -131,6 +133,21 @@ type Pagination = {
 };
 
 export function ShipmentsPage() {
+  const [parcel, setParcel] = useState<boolean | null>(null);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true; setError(false);
+    getTenantContext().then(context => { if (active) setParcel(context.active_tenant?.organization_type === "PARCEL_FREIGHT"); })
+      .catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [retry]);
+  if (error) return <div role="alert" className="p-8">Impossible de charger les expéditions. <button className="underline" onClick={() => setRetry(n => n+1)}>Réessayer</button></div>;
+  if (parcel === null) return <TableSkeleton rows={6} columns={4}/>;
+  return parcel ? <FreightShipmentRegister/> : <LegacyShipmentsPage/>;
+}
+
+function LegacyShipmentsPage() {
   const router = useRouter();
   const [shipments, setShipments] = useState<ExpeditionRecord[]>([]);
   const [stats, setStats] = useState<ExpeditionStats>(emptyStats);

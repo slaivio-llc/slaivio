@@ -46,6 +46,7 @@ describe("product navigation", () => {
       "/app/followups",
       "/app/knowledge",
       "/app/finance",
+      "/app/pricing",
     ]);
     expect(routes.some((route) => route.href === "/app/broadcasts")).toBe(false);
     expect(routes.some((route) => route.href === "/app/tracking")).toBe(false);

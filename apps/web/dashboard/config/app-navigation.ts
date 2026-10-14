@@ -116,6 +116,14 @@ export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
       { label: "Finance", href: "/app/finance", icon: ReceiptText, permission: "finance.read", keywords: ["paiement", "solde", "facture", "reçu"] },
     ],
   },
+  {
+    label: "Offre commerciale",
+    icon: Route,
+    collapsible: true,
+    routes: [
+      { label: "Tarification", href: "/app/pricing", icon: BadgeDollarSign, permission: "pricing.read", keywords: ["tarif", "pricing", "grille", "prix", "marge", "simulateur"] },
+    ],
+  },
 ];
 
 // The former operational surface stays available behind CARGO_OS. Nothing is deleted.

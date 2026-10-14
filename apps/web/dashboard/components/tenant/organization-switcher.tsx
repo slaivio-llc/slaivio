@@ -30,7 +30,7 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   const {permissions,available}=usePermissions();
   const [tenants,setTenants]=useState<Tenant[]>([]);const [activeTenant,setActiveTenant]=useState<Tenant|null>(null);
   const [loading,setLoading]=useState(true);const [switching,setSwitching]=useState(false);const [open,setOpen]=useState(false);const [createOpen,setCreateOpen]=useState(false);
-  const [organizationName,setOrganizationName]=useState("");const [creating,setCreating]=useState(false);const [error,setError]=useState("");
+  const [organizationName,setOrganizationName]=useState("");const [creating,setCreating]=useState(false);const [error,setError]=useState("");const [workspaceKind,setWorkspaceKind]=useState<"OFFICE"|"WAREHOUSE">("OFFICE");
   const parcelFreight=["PARCEL_FREIGHT","CARGO"].includes(activeTenant?.organization_type||"");const networkConfigured=parcelFreight&&Boolean(activeTenant?.group_id);
   const canManageNetwork=available&&permissions.some(permission=>["network.read","network.offices.manage","network.members.manage"].includes(permission));
   const canCreateOffice=parcelFreight&&available&&permissions.includes("network.offices.manage");
@@ -47,7 +47,7 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   function matching(tenant:Tenant){return `${tenant.organization_name||""} ${tenant.city||""} ${tenant.country||""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());}
 
   async function handleSwitch(tenant:Tenant){if(switching)return;if(tenant.org_id===activeTenant?.org_id){setOpen(false);return;}setSwitching(true);setError("");try{await switchTenant(tenant.org_id);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.reload();}catch{setError("Changement impossible");setSwitching(false);}}
-  async function handleCreate(event:React.FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);setCreating(true);setError("");try{if(parcelFreight){const value=(key:string)=>String(form.get(key)||"").trim();await createNetworkOffice({workspace_kind:value("workspace_kind") as "OFFICE"|"WAREHOUSE",organization_name:value("organization_name"),office_code:value("office_code"),country:value("country"),country_code:value("country_code"),city:value("city"),currency_code:value("currency_code")||"USD",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",address:[value("address_line_1"),value("address_line_2")].filter(Boolean).join("\n")||null,phone:value("phone")||null,email:value("email")||null});setCreateOpen(false);await load();}else{const name=organizationName.trim();if(name.length<2){setError("Saisissez un nom d’organisation.");return;}await createTenant(name);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.assign("/onboarding");}}catch{setError(parcelFreight?"La création du bureau a échoué.":"La création de l’organisation a échoué.");}finally{setCreating(false);}}
+  async function handleCreate(event:React.FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);setCreating(true);setError("");try{if(parcelFreight){const value=(key:string)=>String(form.get(key)||"").trim();await createNetworkOffice({workspace_kind:value("workspace_kind") as "OFFICE"|"WAREHOUSE",organization_name:value("organization_name"),office_code:value("office_code"),country:value("country"),country_code:value("country_code"),city:value("city"),currency_code:value("currency_code")||"USD",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",address:[value("address_line_1"),value("address_line_2")].filter(Boolean).join("\n")||null,phone:value("phone")||null,email:value("email")||null});setCreateOpen(false);await load();}else{const name=organizationName.trim();if(name.length<2){setError("Saisissez un nom d’organisation.");return;}await createTenant(name);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.assign("/onboarding");}}catch{setError(parcelFreight?`La création du ${workspaceKind==="WAREHOUSE"?"entrepôt":"bureau"} a échoué.`:"La création de l’organisation a échoué.");}finally{setCreating(false);}}
   function tenantRow(tenant:Tenant,office=false){
     const Icon=tenant.workspace_kind==="WAREHOUSE"?Warehouse:Building2;
     const label=(office||["PARCEL_FREIGHT","CARGO"].includes(tenant.organization_type||""))?workspaceLabel(tenant):formatOrganizationDisplayName(tenant.organization_name);
@@ -76,8 +76,65 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
       </div>}
     </div>}
     {error&&<p className="mt-1 px-1 text-[11px] text-red-600">{error}</p>}
-    <OperationDrawer open={createOpen} close={()=>{if(!creating)setCreateOpen(false);}} title={parcelFreight?"Créer un espace":"Créer une organisation"} description={parcelFreight?"Ajoutez un bureau ou un entrepôt à votre réseau.":"Un espace indépendant pour votre entreprise."} footer={<><OperationButton type="button" onClick={()=>setCreateOpen(false)} disabled={creating}>Annuler</OperationButton><OperationButton type="submit" form="create-workspace-form" variant="primary" disabled={creating||(!parcelFreight&&organizationName.trim().length<2)}>{creating?"Création…":parcelFreight?"Créer l’espace":"Créer"}</OperationButton></>}>
-      <form id="create-workspace-form" onSubmit={handleCreate} className="grid gap-4">{parcelFreight?<><label className="grid gap-2 text-[13px] font-semibold">Type d’espace<select name="workspace_kind" className={inputClass}><option value="OFFICE">Bureau</option><option value="WAREHOUSE">Entrepôt</option></select></label><div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Nom de l’espace<input required name="organization_name" maxLength={120} autoFocus placeholder="Ex. LUZA Kinshasa" className={inputClass}/></label><label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Code de l’espace<input required name="office_code" pattern="[A-Za-z0-9_-]{2,30}" placeholder="KIN-01" className={inputClass}/></label></div><div className="grid gap-4 sm:grid-cols-2"><FormGeographyFields required countryCodeName="country_code" className={inputClass} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]"/><label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Devise<select name="currency_code" className={inputClass} defaultValue="USD"><option>USD</option><option>EUR</option><option>CDF</option><option>AOA</option><option>CNY</option><option>XOF</option></select></label><label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Téléphone<PhoneField name="phone" className={inputClass}/></label><label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Email<input name="email" type="email" className={inputClass}/></label><label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Adresse · ligne 1<input name="address_line_1" className={inputClass}/></label><label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Adresse · ligne 2<input name="address_line_2" className={inputClass}/></label></div></>:<label htmlFor="organization-name" className="grid gap-2 text-[13px] font-semibold text-[#414950]">Nom de l’organisation<input id="organization-name" value={organizationName} onChange={event=>setOrganizationName(event.target.value)} maxLength={120} autoFocus placeholder="Ex. Slaivio France" className={inputClass}/></label>}{error&&<p className="text-[12px] text-red-600">{error}</p>}</form>
+    <OperationDrawer
+      open={createOpen}
+      close={()=>{if(!creating)setCreateOpen(false);}}
+      title={parcelFreight?"Créer un bureau ou entrepôt":"Créer une organisation"}
+      description={parcelFreight?"Ajoutez une implantation à votre réseau, avec ses coordonnées et son contexte opérationnel.":"Un espace indépendant pour votre entreprise."}
+      width={parcelFreight?"max-w-4xl":"max-w-xl"}
+      placement="center"
+      bodyClassName={parcelFreight?"bg-[#f5f7f8] p-4 sm:p-8":""}
+      headerLeading={parcelFreight&&<div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700">{workspaceKind==="WAREHOUSE"?<Warehouse size={21}/>:<Building2 size={21}/>}</div>}
+      footer={<><OperationButton type="button" onClick={()=>setCreateOpen(false)} disabled={creating}>Annuler</OperationButton><OperationButton type="submit" form="create-workspace-form" variant="primary" disabled={creating||(!parcelFreight&&organizationName.trim().length<2)}>{creating?"Création…":parcelFreight?`Créer ${workspaceKind==="WAREHOUSE"?"l’entrepôt":"le bureau"}`:"Créer"}</OperationButton></>}
+    >
+      <form id="create-workspace-form" onSubmit={handleCreate} className={parcelFreight?"mx-auto grid w-full max-w-3xl gap-5":"grid gap-4"}>
+        {parcelFreight?<>
+          <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">01 · Type d’implantation</p>
+              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Que souhaitez-vous ajouter ?</h3>
+              <p className="mt-1 text-[13px] text-[#69747c]">Vous pourrez créer d’autres implantations plus tard.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                {kind:"OFFICE" as const,label:"Bureau",hint:"Accueil, dépôt ou retrait",Icon:Building2},
+                {kind:"WAREHOUSE" as const,label:"Entrepôt",hint:"Stockage et opérations physiques",Icon:Warehouse},
+              ]).map(({kind,label,hint,Icon})=><label key={kind} className={`flex min-h-[82px] cursor-pointer items-center gap-3 rounded-xl border p-4 transition focus-within:ring-2 focus-within:ring-emerald-600/20 ${workspaceKind===kind?"border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/10":"border-[#e4e8eb] hover:border-[#b8c5c0] hover:bg-[#fafcfb]"}`}>
+                <input className="sr-only" type="radio" name="workspace_kind" value={kind} checked={workspaceKind===kind} onChange={()=>setWorkspaceKind(kind)}/>
+                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${workspaceKind===kind?"bg-white text-emerald-700":"bg-[#f3f5f5] text-[#68747b]"}`}><Icon size={19}/></span>
+                <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-[#283138]">{label}</span><span className="mt-0.5 block text-[12px] text-[#6b757d]">{hint}</span></span>
+                <span aria-hidden="true" className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${workspaceKind===kind?"border-emerald-600 bg-emerald-600 text-white":"border-[#c9d0d4] bg-white"}`}>{workspaceKind===kind&&<Check size={13}/>}</span>
+              </label>)}
+            </div>
+          </section>
+          <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">02 · Identification</p>
+              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Les informations de l’espace</h3>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Nom de l’espace<input required name="organization_name" maxLength={120} autoFocus placeholder={workspaceKind==="WAREHOUSE"?"Ex. Entrepôt Guangzhou":"Ex. Bureau de Kinshasa"} className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Code de l’espace<input required name="office_code" pattern="[A-Za-z0-9_-]{2,30}" placeholder="Ex. KIN-01" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/><span className="-mt-1 text-[11px] font-normal text-[#7a858c]">Identifiant court utilisé par votre équipe.</span></label>
+            </div>
+          </section>
+          <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">03 · Localisation et contact</p>
+              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Où se trouve cet espace ?</h3>
+              <p className="mt-1 text-[13px] text-[#69747c]">Ces informations aideront votre équipe à identifier la bonne implantation.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormGeographyFields required countryCodeName="country_code" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]"/>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Devise<select name="currency_code" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`} defaultValue="USD"><option>USD</option><option>EUR</option><option>CDF</option><option>AOA</option><option>CNY</option><option>XOF</option></select></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Téléphone <span className="font-normal text-[#849097]">· facultatif</span><PhoneField name="phone" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Email <span className="font-normal text-[#849097]">· facultatif</span><input name="email" type="email" placeholder="contact@entreprise.com" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">Adresse · ligne 1 <span className="font-normal text-[#849097]">· facultative</span><input name="address_line_1" placeholder="Rue, numéro et repère utile" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">Complément d’adresse <span className="font-normal text-[#849097]">· facultatif</span><input name="address_line_2" placeholder="Bâtiment, étage, quartier…" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+            </div>
+          </section>
+        </>:<label htmlFor="organization-name" className="grid gap-2 text-[13px] font-semibold text-[#414950]">Nom de l’organisation<input id="organization-name" value={organizationName} onChange={event=>setOrganizationName(event.target.value)} maxLength={120} autoFocus placeholder="Ex. Slaivio France" className={inputClass}/></label>}
+        {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</p>}
+      </form>
     </OperationDrawer>
   </div>;
 }

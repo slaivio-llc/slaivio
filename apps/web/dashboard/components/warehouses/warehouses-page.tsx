@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Download, Plus, RotateCw } from "lucide-react";
+import { ChevronRight, Download, Plus, RotateCw, Warehouse as WarehouseIcon } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
@@ -171,32 +171,32 @@ function CreateWarehouseDrawer({ open, close, done }: { open: boolean; close: ()
     }
   }
 
-  return <OperationDrawer open={open} title="Nouvel entrepôt" description="Organisez le stockage dans cet espace. Pour créer un autre bureau ou entrepôt avec sa propre équipe, utilisez le sélecteur d’espace." close={close}>
-    <form onSubmit={submit} className="grid gap-5">
+  return <OperationDrawer open={open} title="Nouvel entrepôt" description="Organisez le stockage dans cet espace. Pour créer un autre bureau ou entrepôt avec sa propre équipe, utilisez le sélecteur d’espace." close={close} width="max-w-4xl" placement="center" bodyClassName="!bg-[#f5f7f8] p-4 sm:p-8" headerLeading={<div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><WarehouseIcon size={21}/></div>}>
+    <form onSubmit={submit} className="mx-auto grid w-full max-w-3xl gap-5">
       <FormSection title="Identification" description="Le nom et le code utilisés par votre équipe dans les opérations.">
         <div className="grid gap-4 sm:grid-cols-2">
-          <OperationField label="Code interne" hint="Exemple : GZ-01" required><input required name="code" className={input} placeholder="GZ-01" /></OperationField>
-          <OperationField label="Nom de l’entrepôt" required><input required name="name" className={input} placeholder="Entrepôt Guangzhou" /></OperationField>
-          <OperationField label="Fonction du site" required><select name="type" className={input}><option value="STORAGE">Stockage</option><option value="HUB">Hub de groupage</option><option value="OFFICE">Bureau avec stockage</option><option value="TRANSIT">Zone de transit</option></select></OperationField>
-          <OperationField label="Capacité en colis" hint="Laissez vide si elle n’est pas encore définie."><input name="capacity" type="number" min="0" className={input} placeholder="2 000" /></OperationField>
+          <OperationField label="Code interne" hint="Exemple : GZ-01" required><input required name="code" className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="GZ-01" /></OperationField>
+          <OperationField label="Nom de l’entrepôt" required><input required name="name" className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="Entrepôt Guangzhou" /></OperationField>
+          <OperationField label="Fonction du site" required><select name="type" className={`${input} h-11 rounded-lg px-3.5 text-[14px]`}><option value="STORAGE">Stockage</option><option value="HUB">Hub de groupage</option><option value="OFFICE">Bureau avec stockage</option><option value="TRANSIT">Zone de transit</option></select></OperationField>
+          <OperationField label="Capacité en colis" hint="Laissez vide si elle n’est pas encore définie."><input name="capacity" type="number" min="0" className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="2 000" /></OperationField>
         </div>
       </FormSection>
       <FormSection title="Localisation" description="Adresse communiquée aux fournisseurs et utilisée pour orienter les colis.">
         {locations.length ? <div className="grid gap-4">
           <OperationField label="Établissement configuré" hint="La ville, le pays, l’adresse et le fuseau seront repris automatiquement." required>
-            <select required value={locationId} onChange={(event) => setLocationId(event.target.value)} className={input}>
+            <select required value={locationId} onChange={(event) => setLocationId(event.target.value)} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`}>
               <option value="">Choisir un établissement</option>
               {locations.map((location) => <option key={String(location.id)} value={String(location.id)}>{String(location.name)} · {String(location.city || "Ville non renseignée")}</option>)}
             </select>
           </OperationField>
-          {selectedLocation && <div className="grid gap-3 rounded-[7px] bg-[#f6f8f8] p-4 text-[13px] sm:grid-cols-2">
+          {selectedLocation && <div className="grid gap-3 rounded-xl border border-[#e6ebea] bg-white p-4 text-[13px] sm:grid-cols-2">
             <p><span className="block text-[11px] text-[#737d87]">Pays et ville</span>{String(selectedLocation.country || "—")}, {String(selectedLocation.city || "—")}</p>
             <p><span className="block text-[11px] text-[#737d87]">Fuseau horaire</span>{String(selectedLocation.timezone || "UTC")}</p>
             <p className="sm:col-span-2"><span className="block text-[11px] text-[#737d87]">Adresse</span>{String(selectedLocation.address || "Adresse non renseignée")}</p>
           </div>}
         </div> : <div className="rounded-[7px] bg-amber-50 p-4 text-[13px] text-amber-900">Configurez d’abord un bureau ou établissement avec son pays, sa ville et son adresse. <Link className="font-semibold underline" href="/app/settings?section=locations">Configurer les établissements</Link></div>}
       </FormSection>
-      {error && <p className="text-[12px] text-[#b42318]">{error}</p>}
+      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</p>}
       <div className="flex justify-end gap-2 border-t border-[#e8ebee] pt-4"><OperationButton type="button" onClick={close}>Annuler</OperationButton><OperationButton type="submit" variant="primary" disabled={busy || !selectedLocation}>{busy ? "Création…" : "Créer l’entrepôt"}</OperationButton></div>
     </form>
   </OperationDrawer>;

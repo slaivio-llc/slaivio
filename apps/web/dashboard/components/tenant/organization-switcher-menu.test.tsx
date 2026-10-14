@@ -37,4 +37,17 @@ describe("Sélecteur d’espace", () => {
     expect(screen.queryByRole("button", { name: "Créer un bureau ou entrepôt" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Réseau et équipe" })).not.toBeInTheDocument();
   });
+
+  it("affiche un formulaire de création spacieux, centré et adapté aux deux implantations", async () => {
+    render(<OrganizationSwitcher menuPlacement="down" />);
+    fireEvent.click(await screen.findByRole("button", { name: "luza rdc's office" }));
+    fireEvent.click(screen.getByRole("button", { name: "Créer un bureau ou entrepôt" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Créer un bureau ou entrepôt" });
+    expect(dialog).toHaveClass("items-center", "justify-center");
+    expect(dialog.querySelector("[data-ui='operation-drawer']")).toHaveClass("max-w-4xl");
+    expect(screen.getByRole("radio", { name: /Bureau Accueil, dépôt ou retrait/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: /Entrepôt Stockage et opérations physiques/ }));
+    expect(screen.getByRole("button", { name: "Créer l’entrepôt" })).toBeInTheDocument();
+  });
 });

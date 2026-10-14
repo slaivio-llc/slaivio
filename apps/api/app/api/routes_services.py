@@ -3,6 +3,7 @@ from fastapi import APIRouter,Depends,Query,Response
 from pydantic import BaseModel,Field,field_validator
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
+from app.core.office_context import require_package_office_scope
 from app.routes_services import repository as repo
 router=APIRouter(prefix="/route-catalog",tags=["routes-services"])
 def actor(t):return str(t.get('user_id') or 'system')
@@ -65,6 +66,8 @@ class RouteEngine(BaseModel):origin_country:str|None=None;origin_city:str|None=N
 class RouteView(BaseModel):name:str=Field(min_length=2,max_length=80);filters:dict={}
 @router.get("")
 def index(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return repo.list_all(tenant['org_id'])
+@router.get("/receipt-options",dependencies=[Depends(require_permission("packages.create")),Depends(require_package_office_scope)])
+def receipt_options(tenant=Depends(get_current_tenant)):return repo.list_all(tenant['org_id'])
 @router.get("/available-services")
 def available_services(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return {"items":repo.available_services(tenant['org_id'])}
 @router.get("/network-offices")

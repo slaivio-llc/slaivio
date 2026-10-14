@@ -6,7 +6,7 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { listClients, type ClientRecord } from "@/services/clients";
-import { catalog, type Route, type Service } from "@/services/route-catalog";
+import { receiptCatalog, type Route, type Service } from "@/services/route-catalog";
 import type { ReferenceItem } from "@/services/references";
 import { operationInputClass as field } from "@/components/ui/operation-styles";
 
@@ -37,7 +37,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
     let active = true;
     setLoading(true);
     setCatalogError("");
-    catalog().then(result => {
+    receiptCatalog().then(result => {
       if (!active) return;
       const available = result.routes.filter(route => route.active !== false);
       setRoutes(available);

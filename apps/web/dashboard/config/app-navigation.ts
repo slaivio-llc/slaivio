@@ -87,14 +87,6 @@ export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
     ],
   },
   {
-    label: "Organisation",
-    icon: Building2,
-    collapsible: true,
-    routes: [
-      { label: "Paramètres de l’agence", href: "/app/settings", icon: Settings, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "implantation", "pays", "service", "route", "trajet"] },
-    ],
-  },
-  {
     label: "Opérations",
     icon: BriefcaseBusiness,
     collapsible: true,
@@ -201,7 +193,6 @@ export function getCompactPrimaryRoutes(
   const visibleHrefs = profile === PRODUCT_PROFILES.PARCEL_FREIGHT
     ? new Set([
         "/app/clients",
-        "/app/settings",
         "/app/operations",
         "/app/communication",
         "/app/finance",

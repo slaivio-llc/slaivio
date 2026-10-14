@@ -2,24 +2,24 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { ParcelPackageCreateDrawer } from "./parcel-receipt-drawer";
-import { catalog } from "@/services/route-catalog";
+import { receiptCatalog } from "@/services/route-catalog";
 import { listClients } from "@/services/clients";
 
-vi.mock("@/services/route-catalog", () => ({ catalog: vi.fn() }));
+vi.mock("@/services/route-catalog", () => ({ receiptCatalog: vi.fn() }));
 vi.mock("@/services/clients", () => ({ listClients: vi.fn() }));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/clients/inline-client-creator", () => ({ InlineClientCreator: ({ onCreated }: { onCreated: (client: unknown) => void }) =>
   <button type="button" onClick={() => onCreated({ id: "new", display_name: "Nouveau client", phone: "+243812345679" })}>Créer un client</button> }));
 
 beforeEach(() => {
-  vi.mocked(catalog).mockResolvedValue({ routes: [
+  vi.mocked(receiptCatalog).mockResolvedValue({ routes: [
     { id: "route", active: true, route_name: "Chine → RDC", origin_country: "CN", destination_country: "CD" },
     { id: "route-2", active: true, route_name: "Dubaï → RDC", origin_country: "AE", destination_country: "CD" },
     { id: "inactive", active: false, route_name: "Route suspendue" },
   ], services: [
     { id: "air", route_ids: ["route", "route-2"], service_name: "Cargo aérien", active: true, status: "ACTIVE" },
     { id: "old", route_id: "route", service_name: "Service suspendu", active: false, status: "INACTIVE" },
-  ] } as Awaited<ReturnType<typeof catalog>>);
+  ] } as Awaited<ReturnType<typeof receiptCatalog>>);
   vi.mocked(listClients).mockResolvedValue({ items: [{ id: "client", display_name: "Marie", phone: "+243812345678" }] } as Awaited<ReturnType<typeof listClients>>);
 });
 
@@ -75,7 +75,7 @@ describe("Réception d’un colis fret", () => {
   });
 
   it("rend un échec du catalogue explicite et permet de réessayer", async () => {
-    vi.mocked(catalog).mockRejectedValueOnce(new Error("offline"));
+    vi.mocked(receiptCatalog).mockRejectedValueOnce(new Error("offline"));
     renderForm();
     expect(await screen.findByRole("alert")).toHaveTextContent("Impossible de charger les services");
     expect(screen.getByRole("button", { name: "Enregistrer le colis" })).toBeDisabled();

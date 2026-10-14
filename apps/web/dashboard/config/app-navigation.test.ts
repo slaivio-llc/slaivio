@@ -38,7 +38,6 @@ describe("product navigation", () => {
 
     expect(routes.map((route) => route.href)).toEqual([
       "/app/clients",
-      "/app/settings",
       "/app/operations",
       "/app/packages",
       "/app/shipments",
@@ -56,13 +55,13 @@ describe("product navigation", () => {
     expect(operations?.routes.some((route) => route.href === "/app/services")).toBe(false);
   });
 
-  it("keeps agency configuration in the compact parcel agency navigation", () => {
+  it("keeps agency settings in the bottom utility rail, not the compact navigation", () => {
     const routes = getCompactPrimaryRoutes(
       getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT).flatMap((group) => group.routes),
       PRODUCT_PROFILES.PARCEL_FREIGHT,
     );
 
-    expect(routes.map((route) => route.href)).toContain("/app/settings");
+    expect(routes.map((route) => route.href)).not.toContain("/app/settings");
     expect(routes.map((route) => route.href)).not.toContain("/app/services");
     expect(routes.map((route) => route.href)).not.toContain("/app/routes");
   });

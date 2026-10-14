@@ -251,11 +251,13 @@ déploiement des changements API.
 
 ### Emplacement dans l'interface
 
-La navigation de l'agence expose un seul point d'entrée « Paramètres » pour la
-configuration organisationnelle. Les bureaux et implantations se gèrent dans
-les paramètres d'organisation ; Services et Routes sont des sections dédiées
-des paramètres, présentées sous forme de fiches de configuration plutôt que
-comme des modules opérationnels ou des tableaux génériques. Les formulaires
+La navigation de l'agence expose un seul point d'entrée « Paramètres », dans
+la barre utilitaire du bas, pour la configuration organisationnelle ; il ne
+doit pas être dupliqué parmi les liens principaux. Les bureaux et
+implantations se gèrent dans les paramètres d'organisation ; Services et
+Routes sont des sections dédiées des paramètres, présentées sous forme de
+fiches de configuration plutôt que comme des modules opérationnels ou des
+tableaux génériques. Les formulaires
 des routes utilisent des pays et villes structurés et exigent au moins un
 service actif. « Opérations » reste consacré aux colis, aux départs et aux
 expéditions ; l'entrepôt reste un lieu d'exécution et de stockage. La
@@ -266,6 +268,9 @@ ce service. Cette sélection repose sur l'association plusieurs-à-plusieurs
 active du référentiel, et non sur le champ historique unique
 `shipping_services.route_id`. L'API vérifie à nouveau l'organisation, l'état du
 service, de la route et de leur association avant d'enregistrer le colis.
+Le chargement de ces choix relève de `packages.create` (comme la réception),
+et ne doit pas exiger `routes.read` : un agent de réception n'a pas besoin
+d'accéder au module de gestion des routes pour choisir une offre autorisée.
 
 ### Vérifications techniques restantes
 

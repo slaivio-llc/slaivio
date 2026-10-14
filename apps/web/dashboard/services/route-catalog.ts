@@ -5,6 +5,7 @@ export type Service=ServiceBase&({route_name:string}|{route_name?:never});
 export type NetworkOffice={org_id:string;is_current:boolean;organization_name:string;location_id:string|null;location_name:string|null;location_type:string|null;country:string|null;city:string|null;address:string|null};
 export type AvailableRouteService={id:string;service_code:string;service_name:string;shipping_mode:string;eta_min_days:number|null;eta_max_days:number|null;status:"ACTIVE"|"LIMITED"};
 export async function catalog(){return (await api.get<{routes:Route[];services:Service[]}>("/route-catalog")).data}
+export async function receiptCatalog(){return (await api.get<{routes:Route[];services:Service[]}>("/route-catalog/receipt-options")).data}
 export async function networkOffices(){return (await api.get<{items:NetworkOffice[]}>("/route-catalog/network-offices")).data.items}
 export async function availableRouteServices(){return (await api.get<{items:AvailableRouteService[]}>("/route-catalog/available-services")).data.items}
 export async function createRoute(p:Record<string,unknown>){return (await api.post("/route-catalog/routes",p)).data}

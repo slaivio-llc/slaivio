@@ -1,6 +1,7 @@
 "use client";
 
 import { Archive, RotateCcw, SquarePen, Trash2, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { OperationTabMenu } from "@/components/ui/operation-controls";
 
@@ -164,8 +165,8 @@ export function OperationDrawer({
     window.addEventListener("keydown", onKeyDown);
     return () => { window.removeEventListener("keydown", onKeyDown); if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true }); };
   }, [open]);
-  if (!open) return null;
-  return (
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
     <div
       ref={dialogRef}
       className={`fixed inset-0 z-[65] flex bg-[#17212b]/25 transition-opacity duration-200 ${placement === "right" ? "items-stretch justify-end" : "items-center justify-center p-3 sm:p-6"} ${visible ? "opacity-100" : "opacity-0"}`}
@@ -224,6 +225,7 @@ export function OperationDrawer({
         </div>
         {footer && <footer className="operation-drawer-footer flex min-h-[68px] shrink-0 items-center justify-end gap-2.5 border-t border-[#dfe3e7] bg-[#fbfcfc] px-6 py-3.5">{footer}</footer>}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

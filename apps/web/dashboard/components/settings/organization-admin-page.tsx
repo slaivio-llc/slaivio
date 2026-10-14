@@ -10,6 +10,7 @@ import {
   Languages,
   MapPin,
   Plug,
+  Plus,
   ShieldCheck,
   UserPlus,
   Users,
@@ -38,6 +39,7 @@ import {
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { FormSection, OperationButton, OperationField } from "@/components/ui/operation-controls";
+import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { FormGeographyFields } from "@/components/ui/geography-fields";
 import {
@@ -1007,6 +1009,7 @@ function Locations({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  const [createOpen, setCreateOpen] = useState(false);
   const offices = data.locations.filter((location) => location.location_type === "OFFICE");
   const officesByCountry = offices.reduce<Record<string, typeof offices>>((groups, office) => {
     const country = String(office.country);
@@ -1017,8 +1020,8 @@ function Locations({
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     run(
-      () =>
-        saveLocation({
+      async () => {
+        await saveLocation({
           name: val(f, "name"),
           location_type: "OFFICE",
           country: val(f, "country"),
@@ -1028,35 +1031,61 @@ function Locations({
           opening_hours: { text: val(f, "hours") },
           timezone: "UTC",
           services: [],
-        }),
+        });
+        setCreateOpen(false);
+      },
       "Bureau enregistré.",
     );
   }
   return (
     <div className="grid gap-4">
-      <Card
+      <section className="flex flex-col items-start justify-between gap-4 rounded-xl border border-[#e3e7ea] bg-white p-5 sm:flex-row sm:items-center sm:px-6">
+        <div>
+          <h2 className="text-[15px] font-semibold text-[#293034]">Bureaux de l’agence</h2>
+          <p className="mt-1 text-[13px] text-[#697178]">Ajoutez et gérez les implantations physiques de votre organisation.</p>
+        </div>
+        <OperationButton variant="primary" onClick={() => setCreateOpen(true)} className="h-10 shrink-0 px-4">
+          <Plus size={16} aria-hidden="true" />
+          Ajouter un bureau
+        </OperationButton>
+      </section>
+      <OperationDrawer
+        open={createOpen}
+        close={() => setCreateOpen(false)}
         title="Ajouter un bureau"
-        description="Renseignez les informations de votre implantation."
+        description="Renseignez les informations de cette implantation. Vous pourrez les modifier plus tard."
+        width="max-w-3xl"
+        placement="center"
+        bodyClassName="!bg-[#f5f7f8] p-4 sm:p-7"
+        headerLeading={<div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Building2 size={21} aria-hidden="true" /></div>}
+        footer={<><OperationButton type="button" onClick={() => setCreateOpen(false)}>Annuler</OperationButton><OperationButton type="submit" form="create-office-form" variant="primary">Enregistrer le bureau</OperationButton></>}
       >
-        <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1 text-[13px] font-medium text-[#555d68]">
-            Nom du bureau *
-            <input required minLength={2} maxLength={120} name="name" className={input} placeholder="Bureau de Bobo-Dioulasso" />
-          </label>
-          <FormGeographyFields required className={input} fieldClassName="grid gap-1 text-[13px] text-[#555d68]" />
-          <div className="md:col-span-2">
-            <p className="mb-2 text-[12px] font-medium text-[#69707d]">Informations complémentaires · facultatif</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-1 text-[13px] font-medium text-[#555d68]">Adresse du bureau<input name="address" maxLength={300} className={input} placeholder="Rue, numéro et repère utile" /></label>
-              <label className="grid gap-1 text-[13px] font-medium text-[#555d68]">Téléphone du bureau<input name="phone" type="tel" maxLength={30} className={input} placeholder="+226 ..." /></label>
-              <label className="grid gap-1 text-[13px] font-medium text-[#555d68] md:col-span-2">Horaires d’ouverture<input name="hours" maxLength={300} className={input} placeholder="Lun–Sam, 08:00–17:00" /></label>
+        <form id="create-office-form" onSubmit={submit} className="mx-auto grid w-full max-w-2xl gap-5">
+          <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">01 · Identification</p>
+            <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Nom et localisation</h3>
+            <p className="mb-5 mt-1 text-[13px] text-[#69747c]">Les champs marqués d’un astérisque sont obligatoires.</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">
+                Nom du bureau *
+                <input required minLength={2} maxLength={120} name="name" autoFocus className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="Ex. Bureau de Bobo-Dioulasso" />
+              </label>
+              <FormGeographyFields required className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]" />
             </div>
-          </div>
-          <button className={primary}>Enregistrer</button>
+          </section>
+          <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">02 · Informations complémentaires</p>
+            <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Coordonnées locales <span className="text-[13px] font-normal text-[#849097]">· facultatif</span></h3>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">Adresse du bureau<input name="address" maxLength={300} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="Rue, numéro et repère utile" /></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Téléphone du bureau<input name="phone" type="tel" maxLength={30} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="+226 ..." /></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Horaires d’ouverture<input name="hours" maxLength={300} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="Lun–Sam, 08:00–17:00" /></label>
+            </div>
+          </section>
         </form>
-      </Card>
+      </OperationDrawer>
       <Card
-        title="Bureaux de l’agence"
+        title={`Bureaux de l’agence · ${offices.length}`}
         description="Les bureaux inactifs restent conservés pour préserver l’historique."
       >
         {Object.entries(officesByCountry).sort(([left], [right]) => left.localeCompare(right)).map(([country, items]) => (

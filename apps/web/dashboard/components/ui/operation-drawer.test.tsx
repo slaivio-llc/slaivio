@@ -9,6 +9,7 @@ describe("OperationDrawer", () => {
     const close = vi.fn();
     render(<OperationDrawer open title="Réception" close={close} placement="right"><button type="button">Enregistrer</button></OperationDrawer>);
     const dialog = screen.getByRole("dialog", { name: "Réception" });
+    expect(dialog.parentElement).toBe(document.body);
     expect(dialog).toHaveClass("justify-end");
     expect(dialog.querySelector('section')).toHaveClass("h-dvh");
     screen.getByRole("button", { name: "Enregistrer" }).focus();

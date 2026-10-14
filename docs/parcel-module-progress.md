@@ -5,7 +5,7 @@ Source : [spécification fournie](spec/module-03-parcels.md). État au 11 octobr
 ## Arbitrages
 
 - Le complément final impose client + service + route configurés ; il prévaut sur le formulaire initial limité à la destination.
-- Le modèle actuel associe un service à une seule route. Le formulaire présente cette route, sans inventer de relation plusieurs-à-plusieurs.
+- Le catalogue associe les services et les routes en plusieurs-à-plusieurs ; le formulaire de réception propose les routes actives liées au service.
 - Les filtres restent automatiques et le bureau est choisi dans le sélecteur global (décisions visuelles antérieures).
 - Les maquettes et exemples de clients du document ne sont pas des données à introduire en production.
 - Le parcours véhicules ne doit pas être remplacé par le parcours fret.
@@ -14,11 +14,12 @@ Source : [spécification fournie](spec/module-03-parcels.md). État au 11 octobr
 
 - L’ancien formulaire fret est remplacé par un composant dédié : client, transport, informations du colis, réception.
 - Recherche client avec résultats asynchrones protégés contre les réponses obsolètes, sélection conservée pendant les recherches, création client intégrée sans perdre le brouillon.
-- Service puis route compatible du catalogue ; service sans route active exclu. Erreurs de chargement explicites et réessai.
+- Service puis route compatible du catalogue ; un service actif sans route reste visible avec une explication, mais ne peut pas être soumis. Erreurs de chargement explicites et réessai.
 - Référence fournisseur et description facultatives ; poids facultatif, strictement positif s’il est connu. L’absence de pesée reste `null`.
 - Emplacement de stockage facultatif ; bureau actif fourni par le contexte serveur.
 - Pour la réception manuelle fret sans dossier, le serveur exige client/service/route, impose l’état reçu et l’heure de réception, génère les références et refuse les destinations/montants/identités imposés par le navigateur.
 - Le dépôt conserve les contrôles de propriété client/route/service et de compatibilité route-service. L’agent de réception est enregistré même sans date fournie par le navigateur.
+- Prérequis de déploiement : appliquer `infra/sql/091_supplier_label_intelligence.sql` avant d'utiliser la création de colis de cette version. Le dépôt insère aussi les colonnes d'audit OCR, même si aucun scan OCR n'est utilisé.
 - L’historique et la mise en file de notification existants restent transactionnels ; aucun envoi WhatsApp synchrone n’est ajouté.
 - Le bouton empêche un double clic immédiat. Cela ne constitue PAS encore une idempotence réseau/serveur.
 

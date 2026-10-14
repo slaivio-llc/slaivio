@@ -327,32 +327,11 @@ function Create({ done }: { done: () => Promise<void> }) {
     const f = new FormData(e.currentTarget);
     try {
       await createService({
-        service_code: f.get("code"),
         service_name: f.get("name"),
-        description: f.get("description"),
-        category: f.get("category"),
-        service_type: f.get("type"),
+        description: String(f.get("description") || "").trim() || null,
+        category: "TRANSPORT",
+        service_type: "TRANSPORT",
         shipping_mode: f.get("mode"),
-        eta_min_days: Number(f.get("eta_min")) || null,
-        eta_max_days: Number(f.get("eta_max")) || null,
-        volumetric_divisor: Number(f.get("divisor")) || 6000,
-        maximum_weight_kg: Number(f.get("max_weight")) || null,
-        maximum_volume_cbm: Number(f.get("max_cbm")) || null,
-        currency_code: "USD",
-        priority: 100,
-        public_visible: f.get("public") === "on",
-        quote_only: f.get("quote_only") === "on",
-        minimum_weight_kg: Number(f.get("min_weight")) || null,
-        cutoff_hours: Number(f.get("cutoff")) || null,
-        sla_target_percent: Number(f.get("sla")) || 90,
-        maximum_dimensions_cm: {},
-        workflow: [
-          "REQUESTED",
-          "ACCEPTED",
-          "IN_PROGRESS",
-          "COMPLETED",
-          "CANCELLED",
-        ],
         metadata: {},
       });
       await done();
@@ -364,138 +343,47 @@ function Create({ done }: { done: () => Promise<void> }) {
     }
   }
   return (
-    <form onSubmit={submit} className="grid gap-4">
-      <Field
-        label="Nom visible par les clients"
-        hint="Exemple : Air Cargo Standard"
-      >
-        <input
-          required
-          name="name"
-          className={input}
-          placeholder="Nom du service"
-        />
-      </Field>
-      <Field
-        label="Code interne"
-        hint="Une référence courte utilisée dans les documents"
-      >
-        <input
-          required
-          name="code"
-          className={input}
-          placeholder="Ex. AIR-STD"
-        />
-      </Field>
-      <Field label="Description du service">
-        <textarea
-          name="description"
-          className="min-h-24 w-full rounded-[5px] border border-[#d6dadd] p-3 text-[12px] outline-none focus:border-[#16855f]"
-          placeholder="Expliquez simplement ce que ce service propose aux clients."
-        />
-      </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Famille">
-          <select name="category" className={input}>
-            <option value="TRANSPORT">Transport de marchandises</option>
-            <option value="COMPLEMENTARY">Service complémentaire</option>
-          </select>
-        </Field>
-        <Field label="Type de service">
-          <select name="type" className={input}>
-            {Object.entries(serviceTypeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Mode de transport">
-          <select name="mode" className={input}>
-            {Object.entries(modeLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Délai annoncé">
-          <div className="grid grid-cols-2 gap-2">
+    <form onSubmit={submit} className="mx-auto grid w-full max-w-2xl gap-5">
+      <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">Service de transport</p>
+        <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Définissez la prestation proposée à vos clients</h3>
+          <p className="mb-5 mt-1 text-[13px] text-[#69747c]">Le service sera créé actif. Vous pourrez ensuite lui associer des routes et configurer ses tarifs dans les modules correspondants.</p>
+        <div className="grid gap-4">
+          <Field label="Nom du service" hint="Nom commercial libre, par exemple « Express » ou « Fret aérien ».">
             <input
-              name="eta_min"
-              type="number"
-              className={input}
-              placeholder="Minimum (jours)"
+              required
+              minLength={2}
+              maxLength={160}
+              name="name"
+              autoFocus
+              className={`${input} h-11 rounded-lg px-3.5 text-[14px]`}
+              placeholder="Ex. Fret aérien standard"
             />
-            <input
-              name="eta_max"
-              type="number"
-              className={input}
-              placeholder="Maximum (jours)"
+          </Field>
+          <Field label="Mode de transport" hint="Le nom commercial est indépendant du mode réellement utilisé.">
+            <select required name="mode" className={`${input} h-11 rounded-lg px-3.5 text-[14px]`}>
+              {Object.entries(modeLabels).filter(([value]) => value !== "EXPRESS").map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Description" hint="Facultatif · expliquez en quelques mots la prestation.">
+            <textarea
+              name="description"
+              maxLength={1000}
+              className="min-h-24 w-full rounded-lg border border-[#d6dadd] p-3 text-[13px] outline-none focus:border-[#16855f]"
+              placeholder="Expliquez simplement ce que ce service propose aux clients."
             />
-          </div>
-        </Field>
-        <Field label="Poids accepté">
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              name="min_weight"
-              type="number"
-              step="0.01"
-              className={input}
-              placeholder="Minimum kg"
-            />
-            <input
-              name="max_weight"
-              type="number"
-              step="0.01"
-              className={input}
-              placeholder="Maximum kg"
-            />
-          </div>
-        </Field>
-        <Field label="Volume maximum">
-          <input
-            name="max_cbm"
-            type="number"
-            step="0.01"
-            className={input}
-            placeholder="Maximum en m³"
-          />
-        </Field>
-        <Field label="Délai avant fermeture">
-          <input
-            name="cutoff"
-            type="number"
-            className={input}
-            placeholder="Nombre d’heures avant le départ"
-          />
-        </Field>
-        <Field label="Objectif de ponctualité">
-          <input
-            name="sla"
-            type="number"
-            defaultValue="90"
-            className={input}
-            placeholder="Pourcentage"
-          />
-        </Field>
-        <input name="divisor" type="hidden" value="6000" />
-      </div>
-      <label className="flex items-center gap-2 text-[12px]">
-        <input name="quote_only" type="checkbox" /> Le prix doit être confirmé
-        par un agent
-      </label>
-      <label className="flex items-center gap-2 text-[12px]">
-        <input name="public" type="checkbox" /> Ce service peut être présenté
-        aux clients
-      </label>
+          </Field>
+        </div>
+      </section>
       {error && (
-        <p className="rounded-md bg-red-50 p-3 text-[12px] text-red-700">
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
           {error}
         </p>
       )}
-      <div className="flex justify-end border-t border-[#eceef1] pt-4">
-        <button disabled={busy} className={primary}>
+      <div className="flex justify-end">
+        <button disabled={busy} className={`${primary} h-10 px-5`}>
           {busy ? "Création…" : "Créer le service"}
         </button>
       </div>

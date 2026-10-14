@@ -228,19 +228,32 @@ Le statut fonctionnel ci-dessous reprend la décision de cadrage :
 | 09.01 — Organisation et bureaux | Terminé |
 | 09.02 — Configuration des bureaux | Terminé |
 | 09.03 — Gestion multi-pays | Terminé |
-| 09.04 — Services | Ajouté |
-| 09.05 — Routes | Ajouté |
+| 09.04 — Services | Implémenté dans le catalogue partagé ; contrôle en attente après migration |
+| 09.05 — Routes | Implémenté avec associations multiples et extrémités sans bureau obligatoire |
 
-Le statut de cadrage ne vaut pas certification de toutes les API. Le socle
-technique de contexte par bureau est en cours de raccordement aux modules
-opérationnels. Les contrôles colis et retraits ont été commencés ; les autres
-surfaces doivent encore être couvertes et vérifiées côté serveur.
+La relation canonique entre services et routes est `service_route_offerings`.
+Le champ historique `shipping_services.route_id` reste renseigné lorsqu'il est
+vide afin de maintenir la compatibilité des anciens lecteurs, mais ne constitue
+pas la source de vérité de l'association. Les routes sont créées à partir de
+pays et villes ; le rattachement à un bureau physique est facultatif et vérifié
+contre son organisation, son pays et sa ville. Les doublons de liaison
+réutilisent la route existante et y associent les services sélectionnés.
+
+Les services créés depuis le catalogue démarrent actifs, conformément à la
+décision 09.04. Leur nom commercial reste indépendant du mode de transport.
+Les offres de routes expirées, suspendues ou rattachées à un service inactif ne
+sont pas proposées à de nouvelles opérations ; les lignes historiques restent
+conservées.
+
+Le statut d'implémentation ne vaut pas certification en production : la
+migration `131_module_09_service_route_offerings` doit être appliquée avant le
+déploiement des changements API.
 
 ### Vérifications techniques restantes
 
-- Appliquer puis valider les migrations `129_organization_offices_canonical`
-  et `130_organization_membership_office_access` dans les environnements
-  prévus.
+- Appliquer puis valider les migrations `129_organization_offices_canonical`,
+  `130_organization_membership_office_access` et
+  `131_module_09_service_route_offerings` dans les environnements prévus.
 - Raccorder et tester le contrôle du périmètre bureau dans les expéditions,
   entrepôts, lots, départs, CRM, tracking, finance et communications selon
   leurs rattachements réels.

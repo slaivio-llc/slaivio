@@ -7,7 +7,29 @@ from app.routes_services import repository as repo
 router=APIRouter(prefix="/route-catalog",tags=["routes-services"])
 def actor(t):return str(t.get('user_id') or 'system')
 def name(t):return str(t.get('actor_name') or "Membre de l'agence")
-class RouteCreate(BaseModel):route_code:str=Field(min_length=3,max_length=50);route_name:str=Field(min_length=3,max_length=160);origin_location_id:str|None=None;destination_location_id:str|None=None;destination_org_id:str|None=None;origin_country:str;origin_city:str|None=None;destination_country:str;destination_city:str|None=None;transport_mode:str;eta_min_days:int=Field(ge=0,le=365);eta_max_days:int=Field(ge=0,le=365);timezone:str|None=None;metadata:dict={}
+class RouteCreate(BaseModel):
+ route_code:str|None=Field(default=None,min_length=3,max_length=50)
+ route_name:str|None=Field(default=None,min_length=3,max_length=160)
+ origin_location_id:str|None=None
+ destination_location_id:str|None=None
+ destination_org_id:str|None=None
+ origin_country:str=Field(min_length=2,max_length=120)
+ origin_city:str=Field(min_length=2,max_length=120)
+ destination_country:str=Field(min_length=2,max_length=120)
+ destination_city:str=Field(min_length=2,max_length=120)
+ transport_mode:str|None=None
+ eta_min_days:int|None=Field(default=None,ge=0,le=365)
+ eta_max_days:int|None=Field(default=None,ge=0,le=365)
+ service_ids:list[str]=Field(min_length=1)
+ timezone:str|None=None
+ metadata:dict={}
+
+ @field_validator("origin_country","origin_city","destination_country","destination_city")
+ @classmethod
+ def normalize_route_place(cls,value:str)->str:
+  normalized=value.strip()
+  if len(normalized)<2:raise ValueError("route_place_required")
+  return normalized
 class ServiceCreate(BaseModel):route_id:str;service_code:str=Field(min_length=3,max_length=50);service_name:str=Field(min_length=3,max_length=160);shipping_mode:str;service_type:str="STANDARD";eta_min_days:int=Field(ge=0,le=365);eta_max_days:int=Field(ge=0,le=365);volumetric_divisor:float|None=Field(default=6000,gt=0);minimum_charge_minor:int=Field(default=0,ge=0);maximum_weight_kg:float|None=Field(default=None,gt=0);maximum_volume_cbm:float|None=Field(default=None,gt=0);currency_code:str=Field(default="USD",min_length=3,max_length=3);priority:int=100;metadata:dict={}
 class Component(BaseModel):component_code:str;component_name:str;calculation_type:str;amount_minor:int|None=Field(default=None,ge=0);percentage:float|None=Field(default=None,ge=0,le=100);currency_code:str=Field(default="USD",min_length=3,max_length=3);priority:int=100;min_quantity:float|None=None;max_quantity:float|None=None;effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc));effective_until:datetime|None=None;metadata:dict={}
 class Simulation(BaseModel):service_id:str;weight_kg:float|None=Field(default=None,ge=0);volume_cbm:float|None=Field(default=None,ge=0);declared_value:float|None=Field(default=0,ge=0);client_id:str|None=None;goods_category:str|None=None
@@ -43,6 +65,8 @@ class RouteEngine(BaseModel):origin_country:str|None=None;origin_city:str|None=N
 class RouteView(BaseModel):name:str=Field(min_length=2,max_length=80);filters:dict={}
 @router.get("")
 def index(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return repo.list_all(tenant['org_id'])
+@router.get("/available-services")
+def available_services(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return {"items":repo.available_services(tenant['org_id'])}
 @router.get("/network-offices")
 def network_offices(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return {"items":repo.network_offices(tenant['org_id'])}
 @router.post("/routes")

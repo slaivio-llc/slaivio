@@ -130,11 +130,12 @@ def quote(o,p,a):
   return result
 
 def catalog(o):
- with engine.connect() as c:return {"routes":_rows(c.execute(text("select id,route_code,route_name,origin_country,origin_city,destination_country,destination_city from shipping_routes where org_id=:o and status in('ACTIVE','LIMITED') order by route_name"),{"o":o})),"services":_rows(c.execute(text("""select distinct s.id,coalesce(x.route_id,s.route_id) route_id,s.service_code,s.service_name,s.shipping_mode
+ with engine.connect() as c:return {"routes":_rows(c.execute(text("select id,route_code,route_name,origin_country,origin_city,destination_country,destination_city from shipping_routes where org_id=:o and active and archived_at is null and status in('ACTIVE','LIMITED') order by route_name"),{"o":o})),"services":_rows(c.execute(text("""select distinct s.id,coalesce(x.route_id,s.route_id) route_id,s.service_code,s.service_name,s.shipping_mode
   from shipping_services s left join service_route_offerings x on x.org_id=s.org_id and x.service_id=s.id
    and x.availability in('AVAILABLE','LIMITED') and x.effective_from<=now()
    and (x.effective_until is null or x.effective_until>now())
-  where s.org_id=:o and s.active and coalesce(x.route_id,s.route_id) is not null order by s.service_name"""),{"o":o})),"categories":_rows(c.execute(text("select * from pricing_categories where org_id=:o and active order by name"),{"o":o})),"promotions":_rows(c.execute(text("select * from pricing_promotions where org_id=:o order by created_at desc"),{"o":o}))}
+  join shipping_routes r on r.org_id=s.org_id and r.id=coalesce(x.route_id,s.route_id) and r.active and r.archived_at is null and r.status in('ACTIVE','LIMITED')
+  where s.org_id=:o and s.active and s.status in('ACTIVE','LIMITED') and s.archived_at is null and coalesce(x.route_id,s.route_id) is not null order by s.service_name"""),{"o":o})),"categories":_rows(c.execute(text("select * from pricing_categories where org_id=:o and active order by name"),{"o":o})),"promotions":_rows(c.execute(text("select * from pricing_promotions where org_id=:o order by created_at desc"),{"o":o}))}
 
 def analytics(o):
  with engine.connect() as c:return {"by_route":_rows(c.execute(text("select r.route_name label,count(s.id)::int simulations,round(avg((s.result_payload->>'total')::numeric),2) average_price,round(avg((s.result_payload->>'margin_percent')::numeric),2) average_margin from pricing_quote_snapshots s join pricing_grids g on g.id=s.grid_id join shipping_routes r on r.id=g.route_id where s.org_id=:o group by r.id order by simulations desc"),{"o":o})),"by_category":_rows(c.execute(text("select coalesce(input_payload->>'category_code','Non classé') label,count(*)::int simulations,round(avg((result_payload->>'total')::numeric),2) average_price from pricing_quote_snapshots where org_id=:o group by 1 order by 2 desc"),{"o":o}))}

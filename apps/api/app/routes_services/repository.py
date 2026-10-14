@@ -16,7 +16,35 @@ def _network_organization(c,source_org_id,destination_org_id):
      or (source.parent_org_id is not null and source.parent_org_id=destination.parent_org_id)
    )"""),{"source":source_org_id,"destination":destination_org_id}).mappings().first()
 def list_all(o):
- with engine.connect() as c:return {"routes":rows(c.execute(text("select r.*,(select count(*) from shipping_services s where s.route_id=r.id and s.org_id=r.org_id and s.active)::int service_count from shipping_routes r where r.org_id=:o and r.archived_at is null order by r.active desc,r.created_at desc"),{"o":o})),"services":rows(c.execute(text("select s.*,r.route_name,r.route_code,(select count(*) from pricing_components p where p.shipping_service_id=s.id and p.org_id=s.org_id and p.active and p.effective_from<=now() and (p.effective_until is null or p.effective_until>now()))::int pricing_count from shipping_services s left join shipping_routes r on r.id=s.route_id and r.org_id=s.org_id where s.org_id=:o order by s.active desc,s.priority"),{"o":o}))}
+ with engine.connect() as c:
+  routes=rows(c.execute(text("""select r.*,
+    (select count(distinct s.id) from service_route_offerings offering
+      join shipping_services s on s.id=offering.service_id and s.org_id=offering.org_id
+      where offering.org_id=r.org_id and offering.route_id=r.id and s.active
+        and offering.effective_from<=now() and (offering.effective_until is null or offering.effective_until>now())
+        and offering.availability in('AVAILABLE','LIMITED','QUOTE_ONLY')
+        and s.status in('ACTIVE','LIMITED') and s.archived_at is null)::int service_count,
+    coalesce((select array_agg(distinct s.service_name order by s.service_name)
+      from service_route_offerings offering join shipping_services s
+        on s.id=offering.service_id and s.org_id=offering.org_id
+      where offering.org_id=r.org_id and offering.route_id=r.id and s.active
+        and offering.effective_from<=now() and (offering.effective_until is null or offering.effective_until>now())
+        and offering.availability in('AVAILABLE','LIMITED','QUOTE_ONLY')
+        and s.status in('ACTIVE','LIMITED') and s.archived_at is null),'{}') service_names
+    from shipping_routes r where r.org_id=:o and r.archived_at is null
+    order by r.active desc,r.created_at desc"""),{"o":o}))
+  services=rows(c.execute(text("""select s.*,primary_route.route_name,primary_route.route_code,
+    (select count(*) from pricing_components p where p.shipping_service_id=s.id and p.org_id=s.org_id and p.active and p.effective_from<=now() and (p.effective_until is null or p.effective_until>now()))::int pricing_count,
+    (select count(*) from service_route_offerings offering where offering.org_id=s.org_id and offering.service_id=s.id and offering.effective_until is null)::int route_count
+    from shipping_services s left join shipping_routes primary_route
+      on primary_route.id=s.route_id and primary_route.org_id=s.org_id
+    where s.org_id=:o and s.archived_at is null order by s.active desc,s.priority,s.service_name"""),{"o":o}))
+  return {"routes":routes,"services":services}
+def available_services(o):
+ with engine.connect() as c:
+  return rows(c.execute(text("""select id,service_code,service_name,shipping_mode,eta_min_days,eta_max_days,status
+    from shipping_services where org_id=:o and active and status in('ACTIVE','LIMITED')
+      and archived_at is null order by priority,service_name"""),{"o":o}))
 def network_offices(o):
  with engine.connect() as c:
   return rows(c.execute(text("""select destination.id org_id,(destination.id=source.id) is_current,
@@ -33,22 +61,66 @@ def network_offices(o):
 def create_route(o,a,n,p):
  with engine.begin() as c:
   destination_org_id=p.get('destination_org_id') or o
-  if not _network_organization(c,o,destination_org_id):raise HTTPException(422,'destination_office_outside_organization_network')
-  location_owners={'origin_location_id':o,'destination_location_id':destination_org_id}
-  for key,owner in location_owners.items():
-   if p.get(key) and not c.execute(text("select 1 from organization_locations where org_id=:o and id=cast(:id as uuid) and status='ACTIVE'"),{'o':owner,'id':p[key]}).first():raise HTTPException(422,'location_not_found')
-  p={**p,'destination_org_id':destination_org_id}
-  row=dict(c.execute(text("insert into shipping_routes(org_id,route_code,route_name,origin_location_id,destination_location_id,destination_org_id,origin_country,origin_city,destination_country,destination_city,transport_mode,eta_min_days,eta_max_days,expected_duration_days,timezone,metadata) values(:o,:route_code,:route_name,cast(:origin_location_id as uuid),cast(:destination_location_id as uuid),:destination_org_id,:origin_country,:origin_city,:destination_country,:destination_city,:transport_mode,:eta_min_days,:eta_max_days,:eta_max_days,:timezone,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one());event(c,o,'ROUTE_CREATED',a,n,str(row['id']),p={"code":p['route_code'],"destination_org_id":destination_org_id});return row
+  if p.get('destination_org_id') and not _network_organization(c,o,destination_org_id):raise HTTPException(422,'destination_office_outside_organization_network')
+  location_owners={'origin_location_id':(o,'origin_country','origin_city'),'destination_location_id':(destination_org_id,'destination_country','destination_city')}
+  for key,(owner,country_key,city_key) in location_owners.items():
+   if p.get(key):
+    location=c.execute(text("select country,city from organization_locations where org_id=:o and id=cast(:id as uuid) and status='ACTIVE'"),{'o':owner,'id':p[key]}).mappings().first()
+    if not location:raise HTTPException(422,'location_not_found')
+    if (str(location['country'] or '').strip().casefold()!=str(p[country_key]).strip().casefold()
+        or str(location['city'] or '').strip().casefold()!=str(p[city_key]).strip().casefold()):
+     raise HTTPException(422,'route_location_does_not_match_endpoint')
+  service_ids=list(dict.fromkeys(p.get('service_ids') or []))
+  services=rows(c.execute(text("select id,service_name,shipping_mode,eta_min_days,eta_max_days from shipping_services where org_id=:o and id=any(cast(:ids as uuid[])) and active and status in('ACTIVE','LIMITED') and archived_at is null order by priority,service_name"),{"o":o,"ids":service_ids}))
+  if len(services)!=len(service_ids):raise HTTPException(422,'active_services_required')
+  if not p.get('route_code'):
+   base=f"{p['origin_city'][:3]}-{p['destination_city'][:3]}".upper()
+   candidate=base;index=1
+   while c.execute(text("select 1 from shipping_routes where route_code=:code"),{"code":candidate}).first():
+    index+=1;candidate=f"{base}-{index}"
+   p={**p,'route_code':candidate}
+  elif c.execute(text("select 1 from shipping_routes where route_code=:code"),{"code":p['route_code']}).first():
+   raise HTTPException(409,'route_code_already_exists')
+  mode=services[0]['shipping_mode'] if len({item['shipping_mode'] for item in services})==1 else 'MULTIMODAL'
+  eta_values=[int(item[key]) for item in services for key in ('eta_min_days','eta_max_days') if item[key] is not None]
+  eta_min=min(eta_values) if eta_values else 0
+  eta_max=max(eta_values) if eta_values else 0
+  p={**p,'destination_org_id':destination_org_id,'transport_mode':p.get('transport_mode') or mode,'eta_min_days':p.get('eta_min_days') if p.get('eta_min_days') is not None else eta_min,'eta_max_days':p.get('eta_max_days') if p.get('eta_max_days') is not None else eta_max}
+  if p['eta_min_days']>p['eta_max_days']:raise HTTPException(422,'invalid_route_eta_range')
+  duplicate=c.execute(text("select id from shipping_routes where org_id=:o and lower(origin_country)=lower(:oc) and lower(origin_city)=lower(:oci) and lower(destination_country)=lower(:dc) and lower(destination_city)=lower(:dci) and archived_at is null and active order by created_at limit 1"),{"o":o,"oc":p['origin_country'],"oci":p['origin_city'],"dc":p['destination_country'],"dci":p['destination_city']}).first()
+  if duplicate:
+   row=c.execute(text("select * from shipping_routes where id=:r and org_id=:o"),{"r":duplicate.id,"o":o}).mappings().one()
+   for service in services:
+    c.execute(text("""insert into service_route_offerings(org_id,service_id,route_id,workspace_id,availability,eta_min_days,eta_max_days)
+      values(:o,:s,:r,'ORGANIZATION','AVAILABLE',:eta_min,:eta_max)
+      on conflict(service_id,route_id,workspace_id) do update set availability='AVAILABLE',effective_until=null,updated_at=now()"""),{"o":o,"s":service['id'],"r":row['id'],"eta_min":service['eta_min_days'],"eta_max":service['eta_max_days']})
+    c.execute(text("update shipping_services set route_id=:r where org_id=:o and id=:s and route_id is null"),{"o":o,"r":row['id'],"s":service['id']})
+   event(c,o,'ROUTE_SERVICES_UPDATED',a,n,str(row['id']),p={"service_ids":[str(service['id']) for service in services]})
+   return {**dict(row),"service_ids":[str(service['id']) for service in services],"already_exists":True}
+  p={**p,'route_name':p.get('route_name') or f"{p['origin_city']} → {p['destination_city']}"}
+  row=dict(c.execute(text("insert into shipping_routes(org_id,route_code,route_name,origin_location_id,destination_location_id,destination_org_id,origin_country,origin_city,destination_country,destination_city,transport_mode,eta_min_days,eta_max_days,expected_duration_days,timezone,metadata) values(:o,:route_code,:route_name,cast(:origin_location_id as uuid),cast(:destination_location_id as uuid),:destination_org_id,:origin_country,:origin_city,:destination_country,:destination_city,:transport_mode,:eta_min_days,:eta_max_days,:eta_max_days,:timezone,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one())
+  for service in services:
+   c.execute(text("""insert into service_route_offerings(org_id,service_id,route_id,workspace_id,availability,eta_min_days,eta_max_days)
+     values(:o,:s,:r,'ORGANIZATION','AVAILABLE',:eta_min,:eta_max)
+     on conflict(service_id,route_id,workspace_id) do update set availability='AVAILABLE',effective_until=null,updated_at=now()"""),{"o":o,"s":service['id'],"r":row['id'],"eta_min":service['eta_min_days'],"eta_max":service['eta_max_days']})
+   c.execute(text("update shipping_services set route_id=:r where org_id=:o and id=:s and route_id is null"),{"o":o,"r":row['id'],"s":service['id']})
+  event(c,o,'ROUTE_CREATED',a,n,str(row['id']),p={"code":p['route_code'],"destination_org_id":destination_org_id,"service_ids":[str(service['id']) for service in services]})
+  return {**row,"service_ids":[str(service['id']) for service in services]}
 def create_service(o,a,n,p):
  with engine.begin() as c:
-  if not c.execute(text("select 1 from shipping_routes where id=cast(:r as uuid) and org_id=:o and archived_at is null"),{"r":p['route_id'],"o":o}).first():raise HTTPException(422,'route_not_found')
-  row=dict(c.execute(text("insert into shipping_services(org_id,route_id,service_code,service_name,shipping_mode,service_type,eta_min_days,eta_max_days,volumetric_divisor,minimum_charge_minor,maximum_weight_kg,maximum_volume_cbm,currency_code,priority,metadata) values(:o,cast(:route_id as uuid),:service_code,:service_name,:shipping_mode,:service_type,:eta_min_days,:eta_max_days,:volumetric_divisor,:minimum_charge_minor,:maximum_weight_kg,:maximum_volume_cbm,:currency_code,:priority,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one());event(c,o,'SERVICE_CREATED',a,n,p['route_id'],str(row['id']));return row
+  if not c.execute(text("select 1 from shipping_routes where id=cast(:r as uuid) and org_id=:o and archived_at is null and active and status in('ACTIVE','LIMITED')"),{"r":p['route_id'],"o":o}).first():raise HTTPException(422,'active_route_required')
+  row=dict(c.execute(text("insert into shipping_services(org_id,route_id,service_code,service_name,shipping_mode,service_type,eta_min_days,eta_max_days,volumetric_divisor,minimum_charge_minor,maximum_weight_kg,maximum_volume_cbm,currency_code,priority,metadata) values(:o,cast(:route_id as uuid),:service_code,:service_name,:shipping_mode,:service_type,:eta_min_days,:eta_max_days,:volumetric_divisor,:minimum_charge_minor,:maximum_weight_kg,:maximum_volume_cbm,:currency_code,:priority,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one())
+  c.execute(text("""insert into service_route_offerings(org_id,service_id,route_id,workspace_id,availability,eta_min_days,eta_max_days)
+    values(:o,:s,cast(:r as uuid),'ORGANIZATION','AVAILABLE',:eta_min,:eta_max)
+    on conflict(service_id,route_id,workspace_id) do update set availability='AVAILABLE',effective_until=null,updated_at=now()"""),{"o":o,"s":row['id'],"r":p['route_id'],"eta_min":p.get('eta_min_days'),"eta_max":p.get('eta_max_days')})
+  event(c,o,'SERVICE_CREATED',a,n,p['route_id'],str(row['id']))
+  return row
 def add_component(o,a,n,service,p):
  with engine.begin() as c:
   if not c.execute(text("select 1 from shipping_services where id=cast(:s as uuid) and org_id=:o"),{"s":service,"o":o}).first():raise HTTPException(422,'service_not_found')
   c.execute(text("update pricing_components set effective_until=coalesce(effective_until,now()),active=false where org_id=:o and shipping_service_id=:s and component_code=:code and active"),{"o":o,"s":service,"code":p['component_code']});version=c.execute(text("select coalesce(max(version_number),0)+1 from pricing_components where org_id=:o and shipping_service_id=:s and component_code=:code"),{"o":o,"s":service,"code":p['component_code']}).scalar_one();row=dict(c.execute(text("insert into pricing_components(org_id,shipping_service_id,component_code,component_name,calculation_type,amount_minor,percentage,currency_code,priority,min_quantity,max_quantity,effective_from,effective_until,version_number,metadata) values(:o,cast(:s as uuid),:component_code,:component_name,:calculation_type,:amount_minor,:percentage,:currency_code,:priority,:min_quantity,:max_quantity,:effective_from,:effective_until,:version,cast(:metadata as jsonb)) returning *"),{"o":o,"s":service,"version":version,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one());event(c,o,'PRICE_VERSION_CREATED',a,n,service=service,p={"component":p['component_code'],"version":version});return row
 def service_configuration(o,service):
- with engine.connect() as c:return {"stops":rows(c.execute(text("select rs.* from route_stops rs join shipping_services s on s.route_id=rs.route_id and s.org_id=rs.org_id where s.id=:s and s.org_id=:o order by rs.position"),{"s":service,"o":o})),"departures":rows(c.execute(text("select * from service_departure_rules where shipping_service_id=:s and org_id=:o order by weekday"),{"s":service,"o":o})),"policies":rows(c.execute(text("select * from service_goods_policies where shipping_service_id=:s and org_id=:o"),{"s":service,"o":o})),"adjustments":rows(c.execute(text("select * from service_price_adjustments where shipping_service_id=:s and org_id=:o order by priority"),{"s":service,"o":o})),"goods_rates":rows(c.execute(text("select * from service_goods_rates where shipping_service_id=:s and org_id=:o and active and effective_from<=now() and (effective_until is null or effective_until>now()) order by express,goods_label"),{"s":service,"o":o}))}
+ with engine.connect() as c:return {"stops":rows(c.execute(text("select distinct rs.* from route_stops rs join service_route_offerings offering on offering.route_id=rs.route_id and offering.org_id=rs.org_id where offering.service_id=:s and offering.org_id=:o order by rs.position"),{"s":service,"o":o})),"departures":rows(c.execute(text("select * from service_departure_rules where shipping_service_id=:s and org_id=:o order by weekday"),{"s":service,"o":o})),"policies":rows(c.execute(text("select * from service_goods_policies where shipping_service_id=:s and org_id=:o"),{"s":service,"o":o})),"adjustments":rows(c.execute(text("select * from service_price_adjustments where shipping_service_id=:s and org_id=:o order by priority"),{"s":service,"o":o})),"goods_rates":rows(c.execute(text("select * from service_goods_rates where shipping_service_id=:s and org_id=:o and active and effective_from<=now() and (effective_until is null or effective_until>now()) order by express,goods_label"),{"s":service,"o":o}))}
 
 def save_goods_rate(o,a,n,service,p):
  with engine.begin() as c:
@@ -120,10 +192,10 @@ def route_listing(o,q=None,status=None,mode=None,workspace=None,limit=100,offset
  if workspace:clauses.append("r.workspace_id=:workspace");p['workspace']=workspace
  where=' and '.join(clauses)
  sql=f"""select r.*,w.warehouse_name origin_warehouse_name,o2.city destination_office_city,location.name destination_office_name,
- (select count(*) from shipping_services s where s.org_id=r.org_id and s.route_id=r.id and s.active)::int service_count,
- (select min(p.amount_minor) from pricing_components p join shipping_services s on s.id=p.shipping_service_id and s.org_id=p.org_id where s.route_id=r.id and p.active and p.effective_from<=now() and (p.effective_until is null or p.effective_until>now())) base_price_minor,
- (select min(p.currency_code) from pricing_components p join shipping_services s on s.id=p.shipping_service_id and s.org_id=p.org_id where s.route_id=r.id and p.active) currency_code,
- (select min(d.scheduled_at) from cargo_departures d join shipping_services s on s.id=d.shipping_service_id and s.org_id=d.org_id where s.route_id=r.id and d.org_id=r.org_id and d.scheduled_at>=now() and d.status not in('CANCELLED','COMPLETED','ARRIVED')) next_departure_at,
+ (select count(distinct s.id) from service_route_offerings offering join shipping_services s on s.id=offering.service_id and s.org_id=offering.org_id where offering.org_id=r.org_id and offering.route_id=r.id and s.active and s.status in('ACTIVE','LIMITED') and s.archived_at is null)::int service_count,
+ (select min(p.amount_minor) from pricing_components p join service_route_offerings offering on offering.service_id=p.shipping_service_id and offering.org_id=p.org_id join shipping_services s on s.id=offering.service_id and s.org_id=offering.org_id where offering.route_id=r.id and offering.org_id=r.org_id and p.active and p.effective_from<=now() and (p.effective_until is null or p.effective_until>now())) base_price_minor,
+ (select min(p.currency_code) from pricing_components p join service_route_offerings offering on offering.service_id=p.shipping_service_id and offering.org_id=p.org_id where offering.route_id=r.id and offering.org_id=r.org_id and p.active) currency_code,
+ (select min(d.scheduled_at) from cargo_departures d join service_route_offerings offering on offering.service_id=d.shipping_service_id and offering.org_id=d.org_id where offering.route_id=r.id and offering.org_id=r.org_id and d.scheduled_at>=now() and d.status not in('CANCELLED','COMPLETED','ARRIVED')) next_departure_at,
  coalesce(perf.shipments_count,0)::int shipments_count,coalesce(perf.weight_kg,0) weight_kg,coalesce(perf.cbm,0) cbm,perf.on_time_rate,perf.real_eta_days,perf.margin_percent
  from shipping_routes r left join warehouses w on w.id=r.origin_warehouse_id and w.org_id=r.org_id left join agency_offices o2 on o2.id=r.destination_office_id and o2.org_id=r.org_id left join organization_locations location on location.id=o2.organization_location_id and location.org_id=o2.org_id
  left join lateral(select count(*) shipments_count,coalesce(sum(e.total_weight_kg),0) weight_kg,coalesce(sum(e.total_volume_cbm),0) cbm,round(100.0*count(*) filter(where e.delivered_at<=e.eta_at)/nullif(count(*) filter(where e.delivered_at is not null and e.eta_at is not null),0),1) on_time_rate,round(avg(extract(epoch from(e.arrived_at-e.departure_actual_at))/86400) filter(where e.arrived_at is not null and e.departure_actual_at is not null)::numeric,1) real_eta_days,round(100.0*sum(e.profit_total)/nullif(sum(e.billed_total),0),1) margin_percent from cargo_expeditions e where e.org_id=r.org_id and e.route_id=r.id and e.deleted_at is null) perf on true
@@ -136,7 +208,7 @@ def route_stats(o):
   p=c.execute(text("""select count(*) shipments,coalesce(sum(total_weight_kg),0) weight_kg,coalesce(sum(total_volume_cbm),0) cbm,round(100.0*count(*) filter(where delivered_at<=eta_at)/nullif(count(*) filter(where delivered_at is not null and eta_at is not null),0),1) on_time_rate,round(avg(extract(epoch from(arrived_at-departure_actual_at))/86400) filter(where arrived_at is not null and departure_actual_at is not null)::numeric,1) average_days,round(100.0*sum(profit_total)/nullif(sum(billed_total),0),1) margin_percent from cargo_expeditions where org_id=:o and created_at>=date_trunc('month',now()) and deleted_at is null"""),{"o":o}).mappings().one();return {**dict(r),**dict(p)}
 def route_detail(o,r):
  with engine.connect() as c:
-  item=_route(c,o,r);item['legs']=rows(c.execute(text("select * from route_legs where org_id=:o and route_id=:r order by position"),{"o":o,"r":r}));item['carriers']=rows(c.execute(text("select * from route_carriers where org_id=:o and route_id=:r order by priority"),{"o":o,"r":r}));item['restrictions']=rows(c.execute(text("select * from route_restrictions where org_id=:o and route_id=:r order by goods_category"),{"o":o,"r":r}));item['services']=rows(c.execute(text("select s.*,(select min(amount_minor) from pricing_components p where p.org_id=s.org_id and p.shipping_service_id=s.id and p.active) base_price_minor from shipping_services s where s.org_id=:o and s.route_id=:r order by s.priority"),{"o":o,"r":r}));item['departures']=rows(c.execute(text("select d.* from cargo_departures d join shipping_services s on s.id=d.shipping_service_id and s.org_id=d.org_id where d.org_id=:o and s.route_id=:r order by d.scheduled_at desc limit 100"),{"o":o,"r":r}));item['shipments']=rows(c.execute(text("select id,expedition_reference,status,departure_actual_at,eta_at,arrived_at,total_weight_kg,total_volume_cbm,billed_total,cost_total,profit_total,currency from cargo_expeditions where org_id=:o and route_id=:r and deleted_at is null order by created_at desc limit 100"),{"o":o,"r":r}));item['events']=rows(c.execute(text("select * from route_service_events where org_id=:o and route_id=:r order by created_at desc limit 100"),{"o":o,"r":r}));item['alerts']=rows(c.execute(text("select * from route_alerts where org_id=:o and route_id=:r order by created_at desc"),{"o":o,"r":r}));return item
+  item=_route(c,o,r);item['legs']=rows(c.execute(text("select * from route_legs where org_id=:o and route_id=:r order by position"),{"o":o,"r":r}));item['carriers']=rows(c.execute(text("select * from route_carriers where org_id=:o and route_id=:r order by priority"),{"o":o,"r":r}));item['restrictions']=rows(c.execute(text("select * from route_restrictions where org_id=:o and route_id=:r order by goods_category"),{"o":o,"r":r}));item['services']=rows(c.execute(text("select s.*,(select min(amount_minor) from pricing_components p where p.org_id=s.org_id and p.shipping_service_id=s.id and p.active) base_price_minor from service_route_offerings offering join shipping_services s on s.org_id=offering.org_id and s.id=offering.service_id where offering.org_id=:o and offering.route_id=:r order by s.priority,s.service_name"),{"o":o,"r":r}));item['departures']=rows(c.execute(text("select d.* from cargo_departures d join service_route_offerings offering on offering.service_id=d.shipping_service_id and offering.org_id=d.org_id where d.org_id=:o and offering.route_id=:r order by d.scheduled_at desc limit 100"),{"o":o,"r":r}));item['shipments']=rows(c.execute(text("select id,expedition_reference,status,departure_actual_at,eta_at,arrived_at,total_weight_kg,total_volume_cbm,billed_total,cost_total,profit_total,currency from cargo_expeditions where org_id=:o and route_id=:r and deleted_at is null order by created_at desc limit 100"),{"o":o,"r":r}));item['events']=rows(c.execute(text("select * from route_service_events where org_id=:o and route_id=:r order by created_at desc limit 100"),{"o":o,"r":r}));item['alerts']=rows(c.execute(text("select * from route_alerts where org_id=:o and route_id=:r order by created_at desc"),{"o":o,"r":r}));return item
 def update_route(o,r,a,n,p):
  version=p.pop('row_version');reason=p.pop('change_reason',None);changes={k:v for k,v in p.items() if k in ROUTE_EDITABLE}
  if not changes:raise HTTPException(422,'no_route_changes')
@@ -174,12 +246,12 @@ def upsert_route_child(o,r,kind,p,a,n):
   else:raise HTTPException(422,'invalid_route_child')
   row=dict(c.execute(text(sql),{"o":o,"r":r,**p}).mappings().one());event(c,o,'ROUTE_'+kind.upper()+'_CONFIGURED',a,n,r,p=row);return row
 def route_engine(o,p):
- clauses=["r.org_id=:o","r.status in('ACTIVE','LIMITED')","r.availability not in('FULL','SUSPENDED','UNAVAILABLE')","lower(r.destination_country)=lower(:dc)"];params={"o":o,"dc":p['destination_country'],"dci":p.get('destination_city'),"oc":p.get('origin_country'),"oci":p.get('origin_city'),"mode":p.get('transport_mode'),"workspace":p.get('workspace_id'),"goods":p.get('goods_category'),"weight":p.get('weight_kg') or 0,"cbm":p.get('volume_cbm') or 0}
+ clauses=["r.org_id=:o","r.active","r.archived_at is null","r.status in('ACTIVE','LIMITED')","r.availability not in('FULL','SUSPENDED','UNAVAILABLE')","offering.effective_from<=now()","(offering.effective_until is null or offering.effective_until>now())","offering.availability in('AVAILABLE','LIMITED','QUOTE_ONLY')","lower(r.destination_country)=lower(:dc)"];params={"o":o,"dc":p['destination_country'],"dci":p.get('destination_city'),"oc":p.get('origin_country'),"oci":p.get('origin_city'),"mode":p.get('transport_mode'),"workspace":p.get('workspace_id'),"goods":p.get('goods_category'),"weight":p.get('weight_kg') or 0,"cbm":p.get('volume_cbm') or 0}
  for value,column,key in ((p.get('destination_city'),'r.destination_city','dci'),(p.get('origin_country'),'r.origin_country','oc'),(p.get('origin_city'),'r.origin_city','oci'),(p.get('transport_mode'),'r.transport_mode','mode')):
   if value:clauses.append(f"lower({column})=lower(:{key})")
  clauses.extend(["(r.workspace_id is null or :workspace is null or r.workspace_id=:workspace)","(r.maximum_weight_kg is null or r.maximum_weight_kg>=:weight)","(r.minimum_weight_kg is null or r.minimum_weight_kg<=:weight)","(r.minimum_cbm is null or r.minimum_cbm<=:cbm)","not exists(select 1 from route_restrictions x where x.org_id=r.org_id and x.route_id=r.id and x.active and lower(x.goods_category)=lower(coalesce(:goods,'')) and x.decision='PROHIBITED')"])
  with engine.connect() as c:
-  items=rows(c.execute(text(f"select r.*,s.id service_id,s.service_name,s.shipping_mode,s.eta_min_days service_eta_min,s.eta_max_days service_eta_max,(select min(d.scheduled_at) from cargo_departures d where d.org_id=r.org_id and d.shipping_service_id=s.id and d.scheduled_at>=now() and d.status not in('CANCELLED','COMPLETED')) next_departure_at from shipping_routes r join shipping_services s on s.org_id=r.org_id and s.route_id=r.id and s.active where {' and '.join(clauses)} order by r.default_route desc,r.status='ACTIVE' desc,coalesce(s.eta_max_days,r.eta_max_days),r.updated_at desc limit 20"),params));return {"items":items,"requires_confirmation":True}
+  items=rows(c.execute(text(f"select r.*,s.id service_id,s.service_name,s.shipping_mode,s.eta_min_days service_eta_min,s.eta_max_days service_eta_max,(select min(d.scheduled_at) from cargo_departures d where d.org_id=r.org_id and d.shipping_service_id=s.id and d.scheduled_at>=now() and d.status not in('CANCELLED','COMPLETED')) next_departure_at from shipping_routes r join service_route_offerings offering on offering.org_id=r.org_id and offering.route_id=r.id join shipping_services s on s.org_id=offering.org_id and s.id=offering.service_id and s.active and s.status in('ACTIVE','LIMITED') and s.archived_at is null where {' and '.join(clauses)} order by r.default_route desc,r.status='ACTIVE' desc,coalesce(s.eta_max_days,r.eta_max_days),r.updated_at desc limit 20"),params));return {"items":items,"requires_confirmation":True}
 def compare_routes(o,ids):
  if not ids:return []
  with engine.connect() as c:return rows(c.execute(text("select r.id,r.route_code,r.route_name,r.transport_mode,r.eta_min_days,r.eta_max_days,r.status,r.availability,(select min(p.amount_minor) from pricing_components p join shipping_services s on s.id=p.shipping_service_id and s.org_id=p.org_id where s.route_id=r.id and p.active) base_price_minor,(select min(p.currency_code) from pricing_components p join shipping_services s on s.id=p.shipping_service_id and s.org_id=p.org_id where s.route_id=r.id and p.active) currency_code,round(100.0*count(e.id) filter(where e.delivered_at<=e.eta_at)/nullif(count(e.id) filter(where e.delivered_at is not null and e.eta_at is not null),0),1) on_time_rate,round(100.0*sum(e.profit_total)/nullif(sum(e.billed_total),0),1) margin_percent from shipping_routes r left join cargo_expeditions e on e.org_id=r.org_id and e.route_id=r.id and e.deleted_at is null where r.org_id=:o and r.id=any(cast(:ids as uuid[])) group by r.id"),{"o":o,"ids":ids}))

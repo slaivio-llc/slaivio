@@ -1,5 +1,6 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ChevronRight,
   Copy,
@@ -10,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { FormGeographyFields, GeographyFields } from "@/components/ui/geography-fields";
+import { FormGeographyFields } from "@/components/ui/geography-fields";
 import { OperationDrawer, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationContent, OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
@@ -32,7 +33,9 @@ import {
   addRouteLeg,
   addRouteCarrier,
   addRouteRestriction,
+  availableRouteServices,
   networkOffices,
+  type AvailableRouteService,
   type NetworkOffice,
   type Route,
 } from "@/services/route-catalog";
@@ -675,110 +678,133 @@ function Analytics() {
 function CreateRoute({ done }: { done: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [locations,setLocations]=useState<NetworkOffice[]>([]);
-  const [originLocationId,setOriginLocationId]=useState("");
-  const [destinationLocationId,setDestinationLocationId]=useState("");
-  const [destinationOrgId,setDestinationOrgId]=useState("");
-  const [originCountry, setOriginCountry] = useState("");
-  const [originCity, setOriginCity] = useState("");
-  const [destinationCountry, setDestinationCountry] = useState("");
-  const [destinationCity, setDestinationCity] = useState("");
-  useEffect(()=>{networkOffices().then(data=>setLocations(data.filter(location=>Boolean(location.location_id)))).catch(()=>setLocations([]));},[]);
+  const [locations, setLocations] = useState<NetworkOffice[]>([]);
+  const [services, setServices] = useState<AvailableRouteService[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [originLocationId, setOriginLocationId] = useState("");
+  const [destinationLocationKey, setDestinationLocationKey] = useState("");
+  const [destinationOfficeId, setDestinationOfficeId] = useState("");
+  const [locationsError, setLocationsError] = useState("");
+  useEffect(() => {
+    Promise.all([networkOffices(), availableRouteServices()])
+      .then(([network, available]) => {
+        setLocations(network.filter((location) => Boolean(location.location_id)));
+        setServices(available);
+      })
+      .catch(() => setLocationsError("Les implantations et services disponibles n’ont pas pu être chargés. Actualisez la page avant de réessayer."))
+      .finally(() => setLoading(false));
+  }, []);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!selectedServices.length) {
+      setError("Sélectionnez au moins un service actif pour cette route.");
+      return;
+    }
     setBusy(true);
     setError("");
     const f = new FormData(e.currentTarget);
     try {
       await createRoute({
-        route_code: f.get("route_code"),
-        route_name: f.get("route_name"),
-        origin_location_id: originLocationId||null,
-        destination_location_id: destinationLocationId||null,
-        destination_org_id: destinationOrgId||null,
+        route_code: String(f.get("route_code") || "").trim() || null,
+        route_name: String(f.get("route_name") || "").trim() || null,
+        origin_location_id: originLocationId || null,
+        destination_location_id: destinationOfficeId || null,
+        destination_org_id: destinationLocationKey.split(":")[0] || null,
         origin_country: f.get("origin_country"),
         origin_city: f.get("origin_city"),
         destination_country: f.get("destination_country"),
         destination_city: f.get("destination_city"),
-        transport_mode: f.get("transport_mode"),
-        eta_min_days: Number(f.get("eta_min_days")),
-        eta_max_days: Number(f.get("eta_max_days")),
+        service_ids: selectedServices,
         metadata: {},
       });
       await done();
-    } catch {
-      setError(
-        "La route n’a pas été créée. Vérifiez les informations obligatoires.",
-      );
+    } catch (caught) {
+      const response = caught as { response?: { status?: number; data?: { detail?: string } } };
+      const detail = response.response?.data?.detail;
+      setError(detail === "route_location_does_not_match_endpoint"
+        ? "Le bureau sélectionné ne correspond pas au pays et à la ville saisis. Corrigez l’adresse ou retirez cette association facultative."
+        : detail === "active_services_required"
+          ? "Un des services sélectionnés n’est plus actif. Actualisez la page et vérifiez votre sélection."
+          : response.response?.status === 409
+            ? "Ce code de route est déjà utilisé. Choisissez un autre code ou laissez Slaivio le générer."
+            : "La route n’a pas été créée. Vérifiez les informations et réessayez.");
       setBusy(false);
     }
   }
   return (
     <form onSubmit={submit} className="grid gap-5">
-      <section className="grid gap-4 md:grid-cols-2">
-        <RouteFormField label="Code interne" hint="Ex. CHN-KIN-AIR">
+      <section className="rounded-xl border border-[#e5e9e8] bg-white p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">01 · Parcours commercial</p>
+        <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">D’où part la route et où arrive-t-elle ?</h3>
+        <p className="mb-5 mt-1 text-[13px] text-[#69747c]">L’origine et la destination décrivent des villes de transport, pas nécessairement des bureaux de votre agence.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormGeographyFields required countryName="origin_country" cityName="origin_city" countryLabel="Pays d’origine" cityLabel="Ville d’origine" className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]" />
+          <FormGeographyFields required countryName="destination_country" cityName="destination_city" countryLabel="Pays de destination" cityLabel="Ville de destination" className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]" />
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <RouteFormField label="Bureau ou entrepôt d’origine" hint="Facultatif · à renseigner seulement si l’agence possède un site ici.">
+            <select className={input} value={originLocationId} onChange={(event) => setOriginLocationId(event.target.value)}>
+              <option value="">Aucun site physique associé</option>
+              {locations.filter((location) => location.is_current).map((location) => <option key={location.location_id!} value={location.location_id!}>{location.location_name} · {location.city}, {location.country}</option>)}
+            </select>
+          </RouteFormField>
+          <RouteFormField label="Bureau ou entrepôt de destination" hint="Facultatif · la destination peut être une ville sans bureau Slaivio.">
+            <select value={destinationLocationKey} onChange={(event) => { setDestinationLocationKey(event.target.value); setDestinationOfficeId(event.target.value.split(":")[1] || ""); }} className={input}>
+              <option value="">Aucun site physique associé</option>
+              {locations.filter((location) => !location.is_current).map((location) => <option key={`${location.org_id}:${location.location_id}`} value={`${location.org_id}:${location.location_id}`}>{location.organization_name} · {location.location_name} · {location.city}, {location.country}</option>)}
+            </select>
+          </RouteFormField>
+        </div>
+      </section>
+      <section className="rounded-xl border border-[#e5e9e8] bg-white p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">02 · Services disponibles</p>
+        <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Quels services proposez-vous sur cette route ?</h3>
+        <p className="mb-4 mt-1 text-[13px] text-[#69747c]">Une route peut proposer plusieurs services. Le mode de transport et les délais sont définis dans chaque service.</p>
+        {loading ? <p className="rounded-lg bg-[#f6f8f7] px-4 py-3 text-[13px] text-[#68747b]">Chargement des services actifs…</p>
+          : services.length ? <div className="grid gap-2 sm:grid-cols-2">
+            {services.map((service) => <label key={service.id} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-3 transition focus-within:ring-2 focus-within:ring-emerald-600/20 ${selectedServices.includes(service.id) ? "border-emerald-600 bg-emerald-50/60" : "border-[#e4e8eb] hover:bg-[#fafcfb]"}`}>
+              <input type="checkbox" checked={selectedServices.includes(service.id)} onChange={() => setSelectedServices((current) => current.includes(service.id) ? current.filter((id) => id !== service.id) : [...current, service.id])} className="h-4 w-4 accent-emerald-700" />
+              <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold text-[#283138]">{service.service_name}</span><span className="block text-[11px] text-[#6b757d]">{service.shipping_mode} · {service.service_code}</span></span>
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-700">{service.status === "LIMITED" ? "Capacité limitée" : "Actif"}</span>
+            </label>)}
+          </div>
+          : <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="text-[13px] font-semibold text-amber-950">Aucun service actif à associer</p>
+            <p className="mt-1 text-[12px] leading-5 text-amber-900">Créez et activez d’abord au moins un service depuis le catalogue Services. Une route sans service ne pourra pas être utilisée pour la tarification ou les expéditions.</p>
+            <Link href="/app/services" className="mt-3 inline-flex text-[12px] font-semibold text-emerald-800 underline underline-offset-2">Ouvrir le catalogue Services</Link>
+          </div>}
+        {locationsError && <p role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-[12px] text-amber-900">{locationsError}</p>}
+      </section>
+      <section className="rounded-xl border border-[#e5e9e8] bg-white p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">03 · Identification</p>
+        <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Comment reconnaître cette route ?</h3>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <RouteFormField label="Nom personnalisé" hint="Facultatif · généré à partir des villes si laissé vide.">
           <input
-            required
-            className={input}
-            name="route_code"
-            placeholder="Code court de la route"
-          />
-        </RouteFormField>
-        <RouteFormField
-          label="Nom visible"
-          hint="Nom compris par l’équipe et les clients"
-        >
-          <input
-            required
             className={input}
             name="route_name"
-            placeholder="Guangzhou → Kinshasa — Air"
+            placeholder="Ex. Chine → Kinshasa"
           />
         </RouteFormField>
-      </section>
-      <section className="grid gap-4 border-t border-[#eceef1] pt-5 md:grid-cols-2">
-        {locations.length?<><RouteFormField label="Bureau ou entrepôt de départ"><select required className={input} value={originLocationId} onChange={event=>{const id=event.target.value;const location=locations.find(item=>item.location_id===id);setOriginLocationId(id);setOriginCountry(location?.country||"");setOriginCity(location?.city||"");}}><option value="">Choisir un site configuré</option>{locations.filter(location=>location.is_current).map(location=><option key={location.location_id!} value={location.location_id!}>{location.location_name} · {location.city}, {location.country}</option>)}</select><input type="hidden" name="origin_country" value={originCountry}/><input type="hidden" name="origin_city" value={originCity}/></RouteFormField><RouteFormField label="Bureau ou entrepôt de destination"><select required className={input} value={destinationLocationId} onChange={event=>{const id=event.target.value;const location=locations.find(item=>item.location_id===id);setDestinationLocationId(id);setDestinationOrgId(location?.org_id||"");setDestinationCountry(location?.country||"");setDestinationCity(location?.city||"");}}><option value="">Choisir un bureau du réseau</option>{locations.filter(location=>location.location_id!==originLocationId).map(location=><option key={`${location.org_id}:${location.location_id}`} value={location.location_id!}>{location.organization_name} · {location.location_name} · {location.city}, {location.country}</option>)}</select><input type="hidden" name="destination_country" value={destinationCountry}/><input type="hidden" name="destination_city" value={destinationCity}/></RouteFormField></>:<><GeographyFields required country={originCountry} city={originCity} onCountryChange={setOriginCountry} onCityChange={setOriginCity} countryName="origin_country" cityName="origin_city" countryLabel="Pays de départ" cityLabel="Ville de départ" className={input} fieldClassName="grid gap-2 text-[12px] font-medium text-[#4d5761]"/><GeographyFields required country={destinationCountry} city={destinationCity} onCountryChange={setDestinationCountry} onCityChange={setDestinationCity} countryName="destination_country" cityName="destination_city" countryLabel="Pays de destination" cityLabel="Ville de destination" className={input} fieldClassName="grid gap-2 text-[12px] font-medium text-[#4d5761]"/></>}
-      </section>
-      <section className="grid gap-4 border-t border-[#eceef1] pt-5 md:grid-cols-3">
-        <RouteFormField label="Mode de transport">
-          <select className={input} name="transport_mode">
-            <option value="AIR">Avion</option>
-            <option value="SEA">Bateau</option>
-            <option value="EXPRESS">Express</option>
-            <option value="ROAD">Route</option>
-            <option value="RAIL">Rail</option>
-            <option value="MULTIMODAL">Plusieurs modes</option>
-          </select>
-        </RouteFormField>
-        <RouteFormField label="Délai minimum">
+        <RouteFormField label="Code interne" hint="Facultatif · généré automatiquement par Slaivio.">
           <input
-            required
-            min="0"
-            type="number"
             className={input}
-            name="eta_min_days"
-            placeholder="Nombre de jours"
+            name="route_code"
+            placeholder="Ex. GZ-KIN"
           />
         </RouteFormField>
-        <RouteFormField label="Délai maximum">
-          <input
-            required
-            min="0"
-            type="number"
-            className={input}
-            name="eta_max_days"
-            placeholder="Nombre de jours"
-          />
-        </RouteFormField>
+        </div>
       </section>
       {error && (
-        <p className="rounded-md bg-red-50 p-3 text-[12px] text-red-700">
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
           {error}
         </p>
       )}
-      <div className="flex justify-end border-t border-[#eceef1] pt-4">
-        <button disabled={busy} className={primary}>
-          {busy ? "Création…" : "Créer la route"}
+      <div className="flex items-center justify-between border-t border-[#eceef1] pt-4">
+        <p className="text-[12px] text-[#69747c]">* Champs obligatoires</p>
+        <button disabled={busy || loading || !services.length} className={primary}>
+          {busy ? "Enregistrement…" : "Créer la route"}
         </button>
       </div>
     </form>

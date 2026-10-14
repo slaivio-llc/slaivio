@@ -48,6 +48,44 @@ class PlannedShipmentPayload(BaseModel):
     planned_departure_at: AwareDatetime | None = None
 
 
+class ShipmentPlanningPayload(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    expected_version: int = Field(ge=1)
+    planned_departure_at: AwareDatetime | None
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.get('/shipments/workspace/{shipment_id}', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_workspace(shipment_id: UUID, tenant=Depends(get_current_tenant)):
+    from app.expeditions.detail import overview
+    return overview(tenant['org_id'], str(shipment_id))
+
+
+@router.get('/shipments/workspace/{shipment_id}/packages', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_workspace_packages(shipment_id: UUID, q: str = Query('', max_length=120), page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+    from app.expeditions.detail import packages
+    return packages(tenant['org_id'], str(shipment_id), q, page)
+
+
+@router.get('/shipments/workspace/{shipment_id}/history', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_workspace_history(shipment_id: UUID, page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+    from app.expeditions.detail import history
+    return history(tenant['org_id'], str(shipment_id), page)
+
+
+@router.get('/shipments/workspace/{shipment_id}/communications', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_workspace_communications(shipment_id: UUID, page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+    from app.expeditions.detail import communications
+    return communications(tenant['org_id'], str(shipment_id), page)
+
+
+@router.patch('/shipments/workspace/{shipment_id}/planning', dependencies=[Depends(require_permission('shipments.update'))])
+def shipment_workspace_planning(shipment_id: UUID, payload: ShipmentPlanningPayload, tenant=Depends(get_current_tenant)):
+    from app.expeditions.detail import change_plan
+    org_id, actor_id = _tenant_ids(tenant)
+    return change_plan(org_id, str(shipment_id), actor_id, payload.expected_version, payload.planned_departure_at, payload.reason)
+
+
 @router.get('/shipments/register', dependencies=[Depends(require_permission('shipments.read'))])
 def shipment_register(q: str = Query('', max_length=120),
                       stage: Literal['planned','departed','arrived','other'] | None = None,

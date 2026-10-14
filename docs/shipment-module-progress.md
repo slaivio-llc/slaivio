@@ -63,7 +63,7 @@ Documentation uniquement. Pas de migration exécutée, pas de modification de do
 
 ### Limites et suite immédiate
 
-- Les liens ouvrent encore la fiche détaillée historique. La remplacer par Aperçu / Colis / Communications / Manifeste au prochain lot, avec commandes métier dédiées.
+- À la fin du premier lot, les liens ouvraient encore la fiche historique ; remplacement fret effectué au deuxième lot ci-dessous. Les commandes de chargement/départ restent à unifier.
 - Les filtres origine/destination restent à ajouter au registre, avec options issues du périmètre consultable et masquage lorsqu’ils sont redondants.
 - La visibilité du bureau destinataire n’est pas encore ajoutée : ne pas confondre identifiant de site et identifiant d’organisation. La lecture actuelle conserve volontairement le périmètre propriétaire existant.
 - Départs et ses automatisations ne sont pas encore retirés. Migrer leurs liens et unifier les commandes avant suppression des doublons de navigation.
@@ -76,3 +76,24 @@ Documentation uniquement. Pas de migration exécutée, pas de modification de do
 - 16 tests frontend passants en exécution séquentielle : 5 nouveaux tests du registre/création, 7 de non-régression Colis et 4 du panneau partagé. Le contexte de bureau est simulé explicitement dans les nouveaux tests.
 - TypeScript et ESLint ciblé passants ; `git diff --check` sans erreur de contenu. Avertissement Python préexistant sur `datetime.utcnow()` dans le générateur de référence existant.
 - À vérifier sur application connectée : rendu 1440/1024/390 px, droits create/read séparés, route suspendue pendant la saisie, dates dans plusieurs fuseaux et répétition concurrente d’une création sur PostgreSQL.
+
+## Deuxième lot — fiche fret et planification auditée
+
+- `ShipmentDetailPage` remplace la fiche historique pour PARCEL_FREIGHT uniquement ; les autres parcours conservent leur composant. Fiche structurée en Aperçu, Colis, Communications, Manifeste, avec retour vers le registre et mêmes marges/composants que le nouveau socle.
+- Projections `/shipments/workspace/{id}` : état, dates prévues/réelles, route et totaux calculés ; historique opérationnel paginé ; colis affectés recherchables et paginés ; demandes de communication enregistrées paginées. Aucun montant financier, numéro destinataire, corps de message ou metadata intégral exposé par ces projections.
+- Contrôles du bureau propriétaire, permissions read/update, identifiants UUID, suppression/archivage pris en compte. Aucun DDL dans ces nouveaux parcours.
+- Aperçu du manifeste construit sur les affectations actives ; poids renseigné et couverture de pesée séparés. Quand aucun poids n’est connu, la somme reste inconnue. Sur mobile, les colis sont présentés en liste.
+- Après départ, avertissement explicite : la composition actuelle n’est PAS un manifeste historique figé. Aucun bouton PDF/Excel fictif ajouté ; le snapshot et les exports restent à construire.
+- Planning modifiable seulement pendant la préparation : motif obligatoire, date effaçable si inconnue, verrou transactionnel, version attendue, événement avant/après et nouvelle version. Aucun changement de statut ni envoi automatique. Le formulaire conserve la saisie en cas de conflit.
+- La section Communications consulte `expedition_notifications` : une demande PENDING est affichée En attente, jamais Livrée. Les notifications individuelles des colis ne sont pas prétendues toutes regroupées dans cette vue ; rapprochement avec le moteur d’envoi à réaliser au lot Communications.
+
+### Chargement : risque identifié et limite volontaire
+
+L’ancienne affectation change certains états en READY_FOR_DISPATCH et mélange contrôle physique, validation, paiement et capacité. Les commandes Expéditions et Départs doivent être auditées ensemble avant exposition d’un nouveau chargement en masse : verrouillage commun, exclusivité d’affectation, maintien du colis Reçu, version, audit et protections des anciennes API. Le deuxième lot ne réintroduit pas ces mutations historiques dans la nouvelle fiche. L’ajout/retrait depuis cette nouvelle fiche reste donc à livrer ; ne pas déployer comme remplacement fonctionnel complet pour une agence ayant besoin de charger des expéditions immédiatement.
+
+### Validation du deuxième lot
+
+- 29 tests backend ciblés passants (16 fiche/planning et 13 registre/création), avec dépôts simulés.
+- 14 tests frontend passants (fiche, registre, panneau partagé). TypeScript et ESLint ciblé vérifiés séparément avant livraison.
+- Aucun test sur PostgreSQL réel, aucune session navigateur authentifiée ni preuve d’envoi WhatsApp. Recette multi-bureaux et fuseaux encore nécessaire.
+- Aucune migration nouvelle. Backend avant frontend. Module 04 toujours incomplet : chargement, départ/arrivée, snapshot/export, audiences et unification avec Départs restent ouverts.

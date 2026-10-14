@@ -32,13 +32,13 @@ describe("Registre Expéditions fret",()=>{
   });
   it("recherche automatiquement et annule la requête précédente",async()=>{
     render(<FreightShipmentRegister/>);await screen.findAllByText("EXP-0048");
-    const signal=vi.mocked(api.get).mock.calls[0][1]?.signal;
+    const signal=vi.mocked(api.get).mock.calls.find(call=>call[0]==="/shipments/register")?.[1]?.signal;
     fireEvent.change(screen.getByRole("searchbox"),{target:{value:"EXP-00"}});
     await waitFor(()=>expect(api.get).toHaveBeenLastCalledWith("/shipments/register",expect.objectContaining({params:expect.objectContaining({q:"EXP-00",page:1})})));
     expect(signal?.aborted).toBe(true);
   });
   it("ne présente pas une panne comme une liste vide",async()=>{
-    vi.mocked(api.get).mockRejectedValueOnce(new Error("offline"));
+    vi.mocked(api.get).mockRejectedValue(new Error("offline"));
     render(<FreightShipmentRegister/>);
     expect(await screen.findByRole("alert")).toHaveTextContent("Impossible de charger");
     expect(screen.queryByText("Aucune expédition enregistrée")).not.toBeInTheDocument();

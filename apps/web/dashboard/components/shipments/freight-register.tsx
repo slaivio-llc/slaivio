@@ -29,6 +29,9 @@ export function FreightShipmentRegister() {
   const [result,setResult]=useState<Result|null>(null);
   const [q,setQ]=useState("");const [stage,setStage]=useState("");const [page,setPage]=useState(1);
   const [start,setStart]=useState("");const [end,setEnd]=useState("");
+  const [origin,setOrigin]=useState("");const [destination,setDestination]=useState("");
+  const [locations,setLocations]=useState<{origins:string[];destinations:string[]}>({origins:[],destinations:[]});
+  useEffect(()=>{const controller=new AbortController();api.get('/shipments/register/locations',{signal:controller.signal}).then(r=>{if(!controller.signal.aborted)setLocations({origins:r.data.origins||[],destinations:r.data.destinations||[]});}).catch(()=>undefined);return()=>controller.abort();},[]);
   const [revision,setRevision]=useState(0);const [loading,setLoading]=useState(true);const [error,setError]=useState(false);
   const [creating,setCreating]=useState(false);const [created,setCreated]=useState<{id:string;reference:string}|null>(null);
   const invalid=Boolean(start&&end&&start>end);
@@ -37,15 +40,15 @@ export function FreightShipmentRegister() {
     if(invalid||incomplete)return;
     const controller=new AbortController();setLoading(true);setError(false);
     const timer=setTimeout(()=>{
-      api.get<Result>("/shipments/register",{params:{q,stage:stage||undefined,start:start||undefined,end:end||undefined,page},signal:controller.signal})
+      api.get<Result>("/shipments/register",{params:{q,stage:stage||undefined,start:start||undefined,end:end||undefined,page,origin:origin||undefined,destination:destination||undefined},signal:controller.signal})
         .then(response=>{if(!controller.signal.aborted)setResult(response.data);})
         .catch(()=>{if(!controller.signal.aborted)setError(true);})
         .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     },220);
     return()=>{clearTimeout(timer);controller.abort();};
-  },[q,stage,start,end,page,revision,invalid,incomplete]);
-  function reset(){setQ("");setStage("");setStart("");setEnd("");setPage(1);}
-  const filtered=Boolean(q||stage||start||end);
+  },[q,stage,start,end,page,revision,invalid,incomplete,origin,destination]);
+  function reset(){setQ("");setStage("");setStart("");setEnd("");setOrigin("");setDestination("");setPage(1);}
+  const filtered=Boolean(q||stage||start||end||origin||destination);
   function reference(item:Shipment){return <Link className="font-medium text-emerald-800 hover:underline" href={`/app/shipments/${encodeURIComponent(item.id)}`}>{item.reference}</Link>;}
   function state(item:Shipment){return <span title={item.stage==="other"?item.status:undefined} className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${item.stage==="arrived"?"bg-emerald-50 text-emerald-800":"bg-slate-100 text-slate-700"}`}>{stages[item.stage]||"Autre état"}</span>;}
   return <div className="min-h-full bg-white">
@@ -56,7 +59,9 @@ export function FreightShipmentRegister() {
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <div className="flex flex-wrap items-center gap-2 p-4">
           <label className="relative mr-auto w-full sm:max-w-xs"><Search size={15} aria-hidden="true" className="absolute left-3 top-3 text-slate-400"/><input aria-label="Rechercher une expédition" type="search" maxLength={120} placeholder="Référence d’expédition…" value={q} onChange={e=>{setQ(e.target.value);setPage(1);}} className={`${field} pl-9`}/></label>
-          <OperationFilterPopover title="Filtrer les expéditions" activeCount={Number(Boolean(stage))+Number(Boolean(start||end))} onReset={reset}>
+          <OperationFilterPopover title="Filtrer les expéditions" activeCount={Number(Boolean(stage))+Number(Boolean(start||end))+Number(Boolean(origin))+Number(Boolean(destination))} onReset={reset}>
+            {locations.origins.length>1&&<label className="grid gap-1.5 text-xs">Origine<select className={field} value={origin} onChange={e=>{setOrigin(e.target.value);setPage(1);}}><option value="">Toutes les origines</option>{locations.origins.map(value=><option key={value}>{value}</option>)}</select></label>}
+            {locations.destinations.length>1&&<label className="grid gap-1.5 text-xs">Destination<select className={field} value={destination} onChange={e=>{setDestination(e.target.value);setPage(1);}}><option value="">Toutes les destinations</option>{locations.destinations.map(value=><option key={value}>{value}</option>)}</select></label>}
             <label className="grid gap-1.5 text-xs">État<select value={stage} className={field} onChange={e=>{setStage(e.target.value);setPage(1);}}><option value="">Tous les états</option>{Object.entries(stages).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
             <label className="grid gap-1.5 text-xs">Créée à partir du (UTC)<input type="date" value={start} className={field} onChange={e=>{setStart(e.target.value);setPage(1);}}/></label>
             <label className="grid gap-1.5 text-xs">Jusqu’au (UTC)<input type="date" value={end} min={start||undefined} className={field} onChange={e=>{setEnd(e.target.value);setPage(1);}}/></label>
@@ -69,6 +74,7 @@ export function FreightShipmentRegister() {
           <div className="flex items-center gap-2 p-4 text-xs text-slate-500"><span className="mr-auto">{result.total} expédition(s) · Page {page}/{result.total_pages}</span><OperationButton aria-label="Page précédente" className="w-9 px-0" disabled={page===1} onClick={()=>setPage(n=>n-1)}><ChevronLeft size={15}/></OperationButton><OperationButton aria-label="Page suivante" className="w-9 px-0" disabled={page>=result.total_pages} onClick={()=>setPage(n=>n+1)}><ChevronRight size={15}/></OperationButton></div>
         </>}
       </div>
+      <PermissionGuard permission="departures.read"><Link href="/app/departures" className="mt-5 inline-block text-xs text-slate-500 underline">Consulter les anciennes planifications de départ</Link></PermissionGuard>
     </section>
     {creating&&<ShipmentCreation close={()=>setCreating(false)} created={value=>{setCreated(value);setCreating(false);reset();setRevision(n=>n+1);}}/>}
   </div>;

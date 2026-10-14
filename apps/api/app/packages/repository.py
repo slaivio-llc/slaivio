@@ -1255,6 +1255,9 @@ def update_package(org_id: str, package_id: str, user_id: str, payload: dict) ->
 
     queued_notification_id = None
     with engine.begin() as conn:
+        conn.execute(text("select id from cargo_packages where org_id=:org_id and id=:id for update"),
+            {'org_id':org_id,'id':package_id})
+        _protect_managed_loading(conn,org_id,[package_id])
         conn.execute(
             text("""
                 update cargo_packages set
@@ -1721,6 +1724,10 @@ def get_package_document(org_id: str, package_id: str, document_id: str) -> dict
 
 def archive_package(org_id: str, package_id: str, user_id: str, restore: bool=False) -> dict | None:
     with engine.begin() as conn:
+        conn.execute(text("select id from cargo_packages where org_id=:org_id and id=:id for update"),
+            {'org_id':org_id,'id':package_id})
+        if not restore:
+            _protect_managed_loading(conn,org_id,[package_id])
         row=conn.execute(text("""update cargo_packages set deleted_at=case when :restore then null else now() end,
           updated_by=:user_id,updated_at=now(),row_version=row_version+1 where org_id=:org_id and id=:package_id returning id::text"""),
           {"org_id":org_id,"package_id":package_id,"user_id":user_id,"restore":restore}).fetchone()
@@ -1789,6 +1796,8 @@ def transition_package(org_id,package_id,user_id,new_status,expected_version,rea
         row=conn.execute(text("select * from cargo_packages where (org_id=:o or destination_org_id=:o) and id=:id and deleted_at is null for update"),{"o":org_id,"id":package_id}).mappings().first()
         if not row:raise HTTPException(404,"package_not_found")
         owner_org_id=row["org_id"]
+        if new_status in {'SHIPPED','ARRIVED','ARRIVED_DESTINATION'}:
+            _protect_managed_loading(conn,owner_org_id,[package_id])
         destination_access=owner_org_id!=org_id
         if destination_access and new_status not in {'ARRIVED','ARRIVED_DESTINATION','CLEARED','READY_FOR_PICKUP','DELIVERED'}:raise HTTPException(403,"destination_office_transition_not_allowed")
         if row["row_version"]!=expected_version:raise HTTPException(409,"package_version_conflict")
@@ -1834,6 +1843,16 @@ def resolve_package_alert(org_id,alert_id,user_id,resolution):
         if not row:raise HTTPException(404,"package_alert_not_found")
         return _safe(dict(row))
 
+def _protect_managed_loading(conn,org_id,package_ids):
+    assigned=conn.execute(text("""select 1 from expedition_packages ep
+        join cargo_expeditions e on e.id=ep.expedition_id and e.org_id=ep.org_id
+        where ep.org_id=:org_id and ep.package_id=any(cast(:ids as uuid[]))
+          and ep.removed_at is null and e.workflow_version=2 limit 1"""),
+        {'org_id':org_id,'ids':package_ids}).first()
+    if assigned:
+        raise HTTPException(409,'managed_shipment_requires_operational_command')
+
+
 def bulk_package_operation(org_id,user_id,idempotency_key,operation_type,package_ids,payload):
     if not package_ids or len(package_ids)>500:raise HTTPException(422,"invalid_package_selection")
     allowed={"STATUS","MOVE","ASSIGN","NOTIFY","ARCHIVE"}
@@ -1843,6 +1862,8 @@ def bulk_package_operation(org_id,user_id,idempotency_key,operation_type,package
         if previous:return _safe(dict(previous))
         valid=[str(r[0]) for r in conn.execute(text("select id from cargo_packages where org_id=:o and id=any(cast(:ids as uuid[])) and deleted_at is null for update"),{"o":org_id,"ids":package_ids}).fetchall()]
         if len(valid)!=len(set(package_ids)):raise HTTPException(404,"package_selection_contains_unknown_item")
+        if operation_type in {'STATUS','ARCHIVE'}:
+            _protect_managed_loading(conn,org_id,valid)
         if operation_type=="STATUS":
             target=payload.get("status")
             if target not in PACKAGE_STATUSES:raise HTTPException(422,"invalid_status")

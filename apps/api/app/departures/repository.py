@@ -136,6 +136,7 @@ def allocate_package(o,d,a,n,p):
   if old:return dict(old)
   dep=_departure_context(c,o,d,True);pkg=c.execute(text('select * from cargo_packages where org_id=:o and id=:p and deleted_at is null for update'),{'o':o,'p':p['package_id']}).mappings().first()
   if not dep or not pkg:raise HTTPException(404,'departure_or_package_not_found')
+  if c.execute(text("select 1 from expedition_packages where org_id=:o and package_id=:p and removed_at is null limit 1"),{'o':o,'p':p['package_id']}).first():raise HTTPException(409,'package_already_assigned_to_expedition')
   reasons=_package_eligibility(c,o,dep,pkg)
   capacity_codes={'WEIGHT_CAPACITY_EXCEEDED','VOLUME_CAPACITY_EXCEEDED','PACKAGE_CAPACITY_EXCEEDED'}
   blocking=[reason for reason in reasons if not (p.get('override_capacity') and reason['code'] in capacity_codes)]
@@ -281,7 +282,8 @@ def _sync_operations(c,o,dep,a,n,status,reason,queued_notification_ids):
  if status not in {'CONFIRMED','DELAYED','DEPARTED','ARRIVED','CANCELLED'}:return
  route=c.execute(text("select s.service_name,s.shipping_mode,r.route_name,r.origin_country,r.origin_city,r.destination_country,r.destination_city from shipping_services s left join shipping_routes r on r.id=s.route_id where s.org_id=:o and s.id=:s"),{'o':o,'s':dep['shipping_service_id']}).mappings().first() or {}
  reference=f"EXP-{dep['departure_code']}"
- exp=c.execute(text('select id::text,status from cargo_expeditions where org_id=:o and expedition_reference=:r for update'),{'o':o,'r':reference}).mappings().first()
+ exp=c.execute(text('select id::text,status,workflow_version from cargo_expeditions where org_id=:o and expedition_reference=:r for update'),{'o':o,'r':reference}).mappings().first()
+ if exp and exp.get('workflow_version')==2:raise HTTPException(409,'use_shipment_workspace_commands')
  if not exp and status in {'CONFIRMED','DEPARTED'}:
   exp=c.execute(text("""insert into cargo_expeditions(org_id,expedition_reference,title,status,mode,service_type,origin_country,origin_city,destination_country,destination_city,route_label,carrier_name,flight_number,vessel_name,container_number,batch_reference,manifest_reference,owner_name,planned_departure_at,departed_at,eta_at,created_by,updated_by) values(:o,:ref,:title,:status,:mode,:service,:oc,:ocity,:dc,:dcity,:route,:carrier,:flight,:vessel,:container,:batch,:manifest,:owner,:planned,:departed,:eta,:a,:a) returning id::text,status"""),{'o':o,'ref':reference,'title':dep['departure_code'],'status':'DISPATCHED' if status=='DEPARTED' else 'PREPARING','mode':route.get('shipping_mode') or 'OTHER','service':route.get('service_name'),'oc':route.get('origin_country'),'ocity':route.get('origin_city'),'dc':route.get('destination_country'),'dcity':route.get('destination_city'),'route':route.get('route_name'),'carrier':dep.get('carrier_name'),'flight':dep.get('flight_number'),'vessel':dep.get('vessel_name'),'container':dep.get('container_number'),'batch':dep.get('batch_reference'),'manifest':f"MAN-{dep['departure_code']}",'owner':dep.get('responsible_name'),'planned':dep.get('scheduled_at'),'departed':dep.get('actual_departure_at'),'eta':dep.get('estimated_arrival_at'),'a':a}).mappings().one()
  if not exp:return

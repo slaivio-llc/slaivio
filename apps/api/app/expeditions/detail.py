@@ -20,7 +20,7 @@ def require_shipment(conn, org_id, shipment_id, lock=False):
     row = conn.execute(text(f"""select e.id::text,e.expedition_reference as reference,
         e.status,({STAGE}) as stage,e.origin_city,e.origin_country,e.destination_city,e.destination_country,
         e.route_label,e.planned_departure_at,e.departed_at,e.arrived_at,e.is_delayed,e.delay_reason,
-        e.shipment_row_version as version from cargo_expeditions e where {SCOPE}
+        e.workflow_version,e.route_id::text,e.shipment_row_version as version from cargo_expeditions e where {SCOPE}
         {'for update' if lock else ''}"""), {'org_id': org_id, 'id': shipment_id}).mappings().first()
     if not row:
         raise HTTPException(404, 'shipment_not_found')
@@ -62,12 +62,12 @@ def history(org_id, shipment_id, page=1):
         # Whitelist operational events: do not leak financial notes, recipients or metadata.
         where = """org_id=:org_id and expedition_id=cast(:id as uuid)
             and event_type in ('EXPEDITION_CREATED','SHIPMENT_PLANNING_CHANGED',
-              'STATUS_CHANGED','PACKAGE_ADDED','PACKAGE_REMOVED','SHIPMENT_DEPARTED','SHIPMENT_ARRIVED')"""
+              'STATUS_CHANGED','PACKAGE_ADDED','PACKAGE_REMOVED','SHIPMENT_DEPARTED','SHIPMENT_ARRIVED','SHIPMENT_DELAY_CHANGED')"""
         total = conn.execute(text(f'select count(*) from expedition_events where {where}'), params).scalar_one()
         items = conn.execute(text(f"""select id::text,event_type,title,created_at,
             case when event_type='SHIPMENT_PLANNING_CHANGED' then metadata->>'before' else null end as previous_planned_at,
             case when event_type='SHIPMENT_PLANNING_CHANGED' then metadata->>'after' else null end as next_planned_at,
-            case when event_type='SHIPMENT_PLANNING_CHANGED' then description else null end as description
+            case when event_type in ('SHIPMENT_PLANNING_CHANGED','SHIPMENT_DELAY_CHANGED') then description else null end as description
             from expedition_events where {where} order by created_at desc,id desc limit 30 offset :offset"""), params).mappings()
         return {'items': [dict(row) for row in items], 'page': page, 'total_pages': ceil(total/30)}
 
@@ -77,10 +77,36 @@ def communications(org_id, shipment_id, page=1):
         require_shipment(conn, org_id, shipment_id)
         params = {'org_id': org_id, 'id': shipment_id, 'offset': (page-1)*30}
         where = 'org_id=:org_id and expedition_id=cast(:id as uuid)'
-        total = conn.execute(text(f'select count(*) from expedition_notifications where {where}'), params).scalar_one()
+        source = f"""(select id,notification_type,channel,status,created_at,sent_at,failed_at
+            from expedition_notifications where {where}
+            union all
+            select n.id,n.notification_type,n.channel,n.status,n.created_at,n.sent_at,n.failed_at
+            from expedition_milestone_notifications link
+            join notification_outbox n on n.id=link.notification_id and n.org_id=link.org_id
+            where link.org_id=:org_id and link.expedition_id=cast(:id as uuid)) communications"""
+        total = conn.execute(text(f'select count(*) from {source}'), params).scalar_one()
         items = conn.execute(text(f"""select id::text,notification_type,channel,status,created_at,sent_at,failed_at
-            from expedition_notifications where {where} order by created_at desc,id desc limit 30 offset :offset"""), params).mappings()
+            from {source} order by created_at desc,id desc limit 30 offset :offset"""), params).mappings()
         return {'items': [dict(row) for row in items], 'page': page, 'total_pages': ceil(total/30)}
+
+
+def record_delay(org_id, shipment_id, actor, expected_version, delayed, reason):
+    """Operational information, never a change to a parcel's physical state."""
+    with engine.begin() as conn:
+        row=require_shipment(conn,org_id,shipment_id,lock=True)
+        if row['version']!=expected_version:
+            raise HTTPException(409,'stale_shipment_version')
+        if row['stage'] not in {'planned','departed'}:
+            raise HTTPException(409,'shipment_loading_closed')
+        conn.execute(text("""update cargo_expeditions set is_delayed=:delayed,
+            delay_reason=case when :delayed then :reason else null end,
+            shipment_row_version=shipment_row_version+1,updated_by=:actor,updated_at=now()
+            where org_id=:org_id and id=cast(:id as uuid)"""),
+            {'org_id':org_id,'id':shipment_id,'delayed':delayed,'reason':reason,'actor':actor})
+        _insert_event(conn,org_id=org_id,expedition_id=shipment_id,
+            event_type='SHIPMENT_DELAY_CHANGED',title='Retard signalé' if delayed else 'Retard résolu',
+            description=reason,actor_id=actor,metadata={'delayed':delayed})
+        return {'changed':True}
 
 
 def change_plan(org_id, shipment_id, actor, expected_version, planned_departure_at, reason):

@@ -11,6 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import text
+from fastapi import HTTPException
 
 from app.core.config import settings
 from app.db.database import engine
@@ -1052,11 +1053,13 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
         raise ValueError("invalid_risk_level")
     with engine.begin() as conn:
         current = conn.execute(
-            text("select status from cargo_expeditions where org_id = :org_id and id = :id and archived_at is null for update"),
+            text("select status,workflow_version from cargo_expeditions where org_id = :org_id and id = :id and archived_at is null for update"),
             {"org_id": org_id, "id": expedition_id},
         ).fetchone()
         if not current:
             return None
+        if current.workflow_version == 2:
+            raise HTTPException(409, 'use_shipment_workspace_commands')
         if updates.get("status") and updates["status"]!=current.status and updates["status"] not in EXPEDITION_TRANSITIONS.get(current.status,set()):
             raise ValueError(f"invalid_status_transition:{current.status}:{updates['status']}")
         set_clause = ", ".join(f"{key} = :{key}" for key in updates)
@@ -1096,6 +1099,9 @@ def update_expedition(org_id: str, expedition_id: str, user_id: str, payload: di
 def archive_expedition(org_id: str, expedition_id: str, user_id: str, expected_version: int | None = None) -> bool:
     _ensure_schema()
     with engine.begin() as conn:
+        managed = conn.execute(text("select workflow_version from cargo_expeditions where org_id=:org_id and id=:id for update"), {'org_id':org_id,'id':expedition_id}).scalar()
+        if managed == 2:
+            raise HTTPException(409, 'use_shipment_workspace_commands')
         row = conn.execute(text("""update cargo_expeditions set archived_at=now(),status='ARCHIVED',shipment_row_version=shipment_row_version+1,updated_by=:user_id,updated_at=now()
           where org_id=:org_id and id=:id and archived_at is null and (:expected_version is null or shipment_row_version=:expected_version) returning id"""),{"org_id":org_id,"id":expedition_id,"user_id":user_id,"expected_version":expected_version}).fetchone()
         if not row:
@@ -1258,6 +1264,11 @@ def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, 
     _ensure_schema()
     queued_notification_id = None
     with engine.begin() as conn:
+        managed = conn.execute(text("select workflow_version from cargo_expeditions where org_id=:org_id and id=:id for update"), {'org_id':org_id,'id':expedition_id}).scalar()
+        if managed == 2: raise HTTPException(409, 'use_shipment_workspace_commands')
+        conn.execute(text("select id from cargo_packages where org_id=:org_id and id=:id for update"), {'org_id':org_id,'id':package_id})
+        if conn.execute(text("select 1 from departure_package_allocations where org_id=:org_id and package_id=:id and status<>'REMOVED' limit 1"), {'org_id':org_id,'id':package_id}).first():
+            raise ValueError('package_already_allocated_to_departure')
         expedition = _expedition_for_package_validation(conn, org_id, expedition_id)
         package = _package_for_expedition_validation(conn, org_id, package_id, expedition_id)
         if not expedition or not package:
@@ -1335,6 +1346,8 @@ def add_package_to_expedition(org_id: str, expedition_id: str, package_id: str, 
 def remove_package_from_expedition(org_id: str, expedition_id: str, package_id: str, user_id: str, reason: str | None = None) -> dict | None:
     _ensure_schema()
     with engine.begin() as conn:
+        managed = conn.execute(text("select workflow_version from cargo_expeditions where org_id=:org_id and id=:id for update"), {'org_id':org_id,'id':expedition_id}).scalar()
+        if managed == 2: raise HTTPException(409, 'use_shipment_workspace_commands')
         row = conn.execute(
             text("""
                 update expedition_packages

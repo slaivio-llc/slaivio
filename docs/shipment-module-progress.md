@@ -4,7 +4,69 @@
 
 ## État réel
 
-Le premier lot registre/création est implémenté ; le module reste en cours. Les mentions « terminé » du document décrivent sa conception ; elles ne certifient ni le code ni la recette. Les [restes de Colis](parcel-module-progress.md) restent ouverts, en particulier la remise liée à Finance.
+Le registre, la fiche, le chargement, le départ/arrivée et le manifeste sont implémentés. Le module reste incomplet sur les annonces contextuelles et la reprise des historiques ; aucune recette de production n'est certifiée. Les mentions « terminé » du document décrivent sa conception, pas une validation du logiciel. Les [restes de Colis](parcel-module-progress.md) restent ouverts, en particulier la remise liée à Finance.
+
+## Lot opérationnel unifié — 14 octobre 2026
+
+### Structure retenue
+
+- Dans Opérations fret, Expéditions regroupe chargement, départ, arrivée et manifeste. Retrait de l'entrée Départs redondante de la navigation fret et de la carte du hub. Aucun changement du parcours véhicules/Cargo OS historique.
+- Anciennes planifications accessibles depuis un lien secondaire dans le registre. Aucune suppression ou fusion automatique des données historiques.
+- Filtres origine/destination issus des expéditions du bureau actif, masqués si une seule option ; filtres appliqués automatiquement. La date filtre la création en UTC.
+
+### Fonctionnement implémenté
+
+- Affectation/retrait jusqu'à 200 colis par commande ; recherche/pagination de 50, sélection conservée entre pages. Vérifications serveur de route, destination, client, réception physique et absence d'autre affectation active. Aucun statut physique changé lors du chargement.
+- Verrous sur l'expédition puis les colis ordonnés, contrôle de version, transaction et événements d'audit. Une erreur sur un colis annule la commande entière. Un index unique protège les affectations actives, y compris contre une écriture concurrente.
+- Les anciennes commandes de mise à jour/chargement/archivage ne peuvent pas modifier les expéditions du nouveau parcours. Les allocations historiques de départ refusent un colis déjà affecté à une expédition.
+- Départ confirmé : colis Expédiés, horodatage réel, snapshot du manifeste (dont noms clients), événements et notifications persistés dans la même transaction. L'envoi intervient après commit. Un nouvel appel après confirmation ne répète pas le jalon.
+- Arrivée : expédition et colis Arrivés, jamais Livrés. La composition figée reste intacte.
+- Paiement : refus de départ si le réglage `require_payment_clearance` est actif et que les champs actuels ne prouvent pas le solde. Ce contrôle n'est PAS un remplacement du futur rapprochement factures/paiements du module Finance.
+- Retard signalé/résolu avant ou après départ, motif et historique ; état physique inchangé. Planning modifiable séparément avant départ, sans annonce automatique.
+- Notifications des nouveaux jalons reliées au journal d'envoi dans Communications. PENDING, SENT et DELIVERED ne sont pas confondus. Les annonces commerciales aux prospects ne sont pas implémentées par cette liaison.
+- Manifeste dynamique avant départ, historique figé ensuite ; aucun historique reconstruit fictivement pour les anciens départs sans snapshot. Recherche, pagination d'affichage, poids connu et couverture distincts. Excel avec cellules texte protégées contre les formules, en-tête et poids numériques ; impression dédiée A4 paysage, avec « Enregistrer en PDF » via le navigateur. Il ne s'agit pas d'un service PDF serveur.
+- Correction de poids d'un colis affecté : verrouillée côté API et indiquée non modifiable dans la projection Colis.
+- Le lien Colis → Expédition utilise désormais l'affectation active du nouveau parcours. Les anciennes commandes génériques de modification, d'archivage et de statut en masse ne peuvent pas contourner un chargement géré ; les jalons individuels départ/arrivée sont également bloqués sur ces colis. Un contrôle qualité explicitement bloquant empêche le chargement/départ.
+
+### Vérifications locales de ce lot
+
+- 106 tests Python ciblés passants : workflow, registre, détail, opérations/registre Colis, acceptation LUZA et contrat Départs. Dépôts SQL simulés, pas de preuve de concurrence PostgreSQL réelle.
+- 21 tests frontend passants : registre, fiche, commandes et navigation. Tests de confirmation, refus financier, sélection compatible, anciens mouvements et recherche du manifeste.
+- TypeScript et ESLint ciblé passants. Test Excel réalisé avec la bibliothèque réelle (installée uniquement dans un répertoire temporaire pour cette session) : texte non exécuté comme formule et poids inconnu conservé vide.
+- Deux avertissements préexistants `datetime.utcnow()` du générateur de référence. Aucun envoi WhatsApp réel, aucune migration de production exécutée.
+
+### Déploiement et migration
+
+1. Sauvegarder la base et appliquer `infra/sql/128_expedition_operational_workflow.sql` avant ce backend, puis déployer le frontend.
+2. La migration refuse les doubles affectations historiques actives. Elle ne choisit pas arbitrairement le bon chargement et ne supprime rien. Audit préalable :
+
+```sql
+select org_id, package_id, array_agg(expedition_id) as expeditions
+from expedition_packages
+where removed_at is null
+group by org_id, package_id
+having count(*) > 1;
+```
+
+3. Seules les créations intactes du nouveau registre sans colis ni départ lié sont adoptées automatiquement. Les autres historiques gardent leur version 1 et nécessitent une reprise contrôlée.
+4. `openpyxl==3.1.5`, déjà dans requirements.txt, est nécessaire pour Excel. Aucun service de production ni migration distante n'a été modifié pendant ce travail.
+
+### Recette obligatoire avant agence
+
+- PostgreSQL réel : application/rejeu de migration, conflit concurrent sur le même colis, départ concurrent, rollback de lot, absence de doublon de notification et conservation des snapshots.
+- Navigateur connecté : 390/1024/1440 px, permissions lecture/modification, switch de bureau, sélection multi-pages, poids inconnus, rendu et pagination du document imprimé.
+- WhatsApp : réception effective après départ/arrivée, lien tracking et panne fournisseur/reprise de file. Une notification en base n'est pas une preuve de livraison.
+- Tester les anciennes planifications après migration et leur séparation du nouveau parcours.
+
+### Exigences encore ouvertes — ne pas annoncer le module 04 terminé
+
+- Action Informer : audience clients et prospects réellement intéressés par route, déduplication, aperçu obligatoire et confirmation, historique des destinataires pour les reports et résultat d'envoi. L'intérêt actuel des prospects est du texte libre ; ne pas le transformer en ciblage « tous contacts » par défaut.
+- Reprise contrôlée des expéditions historiques chargées, correction opérationnelle après départ et suppression finale du parcours Départs uniquement après cette reprise.
+- Visibilité et actions du bureau destinataire à relier aux autorisations multi-bureaux sans confondre site physique et organisation. Les nouvelles projections gardent le périmètre du bureau propriétaire.
+- Validation financière définitive au module Finance et durcissement du moteur d'envoi/reprise dans Communication.
+- PDF direct côté serveur si requis au-delà de l'impression/enregistrement PDF du navigateur.
+
+Les sections ci-dessous décrivent les lots précédents et leurs limites au moment de leur livraison ; le présent état les remplace là où ils se recoupent.
 
 Le document contient 04.01, 04.02 et 04.04. Il cite 04.03 sans fournir une section détaillée autonome ; les règles départ/arrivée décrites dans 04.02 restent applicables, sans inventer de nouvelles exigences.
 

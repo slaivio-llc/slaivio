@@ -24,12 +24,12 @@ describe("Fiche Expédition fret",()=>{
     expect(screen.getByRole("link",{name:"Retour aux expéditions"})).toHaveAttribute("href","/app/shipments");
   });
   it("ne présente pas la composition actuelle comme un manifeste figé après départ",async()=>{
-    vi.mocked(api.get).mockImplementation(async url=>({data:String(url).endsWith("/one")?{...overview,stage:"departed",departed_at:"2026-10-14T12:00:00Z"}:{items:[],page:1,total_pages:0}}));
+    vi.mocked(api.get).mockImplementation(async url=>{if(String(url).endsWith('/manifest'))throw {isAxiosError:true,response:{status:409}};return {data:String(url).endsWith("/one")?{...overview,stage:"departed",departed_at:"2026-10-14T12:00:00Z"}:{items:[],page:1,total_pages:0}};});
     render(<FreightShipmentDetail shipmentId="one"/>);await screen.findByText("EXP-01");
     expect(screen.queryByRole("button",{name:"Modifier le planning"})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button",{name:"Manifeste"}));
-    expect(screen.getByText(/ne constitue pas un manifeste historique certifié/)).toBeInTheDocument();
-    await screen.findByText("Aucun colis affecté à cette expédition.");
+    expect(await screen.findByRole('alert')).toHaveTextContent("Aucun manifeste figé");
+    expect(screen.queryByRole('button',{name:'Excel'})).not.toBeInTheDocument();
   });
   it("n’interprète pas les communications en attente comme livrées",async()=>{
     vi.mocked(api.get).mockImplementation(async url=>({data:String(url).endsWith("/one")?overview:String(url).includes("/communications")?{items:[{id:"message",channel:"whatsapp",status:"PENDING",created_at:"2026-10-14T12:00:00Z"}],page:1,total_pages:1}:{items:[],page:1,total_pages:0}}));

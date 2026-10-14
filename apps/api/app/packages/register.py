@@ -67,9 +67,15 @@ def parcel_overview(org_id: str, package_id: str):
         row = conn.execute(text(f"""select {SUMMARY}, p.supplier_tracking, p.external_reference,
             p.description,p.weight_kg,p.warehouse_location,p.warehouse_zone,p.warehouse_rack,
             p.origin_city,p.origin_country,p.destination_city,p.destination_country,
-            p.received_at,p.created_at,p.shipment_id::text,p.shipment_reference,r.route_name,
+            p.received_at,p.created_at,
+            coalesce((select ep.expedition_id from expedition_packages ep
+              where ep.org_id=p.org_id and ep.package_id=p.id and ep.removed_at is null
+              order by ep.added_at desc,ep.id limit 1),p.shipment_id)::text as shipment_id,
+            p.shipment_reference,r.route_name,
             p.received_by,p.row_version,
             (p.org_id=:org_id and p.shipment_id is null and p.fees_total is null
+              and not exists(select 1 from expedition_packages ep where ep.org_id=p.org_id
+                and ep.package_id=p.id and ep.removed_at is null)
               and coalesce(p.pricing_snapshot,'{{}}'::jsonb)='{{}}'::jsonb
               and coalesce(p.payment_status,'UNKNOWN')='UNKNOWN') weight_editable
             {JOINS} where {SCOPE} and p.id=cast(:package_id as uuid)"""),

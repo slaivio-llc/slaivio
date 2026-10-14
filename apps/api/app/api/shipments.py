@@ -55,6 +55,94 @@ class ShipmentPlanningPayload(BaseModel):
     reason: str = Field(min_length=3, max_length=500)
 
 
+class ShipmentLoadingPayload(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    expected_version: int = Field(ge=1)
+    package_ids: list[UUID] = Field(min_length=1, max_length=200)
+    remove: bool = False
+
+
+class ShipmentMilestonePayload(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    expected_version: int = Field(ge=1)
+    action: Literal['depart','arrive']
+
+
+class ShipmentDelayPayload(BaseModel):
+    model_config = ConfigDict(extra='forbid',str_strip_whitespace=True)
+    expected_version: int = Field(ge=1)
+    delayed: bool
+    reason: str = Field(min_length=3,max_length=500)
+
+
+@router.post('/shipments/workspace/{shipment_id}/delay', dependencies=[Depends(require_permission('shipments.update'))])
+def shipment_delay(shipment_id: UUID, payload: ShipmentDelayPayload, tenant=Depends(get_current_tenant)):
+    from app.expeditions.detail import record_delay
+    org_id,actor=_tenant_ids(tenant)
+    return record_delay(org_id,str(shipment_id),actor,payload.expected_version,payload.delayed,payload.reason)
+
+
+@router.get('/shipments/workspace/{shipment_id}/candidates', dependencies=[Depends(require_permission('shipments.update'))])
+def shipment_candidates(shipment_id: UUID, q: str = Query('',max_length=120), page: int = Query(1,ge=1), tenant=Depends(get_current_tenant)):
+    from app.expeditions.workflow import candidates
+    return candidates(tenant['org_id'],str(shipment_id),q,page)
+
+
+@router.post('/shipments/workspace/{shipment_id}/loading', dependencies=[Depends(require_permission('shipments.update'))])
+def shipment_loading(shipment_id: UUID, payload: ShipmentLoadingPayload, tenant=Depends(get_current_tenant)):
+    from app.expeditions.workflow import loading
+    org_id, actor = _tenant_ids(tenant)
+    return loading(org_id,str(shipment_id),actor,payload.expected_version,[str(key) for key in payload.package_ids],payload.remove)
+
+
+@router.post('/shipments/workspace/{shipment_id}/milestone', dependencies=[Depends(require_permission('shipments.update'))])
+def shipment_milestone(shipment_id: UUID, payload: ShipmentMilestonePayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
+    from app.expeditions.workflow import milestone
+    org_id, actor = _tenant_ids(tenant)
+    result = milestone(org_id,str(shipment_id),actor,payload.expected_version,payload.action)
+    for notification in result.pop('notification_ids',[]):
+        background_tasks.add_task(send_notification,org_id,notification)
+    return result
+
+
+@router.get('/shipments/workspace/{shipment_id}/manifest', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_workspace_manifest(shipment_id: UUID, tenant=Depends(get_current_tenant)):
+    from app.expeditions.workflow import manifest
+    return manifest(tenant['org_id'],str(shipment_id))
+
+
+@router.get('/shipments/workspace/{shipment_id}/manifest.xlsx', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_manifest_excel(shipment_id: UUID, tenant=Depends(get_current_tenant)):
+    import io
+    from openpyxl import Workbook
+    from app.expeditions.workflow import manifest
+    data = manifest(tenant['org_id'],str(shipment_id))
+    book = Workbook(); sheet = book.active; sheet.title = 'Manifeste'
+    shipment=data['shipment']
+    sheet.append(['Manifeste',shipment['reference']])
+    sheet.append(['Version','Figée au départ' if data['historical_snapshot'] else 'Préparation'])
+    sheet.append(['Origine',', '.join(filter(None,[shipment.get('origin_city'),shipment.get('origin_country')]))])
+    sheet.append(['Destination',', '.join(filter(None,[shipment.get('destination_city'),shipment.get('destination_country')]))])
+    sheet.append(['Départ réel' if data['historical_snapshot'] else 'Départ prévu',str(data.get('departed_at') or shipment.get('planned_departure_at') or 'Non déterminé')])
+    weights=[float(row['weight_kg']) for row in data['items'] if row.get('weight_kg') is not None]
+    sheet.append(['Colis',len(data['items']),'Colis pesés',len(weights)])
+    sheet.append(['Poids renseigné kg',sum(weights) if weights else None])
+    sheet.append([])
+    sheet.append(['Colis','Client','Tracking fournisseur','Poids kg','Destination'])
+    for row in data['items']:
+        values=[row.get('reference'),row.get('client_name'),row.get('supplier_tracking'),float(row['weight_kg']) if row.get('weight_kg') is not None else None,', '.join(filter(None,[row.get('destination_city'),row.get('destination_country')]))]
+        sheet.append(values)
+    # Treat untrusted references/names, including headers, as literal text.
+    for cells in sheet:
+        for cell in cells:
+            if isinstance(cell.value,str):cell.data_type='s'
+    sheet.freeze_panes='A10'
+    for column in ('A','B','C','D','E'):sheet.column_dimensions[column].width=26
+    stream=io.BytesIO();book.save(stream)
+    return Response(stream.getvalue(),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition':f'attachment; filename="manifest-{shipment_id}.xlsx"','Cache-Control':'no-store'})
+
+
 @router.get('/shipments/workspace/{shipment_id}', dependencies=[Depends(require_permission('shipments.read'))])
 def shipment_workspace(shipment_id: UUID, tenant=Depends(get_current_tenant)):
     from app.expeditions.detail import overview
@@ -90,11 +178,18 @@ def shipment_workspace_planning(shipment_id: UUID, payload: ShipmentPlanningPayl
 def shipment_register(q: str = Query('', max_length=120),
                       stage: Literal['planned','departed','arrived','other'] | None = None,
                       start: date | None = None, end: date | None = None,
+                      origin: str | None = Query(None,max_length=240), destination: str | None = Query(None,max_length=240),
                       page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
     from app.expeditions.register import listing
     if start and end and start > end:
         raise HTTPException(422, 'invalid_date_range')
-    return listing(tenant['org_id'], q=q, stage=stage, start=start, end=end, page=page)
+    return listing(tenant['org_id'], q=q, stage=stage, start=start, end=end, page=page,origin=origin,destination=destination)
+
+
+@router.get('/shipments/register/locations', dependencies=[Depends(require_permission('shipments.read'))])
+def shipment_filter_locations(tenant=Depends(get_current_tenant)):
+    from app.expeditions.register import locations
+    return locations(tenant['org_id'])
 
 
 @router.get('/shipments/register/routes', dependencies=[Depends(require_permission('shipments.create'))])

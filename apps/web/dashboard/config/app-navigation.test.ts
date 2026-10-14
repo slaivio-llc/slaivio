@@ -35,7 +35,6 @@ describe("product navigation", () => {
       "/app/clients",
       "/app/operations",
       "/app/packages",
-      "/app/departures",
       "/app/shipments",
       "/app/routes",
       "/app/communication",

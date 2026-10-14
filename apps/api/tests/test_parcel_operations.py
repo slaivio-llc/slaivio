@@ -37,7 +37,8 @@ def test_edit_locks_checks_version_and_records_before_after(monkeypatch):
     assert result == {"changed": True}
     assert "for update" in statements[0][0]
     assert "org_id=:org_id or destination_org_id=:org_id" in statements[0][0]
-    assert "row_version=row_version+1" in statements[1][0]
+    assert "expedition_packages" in statements[1][0]
+    assert "row_version=row_version+1" in statements[2][0]
     assert event.call_args.kwargs["metadata"]["before"]["weight_kg"] is None
     assert event.call_args.kwargs["metadata"]["after"]["weight_kg"] == "12.5"
     notification.assert_not_called()

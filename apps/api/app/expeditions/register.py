@@ -19,9 +19,13 @@ STAGE = """case
  else 'other' end"""
 
 
-def listing(org_id, *, q='', stage=None, start=None, end=None, page=1):
+def listing(org_id, *, q='', stage=None, start=None, end=None, page=1, origin=None, destination=None):
     filters = ['e.org_id=:org_id', 'e.archived_at is null', 'e.deleted_at is null']
     params = {'org_id': org_id, 'offset': (page-1)*50}
+    for key,value in [('origin',origin),('destination',destination)]:
+        if value:
+            filters.append(f"concat_ws(', ',e.{key}_city,e.{key}_country)=:{key}")
+            params[key]=value
     if q.strip():
         filters.append("e.expedition_reference ilike :q escape '!'")
         params['q'] = '%' + q.strip().replace('!', '!!').replace('%', '!%').replace('_', '!_') + '%'
@@ -47,6 +51,16 @@ def listing(org_id, *, q='', stage=None, start=None, end=None, page=1):
             from cargo_expeditions e where {where}
             order by e.created_at desc,e.id desc limit 50 offset :offset"""), params).mappings()
         return {'items': [dict(row) for row in items], 'total': total, 'page': page, 'total_pages': ceil(total/50)}
+
+
+def locations(org_id):
+    with engine.connect() as conn:
+        rows=conn.execute(text("""select distinct concat_ws(', ',origin_city,origin_country) as origin,
+            concat_ws(', ',destination_city,destination_country) as destination
+            from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null"""),
+            {'org_id':org_id}).mappings().all()
+        return {'origins':sorted({row['origin'] for row in rows if row['origin']}),
+                'destinations':sorted({row['destination'] for row in rows if row['destination']})}
 
 
 def routes(org_id):
@@ -86,11 +100,11 @@ def create(org_id, actor_id, route_id, planned_departure_at, request_key):
             raise HTTPException(409, 'shipment_route_mode_invalid')
         reference = generate_expedition_reference()
         conn.execute(text("""insert into cargo_expeditions
-            (id,org_id,expedition_reference,status,mode,route_id,route_label,
+            (id,org_id,expedition_reference,status,mode,route_id,route_label,workflow_version,
              origin_country,origin_city,destination_country,destination_city,
              planned_departure_at,created_by,updated_by)
             values(cast(:id as uuid),:org_id,:reference,'PREPARING',:transport_mode,
-             cast(:route_id as uuid),:route_name,:origin_country,:origin_city,
+             cast(:route_id as uuid),:route_name,2,:origin_country,:origin_city,
              :destination_country,:destination_city,:planned,:actor,:actor)"""),
             {**dict(route), 'id': request_key, 'org_id': org_id, 'reference': reference,
              'route_id': route_id, 'planned': planned, 'actor': actor_id})

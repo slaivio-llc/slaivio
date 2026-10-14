@@ -99,6 +99,15 @@ def test_unchanged_plan_has_no_event(monkeypatch):
     event.assert_not_called()
 
 
+def test_delay_in_transit_does_not_change_physical_state(monkeypatch):
+    _, statements, event = database(monkeypatch,stage='departed',status='DISPATCHED')
+    detail.record_delay('office','shipment','actor',3,True,'Transport interrompu')
+    assert 'is_delayed=:delayed' in statements[-1][0]
+    assert 'status=' not in statements[-1][0]
+    assert not any('cargo_packages' in sql or 'notification' in sql for sql,_ in statements)
+    assert event.call_args.kwargs['event_type']=='SHIPMENT_DELAY_CHANGED'
+
+
 @pytest.mark.parametrize('overrides,expected', [({'version':4},'stale_shipment_version'),
     ({'stage':'departed'},'shipment_planning_closed'),({'stage':'arrived'},'shipment_planning_closed'),
     ({'stage':'other'},'shipment_planning_closed'),({'departed_at':datetime.now(timezone.utc)},'shipment_planning_closed')])

@@ -59,6 +59,16 @@ def test_invalid_dates_do_not_query(monkeypatch):
     listing.assert_not_called()
 
 
+def test_location_filters_are_bound_and_tenant_scoped(monkeypatch):
+    statements,_=database(monkeypatch)
+    register.listing('office',origin="A, CN",destination="B' OR 1=1, CD")
+    for sql,params in statements:
+        assert "concat_ws(', ',e.origin_city,e.origin_country)=:origin" in sql
+        assert "concat_ws(', ',e.destination_city,e.destination_country)=:destination" in sql
+        assert params['destination']=="B' OR 1=1, CD"
+        assert "OR 1=1" not in sql
+
+
 @pytest.mark.parametrize('extra', [{'status':'DISPATCHED'}, {'org_id':'foreign'}, {'packages_count':100}, {'departed_at':'2026-10-14T10:00:00Z'}])
 def test_creation_rejects_client_controlled_state(extra):
     with pytest.raises(ValidationError):

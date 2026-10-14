@@ -43,6 +43,11 @@ def edit_parcel(org_id, package_id, actor, expected_version, reason, changes):
                 raise HTTPException(422, "invalid_receipt_weight")
             if row.get("shipment_id") or row.get("fees_total") is not None or row.get("pricing_snapshot") or row.get("payment_status") not in {None, "UNKNOWN"}:
                 raise HTTPException(409, "parcel_weight_requires_review")
+            assigned = conn.execute(text("""select 1 from expedition_packages where org_id=:org_id
+                and package_id=cast(:id as uuid) and removed_at is null limit 1"""),
+                {'org_id': row['org_id'], 'id': package_id}).first()
+            if assigned:
+                raise HTTPException(409, "parcel_weight_requires_review")
         if not changed:
             return {"changed": False}
         if changed.get("supplier_tracking"):

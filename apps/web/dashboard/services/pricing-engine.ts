@@ -1,10 +1,13 @@
 import {api} from "./api";
-export type Grid={id:string;grid_code:string;name:string;route_id:string;shipping_service_id:string;route_name:string;service_name:string;shipping_mode:string;currency_code:string;calculation_method:string;visibility:string;status:string;effective_from:string;effective_until?:string;version:number;rule_count:number;tier_count:number;fee_count:number};
+export type Grid={id:string;grid_code:string;name:string;route_id:string;shipping_service_id:string;route_name:string;service_name:string;shipping_mode:string;currency_code:string;calculation_method:string;visibility:string;status:string;effective_from:string;effective_until?:string;weight_volume_switch_kg_per_cbm?:number|null;version:number;rule_count:number;tier_count:number;fee_count:number};
 export type Dashboard={stats:Record<string,number|string|null>;settings:Record<string,unknown>;alerts:Array<Record<string,unknown>>;grids:Grid[]};
 export type Catalog={routes:Array<{id:string;route_code:string;route_name:string}>;services:Array<{id:string;route_id:string;service_code:string;service_name:string;shipping_mode:string}>;categories:Array<{id:string;code:string;name:string;risk_class:string}>;promotions:Array<Record<string,unknown>>};
 export const pricingDashboard=async()=>(await api.get<Dashboard>("/pricing")).data;
 export const pricingCatalog=async()=>(await api.get<Catalog>("/pricing/catalog")).data;
 export const createGrid=async(p:Record<string,unknown>)=>(await api.post("/pricing/grids",p)).data;
+export const createPricingCategory=async(p:{code:string;name:string;description?:string;risk_class:string})=>(await api.post("/pricing/categories",p)).data;
+export const createGridVersion=async(id:string,effective_from:string)=>(await api.post<{id:string}>(`/pricing/grids/${id}/versions`,{effective_from})).data;
+export const savePricingSettings=async(p:Record<string,unknown>)=>(await api.put("/pricing/settings",p)).data;
 export const gridDetail=async(id:string)=>(await api.get<Record<string,unknown>&{grid:Grid;rules:Array<Record<string,unknown>>;tiers:Array<Record<string,unknown>>;fees:Array<Record<string,unknown>>;costs:Array<Record<string,unknown>>;audit:Array<Record<string,unknown>>}>(`/pricing/grids/${id}`)).data;
 export const addGridRule=async(id:string,p:Record<string,unknown>)=>(await api.post(`/pricing/grids/${id}/rules`,p)).data;
 export const addGridTier=async(id:string,p:Record<string,unknown>)=>(await api.post(`/pricing/grids/${id}/tiers`,p)).data;

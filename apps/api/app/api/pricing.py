@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from typing import Literal
 
 from app.core.tenant_context import get_current_tenant
 from app.db.pricing_repository import (
@@ -22,17 +23,33 @@ def _name(t): return str(t.get("actor_name") or "Membre de l'agence")
 
 class GridCreate(BaseModel):
     grid_code:str=Field(min_length=3,max_length=60); name:str=Field(min_length=3,max_length=160); description:str|None=None; workspace_id:str|None=None; route_id:str; shipping_service_id:str
-    currency_code:str=Field(default="USD",min_length=3,max_length=3); calculation_method:str="PER_KG"; visibility:str="INTERNAL"; effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); effective_until:datetime|None=None
-    volumetric_divisor:float=Field(default=6000,gt=0); chargeable_weight_rule:str="MAX"; rounding_increment:float=Field(default=.1,gt=0); minimum_weight_kg:float|None=None; minimum_cbm:float|None=None; maximum_weight_kg:float|None=None; maximum_cbm:float|None=None; maximum_declared_value:float|None=None; tax_inclusive:bool=False; tax_rate:float=Field(default=0,ge=0,le=100); requires_approval:bool=True
+    currency_code:str=Field(default="USD",min_length=3,max_length=3); calculation_method:Literal["PER_KG","PER_CBM","PER_PACKAGE","PER_UNIT","PERCENT_VALUE","FIXED","TIERED","CUSTOM"]="PER_KG"; visibility:Literal["PUBLIC","INTERNAL","CONTRACTUAL"]="INTERNAL"; effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); effective_until:datetime|None=None
+    volumetric_divisor:float=Field(default=6000,gt=0); chargeable_weight_rule:Literal["ACTUAL","VOLUMETRIC","MAX"]="MAX"; rounding_increment:float=Field(default=.1,gt=0); minimum_weight_kg:float|None=Field(default=None,ge=0); minimum_cbm:float|None=Field(default=None,ge=0); maximum_weight_kg:float|None=Field(default=None,gt=0); maximum_cbm:float|None=Field(default=None,gt=0); maximum_declared_value:float|None=Field(default=None,gt=0); weight_volume_switch_kg_per_cbm:float|None=Field(default=None,gt=0); tax_inclusive:bool=False; tax_rate:float=Field(default=0,ge=0,le=100); requires_approval:bool=True
 class GridRule(BaseModel):
-    rule_code:str; name:str; category_id:str|None=None; client_id:str|None=None; client_segment:str|None=None; warehouse_id:str|None=None; office_id:str|None=None; min_weight_kg:float|None=None; max_weight_kg:float|None=None; min_cbm:float|None=None; max_cbm:float|None=None; min_value:float|None=None; max_value:float|None=None; min_units:int|None=None; max_units:int|None=None; conditions:dict={}; action_type:str="SET_PRICE"; calculation_method:str|None=None; amount:float|None=None; percentage:float|None=None; priority:int=100; stackable:bool=False; effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); effective_until:datetime|None=None
-class Tier(BaseModel): rule_id:str|None=None; basis:str="WEIGHT"; min_quantity:float=0; max_quantity:float|None=None; unit_price:float=Field(ge=0); priority:int=100
+    rule_code:str=Field(min_length=2,max_length=80); name:str=Field(min_length=2,max_length=160); category_id:str|None=None; client_id:str|None=None; client_segment:str|None=None; warehouse_id:str|None=None; office_id:str|None=None; min_weight_kg:float|None=Field(default=None,ge=0); max_weight_kg:float|None=Field(default=None,ge=0); min_cbm:float|None=Field(default=None,ge=0); max_cbm:float|None=Field(default=None,ge=0); min_value:float|None=Field(default=None,ge=0); max_value:float|None=Field(default=None,ge=0); min_units:int|None=Field(default=None,ge=0); max_units:int|None=Field(default=None,ge=0); conditions:dict={}; action_type:Literal["SET_PRICE","ADD_FEE","APPLY_DISCOUNT","SET_MINIMUM","MANUAL_QUOTE","PROHIBIT"]="SET_PRICE"; calculation_method:Literal["PER_KG","PER_CBM","PER_PACKAGE","PER_UNIT","PERCENT_VALUE","FIXED","TIERED","CUSTOM"]|None=None; amount:float|None=Field(default=None,ge=0); percentage:float|None=Field(default=None,ge=0); priority:int=100; stackable:bool=False; effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); effective_until:datetime|None=None
+
+    @model_validator(mode="after")
+    def validate_rule_bounds(self):
+        for minimum, maximum in (
+            (self.min_weight_kg, self.max_weight_kg),
+            (self.min_cbm, self.max_cbm),
+            (self.min_value, self.max_value),
+            (self.min_units, self.max_units),
+        ):
+            if minimum is not None and maximum is not None and maximum <= minimum:
+                raise ValueError("rule maximum must exceed minimum")
+        if self.action_type == "SET_PRICE" and self.calculation_method != "TIERED" and self.amount is None:
+            raise ValueError("price rule requires an amount")
+        return self
+class Tier(BaseModel): rule_id:str|None=None; basis:Literal["WEIGHT","CBM","UNITS","VALUE","MONTHLY_VOLUME"]="WEIGHT"; min_quantity:float=Field(ge=0); max_quantity:float|None=Field(default=None,gt=0); calculation_method:Literal["PER_KG","PER_CBM","PER_PACKAGE","PER_UNIT","PERCENT_VALUE","FIXED"]="PER_UNIT"; unit_price:float=Field(ge=0); priority:int=100
+class Category(BaseModel): code:str=Field(min_length=2,max_length=60); name:str=Field(min_length=2,max_length=120); description:str|None=None; risk_class:Literal["ORDINARY","SENSITIVE","CONDITIONAL","DANGEROUS","HIGH_VALUE"]="ORDINARY"
+class VersionRequest(BaseModel): effective_from:datetime
 class Fee(BaseModel): fee_code:str; name:str; fee_type:str="HANDLING"; calculation_method:str="FIXED"; amount:float=Field(ge=0); conditions:dict={}; taxable:bool=False; priority:int=100
 class Cost(BaseModel): cost_code:str; cost_type:str; calculation_method:str="FIXED"; amount:float=Field(ge=0); currency_code:str="USD"; effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); effective_until:datetime|None=None
 class Transition(BaseModel): status:str; reason:str|None=None
 class Decision(BaseModel): note:str|None=None
 class Quote(BaseModel):
-    route_id:str; shipping_service_id:str; workspace_id:str|None=None; client_id:str|None=None; client_segment:str|None=None; dossier_id:str|None=None; category_code:str; weight_kg:float=Field(default=0,ge=0); volume_cbm:float=Field(default=0,ge=0); length_cm:float|None=None; width_cm:float|None=None; height_cm:float|None=None; units:int=Field(default=1,ge=1); declared_value:float=Field(default=0,ge=0); priced_at:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); exchange_rate:float=Field(default=1,gt=0); freeze:bool=False; idempotency_key:str|None=None
+    route_id:str; shipping_service_id:str; workspace_id:str|None=None; client_id:str|None=None; client_segment:str|None=None; dossier_id:str|None=None; category_code:str|None=None; weight_kg:float=Field(default=0,ge=0); volume_cbm:float=Field(default=0,ge=0); length_cm:float|None=None; width_cm:float|None=None; height_cm:float|None=None; units:int=Field(default=1,ge=1); declared_value:float=Field(default=0,ge=0); priced_at:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); exchange_rate:float=Field(default=1,gt=0); freeze:bool=False; idempotency_key:str|None=None
 class SavedView(BaseModel): name:str=Field(min_length=2,max_length=80); filters:dict={}
 class Promotion(BaseModel):
     workspace_id:str|None=None; code:str; name:str; discount_type:str="PERCENTAGE"; discount_value:float=Field(gt=0); route_ids:list[str]=[]; service_ids:list[str]=[]; client_ids:list[str]=[]; client_segments:list[str]=[]; conditions:dict={}; stackable:bool=False; usage_limit:int|None=None; status:str="DRAFT"; effective_from:datetime; effective_until:datetime|None=None
@@ -43,10 +60,14 @@ class PricingSettings(BaseModel):
 def pricing_center(tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.read"))): return center.dashboard(tenant["org_id"])
 @router.get("/pricing/catalog")
 def pricing_catalog(tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.read"))): return center.catalog(tenant["org_id"])
+@router.post("/pricing/categories")
+def pricing_category_create(body:Category,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.update"))): return center.create_category(tenant["org_id"],body.model_dump(),_actor(tenant),_name(tenant))
 @router.post("/pricing/grids")
 def pricing_grid_create(body:GridCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.create"))): return center.create_grid(tenant["org_id"],_actor(tenant),_name(tenant),body.model_dump())
 @router.get("/pricing/grids/{grid_id}")
 def pricing_grid_detail(grid_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.read"))): return center.detail(tenant["org_id"],grid_id)
+@router.post("/pricing/grids/{grid_id}/versions")
+def pricing_grid_version(grid_id:str,body:VersionRequest,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.create"))): return center.create_version(tenant["org_id"],grid_id,body.effective_from,_actor(tenant),_name(tenant))
 @router.post("/pricing/grids/{grid_id}/rules")
 def pricing_rule_create(grid_id:str,body:GridRule,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.update"))): return center.add_child(tenant["org_id"],grid_id,"rule",body.model_dump(),_actor(tenant),_name(tenant))
 @router.post("/pricing/grids/{grid_id}/tiers")

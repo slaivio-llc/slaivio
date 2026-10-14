@@ -2026,11 +2026,20 @@ def bulk_package_operation(org_id,user_id,idempotency_key,operation_type,package
         return _safe(dict(conn.execute(text("insert into package_bulk_operations(org_id,idempotency_key,operation_type,package_ids,payload,status,result,created_by,completed_at) values(:o,:k,:t,cast(:ids as uuid[]),cast(:p as jsonb),'COMPLETED',cast(:r as jsonb),:u,now()) returning *"),{"o":org_id,"k":idempotency_key,"t":operation_type,"ids":valid,"p":json.dumps(payload),"r":json.dumps(result),"u":user_id}).mappings().one()))
 
 def price_package(org_id,package_id,user_id,service_id):
-    from app.routes_services.repository import simulate
+    from app.pricing_engine.repository import quote
     item=get_package(org_id,package_id)
     if not item:raise HTTPException(404,"package_not_found")
-    weight=float(item.get("weight_kg") or 0);volume=float(item.get("volume_cbm") or 0);result=simulate(org_id,service_id,weight,volume,float(item.get("declared_value") or 0),item.get("client_id"),item.get("goods_classification") or item.get("category"),user_id)
-    with engine.begin() as conn:conn.execute(text("update cargo_packages set shipping_service_id=:s,chargeable_weight_kg=:w,fees_total=:total,currency=:currency,pricing_snapshot=cast(:snap as jsonb),row_version=row_version+1,updated_at=now() where org_id=:o and id=:id"),{"s":service_id,"w":result["chargeable_weight_kg"],"total":result["total_minor"]/100,"currency":result["currency"],"snap":json.dumps(result,default=str),"o":org_id,"id":package_id});_insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="PRICING_CALCULATED",title="Tarification calculée",description=f"{result['total_minor']/100:.2f} {result['currency']}",actor_id=user_id,metadata=result)
+    route_id=item.get("route_id")
+    if not route_id:raise HTTPException(422,"package_route_required_for_pricing")
+    result=quote(org_id,{"route_id":route_id,"shipping_service_id":service_id,
+        "category_code":item.get("goods_classification") or item.get("category"),
+        "client_id":item.get("client_id"),"weight_kg":float(item.get("weight_kg") or 0),
+        "volume_cbm":float(item.get("volume_cbm") or 0),
+        "length_cm":item.get("length_cm"),"width_cm":item.get("width_cm"),"height_cm":item.get("height_cm"),
+        "units":int(item.get("pieces_count") or 1),"declared_value":float(item.get("declared_value") or 0),
+        "priced_at":datetime.now(timezone.utc),"exchange_rate":1,"freeze":True,
+        "idempotency_key":str(uuid4())},user_id)
+    with engine.begin() as conn:conn.execute(text("update cargo_packages set shipping_service_id=:s,chargeable_weight_kg=:w,fees_total=:total,currency=:currency,pricing_snapshot=cast(:snap as jsonb),row_version=row_version+1,updated_at=now() where org_id=:o and id=:id"),{"s":service_id,"w":result["chargeable_weight_kg"],"total":result["total"],"currency":result["currency"],"snap":json.dumps(result,default=str),"o":org_id,"id":package_id});_insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="PRICING_CALCULATED",title="Tarification calculée",description=f"{result['total']:.2f} {result['currency']}",actor_id=user_id,metadata=result)
     return get_package(org_id,package_id)
 
 def compatible_departures(org_id,package_id):

@@ -35,6 +35,20 @@ def test_quote_engine_has_chargeable_weight_priority_snapshot_and_margin():
     assert "margin_percent" in repo
     assert "client_id is not null" in repo
     assert "idempotency_key" in repo
+    assert "weight_volume_switch_kg_per_cbm" in repo
+    assert "pricing_input_required" in repo
+    assert "pricing_tier_range_overlap" in repo
+
+def test_module_08_supports_categories_versions_and_fixed_tiers():
+    api = read("apps/api/app/api/pricing.py")
+    migration = read("infra/sql/133_module_08_pricing_completion.sql")
+    package_pricing = read("apps/api/app/packages/repository.py")
+    repo = read("apps/api/app/pricing_engine/repository.py")
+    assert '"/pricing/categories"' in api
+    assert '"/pricing/grids/{grid_id}/versions"' in api
+    assert "calculation_method text not null default 'PER_UNIT'" in migration
+    assert "def create_version" in repo
+    assert "from app.pricing_engine.repository import quote" in package_pricing
 
 def test_dashboard_has_real_pricing_module():
     page = read("apps/web/dashboard/components/pricing/pricing-engine-page.tsx")

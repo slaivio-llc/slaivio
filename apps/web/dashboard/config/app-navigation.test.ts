@@ -26,6 +26,13 @@ describe("product navigation", () => {
     expect(routes.some((route) => route.href === "/app/clients")).toBe(true);
     expect(routes.some((route) => route.href === "/app/packages")).toBe(true);
     expect(routes.some((route) => route.href === "/app/pricing")).toBe(true);
+    const organization = getAppNavigation(PRODUCT_PROFILES.CARGO_OS).find((group) => group.label === "Organisation");
+    expect(organization?.routes.map((route) => route.href)).toEqual([
+      "/app/settings",
+      "/app/services",
+      "/app/routes",
+    ]);
+    expect(getAppNavigation(PRODUCT_PROFILES.CARGO_OS).find((group) => group.label === "Opérations")?.routes.some((route) => route.href === "/app/routes")).toBe(false);
   });
 
   it("exposes only the agreed parcel and freight agency modules", () => {
@@ -33,10 +40,12 @@ describe("product navigation", () => {
 
     expect(routes.map((route) => route.href)).toEqual([
       "/app/clients",
+      "/app/settings",
+      "/app/services",
+      "/app/routes",
       "/app/operations",
       "/app/packages",
       "/app/shipments",
-      "/app/routes",
       "/app/communication",
       "/app/inbox",
       "/app/followups",
@@ -45,6 +54,10 @@ describe("product navigation", () => {
     ]);
     expect(routes.some((route) => route.href === "/app/broadcasts")).toBe(false);
     expect(routes.some((route) => route.href === "/app/tracking")).toBe(false);
+    const operations = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT)
+      .find((group) => group.label === "Opérations");
+    expect(operations?.routes.some((route) => route.href === "/app/routes")).toBe(false);
+    expect(operations?.routes.some((route) => route.href === "/app/services")).toBe(false);
   });
 
   it("distinguishes warehouse operations from office finance", () => {

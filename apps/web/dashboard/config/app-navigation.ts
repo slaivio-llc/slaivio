@@ -4,6 +4,7 @@ import {
   BellRing,
   BookOpen,
   Boxes,
+  Building2,
   BriefcaseBusiness,
   Folder,
   HandCoins,
@@ -86,15 +87,24 @@ export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
     ],
   },
   {
+    label: "Organisation",
+    icon: Building2,
+    collapsible: true,
+    routes: [
+      { label: "Bureaux et agence", href: "/app/settings", icon: Building2, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "implantation", "pays"] },
+      { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "transport", "air", "mer", "express"] },
+      { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "trajet", "destination", "origine"] },
+    ],
+  },
+  {
     label: "Opérations",
     icon: BriefcaseBusiness,
     collapsible: true,
     routes: [
-      { label: "Opérations", href: "/app/operations", icon: BriefcaseBusiness, keywords: ["opérations", "colis", "départ", "expédition", "entrepôt", "route"] },
+      { label: "Opérations", href: "/app/operations", icon: BriefcaseBusiness, keywords: ["opérations", "colis", "départ", "expédition", "entrepôt"] },
       { label: "Colis", href: "/app/packages", icon: Package, keywords: ["colis", "poids", "destination", "statut", "suivi"] },
       { label: "Expéditions", href: "/app/shipments", icon: Truck, permission: "shipments.read", keywords: ["expédition", "départ", "manifeste", "chargement", "groupage", "transport"] },
       { label: "Entrepôts", href: "/app/warehouses", icon: Warehouse, permission: "warehouses.read", keywords: ["entrepôt", "stock", "bureau", "réception"] },
-      { label: "Routes et services", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "service", "tarif", "destination", "eta"] },
     ],
   },
   {
@@ -129,6 +139,15 @@ export const cargoOsNavigation: readonly AppNavigationGroup[] = [
     ],
   },
   {
+    label: "Organisation",
+    icon: Building2,
+    routes: [
+      { label: "Bureaux et agence", href: "/app/settings", icon: Building2, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "implantation", "pays"] },
+      { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "air", "mer", "express", "transport"] },
+      { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "réseau", "corridor", "destination"] },
+    ],
+  },
+  {
     label: "Opérations",
     icon: BriefcaseBusiness,
     routes: [
@@ -146,8 +165,6 @@ export const cargoOsNavigation: readonly AppNavigationGroup[] = [
     label: "Offre commerciale",
     icon: Route,
     routes: [
-      { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "réseau", "corridor", "destination"] },
-      { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "air", "mer", "express", "groupage"] },
       { label: "Tarification", href: "/app/pricing", icon: BadgeDollarSign, permission: "pricing.read", keywords: ["tarif", "pricing", "grille", "prix", "marge", "simulateur"] },
       { label: "Facturation", href: "/app/finance", icon: ReceiptText, permission: "finance.read", keywords: ["facture", "devis", "avoir", "paiement", "finance"] },
     ],

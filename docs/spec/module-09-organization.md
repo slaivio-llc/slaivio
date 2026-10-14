@@ -249,6 +249,15 @@ Le statut d'implémentation ne vaut pas certification en production : la
 migration `131_module_09_service_route_offerings` doit être appliquée avant le
 déploiement des changements API.
 
+### Emplacement dans l'interface
+
+Dans la navigation de l'agence, bureaux, services et routes sont regroupés
+sous « Organisation ». Les bureaux se gèrent dans « Bureaux et agence »
+(`/app/settings`) ; les référentiels de services (`/app/services`) et de routes
+(`/app/routes`) ont chacun leur écran. Ils ne figurent plus sous « Opérations »,
+qui reste consacré aux colis, aux entrepôts, aux départs et aux expéditions.
+La tarification reste dans son domaine dédié (Module-08).
+
 ### Vérifications techniques restantes
 
 - Appliquer puis valider les migrations `129_organization_offices_canonical`,

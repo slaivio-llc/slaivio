@@ -27,7 +27,7 @@ export function OperationPageHeader({
   const pathname=usePathname();
   const [parcel,setParcel]=useState(false);
   useEffect(()=>{let active=true;getTenantContext().then(context=>{if(active)setParcel(context.active_tenant?.organization_type==="PARCEL_FREIGHT");}).catch(()=>undefined);return()=>{active=false;};},[]);
-  const parentHref = parcel && ["/app/packages","/app/departures","/app/shipments","/app/warehouses","/app/routes","/app/services"].includes(pathname) ? "/app/operations" : parcel && ["/app/inbox","/app/followups","/app/knowledge"].includes(pathname) ? "/app/communication" : undefined;
+  const parentHref = parcel && ["/app/packages","/app/departures","/app/shipments","/app/warehouses"].includes(pathname) ? "/app/operations" : parcel && ["/app/inbox","/app/followups","/app/knowledge"].includes(pathname) ? "/app/communication" : undefined;
   const resolvedBackHref=backHref || parentHref;
   return (
     <header data-ui="operation-page-header" className="operation-page-header bg-white">

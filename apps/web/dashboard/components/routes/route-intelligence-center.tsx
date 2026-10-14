@@ -771,8 +771,8 @@ function CreateRoute({ done }: { done: () => Promise<void> }) {
           </div>
           : <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
             <p className="text-[13px] font-semibold text-amber-950">Aucun service actif à associer</p>
-            <p className="mt-1 text-[12px] leading-5 text-amber-900">Créez et activez d’abord au moins un service depuis le catalogue Services. Une route sans service ne pourra pas être utilisée pour la tarification ou les expéditions.</p>
-            <Link href="/app/services" className="mt-3 inline-flex text-[12px] font-semibold text-emerald-800 underline underline-offset-2">Ouvrir le catalogue Services</Link>
+            <p className="mt-1 text-[12px] leading-5 text-amber-900">Créez et activez d’abord au moins un service dans Paramètres → Services. Une route sans service ne pourra pas être utilisée pour la tarification ou les expéditions.</p>
+            <Link href="/app/settings?section=services" className="mt-3 inline-flex text-[12px] font-semibold text-emerald-800 underline underline-offset-2">Ouvrir les paramètres Services</Link>
           </div>}
         {locationsError && <p role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-[12px] text-amber-900">{locationsError}</p>}
       </section>

@@ -251,12 +251,21 @@ déploiement des changements API.
 
 ### Emplacement dans l'interface
 
-Dans la navigation de l'agence, bureaux, services et routes sont regroupés
-sous « Organisation ». Les bureaux se gèrent dans « Bureaux et agence »
-(`/app/settings`) ; les référentiels de services (`/app/services`) et de routes
-(`/app/routes`) ont chacun leur écran. Ils ne figurent plus sous « Opérations »,
-qui reste consacré aux colis, aux entrepôts, aux départs et aux expéditions.
-La tarification reste dans son domaine dédié (Module-08).
+La navigation de l'agence expose un seul point d'entrée « Paramètres » pour la
+configuration organisationnelle. Les bureaux et implantations se gèrent dans
+les paramètres d'organisation ; Services et Routes sont des sections dédiées
+des paramètres, présentées sous forme de fiches de configuration plutôt que
+comme des modules opérationnels ou des tableaux génériques. Les formulaires
+des routes utilisent des pays et villes structurés et exigent au moins un
+service actif. « Opérations » reste consacré aux colis, aux départs et aux
+expéditions ; l'entrepôt reste un lieu d'exécution et de stockage. La
+tarification demeure dans son domaine dédié (Module-08).
+
+À la réception d'un colis, l'agent choisit un service puis une route associée à
+ce service. Cette sélection repose sur l'association plusieurs-à-plusieurs
+active du référentiel, et non sur le champ historique unique
+`shipping_services.route_id`. L'API vérifie à nouveau l'organisation, l'état du
+service, de la route et de leur association avant d'enregistrer le colis.
 
 ### Vérifications techniques restantes
 

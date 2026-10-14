@@ -808,10 +808,9 @@ function Create({
   }, []);
   const routes = Array.from(
     new Map(
-      services.map((service) => [
-        service.route_id,
-        { id: service.route_id, label: service.route_name },
-      ]),
+      services.flatMap((service) => service.route_id
+        ? [[service.route_id, { id: service.route_id, label: service.route_name || service.route_id }] as const]
+        : []),
     ).values(),
   );
   const selectedService=services.find(service=>service.id===serviceId);

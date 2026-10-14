@@ -2,6 +2,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
+  Boxes,
   Building2,
   CreditCard,
   Database,
@@ -11,6 +12,7 @@ import {
   MapPin,
   Plug,
   Plus,
+  Route as RouteIcon,
   ShieldCheck,
   UserPlus,
   Users,
@@ -47,6 +49,7 @@ import {
   saveNotificationPreference,
   type NotificationPreference,
 } from "@/services/notification-center";
+import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
 const input =
   "h-9 w-full rounded-[5px] border border-[#d8d9dc] bg-white px-3 text-[13px] outline-none focus:border-[#16855f]";
 const button =
@@ -58,6 +61,8 @@ const tabs = [
   ["agency", "Agence", Building2],
   ["workspaces", "Workspaces", Building2],
   ["locations", "Implantations", MapPin],
+  ["services", "Services", Boxes],
+  ["routes", "Routes", RouteIcon],
   ["team", "Utilisateurs & équipe", Users],
   ["roles", "Rôles & permissions", KeyRound],
   ["notifications", "Notifications", Bell],
@@ -73,6 +78,8 @@ const sectionTitles: Record<Section, [string, string]> = {
   agency: ["Agence", "Identité légale, coordonnées et image de marque de l’agence."],
   workspaces: ["Workspaces", "Espaces opérationnels, responsables et périmètres de travail."],
   locations: ["Implantations de votre agence", "Bureaux physiques organisés au sein de la même organisation."],
+  services: ["Services de transport", "Prestations proposées par l’agence et utilisées par les colis et la tarification."],
+  routes: ["Routes commerciales", "Liaisons de transport et services disponibles pour chacune."],
   team: ["Utilisateurs & équipe", "Invitations, affectations et accès des collaborateurs."],
   roles: ["Rôles & permissions", "Responsabilités et droits accordés à chaque rôle."],
   notifications: ["Notifications", "Événements importants et canaux utilisés pour prévenir l’équipe."],
@@ -192,6 +199,8 @@ export function OrganizationAdminPage() {
             {tab === "agency" && <Organization data={data} run={run} />}{" "}
             {tab === "workspaces" && <Workspaces data={data} run={run} />}{" "}
             {tab === "locations" && <Locations data={data} run={run} />}{" "}
+            {tab === "services" && <OrganizationTransportSettings section="services"/>}{" "}
+            {tab === "routes" && <OrganizationTransportSettings section="routes"/>}{" "}
             {tab === "team" && <Team data={data} run={run} />}{" "}
             {tab === "roles" && <Roles data={data} run={run} />}{" "}
             {tab === "notifications" && (

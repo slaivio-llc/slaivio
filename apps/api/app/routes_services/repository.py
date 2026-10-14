@@ -34,6 +34,13 @@ def list_all(o):
     from shipping_routes r where r.org_id=:o and r.archived_at is null
     order by r.active desc,r.created_at desc"""),{"o":o}))
   services=rows(c.execute(text("""select s.*,primary_route.route_name,primary_route.route_code,
+    coalesce((select array_agg(offering.route_id::text order by route.route_name)
+      from service_route_offerings offering
+      join shipping_routes route on route.id=offering.route_id and route.org_id=offering.org_id
+      where offering.org_id=s.org_id and offering.service_id=s.id
+        and offering.effective_from<=now() and (offering.effective_until is null or offering.effective_until>now())
+        and offering.availability in('AVAILABLE','LIMITED','QUOTE_ONLY')
+        and route.active and route.status in('ACTIVE','LIMITED') and route.archived_at is null),'{}') route_ids,
     (select count(*) from pricing_components p where p.shipping_service_id=s.id and p.org_id=s.org_id and p.active and p.effective_from<=now() and (p.effective_until is null or p.effective_until>now()))::int pricing_count,
     (select count(*) from service_route_offerings offering where offering.org_id=s.org_id and offering.service_id=s.id and offering.effective_until is null)::int route_count
     from shipping_services s left join shipping_routes primary_route

@@ -12,6 +12,7 @@ const replace = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/app/settings",
 }));
 
 vi.mock("@/components/permissions/permission-guard", () => ({
@@ -126,6 +127,8 @@ describe("PilotSettingsPage navigation", () => {
     const labels = [
       "Entreprise",
       "Réseau et équipe",
+      "Services",
+      "Routes",
       "Identifiants",
       "Canaux",
       "IA",

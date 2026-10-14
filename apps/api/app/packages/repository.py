@@ -1100,7 +1100,7 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
                      destination_country, destination_city, transport_mode
               from shipping_routes
               where org_id=:org_id and id=cast(:route_id as uuid)
-                and archived_at is null and active
+                and archived_at is null and active and status in ('ACTIVE','LIMITED')
             """), {"org_id": org_id, "route_id": route_id}).mappings().first()
             if not route:
                 raise ValueError("route_not_found")
@@ -1109,11 +1109,61 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
             service = conn.execute(text("""
               select id::text,route_id::text,shipping_mode
               from shipping_services
-              where org_id=:org_id and id=cast(:service_id as uuid) and active
+              where org_id=:org_id and id=cast(:service_id as uuid)
+                and active and status in ('ACTIVE','LIMITED') and archived_at is null
             """), {"org_id": org_id, "service_id": shipping_service_id}).mappings().first()
-            if not service or (route_id and str(service["route_id"]) != str(route_id)):
+            if not service:
                 raise ValueError("shipping_service_not_found_for_route")
-            route_id = route_id or str(service["route_id"])
+            if route_id:
+                offering = conn.execute(text("""
+                  select 1
+                  from shipping_services service
+                  where service.org_id=:org_id and service.id=cast(:service_id as uuid)
+                    and (
+                      exists (
+                        select 1
+                        from service_route_offerings offering
+                        join shipping_routes offered_route
+                          on offered_route.id=offering.route_id and offered_route.org_id=offering.org_id
+                        where offering.org_id=:org_id and offering.service_id=service.id
+                          and offering.route_id=cast(:route_id as uuid)
+                          and offering.effective_from<=now()
+                          and (offering.effective_until is null or offering.effective_until>now())
+                          and offering.availability in ('AVAILABLE','LIMITED','QUOTE_ONLY')
+                          and offered_route.active and offered_route.status in ('ACTIVE','LIMITED')
+                          and offered_route.archived_at is null
+                      )
+                      or (
+                        service.route_id=cast(:route_id as uuid)
+                        and not exists (
+                          select 1 from service_route_offerings historical
+                          where historical.org_id=:org_id
+                            and historical.service_id=service.id
+                            and historical.route_id=cast(:route_id as uuid)
+                        )
+                      )
+                    )
+                """), {"org_id": org_id, "service_id": shipping_service_id, "route_id": route_id}).first()
+                if not offering:
+                    raise ValueError("shipping_service_not_found_for_route")
+            elif service["route_id"]:
+                route_id = str(service["route_id"])
+            else:
+                offerings = conn.execute(text("""
+                  select offering.route_id::text
+                  from service_route_offerings offering
+                  join shipping_routes offered_route
+                    on offered_route.id=offering.route_id and offered_route.org_id=offering.org_id
+                  where offering.org_id=:org_id and offering.service_id=cast(:service_id as uuid)
+                    and offering.effective_from<=now()
+                    and (offering.effective_until is null or offering.effective_until>now())
+                    and offering.availability in ('AVAILABLE','LIMITED','QUOTE_ONLY')
+                    and offered_route.active and offered_route.status in ('ACTIVE','LIMITED')
+                    and offered_route.archived_at is null
+                """), {"org_id": org_id, "service_id": shipping_service_id}).fetchall()
+                if len(offerings) != 1:
+                    raise ValueError("shipping_service_not_found_for_route")
+                route_id = str(offerings[0][0])
         if route_id and route is None:
             route = conn.execute(text("""
               select id::text, destination_org_id, origin_location_id::text,
@@ -1121,7 +1171,7 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
                      destination_country, destination_city, transport_mode
               from shipping_routes
               where org_id=:org_id and id=cast(:route_id as uuid)
-                and archived_at is null and active
+                and archived_at is null and active and status in ('ACTIVE','LIMITED')
             """), {"org_id": org_id, "route_id": route_id}).mappings().first()
             if not route:
                 raise ValueError("route_not_found")

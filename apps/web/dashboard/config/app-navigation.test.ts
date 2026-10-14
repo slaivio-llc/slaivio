@@ -29,8 +29,6 @@ describe("product navigation", () => {
     const organization = getAppNavigation(PRODUCT_PROFILES.CARGO_OS).find((group) => group.label === "Organisation");
     expect(organization?.routes.map((route) => route.href)).toEqual([
       "/app/settings",
-      "/app/services",
-      "/app/routes",
     ]);
     expect(getAppNavigation(PRODUCT_PROFILES.CARGO_OS).find((group) => group.label === "Opérations")?.routes.some((route) => route.href === "/app/routes")).toBe(false);
   });
@@ -41,8 +39,6 @@ describe("product navigation", () => {
     expect(routes.map((route) => route.href)).toEqual([
       "/app/clients",
       "/app/settings",
-      "/app/services",
-      "/app/routes",
       "/app/operations",
       "/app/packages",
       "/app/shipments",
@@ -60,15 +56,15 @@ describe("product navigation", () => {
     expect(operations?.routes.some((route) => route.href === "/app/services")).toBe(false);
   });
 
-  it("keeps organization, services, and routes visible in the compact parcel agency navigation", () => {
+  it("keeps agency configuration in the compact parcel agency navigation", () => {
     const routes = getCompactPrimaryRoutes(
       getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT).flatMap((group) => group.routes),
       PRODUCT_PROFILES.PARCEL_FREIGHT,
     );
 
     expect(routes.map((route) => route.href)).toContain("/app/settings");
-    expect(routes.map((route) => route.href)).toContain("/app/services");
-    expect(routes.map((route) => route.href)).toContain("/app/routes");
+    expect(routes.map((route) => route.href)).not.toContain("/app/services");
+    expect(routes.map((route) => route.href)).not.toContain("/app/routes");
   });
 
   it("distinguishes warehouse operations from office finance", () => {

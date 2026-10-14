@@ -24,6 +24,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
   const [catalogError, setCatalogError] = useState("");
   const [reload, setReload] = useState(0);
   const [serviceId, setServiceId] = useState("");
+  const [routeId, setRouteId] = useState("");
   const [query, setQuery] = useState("");
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [selectedClient, setSelectedClient] = useState<ClientRecord | null>(null);
@@ -40,7 +41,15 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
       if (!active) return;
       const available = result.routes.filter(route => route.active !== false);
       setRoutes(available);
-      setServices(result.services.filter(service => available.some(route => route.id === service.route_id)));
+      setServices(result.services.filter(service => {
+        if (service.active === false || !["ACTIVE", "LIMITED"].includes(service.status)) {
+          return false;
+        }
+        const routeIds = service.route_ids?.length
+          ? service.route_ids
+          : service.route_id ? [service.route_id] : [];
+        return routeIds.some(id => available.some(route => route.id === id));
+      }));
     }).catch(() => {
       if (active) setCatalogError("Impossible de charger les services et routes du bureau.");
     }).finally(() => { if (active) setLoading(false); });
@@ -61,8 +70,12 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
   }, [query, reload]);
 
   const service = services.find(item => item.id === serviceId);
-  // The current commercial model binds each service to one configured route.
-  const route = routes.find(item => item.id === service?.route_id);
+  const serviceRoutes = service
+    ? routes.filter(item => service.route_ids?.length
+      ? service.route_ids.includes(item.id)
+      : item.id === service.route_id)
+    : [];
+  const route = serviceRoutes.find(item => item.id === routeId);
   const choices = selectedClient
     ? [selectedClient, ...clients.filter(item => item.id !== selectedClient.id)] : clients;
   const canSubmit = Boolean(selectedClient && service && route && !loading && !catalogError && !saving);
@@ -102,18 +115,29 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
       <fieldset disabled={saving || loading} className="grid gap-3">
         <legend className="mb-3 text-sm font-semibold">Transport</legend>
         {catalogError && <p role="alert" className="text-sm text-red-700">{catalogError} <button type="button" className="underline" onClick={() => setReload(value => value + 1)}>Réessayer</button></p>}
-        {!loading && !catalogError && !services.length && <p className="text-sm text-[#68727d]">Configurez un service et sa route dans Routes et Services avant de recevoir un colis.</p>}
+          {!loading && !catalogError && !services.length && <p className="text-sm text-[#68727d]">Configurez un service actif et associez-le à une route dans Paramètres → Services et Routes avant de recevoir un colis.</p>}
         <label className="grid gap-1.5 text-sm">Service utilisé
-          <select name="shipping_service_id" required className={field} value={serviceId} onChange={event => setServiceId(event.target.value)}>
-            <option value="">{loading ? "Chargement…" : "Sélectionner un service"}</option>
-            {services.map(item => <option key={item.id} value={item.id}>{item.service_name} · {routes.find(candidate => candidate.id === item.route_id)?.route_name}</option>)}
+            <select name="shipping_service_id" required className={field} value={serviceId} onChange={event => {
+              const selected = services.find(item => item.id === event.target.value);
+              const routeIds = selected?.route_ids?.length
+                ? selected.route_ids
+                : selected?.route_id ? [selected.route_id] : [];
+              setServiceId(event.target.value);
+              setRouteId(routeIds.find(id => routes.some(item => item.id === id)) || "");
+            }}>
+              <option value="">{loading ? "Chargement…" : "Sélectionner un service"}</option>
+              {services.map(item => {
+                const ids = item.route_ids?.length ? item.route_ids : item.route_id ? [item.route_id] : [];
+                const names = ids.map(id => routes.find(candidate => candidate.id === id)?.route_name).filter(Boolean);
+                return <option key={item.id} value={item.id}>{item.service_name} · {names[0]}{names.length > 1 ? ` +${names.length - 1}` : ""}</option>;
+              })}
           </select>
         </label>
         <label className="grid gap-1.5 text-sm">Route
-          <select name="route_id" required className={field} value={route?.id || ""} disabled={!route} onChange={() => undefined}>
-            {!route && <option value="">Choisissez d’abord le service</option>}
-            {route && <option value={route.id}>{route.route_name} · {route.origin_city || route.origin_country} → {route.destination_city || route.destination_country}</option>}
-          </select>
+            <select name="route_id" required className={field} value={route?.id || ""} disabled={!serviceRoutes.length} onChange={event => setRouteId(event.target.value)}>
+              {!serviceRoutes.length && <option value="">Choisissez d’abord le service</option>}
+              {serviceRoutes.map(item => <option key={item.id} value={item.id}>{item.route_name} · {item.origin_city || item.origin_country} → {item.destination_city || item.destination_country}</option>)}
+            </select>
         </label>
       </fieldset>
       <fieldset disabled={saving} className="grid gap-3 sm:grid-cols-2">

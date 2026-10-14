@@ -37,7 +37,7 @@ def test_unknown_weight_stays_unknown_and_context_cannot_be_forged():
     assert original["status"] == "DELIVERED"
 
 
-def setup_repository(monkeypatch, *, client=True, route=True, service_route="route"):
+def setup_repository(monkeypatch, *, client=True, route=True, service_route="route", canonical_offering=False):
     conn, engine = MagicMock(), MagicMock()
     engine.begin.return_value.__enter__.return_value = conn
     statements = []
@@ -52,12 +52,21 @@ def setup_repository(monkeypatch, *, client=True, route=True, service_route="rou
         elif "from clients" in sql:
             assert params["org_id"] == "office"
             result.mappings.return_value.first.return_value = {"id": "client"} if client else None
+        elif "from service_route_offerings offering" in sql:
+            if "select offering.route_id::text" in sql:
+                result.fetchall.return_value = [("route",)] if canonical_offering else []
+            else:
+                result.first.return_value = {
+                    "id": 1,
+                } if canonical_offering or service_route == "route" else None
         elif "from shipping_routes" in sql:
             assert params["org_id"] == "office"
             result.mappings.return_value.first.return_value = {"id": "route", "destination_country": "CD", "transport_mode": "AIR"} if route else None
         elif "from shipping_services" in sql:
             assert params["org_id"] == "office"
-            result.mappings.return_value.first.return_value = {"id": "service", "route_id": service_route, "shipping_mode": "AIR"}
+            result.mappings.return_value.first.return_value = {
+                "id": "service", "route_id": service_route, "shipping_mode": "AIR",
+            }
         elif "next_organization_reference" in sql:
             result.scalar_one.return_value = "COL-0001"
         elif "insert into cargo_packages" in sql:
@@ -100,3 +109,9 @@ def test_repository_receives_with_generated_identity_and_null_measurement(monkey
     assert result["queued_notification_id"] == "notification"
     repository._insert_package_event.assert_called_once()
     repository._queue_customer_status_notification.assert_called_once()
+
+
+def test_repository_accepts_canonical_many_to_many_service_route(monkeypatch):
+    statements = setup_repository(monkeypatch, service_route=None, canonical_offering=True)
+    repository.create_package("office", "agent", receipt())
+    assert any("from service_route_offerings offering" in sql for sql, _ in statements)

@@ -91,9 +91,7 @@ export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
     icon: Building2,
     collapsible: true,
     routes: [
-      { label: "Bureaux et agence", href: "/app/settings", icon: Building2, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "implantation", "pays"] },
-      { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "transport", "air", "mer", "express"] },
-      { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "trajet", "destination", "origine"] },
+      { label: "Paramètres de l’agence", href: "/app/settings", icon: Settings, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "implantation", "pays", "service", "route", "trajet"] },
     ],
   },
   {
@@ -142,9 +140,7 @@ export const cargoOsNavigation: readonly AppNavigationGroup[] = [
     label: "Organisation",
     icon: Building2,
     routes: [
-      { label: "Bureaux et agence", href: "/app/settings", icon: Building2, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "implantation", "pays"] },
-      { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "air", "mer", "express", "transport"] },
-      { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "réseau", "corridor", "destination"] },
+      { label: "Paramètres de l’agence", href: "/app/settings", icon: Settings, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "implantation", "pays", "service", "route", "trajet"] },
     ],
   },
   {
@@ -206,8 +202,6 @@ export function getCompactPrimaryRoutes(
     ? new Set([
         "/app/clients",
         "/app/settings",
-        "/app/services",
-        "/app/routes",
         "/app/operations",
         "/app/communication",
         "/app/finance",

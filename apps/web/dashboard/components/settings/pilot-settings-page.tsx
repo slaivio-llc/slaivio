@@ -32,10 +32,13 @@ import {
 } from "@/services/organization-admin";
 import { getNotificationPreferences, saveNotificationPreference, type NotificationPreference } from "@/services/notification-center";
 import { getOrganizationNetwork, grantNetworkOffices, inviteNetworkMember, listNetworkInvitations, setupOrganizationNetwork, type NetworkInvitation, type OrganizationNetwork } from "@/services/organization-network";
+import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
 
 const sections = [
   ["company", "Entreprise"],
   ["network", "Réseau et équipe"],
+  ["services", "Services"],
+  ["routes", "Routes"],
   ["identifiers", "Identifiants"],
   ["channels", "Canaux"],
   ["ai", "IA"],
@@ -57,7 +60,9 @@ export function PilotSettingsPage() {
   const [notice, setNotice] = useState("");
   const parcelFreight = data?.organization.organization_type === "PARCEL_FREIGHT";
   const visibleSections = useMemo(
-    () => sections.filter(([key]) => parcelFreight || key !== "network"),
+    () => sections.filter(([key]) =>
+      parcelFreight || !["network", "services", "routes"].includes(key),
+    ),
     [parcelFreight],
   );
 
@@ -129,6 +134,8 @@ export function PilotSettingsPage() {
           {error && <div data-ui="settings-notice" className="mb-5 rounded-[8px] border border-[#efd0cc] bg-[#fff6f5] px-4 py-3 text-[13px] text-[#9d352d]">{error}</div>}
           {section === "company" && <CompanySettings data={data} run={run}/>} 
           {section === "network" && <ParcelNetworkSettings data={data} run={run}/>}
+          {section === "services" && parcelFreight && <OrganizationTransportSettings section="services"/>}
+          {section === "routes" && parcelFreight && <OrganizationTransportSettings section="routes"/>}
           {section === "identifiers" && <IdentifierSettings data={data} run={run}/>} 
           {section === "channels" && <CommunicationSettings data={data} run={run}/>}
           {section === "ai" && <AISettings data={data} run={run}/>}

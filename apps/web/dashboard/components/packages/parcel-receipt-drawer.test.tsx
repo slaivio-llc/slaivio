@@ -52,6 +52,34 @@ describe("Réception d’un colis fret", () => {
     expect(data.has("status")).toBe(false);
   });
 
+  it("affiche un service actif sans route et explique pourquoi la réception reste bloquée", async () => {
+    vi.mocked(receiptCatalog).mockResolvedValueOnce({
+      routes: [],
+      services: [{
+        id: "unassigned",
+        route_id: null,
+        route_ids: [],
+        service_code: "EXPRESS",
+        service_name: "Fret express",
+        shipping_mode: "AIR",
+        service_type: "TRANSPORT",
+        currency_code: "USD",
+        eta_min_days: 1,
+        eta_max_days: 3,
+        pricing_count: 0,
+        active: true,
+        status: "ACTIVE",
+      }],
+    } as Awaited<ReturnType<typeof receiptCatalog>>);
+    renderForm();
+
+    expect(await screen.findByRole("option", { name: /Fret express · Aucune route active associée/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Service utilisé"), { target: { value: "unassigned" } });
+    expect(screen.getByLabelText("Route")).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("aucune route active ne lui est associée");
+    expect(screen.getByRole("button", { name: "Enregistrer le colis" })).toBeDisabled();
+  });
+
   it("préserve le brouillon et sélectionne le client créé sans rouvrir le formulaire", async () => {
     renderForm();
     await selectClientAndService();

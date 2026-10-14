@@ -41,15 +41,9 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
       if (!active) return;
       const available = result.routes.filter(route => route.active !== false);
       setRoutes(available);
-      setServices(result.services.filter(service => {
-        if (service.active === false || !["ACTIVE", "LIMITED"].includes(service.status)) {
-          return false;
-        }
-        const routeIds = service.route_ids?.length
-          ? service.route_ids
-          : service.route_id ? [service.route_id] : [];
-        return routeIds.some(id => available.some(route => route.id === id));
-      }));
+      setServices(result.services.filter(service =>
+        service.active !== false && ["ACTIVE", "LIMITED"].includes(service.status),
+      ));
     }).catch(() => {
       if (active) setCatalogError("Impossible de charger les services et routes du bureau.");
     }).finally(() => { if (active) setLoading(false); });
@@ -115,7 +109,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
       <fieldset disabled={saving || loading} className="grid gap-3">
         <legend className="mb-3 text-sm font-semibold">Transport</legend>
         {catalogError && <p role="alert" className="text-sm text-red-700">{catalogError} <button type="button" className="underline" onClick={() => setReload(value => value + 1)}>Réessayer</button></p>}
-          {!loading && !catalogError && !services.length && <p className="text-sm text-[#68727d]">Configurez un service actif et associez-le à une route dans Paramètres → Services et Routes avant de recevoir un colis.</p>}
+          {!loading && !catalogError && !services.length && <p className="text-sm text-[#68727d]">Aucun service actif n’est configuré pour cette agence.</p>}
         <label className="grid gap-1.5 text-sm">Service utilisé
             <select name="shipping_service_id" required className={field} value={serviceId} onChange={event => {
               const selected = services.find(item => item.id === event.target.value);
@@ -129,16 +123,17 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
               {services.map(item => {
                 const ids = item.route_ids?.length ? item.route_ids : item.route_id ? [item.route_id] : [];
                 const names = ids.map(id => routes.find(candidate => candidate.id === id)?.route_name).filter(Boolean);
-                return <option key={item.id} value={item.id}>{item.service_name} · {names[0]}{names.length > 1 ? ` +${names.length - 1}` : ""}</option>;
+                return <option key={item.id} value={item.id}>{item.service_name}{names.length ? ` · ${names[0]}${names.length > 1 ? ` +${names.length - 1}` : ""}` : " · Aucune route active associée"}</option>;
               })}
           </select>
         </label>
         <label className="grid gap-1.5 text-sm">Route
             <select name="route_id" required className={field} value={route?.id || ""} disabled={!serviceRoutes.length} onChange={event => setRouteId(event.target.value)}>
-              {!serviceRoutes.length && <option value="">Choisissez d’abord le service</option>}
+              {!serviceRoutes.length && <option value="">{service ? "Aucune route active associée à ce service" : "Choisissez d’abord le service"}</option>}
               {serviceRoutes.map(item => <option key={item.id} value={item.id}>{item.route_name} · {item.origin_city || item.origin_country} → {item.destination_city || item.destination_country}</option>)}
             </select>
         </label>
+        {service && !serviceRoutes.length && <p role="status" className="text-xs text-amber-800">Ce service est actif, mais aucune route active ne lui est associée. Ajoutez-le à une route dans Paramètres → Routes avant de recevoir un colis.</p>}
       </fieldset>
       <fieldset disabled={saving} className="grid gap-3 sm:grid-cols-2">
         <legend className="mb-3 text-sm font-semibold">Colis</legend>

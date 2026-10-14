@@ -204,10 +204,17 @@ export function getCompactPrimaryRoutes(
         "/app/operations",
         "/app/communication",
         "/app/finance",
+        "/app/pricing",
       ])
     : new Set(["/app/dossiers", "/app/inbox", "/app/followups", "/app/knowledge"]);
 
-  return routes.filter((route) => visibleHrefs.has(route.href));
+  return routes
+    .filter((route) => visibleHrefs.has(route.href))
+    .map((route) =>
+      profile === PRODUCT_PROFILES.PARCEL_FREIGHT && route.href === "/app/pricing"
+        ? { ...route, label: "Offre commerciale" }
+        : route,
+    );
 }
 
 export const appNavigation = getAppNavigation();

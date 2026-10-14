@@ -65,6 +65,7 @@ describe("product navigation", () => {
     expect(routes.map((route) => route.href)).not.toContain("/app/settings");
     expect(routes.map((route) => route.href)).not.toContain("/app/services");
     expect(routes.map((route) => route.href)).not.toContain("/app/routes");
+    expect(routes.find((route) => route.href === "/app/pricing")?.label).toBe("Offre commerciale");
   });
 
   it("distinguishes warehouse operations from office finance", () => {

@@ -20,7 +20,6 @@ import {
   archiveWorkspace,
   getAdmin,
   inviteMember,
-  listAgencyWhatsappNumbers,
   requestDataOperation,
   revokeInvitation,
   saveIntegration,
@@ -29,11 +28,12 @@ import {
   saveRole,
   saveWorkspace,
   updateMember,
+  updateMemberOfficeAccess,
+  updateLocationStatus,
   updateOrganization,
   updateSettings,
   type AdminData,
   type Member,
-  type AgencyWhatsappNumber,
 } from "@/services/organization-admin";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -55,7 +55,7 @@ const tabs = [
   ["general", "Général", Languages],
   ["agency", "Agence", Building2],
   ["workspaces", "Workspaces", Building2],
-  ["locations", "Bureaux & établissements", MapPin],
+  ["locations", "Implantations", MapPin],
   ["team", "Utilisateurs & équipe", Users],
   ["roles", "Rôles & permissions", KeyRound],
   ["notifications", "Notifications", Bell],
@@ -70,7 +70,7 @@ const sectionTitles: Record<Section, [string, string]> = {
   general: ["Général", "Préférences régionales et unités du workspace actif."],
   agency: ["Agence", "Identité légale, coordonnées et image de marque de l’agence."],
   workspaces: ["Workspaces", "Espaces opérationnels, responsables et périmètres de travail."],
-  locations: ["Bureaux & établissements", "Sites physiques utilisés par vos équipes et vos clients."],
+  locations: ["Implantations de votre agence", "Bureaux physiques organisés au sein de la même organisation."],
   team: ["Utilisateurs & équipe", "Invitations, affectations et accès des collaborateurs."],
   roles: ["Rôles & permissions", "Responsabilités et droits accordés à chaque rôle."],
   notifications: ["Notifications", "Événements importants et canaux utilisés pour prévenir l’équipe."],
@@ -489,7 +489,7 @@ function Team({
       >
         <div className="divide-y">
           {data.members.map((m) => (
-            <MemberRow key={m.id} member={m} roles={data.roles} run={run} />
+            <MemberRow key={m.id} member={m} roles={data.roles} locations={data.locations} run={run} />
           ))}
         </div>
       </Card>
@@ -536,14 +536,21 @@ function Team({
 function MemberRow({
   member,
   roles,
+  locations,
   run,
 }: {
   member: Member;
   roles: AdminData["roles"];
+  locations: AdminData["locations"];
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
   const [role, setRole] = useState(member.role_code),
-    [status, setStatus] = useState(member.status);
+    [status, setStatus] = useState(member.status),
+    [officeScope, setOfficeScope] = useState(member.office_access_scope || "ALL_OFFICES"),
+    [officeIds, setOfficeIds] = useState(member.office_ids || []);
+  const offices = locations.filter((location) =>
+    location.location_type === "OFFICE" && location.status === "ACTIVE",
+  );
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13px]">
       <div>
@@ -598,6 +605,58 @@ function MemberRow({
           </button>
         </div>
       </PermissionGuard>
+      {member.role_code !== "OWNER" && (
+        <PermissionGuard permission="locations.access.manage">
+          <div className="basis-full rounded-[6px] border border-[#e2e5e7] bg-[#fafbfb] p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-[12px] font-medium">Bureaux autorisés</label>
+              <select
+                className={`${input} max-w-[240px]`}
+                value={officeScope}
+                onChange={(event) => setOfficeScope(event.target.value as "ALL_OFFICES" | "SELECTED_OFFICES")}
+              >
+                <option value="ALL_OFFICES">Tous les bureaux</option>
+                <option value="SELECTED_OFFICES">Bureaux sélectionnés</option>
+              </select>
+              <button
+                className={button}
+                onClick={() => run(
+                  () => updateMemberOfficeAccess(member.id, {
+                    office_access_scope: officeScope,
+                    office_ids: officeScope === "SELECTED_OFFICES" ? officeIds : [],
+                    expected_version: member.row_version,
+                  }),
+                  "Bureaux autorisés mis à jour.",
+                )}
+              >
+                Enregistrer les accès
+              </button>
+            </div>
+            {officeScope === "SELECTED_OFFICES" && (
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                {offices.map((office) => {
+                  const id = String(office.id);
+                  return (
+                    <label key={id} className="flex items-center gap-2 text-[12px]">
+                      <input
+                        type="checkbox"
+                        checked={officeIds.includes(id)}
+                        onChange={(event) => setOfficeIds((current) =>
+                          event.target.checked
+                            ? [...new Set([...current, id])]
+                            : current.filter((item) => item !== id),
+                        )}
+                      />
+                      {String(office.name)} · {String(office.city)}
+                    </label>
+                  );
+                })}
+                {!offices.length && <span className="text-[12px] text-[#69707d]">Aucun bureau actif n’est configuré.</span>}
+              </div>
+            )}
+          </div>
+        </PermissionGuard>
+      )}
     </div>
   );
 }
@@ -948,90 +1007,95 @@ function Locations({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
-  const [whatsappNumbers, setWhatsappNumbers] = useState<AgencyWhatsappNumber[]>([]);
-  useEffect(() => {
-    listAgencyWhatsappNumbers().then(setWhatsappNumbers).catch(() => setWhatsappNumbers([]));
-  }, []);
+  const offices = data.locations.filter((location) => location.location_type === "OFFICE");
+  const officesByCountry = offices.reduce<Record<string, typeof offices>>((groups, office) => {
+    const country = String(office.country);
+    groups[country] = [...(groups[country] || []), office];
+    return groups;
+  }, {});
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     run(
       () =>
         saveLocation({
-          workspace_id: val(f, "workspace"),
           name: val(f, "name"),
-          code: val(f, "code"),
-          location_type: val(f, "type"),
+          location_type: "OFFICE",
           country: val(f, "country"),
           city: val(f, "city"),
           address: val(f, "address"),
           phone: val(f, "phone"),
-          whatsapp: val(f, "whatsapp"),
-          email: val(f, "email"),
-          manager_name: val(f, "manager"),
-          timezone: val(f, "timezone") || "UTC",
           opening_hours: { text: val(f, "hours") },
-          services: String(f.get("services") || "")
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean),
+          timezone: "UTC",
+          services: [],
         }),
-      "Établissement enregistré.",
+      "Bureau enregistré.",
     );
   }
   return (
     <div className="grid gap-4">
       <Card
-        title="Ajouter un établissement"
-        description="Bureau, entrepôt, hub ou point de retrait."
+        title="Ajouter un bureau"
+        description="Renseignez les informations de votre implantation."
       >
-        <form onSubmit={submit} className="grid gap-2 md:grid-cols-3">
-          <input
-            required
-            name="name"
-            className={input}
-            placeholder="Bureau Kinshasa"
-          />
-          <input required name="code" className={input} placeholder="KIN-01" />
-          <select required name="type" className={input}>
-            <option value="OFFICE">Bureau</option>
-            <option value="WAREHOUSE">Entrepôt</option>
-            <option value="HUB">Hub</option>
-            <option value="PICKUP_POINT">Point de retrait</option>
-          </select>
-          <select name="workspace" className={input}>
-            <option value="">Organisation entière</option>
-            {data.workspaces.map((x) => (
-              <option key={String(x.id)} value={String(x.id)}>
-                {String(x.name)}
-              </option>
-            ))}
-          </select>
-          <FormGeographyFields required className={`${input} mt-1`} fieldClassName="grid gap-1 text-[13px]" />
-          <label>Adresse complète<input name="address" className={`${input} mt-1`} placeholder="Rue, numéro et repère utile" /></label>
-          <label>Téléphone de l’établissement<input name="phone" className={`${input} mt-1`} placeholder="Numéro d’appel" /></label>
-          <label>Numéro WhatsApp Business<select name="whatsapp" className={`${input} mt-1`}><option value="">Aucun numéro affecté</option>{whatsappNumbers.map((number)=><option key={number.id} value={number.display_phone_number || number.id}>{number.display_phone_number || "Numéro Meta"}{number.verified_name ? ` · ${number.verified_name}` : ""}</option>)}</select><small className="mt-1 block text-[11px] text-[#74808c]">Seuls les numéros connectés au portefeuille Business apparaissent ici.</small></label>
-          <label>Email professionnel<input name="email" type="email" className={`${input} mt-1`} placeholder="bureau@agence.com" /></label>
-          <label>Responsable<input name="manager" className={`${input} mt-1`} placeholder="Nom du responsable" /></label>
-          <label>Fuseau horaire<select name="timezone" className={`${input} mt-1`} defaultValue="UTC"><option value="Africa/Kinshasa">Kinshasa</option><option value="Africa/Douala">Douala</option><option value="Africa/Abidjan">Abidjan</option><option value="Europe/Brussels">Bruxelles</option><option value="Europe/Paris">Paris</option><option value="Asia/Shanghai">Shanghai</option><option value="Asia/Dubai">Dubaï</option><option value="UTC">Temps universel (UTC)</option></select></label>
-          <label>Horaires d’ouverture<input name="hours" className={`${input} mt-1`} placeholder="Lun–Sam, 08:00–17:00" /></label>
-          <label>Services disponibles<input name="services" className={`${input} mt-1`} placeholder="Séparez les services par une virgule" /></label>
+        <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-1 text-[13px] font-medium text-[#555d68]">
+            Nom du bureau *
+            <input required minLength={2} maxLength={120} name="name" className={input} placeholder="Bureau de Bobo-Dioulasso" />
+          </label>
+          <FormGeographyFields required className={input} fieldClassName="grid gap-1 text-[13px] text-[#555d68]" />
+          <div className="md:col-span-2">
+            <p className="mb-2 text-[12px] font-medium text-[#69707d]">Informations complémentaires · facultatif</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-1 text-[13px] font-medium text-[#555d68]">Adresse du bureau<input name="address" maxLength={300} className={input} placeholder="Rue, numéro et repère utile" /></label>
+              <label className="grid gap-1 text-[13px] font-medium text-[#555d68]">Téléphone du bureau<input name="phone" type="tel" maxLength={30} className={input} placeholder="+226 ..." /></label>
+              <label className="grid gap-1 text-[13px] font-medium text-[#555d68] md:col-span-2">Horaires d’ouverture<input name="hours" maxLength={300} className={input} placeholder="Lun–Sam, 08:00–17:00" /></label>
+            </div>
+          </div>
           <button className={primary}>Enregistrer</button>
         </form>
       </Card>
       <Card
-        title="Établissements"
-        description="Structure physique de l’agence."
+        title="Bureaux de l’agence"
+        description="Les bureaux inactifs restent conservés pour préserver l’historique."
       >
-        {data.locations.map((x) => (
-          <div key={String(x.id)} className="border-b py-3 text-[13px]">
-            <b>{String(x.name)}</b>
-            <p className="text-[#69707d]">
-              {String(x.location_type)} · {String(x.city)}, {String(x.country)}{" "}
-              · {String(x.status)}
-            </p>
-          </div>
+        {Object.entries(officesByCountry).sort(([left], [right]) => left.localeCompare(right)).map(([country, items]) => (
+          <section key={country} className="border-b py-2 last:border-b-0">
+            <h3 className="flex items-center justify-between py-2 text-[13px] font-semibold text-[#303a43]">
+              {country}<span className="text-[11px] font-normal text-[#74808c]">{items.length} bureau{items.length > 1 ? "x" : ""}</span>
+            </h3>
+            {items.map((x) => (
+              <div key={String(x.id)} className="flex items-center justify-between gap-4 border-t py-3 text-[13px]">
+                <div className="min-w-0">
+                  <b>{String(x.name)}</b>
+                  <p className="text-[#69707d]">
+                    {String(x.city)}
+                    {x.address ? ` · ${String(x.address)}` : ""}
+                    {x.phone ? ` · ${String(x.phone)}` : ""}
+                  </p>
+                  <span className={x.status === "ACTIVE" ? "text-emerald-700" : "text-slate-500"}>
+                    {x.status === "ACTIVE" ? "Actif" : "Inactif"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={button}
+                  onClick={() => run(
+                    () => updateLocationStatus(
+                      String(x.id),
+                      x.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+                      Number(x.row_version),
+                    ),
+                    x.status === "ACTIVE" ? "Bureau désactivé." : "Bureau réactivé.",
+                  )}
+                >
+                  {x.status === "ACTIVE" ? "Désactiver" : "Réactiver"}
+                </button>
+              </div>
+            ))}
+          </section>
         ))}
+        {!offices.length && <p className="py-3 text-[13px] text-[#69707d]">Aucun bureau configuré.</p>}
       </Card>
     </div>
   );

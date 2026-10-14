@@ -19,8 +19,21 @@ def settings_for(org_id):
 def update_settings(org_id,actor,payload):
  with engine.begin() as c:return dict(c.execute(text("""insert into pickup_settings(org_id,grace_days,daily_storage_fee,currency,otp_ttl_minutes,max_otp_attempts,require_payment,require_identity,require_signature,updated_by) values(:o,:grace_days,:daily_storage_fee,:currency,:otp_ttl_minutes,:max_otp_attempts,:require_payment,:require_identity,:require_signature,:u) on conflict(org_id) do update set grace_days=excluded.grace_days,daily_storage_fee=excluded.daily_storage_fee,currency=excluded.currency,otp_ttl_minutes=excluded.otp_ttl_minutes,max_otp_attempts=excluded.max_otp_attempts,require_payment=excluded.require_payment,require_identity=excluded.require_identity,require_signature=excluded.require_signature,updated_by=excluded.updated_by,updated_at=now() returning *"""),{"o":org_id,"u":actor,**payload}).mappings().one())
 
-def queue(org_id,q=None,status=None,page=1,page_size=50):
+def _office_filter(office_ids,alias="p"):
+ if office_ids is None:return "",{}
+ return """ and exists(select 1 from agency_offices operational_office
+  join organization_locations office on office.id=operational_office.organization_location_id
+   and office.org_id=operational_office.org_id
+  where operational_office.id="""+alias+""".office_id
+   and operational_office.org_id=:o
+   and office.id=any(cast(:office_ids as uuid[])))""",{"office_ids":office_ids}
+
+def queue(org_id,q=None,status=None,page=1,page_size=50,office_ids=None):
  filters=["p.org_id=:o"];params={"o":org_id,"limit":page_size,"offset":(page-1)*page_size}
+ if office_ids is not None:
+  office_filter,office_params=_office_filter(office_ids)
+  filters.append(office_filter.removeprefix(" and "))
+  params.update(office_params)
  if status:filters.append("p.status=:s");params["s"]=status
  if q:filters.append("(p.pickup_reference ilike :q or coalesce(p.recipient_name,'') ilike :q or coalesce(p.recipient_phone,'') ilike :q or exists(select 1 from pickup_order_items i join cargo_packages cp on cp.id=i.package_id where i.pickup_id=p.id and (cp.package_reference ilike :q or coalesce(cp.tracking_id,'') ilike :q)))");params["q"]=f"%{q}%"
  where=' and '.join(filters)
@@ -32,18 +45,58 @@ def queue(org_id,q=None,status=None,page=1,page_size=50):
    from pickup_orders p left join clients c on c.id=p.client_id and c.org_id=p.org_id where {where} order by case p.status when 'CHECKED_IN' then 1 when 'VERIFIED' then 2 when 'READY' then 3 else 4 end,p.ready_at limit :limit offset :offset"""),params))
   return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":(total+page_size-1)//page_size}}
 
-def eligible_packages(org_id,q=None):
+def eligible_packages(org_id,q=None,office_ids=None):
  params={"o":org_id,"q":f"%{q or ''}%"}
- with engine.connect() as c:return _rows(c.execute(text("""select p.id::text,p.package_reference,p.tracking_id,p.client_id::text,p.status,p.payment_status,p.fees_total,p.fees_paid,p.currency,p.received_at,
+ office_filter=""
+ if office_ids is not None:
+  office_filter=""" and exists(select 1 from organization_locations office
+   where office.org_id=:o and office.location_type='OFFICE'
+    and office.id=any(cast(:office_ids as uuid[]))
+    and office.id in (p.origin_location_id,p.destination_location_id))"""
+  params["office_ids"]=office_ids
+ query=text("""select p.id::text,p.package_reference,p.tracking_id,p.client_id::text,p.status,p.payment_status,p.fees_total,p.fees_paid,p.currency,p.received_at,
   coalesce(to_jsonb(c)->>'display_name',c.name,to_jsonb(c)->>'company_name',c.phone,c.email,'Client sans nom') client_name,c.phone client_phone
   from cargo_packages p left join clients c on c.id=p.client_id and c.org_id=p.org_id
   where p.org_id=:o and p.deleted_at is null and p.status='READY_FOR_PICKUP' and p.inventory_status<>'RELEASED'
   and (:q='%%' or p.package_reference ilike :q or coalesce(p.tracking_id,'') ilike :q or c.phone ilike :q or coalesce(c.name,'') ilike :q)
-  and not exists(select 1 from pickup_order_items i where i.org_id=:o and i.package_id=p.id and i.released_at is null) order by p.received_at limit 200"""),params))
+  and not exists(select 1 from pickup_order_items i where i.org_id=:o and i.package_id=p.id and i.released_at is null)""" + office_filter + " order by p.received_at limit 200")
+ with engine.connect() as c:return _rows(c.execute(query,params))
+
+def pickup_matches_office_scope(org_id,pickup_id,office_ids):
+ from uuid import UUID
+ try:UUID(pickup_id)
+ except ValueError:return False
+ if not office_ids:return False
+ with engine.connect() as c:return bool(c.execute(text("""select exists(
+  select 1 from pickup_orders p
+   join agency_offices operational_office on operational_office.id=p.office_id
+    and operational_office.org_id=p.org_id
+   join organization_locations office on office.id=operational_office.organization_location_id
+    and office.org_id=operational_office.org_id
+  where p.id=cast(:id as uuid) and p.org_id=:o
+   and office.id=any(cast(:office_ids as uuid[])))"""),
+  {"id":pickup_id,"o":org_id,"office_ids":office_ids}).scalar_one())
+
+def resolve_office_reference(org_id,office_reference):
+ from uuid import UUID
+ try:UUID(office_reference)
+ except (ValueError,TypeError):return None
+ with engine.connect() as c:
+  row=c.execute(text("""select id::text operational_office_id,
+    organization_location_id::text location_id
+   from agency_offices where org_id=:o and is_active
+    and (id=cast(:id as uuid) or organization_location_id=cast(:id as uuid))
+   limit 1"""),{"o":org_id,"id":office_reference}).mappings().first()
+  return dict(row) if row else None
 
 def create(org_id,actor,actor_name,payload):
  ids=payload.pop("package_ids");reference=_ref();pickup_id=str(uuid4());cfg=settings_for(org_id)
  with engine.begin() as c:
+  if payload.get("office_id") and not c.execute(text("""select 1 from agency_offices
+   where id=cast(:id as uuid) and org_id=:o and is_active
+    and organization_location_id is not null"""),
+   {"id":payload["office_id"],"o":org_id}).first():
+   raise HTTPException(422,"pickup_office_not_found")
   rows=_rows(c.execute(text("""select p.*,coalesce(c.name,to_jsonb(c)->>'display_name',c.phone,c.email) client_name,c.phone client_phone from cargo_packages p left join clients c on c.id=p.client_id and c.org_id=p.org_id where p.org_id=:o and p.id=any(cast(:ids as uuid[])) and p.status='READY_FOR_PICKUP' and p.deleted_at is null for update of p"""),{"o":org_id,"ids":ids}))
   if len(rows)!=len(set(ids)):raise HTTPException(422,"packages_not_eligible_for_pickup")
   clients={str(r["client_id"]) for r in rows};
@@ -138,9 +191,10 @@ def get_proof(org_id,pickup_id,proof_id):
  with engine.connect() as c:
   row=c.execute(text("select id::text,object_path,file_name,mime_type from pickup_proofs where id=:id and pickup_id=:p and org_id=:o and object_path is not null"),{"id":proof_id,"p":pickup_id,"o":org_id}).mappings().first();return dict(row) if row else None
 
-def reminders(org_id,actor,actor_name,min_days=3):
+def reminders(org_id,actor,actor_name,min_days=3,office_ids=None):
+ office_filter,office_params=_office_filter(office_ids)
  with engine.begin() as c:
-  orders=_rows(c.execute(text("""select * from pickup_orders p where org_id=:o and status in ('READY','NOTIFIED') and ready_at<now()-(:days||' days')::interval and (last_reminded_at is null or last_reminded_at<now()-interval '24 hours') for update"""),{"o":org_id,"days":min_days}))
+  orders=_rows(c.execute(text("""select p.* from pickup_orders p where p.org_id=:o and p.status in ('READY','NOTIFIED') and p.ready_at<now()-(:days||' days')::interval and (p.last_reminded_at is null or p.last_reminded_at<now()-interval '24 hours')"""+office_filter+" for update"),{"o":org_id,"days":min_days,**office_params}))
   queued=0
   for order in orders:
    message=f"Rappel : vos colis du retrait {order['pickup_reference']} sont disponibles. Frais de garde actuels : {order['storage_fee']} {order['currency']}."
@@ -149,8 +203,10 @@ def reminders(org_id,actor,actor_name,min_days=3):
    c.execute(text("update pickup_orders set last_reminded_at=now(),reminder_count=reminder_count+1,updated_at=now() where id=:p"),{"p":order["id"]});_event(c,org_id,order["id"],"REMINDER_QUEUED",actor,actor_name)
   return {"pickups":len(orders),"notifications":queued}
 
-def analytics(org_id):
- with engine.connect() as c:return {"summary":dict(c.execute(text("""select count(*)::int total,count(*) filter(where status='RELEASED')::int released,count(*) filter(where status='REFUSED')::int refused,coalesce(avg(extract(epoch from (released_at-ready_at))/3600) filter(where released_at is not null),0)::float average_wait_hours,coalesce(avg(extract(epoch from (released_at-checked_in_at))/60) filter(where released_at is not null and checked_in_at is not null),0)::float average_counter_minutes,coalesce(sum(storage_fee) filter(where status='RELEASED'),0)::float storage_fees_collected from pickup_orders where org_id=:o"""),{"o":org_id}).mappings().one()),"daily":_rows(c.execute(text("select released_at::date day,count(*)::int count from pickup_orders where org_id=:o and status='RELEASED' and released_at>=current_date-30 group by 1 order by 1"),{"o":org_id})),"operators":_rows(c.execute(text("select coalesce(assigned_name,'Non assigné') label,count(*) filter(where status='RELEASED')::int released,round(coalesce(avg(extract(epoch from (released_at-checked_in_at))/60) filter(where released_at is not null),0))::int average_minutes from pickup_orders where org_id=:o group by 1 order by released desc"),{"o":org_id}))}
+def analytics(org_id,office_ids=None):
+ office_filter,office_params=_office_filter(office_ids)
+ params={"o":org_id,**office_params}
+ with engine.connect() as c:return {"summary":dict(c.execute(text("""select count(*)::int total,count(*) filter(where status='RELEASED')::int released,count(*) filter(where status='REFUSED')::int refused,coalesce(avg(extract(epoch from (released_at-ready_at))/3600) filter(where released_at is not null),0)::float average_wait_hours,coalesce(avg(extract(epoch from (released_at-checked_in_at))/60) filter(where released_at is not null and checked_in_at is not null),0)::float average_counter_minutes,coalesce(sum(storage_fee) filter(where status='RELEASED'),0)::float storage_fees_collected from pickup_orders p where p.org_id=:o""" + office_filter),params).mappings().one()),"daily":_rows(c.execute(text("select p.released_at::date day,count(*)::int count from pickup_orders p where p.org_id=:o and p.status='RELEASED' and p.released_at>=current_date-30"+office_filter+" group by 1 order by 1"),params)),"operators":_rows(c.execute(text("select coalesce(p.assigned_name,'Non assigné') label,count(*) filter(where p.status='RELEASED')::int released,round(coalesce(avg(extract(epoch from (p.released_at-p.checked_in_at))/60) filter(where p.released_at is not null),0))::int average_minutes from pickup_orders p where p.org_id=:o"+office_filter+" group by 1 order by released desc"),params))}
 
 def receipt_html(org_id,pickup_id):
  data=detail(org_id,pickup_id)
@@ -158,8 +214,12 @@ def receipt_html(org_id,pickup_id):
  rows=''.join(f"<tr><td>{html.escape(str(p['package_reference']))}</td><td>{html.escape(str(p.get('tracking_id') or '—'))}</td><td>{float(p.get('weight_kg') or 0):.2f} kg</td></tr>" for p in data["packages"])
  return f"""<!doctype html><html lang='fr'><head><meta charset='utf-8'><title>Reçu {html.escape(str(data.get('receipt_number') or data['pickup_reference']))}</title><style>body{{font:14px Arial;color:#202124;max-width:760px;margin:40px auto}}header{{display:flex;justify-content:space-between;border-bottom:2px solid #222;padding-bottom:16px}}table{{width:100%;border-collapse:collapse;margin:24px 0}}th,td{{padding:10px;border-bottom:1px solid #ddd;text-align:left}}.totals{{margin-left:auto;width:320px}}@media print{{button{{display:none}}}}</style></head><body><button onclick='print()'>Imprimer / Enregistrer en PDF</button><header><div><h1>Slaivio</h1><p>Reçu de remise de colis</p></div><div><b>{html.escape(str(data.get('receipt_number') or ''))}</b><p>{html.escape(str(data['pickup_reference']))}</p></div></header><h2>{html.escape(str(data.get('recipient_name') or 'Client'))}</h2><p>Téléphone : {html.escape(str(data.get('recipient_phone') or '—'))}<br>Remis le : {html.escape(str(data.get('released_at') or '—'))}</p><table><thead><tr><th>Colis</th><th>Tracking</th><th>Poids</th></tr></thead><tbody>{rows}</tbody></table><div class='totals'><p>Frais de garde : <b>{data['storage_fee']} {html.escape(data['currency'])}</b></p><p>Total requis : <b>{data['required_amount']} {html.escape(data['currency'])}</b></p><p>Montant payé : <b>{data['paid_amount']} {html.escape(data['currency'])}</b></p></div><p>Signature : {html.escape(str(data['proofs'][0]['signed_by'] if data['proofs'] else '—'))}</p></body></html>"""
 
-def stats(org_id):
- with engine.connect() as c:return dict(c.execute(text("""select count(*) filter(where status in ('READY','NOTIFIED'))::int waiting,count(*) filter(where status='CHECKED_IN')::int at_counter,count(*) filter(where status='VERIFIED')::int verified,count(*) filter(where status='RELEASED' and released_at::date=current_date)::int released_today,count(*) filter(where status not in ('RELEASED','CANCELLED') and ready_at<now()-interval '7 days')::int overdue,coalesce(sum(storage_fee) filter(where status not in ('RELEASED','CANCELLED')),0)::float storage_fees_due,coalesce(avg(extract(epoch from (released_at-checked_in_at))/60) filter(where status='RELEASED'),0)::float average_counter_minutes from pickup_orders where org_id=:o"""),{"o":org_id}).mappings().one())
-def export(org_id):
- with engine.connect() as c:rows=_rows(c.execute(text("select pickup_reference,status,recipient_name,recipient_phone,payment_status,required_amount,paid_amount,storage_fee,currency,ready_at,released_at from pickup_orders where org_id=:o order by created_at desc"),{"o":org_id}))
+def stats(org_id,office_ids=None):
+ office_filter,office_params=_office_filter(office_ids)
+ params={"o":org_id,**office_params}
+ with engine.connect() as c:return dict(c.execute(text("""select count(*) filter(where p.status in ('READY','NOTIFIED'))::int waiting,count(*) filter(where p.status='CHECKED_IN')::int at_counter,count(*) filter(where p.status='VERIFIED')::int verified,count(*) filter(where p.status='RELEASED' and p.released_at::date=current_date)::int released_today,count(*) filter(where p.status not in ('RELEASED','CANCELLED') and p.ready_at<now()-interval '7 days')::int overdue,coalesce(sum(p.storage_fee) filter(where p.status not in ('RELEASED','CANCELLED')),0)::float storage_fees_due,coalesce(avg(extract(epoch from (p.released_at-p.checked_in_at))/60) filter(where p.status='RELEASED'),0)::float average_counter_minutes from pickup_orders p where p.org_id=:o""" + office_filter),params).mappings().one())
+def export(org_id,office_ids=None):
+ office_filter,office_params=_office_filter(office_ids)
+ params={"o":org_id,**office_params}
+ with engine.connect() as c:rows=_rows(c.execute(text("select p.pickup_reference,p.status,p.recipient_name,p.recipient_phone,p.payment_status,p.required_amount,p.paid_amount,p.storage_fee,p.currency,p.ready_at,p.released_at from pickup_orders p where p.org_id=:o"+office_filter+" order by p.created_at desc"),params))
  out=io.StringIO();w=csv.DictWriter(out,fieldnames=list(rows[0]) if rows else ["pickup_reference","status"]);w.writeheader();w.writerows(rows);return out.getvalue()

@@ -11,6 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.responses import Response, StreamingResponse
 
 from app.core.tenant_context import get_current_tenant
+from app.core.office_context import (
+    get_current_office_context,
+    office_scope_ids,
+    require_package_office_scope,
+    validate_office_assignment,
+)
 from app.core.permissions import require_permission
 from app.core.config import settings
 from app.services.dossier_document_storage import create_document_download_url, upload_private_document
@@ -67,7 +73,7 @@ class ParcelVersionPayload(BaseModel):
     expected_version: int = Field(ge=1)
 
 
-@router.patch("/packages/register/{package_id}", dependencies=[Depends(require_permission("packages.update"))])
+@router.patch("/packages/register/{package_id}", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_register_edit(package_id: UUID, body: ParcelEditPayload, tenant=Depends(get_current_tenant)):
     from app.packages.operations import edit_parcel
     data = body.model_dump(exclude_unset=True)
@@ -75,25 +81,29 @@ def packages_register_edit(package_id: UUID, body: ParcelEditPayload, tenant=Dep
     return edit_parcel(tenant["org_id"], str(package_id), _user_id(tenant), body.expected_version, body.reason, changes)
 
 
-@router.post("/packages/register/{package_id}/ready", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/register/{package_id}/ready", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_register_ready(package_id: UUID, body: ParcelVersionPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
     from app.packages.operations import mark_ready
     result = mark_ready(tenant["org_id"], str(package_id), _user_id(tenant), body.expected_version)
     return _dispatch_queued_status(background_tasks, tenant["org_id"], result)
 
 
-@router.get("/packages/register", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/register", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_register(q: str = Query("", max_length=120),
                       stage: Literal["received", "shipped", "arrived", "ready", "delivered", "other"] | None = None,
                       start: date | None = None, end: date | None = None,
-                      page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
+                      page: int = Query(1, ge=1), tenant=Depends(get_current_tenant),
+                      context=Depends(get_current_office_context)):
     from app.packages.register import parcel_register
     if start and end and start > end:
         raise HTTPException(422, "invalid_date_range")
-    return parcel_register(tenant["org_id"], q=q, stage=stage, start=start, end=end, page=page)
+    return parcel_register(
+        tenant["org_id"], q=q, stage=stage, start=start, end=end, page=page,
+        office_ids=office_scope_ids(context),
+    )
 
 
-@router.get("/packages/register/{package_id}", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/register/{package_id}", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_register_overview(package_id: UUID, tenant=Depends(get_current_tenant)):
     from app.packages.register import parcel_overview
     result = parcel_overview(tenant["org_id"], str(package_id))
@@ -102,7 +112,7 @@ def packages_register_overview(package_id: UUID, tenant=Depends(get_current_tena
     return result
 
 
-@router.get("/packages/register/{package_id}/history", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/register/{package_id}/history", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_register_history(package_id: UUID, page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
     from app.packages.register import parcel_history, parcel_overview
     if not parcel_overview(tenant["org_id"], str(package_id)):
@@ -110,7 +120,7 @@ def packages_register_history(package_id: UUID, page: int = Query(1, ge=1), tena
     return parcel_history(tenant["org_id"], str(package_id), page)
 
 
-@router.get("/packages/register/{package_id}/photos", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/register/{package_id}/photos", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_register_photos(package_id: UUID, page: int = Query(1, ge=1), tenant=Depends(get_current_tenant)):
     from app.packages.register import parcel_photos, parcel_overview
     if not parcel_overview(tenant["org_id"], str(package_id)):
@@ -366,7 +376,12 @@ def _validate_query_value(value: str | None, allowed: set[str], detail: str):
         raise HTTPException(status_code=422, detail=detail)
 
 
-@router.get("/packages", dependencies=[Depends(require_permission("packages.read"))])
+def _require_unscoped_office_access(context: dict) -> None:
+    if office_scope_ids(context) is not None:
+        raise HTTPException(status_code=403, detail="office_scoped_access_not_supported")
+
+
+@router.get("/packages", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_index(
     q: str | None = Query(default=None, max_length=120),
     status_filter: str | None = Query(default=None, alias="status"),
@@ -387,6 +402,7 @@ def packages_index(
     page_size: int = Query(default=30, ge=1, le=100),
     sort: str = "updated_desc",
     tenant=Depends(get_current_tenant),
+    context=Depends(get_current_office_context),
 ):
     _validate_query_value(status_filter, PACKAGE_STATUSES, "invalid_status")
     _validate_query_value(condition, PACKAGE_CONDITIONS, "invalid_package_condition")
@@ -415,13 +431,14 @@ def packages_index(
         page=page,
         page_size=page_size,
         sort=sort,
+        office_ids=office_scope_ids(context),
     )
     return {"status": "ok", "count": len(response["items"]), "packages": response["items"], **response}
 
 
-@router.get("/packages/stats", dependencies=[Depends(require_permission("packages.read"))])
-def packages_stats(tenant=Depends(get_current_tenant)):
-    return {"status": "ok", "stats": package_stats(tenant["org_id"])}
+@router.get("/packages/stats", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
+def packages_stats(tenant=Depends(get_current_tenant), context=Depends(get_current_office_context)):
+    return {"status": "ok", "stats": package_stats(tenant["org_id"], office_scope_ids(context))}
 
 
 @router.get("/public/packages/tracking/{reference}")
@@ -431,36 +448,49 @@ def packages_public_tracking(reference: str):
         raise HTTPException(status_code=404, detail="tracking_not_found")
     return {"status": "ok", "tracking": package}
 
-@router.get("/packages/analytics", dependencies=[Depends(require_permission("packages.read"))])
-def packages_analytics(tenant=Depends(get_current_tenant)):
-    return {"status":"ok","analytics":package_analytics(tenant["org_id"])}
+@router.get("/packages/analytics", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
+def packages_analytics(tenant=Depends(get_current_tenant), context=Depends(get_current_office_context)):
+    return {"status":"ok","analytics":package_analytics(tenant["org_id"], office_scope_ids(context))}
 
-@router.get("/packages/expected",dependencies=[Depends(require_permission("packages.read"))])
-def packages_expected(status:str|None=None,tenant=Depends(get_current_tenant)):return {"status":"ok","items":expectations(tenant["org_id"],status)}
-@router.post("/packages/expected",dependencies=[Depends(require_permission("packages.create"))])
-def packages_expected_create(body:PackageExpectationPayload,tenant=Depends(get_current_tenant)):return {"status":"ok","expectation":create_expectation(tenant["org_id"],_user_id(tenant),body.model_dump())}
-@router.post("/packages/alerts/detect",dependencies=[Depends(require_permission("packages.anomalies"))])
-def packages_alert_detect(tenant=Depends(get_current_tenant)):return {"status":"ok","created":detect_package_alerts(tenant["org_id"])}
-@router.get("/packages/alerts",dependencies=[Depends(require_permission("packages.read"))])
-def packages_alerts(status:str|None=None,tenant=Depends(get_current_tenant)):return {"status":"ok","items":package_alerts(tenant["org_id"],status)}
-@router.patch("/packages/alerts/{alert_id}",dependencies=[Depends(require_permission("packages.anomalies"))])
-def packages_alert_resolve(alert_id:str,body:PackageAlertResolvePayload,tenant=Depends(get_current_tenant)):return {"status":"ok","alert":resolve_package_alert(tenant["org_id"],alert_id,_user_id(tenant),body.resolution)}
-@router.get("/packages/views",dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/expected",dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
+def packages_expected(status:str|None=None,tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    _require_unscoped_office_access(context)
+    return {"status":"ok","items":expectations(tenant["org_id"],status)}
+@router.post("/packages/expected",dependencies=[Depends(require_permission("packages.create")), Depends(require_package_office_scope)])
+def packages_expected_create(body:PackageExpectationPayload,tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    _require_unscoped_office_access(context)
+    return {"status":"ok","expectation":create_expectation(tenant["org_id"],_user_id(tenant),body.model_dump())}
+@router.post("/packages/alerts/detect",dependencies=[Depends(require_permission("packages.anomalies")), Depends(require_package_office_scope)])
+def packages_alert_detect(tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    return {"status":"ok","created":detect_package_alerts(tenant["org_id"],office_scope_ids(context))}
+@router.get("/packages/alerts",dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
+def packages_alerts(status:str|None=None,tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    return {"status":"ok","items":package_alerts(tenant["org_id"],status,office_scope_ids(context))}
+@router.patch("/packages/alerts/{alert_id}",dependencies=[Depends(require_permission("packages.anomalies")), Depends(require_package_office_scope)])
+def packages_alert_resolve(alert_id:str,body:PackageAlertResolvePayload,tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    return {"status":"ok","alert":resolve_package_alert(tenant["org_id"],alert_id,_user_id(tenant),body.resolution,office_scope_ids(context))}
+@router.get("/packages/views",dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_views(tenant=Depends(get_current_tenant)):return {"status":"ok","items":package_saved_views(tenant["org_id"],_user_id(tenant))}
-@router.post("/packages/views",dependencies=[Depends(require_permission("packages.read"))])
+@router.post("/packages/views",dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_view_save(body:PackageSavedViewPayload,tenant=Depends(get_current_tenant)):return {"status":"ok","view":save_package_view(tenant["org_id"],_user_id(tenant),body.name,body.filters)}
-@router.delete("/packages/views/{view_id}",dependencies=[Depends(require_permission("packages.read"))])
+@router.delete("/packages/views/{view_id}",dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_view_delete(view_id:str,tenant=Depends(get_current_tenant)):return {"status":"ok","deleted":delete_package_view(tenant["org_id"],_user_id(tenant),view_id)}
-@router.post("/packages/bulk",dependencies=[Depends(require_permission("packages.bulk"))])
-def packages_bulk(body:PackageBulkPayload,tenant=Depends(get_current_tenant)):return {"status":"ok","operation":bulk_package_operation(tenant["org_id"],_user_id(tenant),body.idempotency_key,body.operation_type,body.package_ids,body.payload)}
+@router.post("/packages/bulk",dependencies=[Depends(require_permission("packages.bulk")), Depends(require_package_office_scope)])
+def packages_bulk(body:PackageBulkPayload,tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    office_ids=office_scope_ids(context)
+    if office_ids is not None:
+        from app.packages.repository import packages_matching_office_scope
+        if set(body.package_ids) != packages_matching_office_scope(tenant["org_id"], body.package_ids, office_ids):
+            raise HTTPException(status_code=404,detail="package_not_found")
+    return {"status":"ok","operation":bulk_package_operation(tenant["org_id"],_user_id(tenant),body.idempotency_key,body.operation_type,body.package_ids,body.payload)}
 
-@router.get("/packages/archived", dependencies=[Depends(require_permission("packages.archive"))])
-def packages_archived(q:str|None=Query(default=None,max_length=120),page:int=Query(default=1,ge=1),page_size:int=Query(default=30,ge=1,le=100),tenant=Depends(get_current_tenant)):
-    response=list_packages(tenant["org_id"],q=q,page=page,page_size=page_size,archived=True)
+@router.get("/packages/archived", dependencies=[Depends(require_permission("packages.archive")), Depends(require_package_office_scope)])
+def packages_archived(q:str|None=Query(default=None,max_length=120),page:int=Query(default=1,ge=1),page_size:int=Query(default=30,ge=1,le=100),tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    response=list_packages(tenant["org_id"],q=q,page=page,page_size=page_size,archived=True,office_ids=office_scope_ids(context))
     return {"status":"ok","count":len(response["items"]),"packages":response["items"],**response}
 
 
-@router.get("/packages/export", dependencies=[Depends(require_permission("packages.export"))])
+@router.get("/packages/export", dependencies=[Depends(require_permission("packages.export")), Depends(require_package_office_scope)])
 def packages_export(
     q: str | None = Query(default=None, max_length=120),
     status_filter: str | None = Query(default=None, alias="status"),
@@ -473,6 +503,7 @@ def packages_export(
     source: str | None = None,
     sort: str = "updated_desc",
     tenant=Depends(get_current_tenant),
+    context=Depends(get_current_office_context),
 ):
     rows = export_packages(
         tenant["org_id"],
@@ -486,6 +517,7 @@ def packages_export(
         package_type=package_type,
         source=source,
         sort=sort,
+        office_ids=office_scope_ids(context),
     )
     output = io.StringIO()
     fieldnames = [
@@ -536,8 +568,10 @@ def packages_export(
     )
 
 
-@router.post("/packages/import", dependencies=[Depends(require_permission("packages.import"))])
-async def packages_import(file: UploadFile = File(...), tenant=Depends(get_current_tenant)):
+@router.post("/packages/import", dependencies=[Depends(require_permission("packages.import")), Depends(require_package_office_scope)])
+async def packages_import(file: UploadFile = File(...), tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    if office_scope_ids(context) is not None:
+        raise HTTPException(status_code=403,detail="office_context_required_for_package_import")
     content = await file.read(10_485_761)
     if not content or len(content)>10_485_760: raise HTTPException(status_code=413,detail="import_file_too_large")
     suffix=Path(file.filename or "").suffix.lower()
@@ -556,8 +590,9 @@ async def packages_import(file: UploadFile = File(...), tenant=Depends(get_curre
     return {"status": "ok", "result": import_packages(tenant["org_id"], _user_id(tenant), text)}
 
 
-@router.post("/packages", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("packages.create"))])
-def packages_create(body: PackagePayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
+@router.post("/packages", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("packages.create")), Depends(require_package_office_scope)])
+def packages_create(body: PackagePayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    validate_office_assignment(context, body.origin_location_id, body.destination_location_id)
     try:
         package = create_package(tenant["org_id"], _user_id(tenant), body.model_dump())
     except ValueError as exc:
@@ -582,7 +617,7 @@ def packages_create(body: PackagePayload, background_tasks: BackgroundTasks, ten
     return {"status": "ok", "package": _dispatch_queued_status(background_tasks, tenant["org_id"], package)}
 
 
-@router.get("/packages/{package_id}", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/{package_id}", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_show(package_id: str, tenant=Depends(get_current_tenant)):
     package = get_package(tenant["org_id"], package_id)
     if not package:
@@ -590,7 +625,7 @@ def packages_show(package_id: str, tenant=Depends(get_current_tenant)):
     return {"status": "ok", "package": package, "data": package}
 
 
-@router.get("/packages/{package_id}/timeline", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/{package_id}/timeline", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_timeline(package_id: str, tenant=Depends(get_current_tenant)):
     package = get_package(tenant["org_id"], package_id)
     if not package:
@@ -598,7 +633,7 @@ def packages_timeline(package_id: str, tenant=Depends(get_current_tenant)):
     return {"status": "ok", "items": package_timeline(tenant["org_id"], package_id)}
 
 
-@router.patch("/packages/{package_id}", dependencies=[Depends(require_permission("packages.update"))])
+@router.patch("/packages/{package_id}", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_update(package_id: str, body: PackagePatchPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
     package = update_package(
         tenant["org_id"],
@@ -611,7 +646,7 @@ def packages_update(package_id: str, body: PackagePatchPayload, background_tasks
     return {"status": "ok", "package": _dispatch_queued_status(background_tasks, tenant["org_id"], package)}
 
 
-@router.post("/packages/{package_id}/media", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/media", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_media_create(package_id: str, body: PackageMediaPayload, tenant=Depends(get_current_tenant)):
     package = add_package_media(tenant["org_id"], package_id, _user_id(tenant), body.model_dump())
     if not package:
@@ -619,7 +654,7 @@ def packages_media_create(package_id: str, body: PackageMediaPayload, tenant=Dep
     return {"status": "ok", "package": package}
 
 
-@router.post("/packages/{package_id}/anomalies", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/anomalies", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_anomaly_create(package_id: str, body: PackageAnomalyPayload, tenant=Depends(get_current_tenant)):
     package = create_package_anomaly(tenant["org_id"], package_id, _user_id(tenant), body.model_dump())
     if not package:
@@ -627,7 +662,7 @@ def packages_anomaly_create(package_id: str, body: PackageAnomalyPayload, tenant
     return {"status": "ok", "package": package}
 
 
-@router.patch("/packages/{package_id}/anomalies/{anomaly_id}/resolve", dependencies=[Depends(require_permission("packages.update"))])
+@router.patch("/packages/{package_id}/anomalies/{anomaly_id}/resolve", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_anomaly_resolve(package_id: str, anomaly_id: str, body: PackageAnomalyResolvePayload, tenant=Depends(get_current_tenant)):
     package = resolve_package_anomaly(tenant["org_id"], package_id, anomaly_id, _user_id(tenant), body.notes)
     if not package:
@@ -635,51 +670,51 @@ def packages_anomaly_resolve(package_id: str, anomaly_id: str, body: PackageAnom
     return {"status": "ok", "package": package}
 
 
-@router.post("/packages/{package_id}/notifications", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/notifications", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_notification_create(package_id: str, body: PackageNotificationPayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant)):
     package = create_package_notification(tenant["org_id"], package_id, _user_id(tenant), body.model_dump())
     if not package:
         raise HTTPException(status_code=404, detail="package_not_found")
     return {"status": "ok", "package": _dispatch_queued_status(background_tasks, tenant["org_id"], package)}
 
-@router.post("/packages/{package_id}/transition",dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/transition",dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_transition(package_id:str,body:PackageTransitionPayload,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant)):
     package=transition_package(tenant["org_id"],package_id,_user_id(tenant),body.new_status,body.expected_version,body.reason)
     return {"status":"ok","package":_dispatch_queued_status(background_tasks,tenant["org_id"],package)}
-@router.post("/packages/{package_id}/quality-control",dependencies=[Depends(require_permission("packages.quality"))])
+@router.post("/packages/{package_id}/quality-control",dependencies=[Depends(require_permission("packages.quality")), Depends(require_package_office_scope)])
 def packages_quality(package_id:str,body:PackageQualityPayload,tenant=Depends(get_current_tenant)):return {"status":"ok","package":quality_control(tenant["org_id"],package_id,_user_id(tenant),body.model_dump())}
-@router.post("/packages/{package_id}/pricing",dependencies=[Depends(require_permission("packages.pricing"))])
+@router.post("/packages/{package_id}/pricing",dependencies=[Depends(require_permission("packages.pricing")), Depends(require_package_office_scope)])
 def packages_pricing(package_id:str,body:PackagePricingPayload,tenant=Depends(get_current_tenant)):return {"status":"ok","package":price_package(tenant["org_id"],package_id,_user_id(tenant),body.service_id)}
-@router.get("/packages/{package_id}/compatible-departures",dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/{package_id}/compatible-departures",dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_compatible(package_id:str,tenant=Depends(get_current_tenant)):return {"status":"ok","items":compatible_departures(tenant["org_id"],package_id)}
-@router.post("/packages/{package_id}/delivery-proof",dependencies=[Depends(require_permission("packages.delivery"))])
+@router.post("/packages/{package_id}/delivery-proof",dependencies=[Depends(require_permission("packages.delivery")), Depends(require_package_office_scope)])
 def packages_delivery(package_id:str,body:PackageDeliveryPayload,tenant=Depends(get_current_tenant)):return {"status":"ok","package":delivery_proof(tenant["org_id"],package_id,_user_id(tenant),body.model_dump())}
 
-@router.post("/packages/{package_id}/move", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/move", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_move(package_id: str, body: PackageMovePayload, tenant=Depends(get_current_tenant)):
     package=move_package(tenant["org_id"],package_id,_user_id(tenant),body.model_dump())
     if not package: raise HTTPException(status_code=404,detail="package_not_found")
     return {"status":"ok","package":package}
 
-@router.post("/packages/{package_id}/weigh", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/weigh", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_weigh(package_id: str, body: PackageWeightPayload, tenant=Depends(get_current_tenant)):
     package=weigh_package(tenant["org_id"],package_id,_user_id(tenant),body.model_dump())
     if not package: raise HTTPException(status_code=404,detail="package_not_found")
     return {"status":"ok","package":package}
 
-@router.post("/packages/{package_id}/notes", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/notes", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_note(package_id: str, body: PackageNotePayload, tenant=Depends(get_current_tenant)):
     package=add_package_note(tenant["org_id"],package_id,_user_id(tenant),body.body)
     if not package: raise HTTPException(status_code=404,detail="package_not_found")
     return {"status":"ok","package":package}
 
-@router.patch("/packages/{package_id}/checklist/{item_id}", dependencies=[Depends(require_permission("packages.update"))])
+@router.patch("/packages/{package_id}/checklist/{item_id}", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_checklist(package_id: str,item_id: str,body: PackageChecklistPayload,tenant=Depends(get_current_tenant)):
     package=set_package_checklist(tenant["org_id"],package_id,item_id,_user_id(tenant),body.status)
     if not package: raise HTTPException(status_code=404,detail="package_or_checklist_not_found")
     return {"status":"ok","package":package}
 
-@router.post("/packages/{package_id}/documents", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/documents", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 async def packages_document_upload(package_id: str,file: UploadFile=File(...),document_type: str=Form(default="OTHER"),notes: str|None=Form(default=None),tenant=Depends(get_current_tenant)):
     if not get_package(tenant["org_id"],package_id): raise HTTPException(status_code=404,detail="package_not_found")
     if file.content_type not in {"application/pdf","image/jpeg","image/png","image/webp"}: raise HTTPException(status_code=415,detail="unsupported_document_type")
@@ -692,7 +727,7 @@ async def packages_document_upload(package_id: str,file: UploadFile=File(...),do
     document=create_package_document(tenant["org_id"],package_id,_user_id(tenant),{"document_type":document_type[:50].upper(),"file_name":safe_name,"object_path":object_path,"mime_type":file.content_type,"size_bytes":len(content),"checksum_sha256":hashlib.sha256(content).hexdigest(),"notes":notes[:500] if notes else None})
     return {"status":"ok","document":document}
 
-@router.get("/packages/{package_id}/documents/{document_id}/download", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/{package_id}/documents/{document_id}/download", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_document_download(package_id: str,document_id: str,tenant=Depends(get_current_tenant)):
     document=get_package_document(tenant["org_id"],package_id,document_id)
     if not document: raise HTTPException(status_code=404,detail="document_not_found")
@@ -700,18 +735,19 @@ def packages_document_download(package_id: str,document_id: str,tenant=Depends(g
     except RuntimeError as exc: raise HTTPException(status_code=503,detail=str(exc)) from exc
     return {"status":"ok","url":url,"expires_in":300}
 
-@router.delete("/packages/{package_id}", dependencies=[Depends(require_permission("packages.archive"))])
+@router.delete("/packages/{package_id}", dependencies=[Depends(require_permission("packages.archive")), Depends(require_package_office_scope)])
 def packages_archive(package_id: str,tenant=Depends(get_current_tenant)):
     if not archive_package(tenant["org_id"],package_id,_user_id(tenant)): raise HTTPException(status_code=404,detail="package_not_found")
     return {"status":"ok"}
 
-@router.post("/packages/{package_id}/restore", dependencies=[Depends(require_permission("packages.archive"))])
+@router.post("/packages/{package_id}/restore", dependencies=[Depends(require_permission("packages.archive")), Depends(require_package_office_scope)])
 def packages_restore(package_id: str,tenant=Depends(get_current_tenant)):
     if not archive_package(tenant["org_id"],package_id,_user_id(tenant),True): raise HTTPException(status_code=404,detail="package_not_found")
     return {"status":"ok"}
 
-@router.post("/packages/scan/ocr", dependencies=[Depends(require_permission("packages.create"))])
-async def packages_scan_ocr(file:UploadFile=File(...),language:str=Form("fr"),barcode_value:str|None=Form(None),tenant=Depends(get_current_tenant)):
+@router.post("/packages/scan/ocr", dependencies=[Depends(require_permission("packages.create")), Depends(require_package_office_scope)])
+async def packages_scan_ocr(file:UploadFile=File(...),language:str=Form("fr"),barcode_value:str|None=Form(None),tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+    _require_unscoped_office_access(context)
     if file.content_type not in {"image/jpeg","image/png","image/webp"}: raise HTTPException(status_code=415,detail="unsupported_ocr_image")
     if language.lower() not in {"fr","en"}: raise HTTPException(status_code=422,detail="unsupported_ocr_language")
     content=await file.read(8_388_609)
@@ -723,7 +759,7 @@ async def packages_scan_ocr(file:UploadFile=File(...),language:str=Form("fr"),ba
     except Exception as exc: raise HTTPException(status_code=502,detail="ocr_provider_failed") from exc
     return {"status":"ok","result":result,"requires_human_review":True}
 
-@router.post("/packages/{package_id}/media/upload", dependencies=[Depends(require_permission("packages.update"))])
+@router.post("/packages/{package_id}/media/upload", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 async def packages_media_upload(package_id:str,file:UploadFile=File(...),category:str=Form(default="RECEPTION"),caption:str|None=Form(default=None),tenant=Depends(get_current_tenant)):
     # Reject an unauthorized target before reading or writing any uploaded data.
     from app.packages.register import parcel_overview
@@ -746,7 +782,7 @@ async def packages_media_upload(package_id:str,file:UploadFile=File(...),categor
     if not package: raise HTTPException(status_code=404,detail="package_not_found")
     return {"status":"ok","package":package}
 
-@router.get("/packages/{package_id}/media/{media_id}/view", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/{package_id}/media/{media_id}/view", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_media_view(package_id:str,media_id:str,tenant=Depends(get_current_tenant)):
     media=get_package_media(tenant["org_id"],package_id,media_id)
     if not media: raise HTTPException(status_code=404,detail="media_not_found")
@@ -754,7 +790,7 @@ def packages_media_view(package_id:str,media_id:str,tenant=Depends(get_current_t
     except RuntimeError as exc: raise HTTPException(status_code=503,detail=str(exc)) from exc
     return {"status":"ok","url":url,"expires_in":300}
 
-@router.get("/packages/{package_id}/label/{kind}", dependencies=[Depends(require_permission("packages.read"))])
+@router.get("/packages/{package_id}/label/{kind}", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_label(package_id:str,kind:str,tenant=Depends(get_current_tenant)):
     package=get_package(tenant["org_id"],package_id)
     if not package: raise HTTPException(status_code=404,detail="package_not_found")

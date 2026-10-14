@@ -75,11 +75,14 @@ def reference_catalog(
             order by warehouse_name limit 250
         """, params)
         offices = _rows(conn, f"""
-            select id::text id,concat_ws(' — ',city,office_type) label,
-                   concat_ws(', ',address,country) secondary
-            from agency_offices where org_id=:org_id and is_active
-              and (:q='%%' or city ilike :q or country ilike :q or address ilike :q)
-            order by city limit 250
+            select office.id::text id,coalesce(location.name,concat_ws(' — ',office.city,office.office_type)) label,
+                   concat_ws(', ',office.address,office.country) secondary
+            from agency_offices office
+            left join organization_locations location
+              on location.id=office.organization_location_id and location.org_id=office.org_id
+            where office.org_id=:org_id and office.is_active
+              and (:q='%%' or office.city ilike :q or office.country ilike :q or office.address ilike :q)
+            order by office.city limit 250
         """, params)
         departures = _rows(conn, f"""
             select d.id::text id,d.departure_code label,

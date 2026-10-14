@@ -2,6 +2,7 @@ import re
 from typing import Any,Literal
 from fastapi import APIRouter,Depends,HTTPException
 from pydantic import BaseModel,Field,field_validator
+from uuid import UUID
 from app.core.auth import get_current_manager
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
@@ -15,11 +16,39 @@ class OrgUpdate(BaseModel):
     expected_version:int=Field(ge=1); organization_name:str|None=None;legal_name:str|None=None;country:str|None=None;city:str|None=None;address:str|None=None;phone:str|None=None;email:str|None=None;website:str|None=None;registration_number:str|None=None;tax_number:str|None=None;logo_url:str|None=None;organization_type:str|None=None;whatsapp:str|None=None;province:str|None=None;postal_code:str|None=None;registration_country:str|None=None;legal_address:str|None=None;logo_dark_url:str|None=None;primary_color:str|None=None;secondary_color:str|None=None;document_display_name:str|None=None;signature_url:str|None=None;stamp_url:str|None=None
 class SettingsUpdate(BaseModel):
     expected_version:int=Field(ge=1);timezone:str='UTC';currency_code:str='USD';country_code:str|None=None;language_code:str='fr';date_format:str='DD/MM/YYYY';weight_unit:str='kg';volume_unit:str='cbm';notification_email:str|None=None;settings:dict[str,Any]={};security:dict[str,Any]={};time_format:str='24H';week_starts_on:int=Field(default=1,ge=0,le=6);dimension_unit:str='cm';distance_unit:str='km';data_retention_days:int=Field(default=1095,ge=30,le=3650);privacy:dict[str,Any]={}
-class MemberUpdate(BaseModel): expected_version:int=Field(ge=1);role_code:str;status:str
+class MemberUpdate(BaseModel):
+    expected_version:int=Field(ge=1)
+    role_code:str
+    status:str
+class MemberOfficeAccessUpdate(BaseModel):
+    expected_version:int=Field(ge=1)
+    office_access_scope:Literal['ALL_OFFICES','SELECTED_OFFICES']
+    office_ids:list[UUID]=Field(default_factory=list,max_length=100)
+class OfficeContextUpdate(BaseModel):
+    selected_office_id:UUID|None=None
 class RoleSave(BaseModel): code:str=Field(pattern=r'^[A-Z][A-Z0-9_]{2,39}$');name:str=Field(min_length=2,max_length=80);description:str|None=None;permissions:list[str]
 class WorkspaceSave(BaseModel):name:str=Field(min_length=2,max_length=100);code:str=Field(pattern=r'^[A-Za-z0-9_-]{2,20}$');country_code:str|None=None;currency_code:str='USD';timezone:str='UTC';language_code:str='fr'
 class WorkspaceArchive(BaseModel):expected_version:int=Field(ge=1)
-class LocationSave(BaseModel):workspace_id:str|None=None;name:str=Field(min_length=2,max_length=120);code:str=Field(pattern=r'^[A-Za-z0-9_-]{2,30}$');location_type:str;country:str;city:str;address:str|None=None;phone:str|None=None;whatsapp:str|None=None;email:str|None=None;manager_name:str|None=None;opening_hours:dict[str,Any]={};timezone:str='UTC';services:list[str]=[]
+class LocationSave(BaseModel):
+    workspace_id:str|None=None
+    name:str=Field(min_length=2,max_length=120)
+    code:str|None=Field(default=None,pattern=r'^[A-Za-z0-9_-]{2,30}$')
+    location_type:Literal['OFFICE','WAREHOUSE','HUB','PICKUP_POINT']='OFFICE'
+    country:str=Field(min_length=2,max_length=80)
+    city:str=Field(min_length=2,max_length=100)
+    address:str|None=Field(default=None,max_length=300)
+    phone:str|None=Field(default=None,max_length=30)
+    whatsapp:str|None=None
+    email:str|None=None
+    manager_name:str|None=None
+    opening_hours:dict[str,Any]=Field(default_factory=dict)
+    timezone:str='UTC'
+    services:list[str]=Field(default_factory=list)
+
+
+class LocationStatusUpdate(BaseModel):
+    status:Literal['ACTIVE','INACTIVE']
+    expected_version:int=Field(ge=1)
 class IntegrationSave(BaseModel):provider:str=Field(pattern=r'^(WHATSAPP|GMAIL)$');account_label:str=Field(min_length=2,max_length=120);status:str=Field(pattern=r'^(DISCONNECTED|CONNECTING|CONNECTED|ERROR)$');granted_permissions:list[str]=[];configuration:dict[str,Any]={}
 class NumberingSave(BaseModel):
     prefix_format:str=Field(min_length=3,max_length=100)
@@ -116,6 +145,21 @@ def post_pilot_readiness_review(tenant=Depends(get_current_tenant),manager=Depen
 
 @router.get('',dependencies=[Depends(require_permission('organization.read'))])
 def get_admin(tenant=Depends(get_current_tenant)):return {'status':'ok',**repo.overview(tenant['org_id'])}
+@router.get('/office-context')
+def get_office_context(
+    selected_office_id:str|None=None,
+    tenant=Depends(get_current_tenant),
+):
+    return {'status':'ok',**repo.office_context(tenant['org_id'],tenant['user_id'],selected_office_id)}
+@router.post('/office-context')
+def post_office_context(
+    body:OfficeContextUpdate,
+    tenant=Depends(get_current_tenant),
+):
+    return {'status':'ok',**repo.office_context(
+        tenant['org_id'],tenant['user_id'],
+        str(body.selected_office_id) if body.selected_office_id else None,
+    )}
 @router.patch('',dependencies=[Depends(require_permission('organization.manage'))])
 def patch_org(body:OrgUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
     row=repo.update_org(tenant['org_id'],actor(manager),body.model_dump(exclude={'expected_version'}),body.expected_version)
@@ -129,9 +173,23 @@ def patch_settings(body:SettingsUpdate,tenant=Depends(get_current_tenant),manage
 @router.patch('/members/{member_id}',dependencies=[Depends(require_permission('team.manage'))])
 def patch_member(member_id:str,body:MemberUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
     if body.status not in {'ACTIVE','SUSPENDED'}:raise HTTPException(422,'invalid_member_status')
-    row=repo.update_member(tenant['org_id'],member_id,actor(manager),body.role_code,body.status,body.expected_version)
+    row=repo.update_member(
+        tenant['org_id'],member_id,actor(manager),body.role_code,body.status,
+        body.expected_version,
+    )
     if row=='last_owner':raise HTTPException(409,'organization_requires_an_active_owner')
     if row in {'missing','invalid_role'}:raise HTTPException(404,row)
+    if row=='conflict':raise HTTPException(409,'membership_was_modified')
+    return {'status':'ok','member':row}
+@router.patch('/members/{member_id}/offices',dependencies=[Depends(require_permission('locations.access.manage'))])
+def patch_member_offices(member_id:str,body:MemberOfficeAccessUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+    row=repo.update_member_office_access(
+        tenant['org_id'],member_id,actor(manager),body.office_access_scope,
+        [str(value) for value in body.office_ids],body.expected_version,
+    )
+    if row=='owner_requires_all_offices':raise HTTPException(422,row)
+    if row in {'invalid_office_assignment','invalid_office_access_scope'}:raise HTTPException(422,row)
+    if row=='missing':raise HTTPException(404,'membership_not_found')
     if row=='conflict':raise HTTPException(409,'membership_was_modified')
     return {'status':'ok','member':row}
 @router.post('/roles',dependencies=[Depends(require_permission('roles.manage'))])
@@ -151,6 +209,11 @@ def post_workspace_archive(item_id:str,body:WorkspaceArchive,tenant=Depends(get_
     return {'status':'ok','workspace':row}
 @router.post('/locations',dependencies=[Depends(require_permission('locations.manage'))])
 def post_location(body:LocationSave,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):return {'status':'ok','location':repo.save_location(tenant['org_id'],actor(manager),body.model_dump())}
+@router.patch('/locations/{item_id}/status',dependencies=[Depends(require_permission('locations.manage'))])
+def patch_location_status(item_id:str,body:LocationStatusUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+    row=repo.set_location_status(tenant['org_id'],actor(manager),item_id,body.status,body.expected_version)
+    if not row:raise HTTPException(409,'location_was_modified')
+    return {'status':'ok','location':row}
 @router.post('/integrations',dependencies=[Depends(require_permission('integrations.manage'))])
 def post_integration(body:IntegrationSave,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):return {'status':'ok','integration':repo.save_integration(tenant['org_id'],actor(manager),body.model_dump())}
 @router.patch('/numbering/{document_type}',dependencies=[Depends(require_permission('documents.settings'))])

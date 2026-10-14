@@ -119,13 +119,13 @@ def route_listing(o,q=None,status=None,mode=None,workspace=None,limit=100,offset
  if mode:clauses.append("r.transport_mode=:mode");p['mode']=mode
  if workspace:clauses.append("r.workspace_id=:workspace");p['workspace']=workspace
  where=' and '.join(clauses)
- sql=f"""select r.*,w.warehouse_name origin_warehouse_name,o2.city destination_office_city,
+ sql=f"""select r.*,w.warehouse_name origin_warehouse_name,o2.city destination_office_city,location.name destination_office_name,
  (select count(*) from shipping_services s where s.org_id=r.org_id and s.route_id=r.id and s.active)::int service_count,
  (select min(p.amount_minor) from pricing_components p join shipping_services s on s.id=p.shipping_service_id and s.org_id=p.org_id where s.route_id=r.id and p.active and p.effective_from<=now() and (p.effective_until is null or p.effective_until>now())) base_price_minor,
  (select min(p.currency_code) from pricing_components p join shipping_services s on s.id=p.shipping_service_id and s.org_id=p.org_id where s.route_id=r.id and p.active) currency_code,
  (select min(d.scheduled_at) from cargo_departures d join shipping_services s on s.id=d.shipping_service_id and s.org_id=d.org_id where s.route_id=r.id and d.org_id=r.org_id and d.scheduled_at>=now() and d.status not in('CANCELLED','COMPLETED','ARRIVED')) next_departure_at,
  coalesce(perf.shipments_count,0)::int shipments_count,coalesce(perf.weight_kg,0) weight_kg,coalesce(perf.cbm,0) cbm,perf.on_time_rate,perf.real_eta_days,perf.margin_percent
- from shipping_routes r left join warehouses w on w.id=r.origin_warehouse_id and w.org_id=r.org_id left join agency_offices o2 on o2.id=r.destination_office_id and o2.org_id=r.org_id
+ from shipping_routes r left join warehouses w on w.id=r.origin_warehouse_id and w.org_id=r.org_id left join agency_offices o2 on o2.id=r.destination_office_id and o2.org_id=r.org_id left join organization_locations location on location.id=o2.organization_location_id and location.org_id=o2.org_id
  left join lateral(select count(*) shipments_count,coalesce(sum(e.total_weight_kg),0) weight_kg,coalesce(sum(e.total_volume_cbm),0) cbm,round(100.0*count(*) filter(where e.delivered_at<=e.eta_at)/nullif(count(*) filter(where e.delivered_at is not null and e.eta_at is not null),0),1) on_time_rate,round(avg(extract(epoch from(e.arrived_at-e.departure_actual_at))/86400) filter(where e.arrived_at is not null and e.departure_actual_at is not null)::numeric,1) real_eta_days,round(100.0*sum(e.profit_total)/nullif(sum(e.billed_total),0),1) margin_percent from cargo_expeditions e where e.org_id=r.org_id and e.route_id=r.id and e.deleted_at is null) perf on true
  where {where} order by case r.status when 'ACTIVE' then 1 when 'LIMITED' then 2 when 'SUSPENDED' then 3 else 4 end,r.updated_at desc limit :limit offset :offset"""
  with engine.connect() as c:

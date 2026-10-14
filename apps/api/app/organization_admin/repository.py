@@ -1,7 +1,10 @@
 import json
 import hashlib
 import secrets
+from uuid import uuid4
+from fastapi import HTTPException
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from app.db.database import engine
 
 def _rows(result): return [dict(x._mapping) for x in result]
@@ -15,6 +18,11 @@ def overview(org_id):
         org=c.execute(text("select * from organizations where id=:o"),{"o":org_id}).mappings().first()
         settings=c.execute(text("select * from organization_settings where org_id=:o"),{"o":org_id}).mappings().first()
         members=_rows(c.execute(text("""select m.*,coalesce(r.role_name,m.role_code) role_name
+          ,coalesce((select array_agg(grant_row.location_id::text order by location.name)
+             from organization_membership_offices grant_row
+             join organization_locations location on location.id=grant_row.location_id
+               and location.org_id=grant_row.org_id
+             where grant_row.membership_id=m.id),'{}') office_ids
           from organization_memberships m left join organization_roles r on r.org_id=m.org_id and r.role_code=m.role_code
           where m.org_id=:o order by case m.status when 'ACTIVE' then 0 else 1 end,m.created_at"""),{"o":org_id}))
         invitations=_rows(c.execute(text("select * from organization_invitations where org_id=:o order by created_at desc"),{"o":org_id}))
@@ -67,6 +75,77 @@ def update_member(org_id,member_id,actor,role_code,status,version):
         if not row:return 'conflict'
         _audit(c,org_id,actor,'MEMBER_UPDATED','membership',member_id,dict(member),dict(row));return dict(row)
 
+def office_context(org_id,user_id,selected_office_id=None):
+    with engine.connect() as c:
+        membership=c.execute(text("""select id::text,role_code,office_access_scope
+          from organization_memberships
+          where org_id=:o and clerk_user_id=:u and status='ACTIVE'"""),
+          {"o":org_id,"u":user_id}).mappings().first()
+        if not membership:
+            raise HTTPException(403,'organization_membership_required')
+        locations=_rows(c.execute(text("""select location.id::text location_id,location.name,
+              location.country,location.city,location.address,location.phone,
+              location.opening_hours,location.status
+            from organization_locations location
+            where location.org_id=:o and location.location_type='OFFICE'
+              and location.status='ACTIVE'
+              and (:all_offices or exists(
+                select 1 from organization_membership_offices grant_row
+                where grant_row.org_id=:o and grant_row.membership_id=cast(:membership_id as uuid)
+                  and grant_row.location_id=location.id
+              ))
+            order by location.country,location.city,location.name"""),{
+                "o":org_id,"membership_id":membership["id"],
+                "all_offices":membership["office_access_scope"]=="ALL_OFFICES" or membership["role_code"]=="OWNER",
+            }))
+        allowed_ids=[office["location_id"] for office in locations]
+        if selected_office_id and selected_office_id not in allowed_ids:
+            raise HTTPException(403,'office_access_denied')
+        return {
+            "org_id":org_id,
+            "office_access_scope":"ALL_OFFICES" if membership["role_code"]=="OWNER" else membership["office_access_scope"],
+            "offices":locations,
+            "selected_office_id":selected_office_id,
+            "allowed_office_ids":allowed_ids,
+        }
+
+def update_member_office_access(org_id,member_id,actor,scope,office_ids,version):
+    if scope not in {'ALL_OFFICES','SELECTED_OFFICES'}:
+        return 'invalid_office_access_scope'
+    office_ids=list(dict.fromkeys(office_ids or []))
+    with engine.begin() as c:
+        member=c.execute(text("""select * from organization_memberships
+          where id=:i and org_id=:o for update"""),{"i":member_id,"o":org_id}).mappings().first()
+        if not member:return 'missing'
+        if member['role_code']=='OWNER' and scope!='ALL_OFFICES':
+            return 'owner_requires_all_offices'
+        if scope=='SELECTED_OFFICES':
+            valid_ids=c.execute(text("""select coalesce(array_agg(id::text order by id),'{}')
+              from organization_locations where org_id=:o and status='ACTIVE'
+                and location_type='OFFICE' and id=any(cast(:ids as uuid[]))"""),
+              {"o":org_id,"ids":office_ids}).scalar_one()
+            if not office_ids or len(valid_ids)!=len(office_ids):
+                return 'invalid_office_assignment'
+        updated=c.execute(text("""update organization_memberships
+          set office_access_scope=:scope,row_version=row_version+1,updated_at=now()
+          where id=:i and org_id=:o and row_version=:v returning *"""),
+          {"scope":scope,"i":member_id,"o":org_id,"v":version}).mappings().first()
+        if not updated:return 'conflict'
+        c.execute(text("""delete from organization_membership_offices
+          where org_id=:o and membership_id=:i"""),{"o":org_id,"i":member_id})
+        if scope=='SELECTED_OFFICES':
+            c.execute(text("""insert into organization_membership_offices(
+              org_id,membership_id,location_id,granted_by)
+              select :o,:i,location.id,:actor from organization_locations location
+              where location.org_id=:o and location.id=any(cast(:ids as uuid[]))
+                and location.location_type='OFFICE' and location.status='ACTIVE'"""),
+              {"o":org_id,"i":member_id,"actor":actor,"ids":office_ids})
+        result=dict(updated)
+        result['office_access_scope']=scope
+        result['office_ids']=office_ids if scope=='SELECTED_OFFICES' else []
+        _audit(c,org_id,actor,'MEMBER_OFFICES_UPDATED','membership',member_id,dict(member),result)
+        return result
+
 def save_role(org_id,actor,data):
     with engine.begin() as c:
         role=c.execute(text("""insert into organization_roles(org_id,role_code,role_name,description,system_role)
@@ -93,11 +172,73 @@ def archive_workspace(org_id,actor,item_id,version):
         if row:_audit(c,org_id,actor,'WORKSPACE_ARCHIVED','workspace',item_id,new=dict(row))
         return dict(row) if row else None
 def save_location(org_id,actor,data):
+    data=dict(data)
+    data['code']=data.get('code') or f"OFF-{uuid4().hex[:12].upper()}"
+    data['opening_hours']=json.dumps(data.get('opening_hours') or {})
+    for field in ('name','country','city'):
+        if data.get(field):
+            data[field]=data[field].strip()
+    try:
+        with engine.begin() as c:
+            conflict_action="""do update set workspace_id=excluded.workspace_id,name=excluded.name,
+              location_type=excluded.location_type,country=excluded.country,city=excluded.city,
+              address=excluded.address,phone=excluded.phone,whatsapp=excluded.whatsapp,
+              email=excluded.email,manager_name=excluded.manager_name,
+              opening_hours=excluded.opening_hours,timezone=excluded.timezone,
+              services=excluded.services,row_version=organization_locations.row_version+1,
+              updated_at=now()"""
+            if data.get('location_type')=='OFFICE':
+                existing_code=c.execute(text("""select 1 from organization_locations
+                  where org_id=:o and code=upper(:code) limit 1"""),
+                  {"o":org_id,"code":data['code']}).first()
+                if existing_code:
+                    raise HTTPException(409,'office_code_already_exists')
+                duplicate=c.execute(text("""select id from organization_locations
+                  where org_id=:o and location_type='OFFICE' and status='ACTIVE'
+                    and lower(btrim(name))=lower(:name) and lower(btrim(country))=lower(:country)
+                    and lower(btrim(city))=lower(:city)
+                    and code<>upper(:code)
+                  limit 1"""),{"o":org_id,"name":data['name'].strip(),"country":data['country'].strip(),
+                    "city":data['city'].strip(),"code":data['code']}).first()
+                if duplicate:
+                    raise HTTPException(409,'office_already_exists')
+                conflict_action="do nothing"
+            statement=f"""insert into organization_locations(org_id,workspace_id,name,code,location_type,country,city,address,phone,whatsapp,email,manager_name,opening_hours,timezone,services,status)
+              values(:o,cast(:workspace_id as uuid),:name,upper(:code),:location_type,:country,:city,:address,:phone,:whatsapp,:email,:manager_name,cast(:opening_hours as jsonb),:timezone,:services,'ACTIVE')
+              on conflict(org_id,code) {conflict_action} returning *"""
+            row=c.execute(text(statement),{"o":org_id,"opening_hours":data.pop('opening_hours', '{}'),**data}).mappings().first()
+            if not row:
+                raise HTTPException(409,'office_code_already_exists')
+            if data.get('location_type')=='OFFICE':
+                row=c.execute(text("""select * from organization_locations
+                  where org_id=:o and id=:id"""),{"o":org_id,"id":row['id']}).mappings().one()
+            _audit(c,org_id,actor,'LOCATION_SAVED','location',row['id'],new=dict(row));return dict(row)
+    except IntegrityError as error:
+        constraint=getattr(getattr(error.orig,'diag',None),'constraint_name',None)
+        if constraint=='uq_active_office_name_city_country':
+            raise HTTPException(409,'office_already_exists') from error
+        raise
+def set_location_status(org_id,actor,item_id,status,version):
     with engine.begin() as c:
-        row=c.execute(text("""insert into organization_locations(org_id,workspace_id,name,code,location_type,country,city,address,phone,whatsapp,email,manager_name,opening_hours,timezone,services,status)
-          values(:o,cast(:workspace_id as uuid),:name,upper(:code),:location_type,:country,:city,:address,:phone,:whatsapp,:email,:manager_name,cast(:opening_hours as jsonb),:timezone,:services,'ACTIVE')
-          on conflict(org_id,code) do update set workspace_id=excluded.workspace_id,name=excluded.name,location_type=excluded.location_type,country=excluded.country,city=excluded.city,address=excluded.address,phone=excluded.phone,whatsapp=excluded.whatsapp,email=excluded.email,manager_name=excluded.manager_name,opening_hours=excluded.opening_hours,timezone=excluded.timezone,services=excluded.services,row_version=organization_locations.row_version+1,updated_at=now() returning *"""),{"o":org_id,"opening_hours":json.dumps(data.pop('opening_hours',{})),**data}).mappings().one()
-        _audit(c,org_id,actor,'LOCATION_SAVED','location',row['id'],new=dict(row));return dict(row)
+        if status=='ACTIVE':
+            conflict=c.execute(text("""select 1 from organization_locations current
+              join organization_locations candidate on candidate.org_id=current.org_id
+                and candidate.location_type='OFFICE' and candidate.status='ACTIVE'
+                and lower(btrim(candidate.name))=lower(btrim(current.name))
+                and lower(btrim(candidate.country))=lower(btrim(current.country))
+                and lower(btrim(candidate.city))=lower(btrim(current.city))
+              where current.org_id=:o and current.id=cast(:id as uuid)
+                and current.location_type='OFFICE' and candidate.id<>current.id
+              limit 1"""),{"o":org_id,"id":item_id}).first()
+            if conflict:
+                raise HTTPException(409,'office_already_exists')
+        row=c.execute(text("""update organization_locations
+          set status=:status,row_version=row_version+1,updated_at=now()
+          where org_id=:o and id=cast(:id as uuid) and row_version=:version
+          returning *"""),{"o":org_id,"id":item_id,"version":version,"status":status}).mappings().first()
+        if row:
+            _audit(c,org_id,actor,'LOCATION_STATUS_UPDATED','location',item_id,new=dict(row))
+        return dict(row) if row else None
 def save_integration(org_id,actor,data):
     with engine.begin() as c:
         row=c.execute(text("""insert into organization_integrations(org_id,provider,account_label,status,granted_permissions,configuration,connected_at,updated_by)

@@ -37,9 +37,20 @@ def present(row, org_id):
     return result
 
 
-def parcel_register(org_id: str, *, q="", stage=None, start: date | None = None, end: date | None = None, page=1):
+def parcel_register(
+    org_id: str, *, q="", stage=None, start: date | None = None,
+    end: date | None = None, page=1, office_ids: list[str] | None = None,
+):
     params = {"org_id": org_id, "limit": 50, "offset": (page-1)*50}
     filters = [SCOPE]
+    if office_ids is not None:
+        filters.append("""exists (
+            select 1 from organization_locations office
+            where office.org_id=:org_id and office.location_type='OFFICE'
+              and office.id=any(cast(:office_ids as uuid[]))
+              and office.id in (p.origin_location_id,p.destination_location_id)
+        )""")
+        params["office_ids"] = office_ids
     if q.strip():
         params["q"] = "%" + q.strip().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
         filters.append("""(p.package_reference ilike :q escape '!' or p.tracking_id ilike :q escape '!'

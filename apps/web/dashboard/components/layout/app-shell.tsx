@@ -46,6 +46,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { WorkspaceSearch } from "@/components/layout/workspace-search";
 import { CargoAccountMenu } from "@/components/layout/cargo-account-menu";
 import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
+import { OfficeContextSelector } from "@/components/tenant/office-context-selector";
 import { canAccessRoute, getAppNavigation, type AppRoute } from "@/config/app-navigation";
 import { getOrganizationProductProfile, getProductProfile, isPilotV1, usesCompactAgencyShell } from "@/config/product-profile";
 import { SESSION_EXPIRED_EVENT } from "@/services/api";
@@ -302,6 +303,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           )}
           <OrganizationSwitcher collapsed={sidebarCollapsed} />
+          <OfficeContextSelector collapsed={sidebarCollapsed} />
         </div>}
       </aside>
 

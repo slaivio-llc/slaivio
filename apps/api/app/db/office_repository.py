@@ -2,63 +2,6 @@ from sqlalchemy import text
 from app.db.database import engine
 
 
-def create_office(
-    org_id: str,
-    country: str,
-    city: str,
-    address: str,
-    office_type: str = "OFFICE",
-    phone: str | None = None,
-    whatsapp: str | None = None,
-    opening_hours: str | None = None,
-    pickup_instructions: str | None = None,
-):
-    with engine.connect() as conn:
-        result = conn.execute(
-            text("""
-                insert into agency_offices (
-                    org_id,
-                    country,
-                    city,
-                    address,
-                    office_type,
-                    phone,
-                    whatsapp,
-                    opening_hours,
-                    pickup_instructions
-                )
-                values (
-                    :org_id,
-                    :country,
-                    :city,
-                    :address,
-                    :office_type,
-                    :phone,
-                    :whatsapp,
-                    :opening_hours,
-                    :pickup_instructions
-                )
-                returning *
-            """),
-            {
-                "org_id": org_id,
-                "country": country.strip(),
-                "city": city.strip(),
-                "address": address.strip(),
-                "office_type": office_type.strip().upper(),
-                "phone": phone,
-                "whatsapp": whatsapp,
-                "opening_hours": opening_hours,
-                "pickup_instructions": pickup_instructions,
-            },
-        )
-
-        conn.commit()
-        row = result.fetchone()
-
-        return dict(row._mapping) if row else None
-
-
 def list_offices(
     org_id: str,
     country: str | None = None,
@@ -66,8 +9,8 @@ def list_offices(
     office_type: str | None = None,
 ):
     filters = [
-        "org_id = :org_id",
-        "is_active = true",
+        "office.org_id = :org_id",
+        "office.is_active = true",
     ]
 
     params = {
@@ -75,15 +18,15 @@ def list_offices(
     }
 
     if country:
-        filters.append("lower(country) = lower(:country)")
+        filters.append("lower(office.country) = lower(:country)")
         params["country"] = country.strip()
 
     if city:
-        filters.append("lower(city) = lower(:city)")
+        filters.append("lower(office.city) = lower(:city)")
         params["city"] = city.strip()
 
     if office_type:
-        filters.append("upper(office_type) = upper(:office_type)")
+        filters.append("upper(office.office_type) = upper(:office_type)")
         params["office_type"] = office_type.strip()
 
     where_clause = " and ".join(filters)
@@ -91,10 +34,13 @@ def list_offices(
     with engine.connect() as conn:
         result = conn.execute(
             text(f"""
-                select *
-                from agency_offices
+                select office.*, location.name
+                from agency_offices office
+                left join organization_locations location
+                  on location.id = office.organization_location_id
+                 and location.org_id = office.org_id
                 where {where_clause}
-                order by country asc, city asc, created_at desc
+                order by office.country asc, office.city asc, office.created_at desc
             """),
             params,
         )

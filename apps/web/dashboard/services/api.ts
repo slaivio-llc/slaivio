@@ -109,6 +109,9 @@ api.interceptors.request.use(async (config) => {
     config.headers.delete("Content-Type");
   }
   if (typeof window !== "undefined") {
+    const officeId = window.sessionStorage.getItem("slaivio:office-context");
+    if (officeId) config.headers["X-Slaivio-Office-ID"] = officeId;
+    else config.headers.delete("X-Slaivio-Office-ID");
     const retried = (config as typeof config & RetriableRequest)._slaivioAuthRetried;
     let token = accessTokenProvider ? await accessTokenProvider({ skipCache: Boolean(retried) }) : null;
     const clerk = (window as Window & { Clerk?: { session?: { getToken?: () => Promise<string | null> } } }).Clerk;

@@ -604,6 +604,7 @@ def list_packages(
     responsible: str | None = None, category: str | None = None, priority: str | None = None,
     fragile: bool | None = None, received_from: str | None = None, received_to: str | None = None,
     min_declared_value: float | None = None, max_declared_value: float | None = None,
+    office_ids: list[str] | None = None,
 ) -> dict:
     _ensure_schema()
     page = max(page, 1)
@@ -626,6 +627,14 @@ def list_packages(
         responsible=responsible,category=category,priority=priority,fragile=fragile,received_from=received_from,
         received_to=received_to,min_declared_value=min_declared_value,max_declared_value=max_declared_value,
     )
+    if office_ids is not None:
+        where_clause += """ and exists (
+            select 1 from organization_locations office
+            where office.org_id=:org_id and office.location_type='OFFICE'
+              and office.id=any(cast(:office_ids as uuid[]))
+              and office.id in (p.origin_location_id,p.destination_location_id)
+        )"""
+        params["office_ids"] = office_ids
     order_by = {
         "created_asc": "p.created_at asc",
         "created_desc": "p.created_at desc",
@@ -667,34 +676,45 @@ def list_packages(
     }
 
 
-def package_stats(org_id: str) -> dict:
+def package_stats(org_id: str, office_ids: list[str] | None = None) -> dict:
     _ensure_schema()
+    office_filter = ""
+    params = {"org_id": org_id}
+    if office_ids is not None:
+        office_filter = """ and exists (
+            select 1 from organization_locations office
+            where office.org_id=:org_id and office.location_type='OFFICE'
+              and office.id=any(cast(:office_ids as uuid[]))
+              and office.id in (p.origin_location_id,p.destination_location_id)
+        )"""
+        params["office_ids"] = office_ids
     with engine.connect() as conn:
         row = conn.execute(
             text("""
                 select
                     count(*)::int total,
-                    count(*) filter (where received_at::date = current_date)::int received_today,
-                    count(*) filter (where status in ('RECEIVED','RECEIVED_AT_ORIGIN'))::int received,
-                    count(*) filter (where status in ('CREATED','PENDING_VALIDATION','CONFIRMED'))::int waiting,
-                    count(*) filter (where status in ('READY_FOR_BATCH','READY_FOR_DISPATCH'))::int ready_for_dispatch,
-                    count(*) filter (where status in ('RECEIVED','WAREHOUSED','WAREHOUSE_PROCESSING') or inventory_status = 'IN_STOCK')::int in_stock,
-                    count(*) filter (where status in ('SHIPPED','IN_TRANSIT'))::int in_transit,
-                    count(*) filter (where status in ('ARRIVED','ARRIVED_DESTINATION','CLEARED'))::int arrived,
-                    count(*) filter (where status = 'READY_FOR_PICKUP')::int ready_for_pickup,
-                    count(*) filter (where status in ('BLOCKED', 'ISSUE') or validation_status in ('BLOCKED', 'REJECTED'))::int issues,
-                    count(*) filter (where status = 'DELIVERED')::int delivered,
-                    count(*) filter (where priority in ('HIGH','URGENT'))::int priority_count,
-                    count(*) filter (where is_fragile)::int fragile_count,
-                    coalesce(sum(coalesce(weight_kg, 0)), 0) total_weight_kg,
-                    coalesce(sum(coalesce(volume_cbm, 0)), 0) total_volume_cbm,
-                    coalesce(sum(coalesce(declared_value, 0)), 0) total_declared_value,
-                    round(avg(extract(epoch from (coalesce(dispatched_at, delivered_at, now()) - received_at))/3600) filter (where received_at is not null)::numeric, 2) average_processing_hours,
-                    coalesce(sum(coalesce(pieces_count, 0)), 0)::int total_pieces
-                from cargo_packages
-                where (org_id = :org_id or destination_org_id = :org_id) and deleted_at is null
-            """),
-            {"org_id": org_id},
+                    count(*) filter (where p.received_at::date = current_date)::int received_today,
+                    count(*) filter (where p.status in ('RECEIVED','RECEIVED_AT_ORIGIN'))::int received,
+                    count(*) filter (where p.status in ('CREATED','PENDING_VALIDATION','CONFIRMED'))::int waiting,
+                    count(*) filter (where p.status in ('READY_FOR_BATCH','READY_FOR_DISPATCH'))::int ready_for_dispatch,
+                    count(*) filter (where p.status in ('RECEIVED','WAREHOUSED','WAREHOUSE_PROCESSING') or p.inventory_status = 'IN_STOCK')::int in_stock,
+                    count(*) filter (where p.status in ('SHIPPED','IN_TRANSIT'))::int in_transit,
+                    count(*) filter (where p.status in ('ARRIVED','ARRIVED_DESTINATION','CLEARED'))::int arrived,
+                    count(*) filter (where p.status = 'READY_FOR_PICKUP')::int ready_for_pickup,
+                    count(*) filter (where p.status in ('BLOCKED', 'ISSUE') or p.validation_status in ('BLOCKED', 'REJECTED'))::int issues,
+                    count(*) filter (where p.status = 'DELIVERED')::int delivered,
+                    count(*) filter (where p.priority in ('HIGH','URGENT'))::int priority_count,
+                    count(*) filter (where p.is_fragile)::int fragile_count,
+                    coalesce(sum(coalesce(p.weight_kg, 0)), 0) total_weight_kg,
+                    coalesce(sum(coalesce(p.volume_cbm, 0)), 0) total_volume_cbm,
+                    coalesce(sum(coalesce(p.declared_value, 0)), 0) total_declared_value,
+                    round(avg(extract(epoch from (coalesce(p.dispatched_at, p.delivered_at, now()) - p.received_at))/3600) filter (where p.received_at is not null)::numeric, 2) average_processing_hours,
+                    coalesce(sum(coalesce(p.pieces_count, 0)), 0)::int total_pieces
+                from cargo_packages p
+                where (p.org_id = :org_id or p.destination_org_id = :org_id)
+                  and p.deleted_at is null
+            """ + office_filter),
+            params,
         ).fetchone()
     return _one(row) or {
         "total": 0,
@@ -709,23 +729,69 @@ def package_stats(org_id: str) -> dict:
     }
 
 
-def package_analytics(org_id: str) -> dict:
+def package_analytics(org_id: str, office_ids: list[str] | None = None) -> dict:
     with engine.connect() as conn:
+        office_filter = ""
+        params = {"org_id": org_id}
+        if office_ids is not None:
+            office_filter = """ and exists (
+                select 1 from organization_locations office
+                where office.org_id=:org_id and office.location_type='OFFICE'
+                  and office.id=any(cast(:office_ids as uuid[]))
+                  and office.id in (p.origin_location_id,p.destination_location_id)
+            )"""
+            params["office_ids"] = office_ids
         def rows(sql: str):
-            return [_safe(dict(row._mapping)) for row in conn.execute(text(sql),{"org_id":org_id}).fetchall()]
+            return [_safe(dict(row._mapping)) for row in conn.execute(text(sql), params).fetchall()]
+        package_scope = "(p.org_id=:org_id or p.destination_org_id=:org_id) and p.deleted_at is null" + office_filter
         summary=_one(conn.execute(text("""select
-          round(avg(extract(epoch from (coalesce(dispatched_at,now())-received_at))/86400)::numeric,2) average_storage_days,
-          round(avg(extract(epoch from (dispatched_at-received_at))/86400) filter(where dispatched_at is not null and received_at is not null)::numeric,2) average_before_dispatch_days,
-          round((count(*) filter(where status in ('ISSUE','BLOCKED') or validation_status in ('BLOCKED','REJECTED'))::numeric/nullif(count(*),0))*100,2) anomaly_rate
-          from cargo_packages
-          where (org_id=:org_id or destination_org_id=:org_id)
-            and deleted_at is null"""),{"org_id":org_id}).fetchone()) or {}
+          round(avg(extract(epoch from (coalesce(p.dispatched_at,now())-p.received_at))/86400)::numeric,2) average_storage_days,
+          round(avg(extract(epoch from (p.dispatched_at-p.received_at))/86400) filter(where p.dispatched_at is not null and p.received_at is not null)::numeric,2) average_before_dispatch_days,
+          round((count(*) filter(where p.status in ('ISSUE','BLOCKED') or p.validation_status in ('BLOCKED','REJECTED'))::numeric/nullif(count(*),0))*100,2) anomaly_rate
+          from cargo_packages p where """ + package_scope),params).fetchone()) or {}
         return {"summary":summary,
-          "daily":rows("""select received_at::date day,count(*)::int count,coalesce(sum(weight_kg),0) weight_kg from cargo_packages where (org_id=:org_id or destination_org_id=:org_id) and deleted_at is null and received_at>=current_date-30 group by 1 order by 1"""),
-          "warehouses":rows("""select coalesce(warehouse_name,'Non renseigne') label,count(*)::int count,coalesce(sum(weight_kg),0) weight_kg,coalesce(sum(volume_cbm),0) volume_cbm from cargo_packages where org_id=:org_id and deleted_at is null and inventory_status='IN_STOCK' group by 1 order by count desc"""),
-          "suppliers":rows("""select coalesce(supplier_name,'Non renseigne') label,count(*)::int count from cargo_packages where (org_id=:org_id or destination_org_id=:org_id) and deleted_at is null group by 1 order by count desc limit 15"""),
-          "destinations":rows("""select concat_ws(', ',destination_city,destination_country) label,count(*)::int count from cargo_packages where (org_id=:org_id or destination_org_id=:org_id) and deleted_at is null group by 1 order by count desc limit 15"""),
-          "capacity":rows("""select w.warehouse_name label,coalesce(sum(l.occupied_units),0)::int occupied,coalesce(sum(l.capacity_units),0)::int capacity from warehouses w left join warehouse_storage_locations l on l.warehouse_id=w.id and l.active where w.org_id=:org_id and w.active group by w.id,w.warehouse_name order by w.warehouse_name""")}
+          "daily":rows("""select p.received_at::date day,count(*)::int count,coalesce(sum(p.weight_kg),0) weight_kg from cargo_packages p where """ + package_scope + " and p.received_at>=current_date-30 group by 1 order by 1"),
+          "warehouses":rows("""select coalesce(p.warehouse_name,'Non renseigne') label,count(*)::int count,coalesce(sum(p.weight_kg),0) weight_kg,coalesce(sum(p.volume_cbm),0) volume_cbm from cargo_packages p where p.org_id=:org_id and p.deleted_at is null and p.inventory_status='IN_STOCK'""" + office_filter + " group by 1 order by count desc"),
+          "suppliers":rows("""select coalesce(p.supplier_name,'Non renseigne') label,count(*)::int count from cargo_packages p where """ + package_scope + " group by 1 order by count desc limit 15"),
+          "destinations":rows("""select concat_ws(', ',p.destination_city,p.destination_country) label,count(*)::int count from cargo_packages p where """ + package_scope + " group by 1 order by count desc limit 15"),
+          "capacity": [] if office_ids is not None else rows("""select w.warehouse_name label,coalesce(sum(l.occupied_units),0)::int occupied,coalesce(sum(l.capacity_units),0)::int capacity from warehouses w left join warehouse_storage_locations l on l.warehouse_id=w.id and l.active where w.org_id=:org_id and w.active group by w.id,w.warehouse_name order by w.warehouse_name""")}
+
+
+def package_matches_office_scope(org_id: str, package_id: str, office_ids: list[str]) -> bool:
+    from uuid import UUID
+
+    try:
+        UUID(package_id)
+    except ValueError:
+        return False
+    return package_id in packages_matching_office_scope(org_id, [package_id], office_ids)
+
+
+def packages_matching_office_scope(
+    org_id: str, package_ids: list[str], office_ids: list[str]
+) -> set[str]:
+    from uuid import UUID
+
+    valid_package_ids = []
+    for package_id in package_ids:
+        try:
+            UUID(package_id)
+        except ValueError:
+            continue
+        valid_package_ids.append(package_id)
+    if not valid_package_ids or not office_ids:
+        return set()
+    with engine.connect() as conn:
+        rows = conn.execute(text("""select distinct p.id::text
+            from cargo_packages p
+            join organization_locations office on office.org_id=:org_id
+              and office.location_type='OFFICE'
+              and office.id=any(cast(:office_ids as uuid[]))
+              and office.id in (p.origin_location_id,p.destination_location_id)
+            where (p.org_id=:org_id or p.destination_org_id=:org_id)
+              and p.id=any(cast(:package_ids as uuid[]))
+        """), {"org_id": org_id, "package_ids": valid_package_ids, "office_ids": office_ids}).scalars()
+        return set(rows)
 
 
 def get_package(org_id: str, package_id: str) -> dict | None:
@@ -1834,12 +1900,40 @@ def save_package_view(org_id,user_id,name,filters):
 def delete_package_view(org_id,user_id,view_id):
     with engine.begin() as conn:return bool(conn.execute(text("delete from package_saved_views where org_id=:o and user_id=:u and id=:id returning id"),{"o":org_id,"u":user_id,"id":view_id}).first())
 
-def package_alerts(org_id,status=None):
-    with engine.connect() as conn:return [_safe(dict(r._mapping)) for r in conn.execute(text("select a.*,p.package_reference,p.tracking_id from package_operational_alerts a join cargo_packages p on p.id=a.package_id and p.org_id=a.org_id where a.org_id=:o and (:s is null or a.status=:s) order by case a.severity when 'CRITICAL' then 0 when 'HIGH' then 1 else 2 end,a.created_at desc"),{"o":org_id,"s":status}).fetchall()]
+def package_alerts(org_id,status=None,office_ids=None):
+    office_filter = ""
+    params = {"o": org_id, "s": status}
+    if office_ids is not None:
+        office_filter = """ and exists(
+          select 1 from organization_locations office
+          where office.org_id=:o and office.location_type='OFFICE'
+            and office.id=any(cast(:office_ids as uuid[]))
+            and office.id in (p.origin_location_id,p.destination_location_id)
+        )"""
+        params["office_ids"] = office_ids
+    with engine.connect() as conn:
+        return [_safe(dict(r._mapping)) for r in conn.execute(text(
+            "select a.*,p.package_reference,p.tracking_id from package_operational_alerts a "
+            "join cargo_packages p on p.id=a.package_id and p.org_id=a.org_id "
+            "where a.org_id=:o and (:s is null or a.status=:s)" + office_filter +
+            " order by case a.severity when 'CRITICAL' then 0 when 'HIGH' then 1 else 2 end,a.created_at desc"
+        ),params).fetchall()]
 
-def resolve_package_alert(org_id,alert_id,user_id,resolution):
+def resolve_package_alert(org_id,alert_id,user_id,resolution,office_ids=None):
     with engine.begin() as conn:
-        row=conn.execute(text("update package_operational_alerts set status='RESOLVED',resolved_by=:u,resolved_at=now(),resolution=:r where org_id=:o and id=:id and status<>'RESOLVED' returning *"),{"o":org_id,"id":alert_id,"u":user_id,"r":resolution}).mappings().first()
+        office_filter = ""
+        params={"o":org_id,"id":alert_id,"u":user_id,"r":resolution}
+        if office_ids is not None:
+            office_filter = """ and exists(
+              select 1 from cargo_packages p
+              join organization_locations office on office.org_id=:o
+                and office.location_type='OFFICE'
+                and office.id=any(cast(:office_ids as uuid[]))
+                and office.id in (p.origin_location_id,p.destination_location_id)
+              where p.id=package_operational_alerts.package_id and p.org_id=:o
+            )"""
+            params["office_ids"]=office_ids
+        row=conn.execute(text("update package_operational_alerts set status='RESOLVED',resolved_by=:u,resolved_at=now(),resolution=:r where org_id=:o and id=:id and status<>'RESOLVED'"+office_filter+" returning *"),params).mappings().first()
         if not row:raise HTTPException(404,"package_alert_not_found")
         return _safe(dict(row))
 
@@ -1902,10 +1996,20 @@ def delivery_proof(org_id,package_id,user_id,payload):
         conn.execute(text("update cargo_packages set status='DELIVERED',delivered_at=now(),delivered_to_name=:n,delivery_signature_path=:s,delivery_photo_path=:p,delivery_otp_verified=:otp,row_version=row_version+1,updated_at=now() where org_id=:o and id=:id"),{"n":payload["recipient_name"],"s":payload.get("signature_path"),"p":payload.get("photo_path"),"otp":payload.get("otp_verified",False),"o":org_id,"id":package_id});_insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="DELIVERED",title="Colis livré",description=payload["recipient_name"],actor_id=user_id,metadata=dict(proof))
     return get_package(org_id,package_id)
 
-def detect_package_alerts(org_id):
+def detect_package_alerts(org_id,office_ids=None):
     rules=[("STALE_WAREHOUSE","HIGH","Colis immobilisé en entrepôt depuis plus de 7 jours","received_at<now()-interval '7 days' and status in ('RECEIVED','WAREHOUSED','WAREHOUSE_PROCESSING')"),("MISSING_CLIENT","CRITICAL","Colis sans client","client_id is null"),("MISSING_DOSSIER","HIGH","Colis sans dossier","dossier_id is null"),("MISSING_WEIGHT","MEDIUM","Colis sans poids","weight_kg is null and status not in ('CREATED','PENDING_VALIDATION')"),("PAID_BLOCKED","HIGH","Colis payé mais bloqué","payment_status in ('PAID','CLEARED') and status='BLOCKED'"),("ARRIVED_NOT_PICKED","MEDIUM","Colis arrivé non retiré","status in ('ARRIVED','CLEARED','READY_FOR_PICKUP') and updated_at<now()-interval '5 days'")]
     created=0
+    office_filter = ""
+    params={"o":org_id}
+    if office_ids is not None:
+        office_filter=""" and exists(
+          select 1 from organization_locations office
+          where office.org_id=:o and office.location_type='OFFICE'
+            and office.id=any(cast(:office_ids as uuid[]))
+            and office.id in (p.origin_location_id,p.destination_location_id)
+        )"""
+        params["office_ids"]=office_ids
     with engine.begin() as conn:
         for typ,sev,msg,condition in rules:
-            result=conn.execute(text(f"insert into package_operational_alerts(org_id,package_id,alert_type,severity,message) select org_id,id,:t,:s,:m from cargo_packages where org_id=:o and deleted_at is null and {condition} on conflict(package_id,alert_type,status) do nothing returning id"),{"t":typ,"s":sev,"m":msg,"o":org_id}).fetchall();created+=len(result)
+            result=conn.execute(text(f"insert into package_operational_alerts(org_id,package_id,alert_type,severity,message) select p.org_id,p.id,:t,:s,:m from cargo_packages p where p.org_id=:o and p.deleted_at is null and {condition}{office_filter} on conflict(package_id,alert_type,status) do nothing returning id"),{**params,"t":typ,"s":sev,"m":msg}).fetchall();created+=len(result)
     return created

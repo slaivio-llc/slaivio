@@ -21,7 +21,7 @@ from app.db.whatsapp_qr_repository import (
 from app.models.message import NormalizedMessage
 from app.services.pilot_inbound_ai_dispatch import run_pilot_inbox_ai
 from app.services.dossier_document_storage import upload_private_document
-from app.services.whatsapp_qr_gateway_client import qr_gateway_request, verify_gateway_signature
+from app.services.whatsapp_qr_gateway_client import QRGatewayError, qr_gateway_request, verify_gateway_signature
 
 
 router = APIRouter(tags=["whatsapp-qr"])
@@ -72,7 +72,10 @@ class QRStart(BaseModel):
 @router.post("/organization/admin/pilot/whatsapp-qr/start", dependencies=[Depends(require_permission("pilot.whatsapp_qr.connect"))])
 def start_qr_connection(body: QRStart, tenant=Depends(get_current_tenant), manager=Depends(get_current_manager)):
     connection = create_or_restart_connection(tenant["org_id"], _actor(manager), body.terms_accepted)
-    gateway = qr_gateway_request("POST", f"/connections/{connection['id']}/start", {"org_id": tenant["org_id"]})
+    try:
+        gateway = qr_gateway_request("POST", f"/connections/{connection['id']}/start", {"org_id": tenant["org_id"]})
+    except QRGatewayError as exc:
+        raise HTTPException(exc.status_code, exc.code) from exc
     return {"status": "ok", "connection": {**connection, **gateway}}
 
 

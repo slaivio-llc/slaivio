@@ -24,6 +24,7 @@ import {
   savePilotWhatsappPreferences,
   requestDataOperation,
   startPilotWhatsappQR,
+  pilotWhatsappQrErrorMessage,
   testPilotAIPrompt,
   updateOrganization,
   type PilotSettingsData,
@@ -285,7 +286,7 @@ function CommunicationSettings({data,run}:{data:PilotSettingsData;run:(action:()
     return()=>window.clearInterval(timer);
   },[data.whatsapp_configuration.qr_linked_device_available,qrOpen]);
   async function openQR(){setQROpen(true);setQRError("");try{setQRConnection(await getPilotWhatsappQRStatus());}catch{setQRConnection(null);}}
-  async function generateQR(){setQRBusy(true);setQRError("");try{setQRConnection(await startPilotWhatsappQR(qrTerms));}catch(exception){const detail=(exception as {response?:{data?:{detail?:string}}})?.response?.data?.detail;setQRError(detail==="pilot_whatsapp_qr_gateway_unavailable"?"Le service de connexion rapide n’est pas encore déployé.":detail==="pilot_whatsapp_qr_cohort_full"?"La cohorte pilote est complète. Cette entreprise pourra être ajoutée après libération d’une place ou validation Meta.":"Le QR code n’a pas pu être généré. Réessayez.");}finally{setQRBusy(false);}}
+  async function generateQR(){setQRBusy(true);setQRError("");try{setQRConnection(await startPilotWhatsappQR(qrTerms));}catch(exception){setQRError(pilotWhatsappQrErrorMessage(exception));}finally{setQRBusy(false);}}
   async function disconnectQR(){const id=qrConnection?.connection_id||qrConnection?.id;if(!id)return;setQRBusy(true);try{await disconnectPilotWhatsappQR(id);setQRConnection(null);setQROpen(false);setManageOpen(false);await run(async()=>undefined,"L’appareil WhatsApp a été déconnecté et ses accès révoqués.");}finally{setQRBusy(false);}}
   async function refreshConnection(){try{setQRBusy(true);setQRConnection(await getPilotWhatsappQRStatus());}finally{setQRBusy(false)}}
   async function savePreferences(next:{autoRead?:boolean;groupReplies?:boolean;groupCreation?:boolean}){if(!linkedNumber)return;const values={autoRead:next.autoRead??autoRead,groupReplies:next.groupReplies??groupReplies,groupCreation:next.groupCreation??groupCreation};setAutoRead(values.autoRead);setGroupReplies(values.groupReplies);setGroupCreation(values.groupCreation);await run(()=>savePilotWhatsappPreferences(linkedNumber.id,{auto_mark_read:values.autoRead,group_replies_enabled:values.groupReplies,group_on_dossier_create:values.groupCreation}),"Les préférences WhatsApp ont été enregistrées.");}

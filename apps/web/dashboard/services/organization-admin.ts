@@ -44,6 +44,17 @@ export async function selectPilotWhatsappNumber(number_id:string){return(await a
 export async function savePilotWhatsappPreferences(numberId:string,payload:{auto_mark_read:boolean;group_replies_enabled:boolean;group_on_dossier_create:boolean}){return(await api.patch(`/organization/admin/pilot/whatsapp-number/${numberId}/preferences`,payload)).data}
 export async function activatePilotWazzap(payload:{phone_number:string;verified_name?:string;default_language?:string;default_timezone?:string}){return(await api.post('/organization/admin/pilot/wazzap/activate',payload)).data}
 export type PilotQRConnection={connection_id?:string;id?:string;status:"CREATED"|"QR_READY"|"CONNECTING"|"CONNECTED"|"DISCONNECTED"|"LOGGED_OUT"|"FAILED"|"REVOKED";qr_data_url?:string|null;qr_expires_at?:string|null;display_phone_number?:string|null;verified_name?:string|null;last_error?:string|null;gateway_reachable?:boolean};
+export function pilotWhatsappQrErrorMessage(error:unknown){
+ const detail=(error as {response?:{data?:{detail?:unknown}}})?.response?.data?.detail;
+ if(detail==="pilot_whatsapp_qr_gateway_unavailable")return "La configuration du gateway QR est absente dans le service API. Vérifiez WHATSAPP_QR_GATEWAY_URL et WHATSAPP_QR_GATEWAY_SHARED_SECRET sur Railway.";
+ if(detail==="pilot_whatsapp_qr_gateway_unreachable")return "Le gateway QR ne répond pas. Vérifiez qu’il est déployé et que son URL Railway est correcte.";
+ if(detail==="pilot_whatsapp_qr_gateway_auth_failed")return "L’API et le gateway QR n’ont pas le même secret partagé. Vérifiez WHATSAPP_QR_GATEWAY_SHARED_SECRET sur les deux services.";
+ if(detail==="pilot_whatsapp_qr_gateway_start_failed")return "Le gateway QR a rencontré une erreur au démarrage. Consultez ses logs Railway, notamment la configuration de chiffrement et les tables WhatsApp QR.";
+ if(detail==="pilot_whatsapp_qr_gateway_invalid_response"||detail==="pilot_whatsapp_qr_gateway_request_rejected")return "Le gateway QR a répondu de façon inattendue. Vérifiez son déploiement et ses logs Railway.";
+ if(detail==="pilot_whatsapp_qr_cohort_full")return "La cohorte pilote est complète. Une place doit être libérée avant de connecter cette entreprise.";
+ if(detail==="pilot_whatsapp_qr_terms_required")return "Confirmez l’autorisation de connecter ce numéro avant de continuer.";
+ return "Le QR code n’a pas pu être généré. Réessayez et consultez les logs Railway de l’API et du gateway si le problème persiste.";
+}
 export async function startPilotWhatsappQR(terms_accepted:boolean){return(await api.post<{connection:PilotQRConnection}>('/organization/admin/pilot/whatsapp-qr/start',{terms_accepted})).data.connection}
 export async function getPilotWhatsappQRStatus(){return(await api.get<{connection:PilotQRConnection|null}>('/organization/admin/pilot/whatsapp-qr/status')).data.connection}
 export async function disconnectPilotWhatsappQR(connection_id:string){return(await api.post(`/organization/admin/pilot/whatsapp-qr/${connection_id}/disconnect`)).data}

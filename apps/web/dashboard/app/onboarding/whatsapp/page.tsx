@@ -10,14 +10,14 @@ import { Check, RefreshCw, ShieldCheck, Smartphone } from "lucide-react";
 import { OnboardingError, OnboardingFooter, OnboardingHeading, OnboardingLoading, OnboardingShell, onboardingPrimaryButtonClass, onboardingSkipButtonClass } from "@/components/onboarding/OnboardingShell";
 import { useOnboardingState } from "@/components/onboarding/use-onboarding-state";
 import { completeOnboardingStep, skipOnboardingStep } from "@/services/onboarding-experience";
-import { getPilotSettings, getPilotWhatsappQRStatus, startPilotWhatsappQR, type PilotQRConnection } from "@/services/organization-admin";
+import { getPilotSettings, getPilotWhatsappQRStatus, startPilotWhatsappQR, pilotWhatsappQrErrorMessage, type PilotQRConnection } from "@/services/organization-admin";
 
 export default function WhatsappOnboardingPage(){
   const router=useRouter(); const {state,error:stateError,reload}=useOnboardingState();
   const [connection,setConnection]=useState<PilotQRConnection|null>(null); const [available,setAvailable]=useState(true); const [accepted,setAccepted]=useState(false); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
   useEffect(()=>{Promise.all([getPilotSettings(),getPilotWhatsappQRStatus()]).then(([settings,current])=>{setAvailable(settings.whatsapp_configuration.qr_linked_device_available);const connected=settings.whatsapp_numbers.find(item=>item.connection_status==="CONNECTED");setConnection(current||(connected?{status:"CONNECTED",display_phone_number:connected.display_phone_number}:null));}).catch(()=>setError("L’état de WhatsApp ne peut pas être chargé."));},[]);
   useEffect(()=>{if(!connection||connection.status==="CONNECTED"||!["CREATED","CONNECTING","QR_READY"].includes(connection.status))return;const timer=window.setInterval(()=>{getPilotWhatsappQRStatus().then(current=>current&&setConnection(current)).catch(()=>undefined);},2500);return()=>window.clearInterval(timer);},[connection]);
-  async function generate(){setBusy(true);setError("");try{setConnection(await startPilotWhatsappQR(accepted));}catch{setError("Le QR code ne peut pas être généré. Vérifiez la configuration du gateway WhatsApp.");}finally{setBusy(false)}}
+  async function generate(){setBusy(true);setError("");try{setConnection(await startPilotWhatsappQR(accepted));}catch(exception){setError(pilotWhatsappQrErrorMessage(exception));}finally{setBusy(false)}}
   async function next(){setBusy(true);setError("");try{await completeOnboardingStep("WHATSAPP");router.push("/onboarding/ai-knowledge");}catch{setError("Impossible de continuer pour le moment.");setBusy(false)}}
   async function skip(){setBusy(true);setError("");try{await skipOnboardingStep("WHATSAPP");router.push("/onboarding/ai-knowledge");}catch{setError("Cette étape ne peut pas être reportée pour le moment.");setBusy(false)}}
   if(!state)return stateError?<OnboardingError message={stateError} retry={()=>void reload()}/>:<OnboardingLoading/>;

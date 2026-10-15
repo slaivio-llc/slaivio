@@ -8,6 +8,13 @@ import requests
 from app.core.config import settings
 
 
+class QRGatewayError(ValueError):
+    def __init__(self, code: str, status_code: int = 503):
+        super().__init__(code)
+        self.code = code
+        self.status_code = status_code
+
+
 def _configuration() -> tuple[str, str]:
     url = (settings.whatsapp_qr_gateway_url or "").rstrip("/")
     secret = settings.whatsapp_qr_gateway_shared_secret or ""
@@ -40,21 +47,32 @@ def qr_gateway_request(method: str, path: str, payload: dict | None = None) -> d
     body = b"" if method.upper() == "GET" else json.dumps(payload or {}, separators=(",", ":"), ensure_ascii=False).encode()
     timestamp = str(int(time.time()))
     signature = sign_gateway_request(method, path, body, timestamp, secret)
-    response = requests.request(
-        method,
-        f"{base_url}{path}",
-        data=body if method.upper() != "GET" else None,
-        headers={
-            "Content-Type": "application/json",
-            "X-Slaivio-Timestamp": timestamp,
-            "X-Slaivio-Signature": signature,
-        },
-        timeout=20,
-    )
+    try:
+        response = requests.request(
+            method,
+            f"{base_url}{path}",
+            data=body if method.upper() != "GET" else None,
+            headers={
+                "Content-Type": "application/json",
+                "X-Slaivio-Timestamp": timestamp,
+                "X-Slaivio-Signature": signature,
+            },
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        raise QRGatewayError("pilot_whatsapp_qr_gateway_unreachable") from exc
     try:
         data = response.json()
     except ValueError:
-        data = {"error": "invalid_qr_gateway_response"}
+        raise QRGatewayError("pilot_whatsapp_qr_gateway_invalid_response", 502)
+    if not isinstance(data, dict):
+        raise QRGatewayError("pilot_whatsapp_qr_gateway_invalid_response", 502)
     if not response.ok:
-        raise ValueError(str(data.get("error") or "qr_gateway_request_failed"))
+        if response.status_code == 401:
+            code = "pilot_whatsapp_qr_gateway_auth_failed"
+        elif response.status_code >= 500:
+            code = "pilot_whatsapp_qr_gateway_start_failed"
+        else:
+            code = "pilot_whatsapp_qr_gateway_request_rejected"
+        raise QRGatewayError(code, 502 if response.status_code != 503 else 503)
     return data

@@ -4,7 +4,9 @@ import base64
 from app.api import whatsapp_qr
 from app.core.config import settings
 from app.services.whatsapp_qr_gateway_client import sign_gateway_request, verify_gateway_signature
+from app.services import whatsapp_qr_gateway_client
 from app.services.qr_linked_device_whatsapp_provider import QRLinkedDeviceWhatsAppProvider
+from fastapi import HTTPException
 
 
 def test_qr_gateway_signature_rejects_tampering(monkeypatch):
@@ -23,6 +25,73 @@ def test_qr_gateway_signature_rejects_expired_request(monkeypatch):
     timestamp = str(int(time.time()) - 301)
     signature = sign_gateway_request("GET", "/connections/test", b"", timestamp, secret)
     assert not verify_gateway_signature("GET", "/connections/test", b"", timestamp, signature)
+
+
+def test_gateway_network_failure_is_reported_as_a_safe_actionable_error(monkeypatch):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_url", "https://gateway.example.test")
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_shared_secret", "s" * 32)
+    monkeypatch.setattr(
+        whatsapp_qr_gateway_client.requests,
+        "request",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            whatsapp_qr_gateway_client.requests.ConnectionError("private network detail")
+        ),
+    )
+
+    try:
+        whatsapp_qr_gateway_client.qr_gateway_request("POST", "/connections/test/start", {})
+    except whatsapp_qr_gateway_client.QRGatewayError as error:
+        assert error.code == "pilot_whatsapp_qr_gateway_unreachable"
+        assert "private network detail" not in str(error)
+    else:
+        raise AssertionError("Expected QR gateway connectivity failure")
+
+
+def test_gateway_auth_failure_is_normalized(monkeypatch):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_url", "https://gateway.example.test")
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_shared_secret", "s" * 32)
+    monkeypatch.setattr(
+        whatsapp_qr_gateway_client.requests,
+        "request",
+        lambda *args, **kwargs: type("Response", (), {
+            "ok": False, "status_code": 401, "json": lambda self: {"error": "invalid_signature"},
+        })(),
+    )
+
+    try:
+        whatsapp_qr_gateway_client.qr_gateway_request("POST", "/connections/test/start", {})
+    except whatsapp_qr_gateway_client.QRGatewayError as error:
+        assert error.code == "pilot_whatsapp_qr_gateway_auth_failed"
+        assert error.status_code == 502
+    else:
+        raise AssertionError("Expected QR gateway authentication failure")
+
+
+def test_start_route_returns_gateway_error_as_http_error(monkeypatch):
+    monkeypatch.setattr(
+        whatsapp_qr,
+        "create_or_restart_connection",
+        lambda *args: {"id": "connection-id"},
+    )
+    monkeypatch.setattr(
+        whatsapp_qr,
+        "qr_gateway_request",
+        lambda *args: (_ for _ in ()).throw(
+            whatsapp_qr.QRGatewayError("pilot_whatsapp_qr_gateway_unreachable")
+        ),
+    )
+
+    try:
+        whatsapp_qr.start_qr_connection(
+            whatsapp_qr.QRStart(terms_accepted=True),
+            tenant={"org_id": "org-id"},
+            manager={"user_id": "user-id"},
+        )
+    except HTTPException as error:
+        assert error.status_code == 503
+        assert error.detail == "pilot_whatsapp_qr_gateway_unreachable"
+    else:
+        raise AssertionError("Expected QR gateway HTTP error")
 
 
 def test_linked_device_provider_sends_through_the_isolated_connection(monkeypatch):

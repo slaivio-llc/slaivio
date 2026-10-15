@@ -361,14 +361,14 @@ function CreateGrid({
       <ol className="grid grid-cols-3 gap-2 text-xs" aria-label="Étapes de création">
         {["Trajet et service", "Mode de calcul", "Application"].map((label,index)=><li key={label} aria-current={step===index+1?"step":undefined} className={`rounded-lg border p-3 ${step===index+1?"border-emerald-700 bg-emerald-50 text-emerald-900":"border-slate-200 text-slate-500"}`}><span className="font-semibold">{index+1}.</span> {label}</li>)}
       </ol>
-      {step===1&&<section className="grid gap-4">
+      <section hidden={step!==1} className="grid gap-4">
         <p className="text-sm text-slate-600">Chaque grille associe une route configurée à un service proposé sur cette route.</p>
         <label className="grid gap-1.5 text-sm">Code de la grille<input required name="code" className={input} minLength={3} maxLength={60} placeholder="Ex. AIR-CAN-FIH-2026"/></label>
         <label className="grid gap-1.5 text-sm">Nom de la grille<input required name="name" className={input} minLength={3} maxLength={160} placeholder="Ex. Express Chine – Kinshasa"/></label>
         <label className="grid gap-1.5 text-sm">Route<select required name="route" className={input} value={route} onChange={e=>{setRoute(e.target.value);setService("");}}><option value="">Choisir une route configurée</option>{catalog.routes.map(x=><option key={x.id} value={x.id}>{x.route_name}</option>)}</select></label>
         <label className="grid gap-1.5 text-sm">Service<select required name="service" className={input} value={service} disabled={!route} onChange={e=>setService(e.target.value)}><option value="">Choisir un service de cette route</option>{catalog.services.filter(x=>x.route_id===route).map(x=><option key={x.id} value={x.id}>{x.service_name}</option>)}</select></label>
-      </section>}
-      {step===2&&<section className="grid gap-4 sm:grid-cols-2">
+      </section>
+      <section hidden={step!==2} className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1.5 text-sm sm:col-span-2">Calcul principal<select name="method" className={input}>{Object.entries(calculationLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
         <label className="grid gap-1.5 text-sm">Devise<input required name="currency" className={input} defaultValue="USD" minLength={3} maxLength={3}/></label>
         <label className="grid gap-1.5 text-sm">Arrondi du poids facturable (kg)<input required name="rounding" type="number" min="0.001" step="0.001" defaultValue="0.5" className={input}/></label>
@@ -377,13 +377,13 @@ function CreateGrid({
         <label className="grid gap-1.5 text-sm">Poids volumétrique<input required name="divisor" type="number" min="0.001" step="0.001" defaultValue="6000" className={input}/><span className="text-xs text-slate-500">Poids volumétrique = CBM × 1 000 000 ÷ diviseur.</span></label>
         <label className="grid gap-1.5 text-sm">Poids facturable<select name="weight_rule" className={input}><option value="MAX">Maximum entre réel et volumétrique</option><option value="ACTUAL">Poids réel</option><option value="VOLUMETRIC">Poids volumétrique</option></select></label>
         <label className="grid gap-1.5 text-sm sm:col-span-2">Seuil de densité facultatif (kg/CBM)<input name="density_switch" type="number" min="0.001" step="0.001" placeholder="Ex. 450 — bascule du CBM au poids si dépassé" className={input}/><span className="text-xs text-slate-500">Règle propre à cette grille ; laissez vide si elle ne s’applique pas.</span></label>
-      </section>}
-      {step===3&&<section className="grid gap-4 sm:grid-cols-2">
+      </section>
+      <section hidden={step!==3} className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1.5 text-sm">Applicable à partir du<input required name="effective" type="datetime-local" defaultValue={new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)} className={input}/></label>
         <label className="grid gap-1.5 text-sm">Visibilité<select name="visibility" className={input}><option value="INTERNAL">Équipe uniquement</option><option value="PUBLIC">Communicable aux clients</option><option value="CONTRACTUAL">Clients sous contrat</option></select></label>
         <label className="grid gap-1.5 text-sm">Taxe (%)<input name="tax" type="number" min="0" max="100" step="0.01" defaultValue="0" className={input}/></label>
         <p className="self-center text-xs text-slate-600">La grille sera créée en brouillon. Elle ne devient applicable qu’après vérification, approbation et activation.</p>
-      </section>}
+      </section>
       {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
       <div className="flex justify-between border-t pt-4">
         <button type="button" className={btn} disabled={step===1||saving} onClick={()=>setStep(value=>value-1)}>Précédent</button>

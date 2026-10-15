@@ -96,6 +96,34 @@ contrat `/finance/stats` change, les anciens totaux sans devise sont supprimés.
   TypeScript et ESLint réussis.
   Verrous, index et trigger restent à tester sur PostgreSQL avant production.
 
+## Lot 4 — attribution et accès financiers par bureau
+
+Migration `138_finance_office_scope.sql` avant l'API. Aucun backfill automatique :
+le bureau de destination du colis n'est pas nécessairement le bureau financier.
+Le champ référence `organization_locations`, comme les permissions et le sélecteur
+global. L'attribution initiale est réservée à `finance.settings` dans la vue globale,
+avec version optimiste, contrôle tenant et événement OFFICE_ASSIGNED. Elle est
+définitive dans ce lot ; le trigger interdit une réattribution silencieuse.
+
+La fiche Finance permet au responsable de sélectionner le bureau pour les documents
+non attribués. Les membres limités voient ensuite les listes, indicateurs et exports
+de leurs bureaux. Détail, impression, paiement, annulation de paiement, émission,
+décision et annulation du document vérifient ce même périmètre côté serveur.
+Les reçus et paiements héritent de l'attribution de leur document. Un document
+non attribué ou hors périmètre répond 404 pour un membre limité.
+
+Limites explicites : création de documents/factures colis, conversion de devis,
+application d'avoirs, paramètres et rafraîchissement global des échéances restent
+réservés au contexte organisation complet autorisé. Le parcours reste donc : un
+responsable prépare et attribue, puis l'équipe du bureau traite la facture.
+Le parcours de création directement dans le contexte d'un bureau reste à livrer.
+Les autres consommateurs (CRM, Dashboard, IA, tracking) doivent encore être audités
+et raccordés au même modèle ; ce lot ne certifie pas leur finance par bureau.
+
+Validation : 53 tests backend ciblés réussis sur dépôts simulés, TypeScript et
+ESLint réussis. La migration,
+les triggers et la concurrence restent à vérifier sur PostgreSQL avant production.
+
 ## SasPay — contraintes fournies, intégration pas encore implémentée
 
 - Vérifier les schémas des endpoints officiels avant codage de l'adaptateur.

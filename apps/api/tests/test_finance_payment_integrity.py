@@ -109,4 +109,4 @@ def test_stats_keep_currencies_separate(monkeypatch):
     assert len(result['by_currency']) == 2
     assert 'outstanding' not in result
     assert 'group by currency' in str(conn.execute.call_args.args[0])
-    assert conn.execute.call_args.args[1] == {'o': 'agency'}
+    assert conn.execute.call_args.args[1] == {'o': 'agency', 'offices': [], 'unrestricted': True}

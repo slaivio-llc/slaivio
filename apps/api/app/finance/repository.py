@@ -23,8 +23,10 @@ def calculate(lines):
   raw=money(D(str(x['quantity']))*D(str(x['unit_price'])));disc=money(raw*D(str(x.get('discount_rate',0)))/100);base=raw-disc;vat=money(base*D(str(x.get('tax_rate',0)))/100);line_total=base+vat
   out.append({**x,"position":i,"line_subtotal":raw,"line_discount":disc,"line_tax":vat,"line_total":line_total});subtotal+=raw;discount+=disc;tax+=vat;total+=line_total
  return out,money(subtotal),money(discount),money(tax),money(total)
-def list_documents(o,q=None,status=None,kind=None,page=1,page_size=50):
+def list_documents(o,q=None,status=None,kind=None,page=1,page_size=50,office_ids=None):
  f=["d.org_id=:o"];p={"o":o,"q":f"%{q or ''}%","limit":page_size,"offset":(page-1)*page_size}
+ if office_ids is not None:
+  f.append("d.office_id=any(cast(:office_ids as uuid[]))");p['office_ids']=office_ids
  if q:f.append("(d.document_number ilike :q or coalesce(c.name,c.phone,c.email,'') ilike :q)")
  if status:f.append("d.status=:s");p['s']=status
  if kind:f.append("d.document_type=:t");p['t']=kind
@@ -33,10 +35,10 @@ def list_documents(o,q=None,status=None,kind=None,page=1,page_size=50):
   total=c.execute(text(f"select count(*) from finance_documents d left join clients c on c.id=d.client_id and c.org_id=d.org_id where {w}"),p).scalar_one()
   items=rows(c.execute(text(f"select d.*,coalesce(c.name,c.phone,c.email,'Client') client_name,ds.dossier_reference from finance_documents d left join clients c on c.id=d.client_id and c.org_id=d.org_id left join dossiers ds on ds.id=d.dossier_id and ds.org_id=d.org_id where {w} order by d.created_at desc limit :limit offset :offset"),p))
   return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":max(1,(total+page_size-1)//page_size)}}
-def stats(o):
+def stats(o,office_ids=None):
  with engine.connect() as c:
-  counts=dict(c.execute(text("select count(*) filter(where document_type='INVOICE')::int invoices,count(*) filter(where status='DRAFT')::int drafts,count(*) filter(where document_type='INVOICE' and (status='OVERDUE' or (status in ('ISSUED','PARTIALLY_PAID') and due_date<current_date)))::int overdue from finance_documents where org_id=:o"),{"o":o}).mappings().one())
-  counts["by_currency"]=rows(c.execute(text("select currency,coalesce(sum(total),0) invoiced,coalesce(sum(amount_paid),0) collected,coalesce(sum(balance_due),0) outstanding from finance_documents where org_id=:o and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID') group by currency order by currency"),{"o":o}))
+  counts=dict(c.execute(text("select count(*) filter(where document_type='INVOICE')::int invoices,count(*) filter(where status='DRAFT')::int drafts,count(*) filter(where document_type='INVOICE' and (status='OVERDUE' or (status in ('ISSUED','PARTIALLY_PAID') and due_date<current_date)))::int overdue from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[])))"),{"o":o,"unrestricted":office_ids is None,"offices":office_ids or []}).mappings().one())
+  counts["by_currency"]=rows(c.execute(text("select currency,coalesce(sum(total),0) invoiced,coalesce(sum(amount_paid),0) collected,coalesce(sum(balance_due),0) outstanding from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[]))) and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID') group by currency order by currency"),{"o":o,"unrestricted":office_ids is None,"offices":office_ids or []}))
   return counts
 def create(o,a,n,payload):
  with engine.begin() as c:
@@ -112,8 +114,8 @@ def void(o,d,a,n,version,reason):
   row=c.execute(text("update finance_documents set status='VOID',voided_by=:a,voided_at=now(),row_version=row_version+1,updated_at=now(),notes=concat_ws(E'\n',notes,:reason) where org_id=:o and id=:d and status in ('DRAFT','ISSUED') and amount_paid=0 and row_version=:v returning *"),{"o":o,"d":d,"a":a,"v":version,"reason":'ANNULATION: '+reason}).mappings().first()
   if not row:raise HTTPException(409,'finance_document_not_voidable')
   event(c,o,d,'VOIDED',a,n,{"reason":reason});return dict(row)
-def export(o):
- data=list_documents(o,page_size=10000)['items'];s=io.StringIO();w=csv.writer(s);w.writerow(['numero','type','client','statut','devise','total','paye','solde','echeance']);[w.writerow([x['document_number'],x['document_type'],x['client_name'],x['status'],x['currency'],x['total'],x['amount_paid'],x['balance_due'],x['due_date']]) for x in data];return s.getvalue()
+def export(o,office_ids=None):
+ data=list_documents(o,page_size=10000,office_ids=office_ids)['items'];s=io.StringIO();w=csv.writer(s);w.writerow(['numero','type','client','statut','devise','total','paye','solde','echeance']);[w.writerow([x['document_number'],x['document_type'],x['client_name'],x['status'],x['currency'],x['total'],x['amount_paid'],x['balance_due'],x['due_date']]) for x in data];return s.getvalue()
 
 def settings_for(o):
  with engine.begin() as c:

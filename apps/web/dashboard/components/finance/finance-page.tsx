@@ -1,6 +1,7 @@
 "use client";
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { RecordPaymentForm } from "./record-payment-form";
+import { FinanceOfficeAssignment } from "./finance-office-assignment";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -437,6 +438,7 @@ function Detail({
       close={close}
     >
       <div className="space-y-4 p-5">
+        {!(item as FinanceDocument & {office_id?:string|null}).office_id && <PermissionGuard permission="finance.settings"><FinanceOfficeAssignment documentId={item.id} version={item.row_version} onSaved={reload} /></PermissionGuard>}
         <section className="grid grid-cols-3 gap-3">
           {[
             ["Total", cash(item.total, item.currency)],

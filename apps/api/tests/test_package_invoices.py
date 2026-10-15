@@ -92,6 +92,8 @@ def test_draft_and_snapshot_created_in_same_transaction(monkeypatch):
 ])
 def test_finance_does_not_leak_global_ledger_to_scoped_members(context):
     from app.api.finance import require_finance_scope
+    from starlette.requests import Request
+    request = Request({'type':'http','method':'POST','path':'/finance','headers':[]})
     with pytest.raises(HTTPException) as exc:
-        require_finance_scope(context)
+        require_finance_scope(request, context, {'org_id':'org'})
     assert exc.value.status_code == 403

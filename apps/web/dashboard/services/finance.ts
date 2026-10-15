@@ -1,4 +1,5 @@
 import {api} from "./api";
+export async function assignFinanceOffice(documentId:string,office_id:string,expected_version:number){return (await api.post(`/finance/${documentId}/office`,{office_id,expected_version})).data}
 export type FinanceDocument={id:string;document_type:"QUOTE"|"INVOICE"|"CREDIT_NOTE";document_number:string;client_id:string;client_name:string;dossier_reference?:string;status:string;currency:string;subtotal:number;discount_total:number;tax_total:number;total:number;amount_paid:number;balance_due:number;due_date?:string;row_version:number;created_at:string;lines?:FinanceLine[];payments?:FinancePayment[];events?:Array<{id:string;event_type:string;actor_name?:string;created_at:string}>};
 export type FinanceLine={description:string;quantity:number;unit_price:number;discount_rate:number;tax_rate:number;line_total?:number};
 export type FinancePayment={id:string;receipt_number:string;amount:number;currency:string;method:string;reference?:string;paid_at:string;status:"CONFIRMED"|"REVERSED";receipt_snapshot?:{version:number}|null};

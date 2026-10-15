@@ -1,19 +1,29 @@
 from datetime import date,datetime,timezone
 from decimal import Decimal
 from uuid import UUID
-from fastapi import APIRouter,Depends,Query,Response,HTTPException
+from fastapi import APIRouter,Depends,Query,Response,HTTPException,Request
 from pydantic import BaseModel,Field,field_validator
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.finance import repository as repo
 from app.finance.package_invoices import create_package_invoice, get_package_invoice
 from app.core.office_context import get_current_office_context, office_scope_ids
+from app.finance.office_scope import require_document, assign_office
 
-def require_finance_scope(context=Depends(get_current_office_context)):
- # Legacy documents have no reliable office attribution. Fail closed until the
- # whole ledger can be filtered, including exports, payments and receipts.
- if office_scope_ids(context) is not None:
-  raise HTTPException(403,'finance_office_scope_not_supported')
+def require_finance_scope(request:Request,context=Depends(get_current_office_context),tenant=Depends(get_current_tenant)):
+ offices=office_scope_ids(context)
+ if offices is None:return
+ document_id=request.path_params.get('document_id')
+ if document_id:
+  try:UUID(document_id)
+  except ValueError:raise HTTPException(404,'finance_document_not_found')
+  require_document(tenant['org_id'],document_id,offices)
+  if request.url.path.endswith(('/convert','/apply-credit','/office')):
+   raise HTTPException(403,'finance_organization_context_required')
+  return
+ # These list endpoints explicitly apply the office predicate in the repository.
+ if request.method=='GET' and request.url.path.rstrip('/').endswith(('/finance','/finance/stats','/finance/export')):return
+ raise HTTPException(403,'finance_organization_context_required')
 
 router=APIRouter(prefix="/finance",tags=["finance"],dependencies=[Depends(require_finance_scope)])
 def actor(t):return str(t.get("user_id") or "system")
@@ -31,6 +41,7 @@ class DocumentCreate(BaseModel):
  @classmethod
  def currency_code(cls,v):return v.upper()
 class Version(BaseModel):expected_version:int=Field(ge=1)
+class OfficeAssignment(Version):office_id:UUID
 class Void(Version):reason:str=Field(min_length=4,max_length=500)
 class Payment(BaseModel):
  amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2,allow_inf_nan=False)
@@ -49,9 +60,9 @@ class Reverse(BaseModel):reason:str=Field(min_length=4,max_length=500)
 class Settings(BaseModel):legal_name:str|None=None;tax_identifier:str|None=None;billing_address:str|None=None;default_currency:str=Field(min_length=3,max_length=3);default_tax_rate:float=Field(ge=0,le=100);default_payment_terms_days:int=Field(ge=0,le=365);document_footer:str|None=None
 
 @router.get("")
-def index(q:str|None=None,status:str|None=None,document_type:str|None=None,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.list_documents(tenant['org_id'],q,status,document_type,page,page_size)
+def index(q:str|None=None,status:str|None=None,document_type:str|None=None,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.list_documents(tenant['org_id'],q,status,document_type,page,page_size,office_ids=office_scope_ids(context))
 @router.get("/stats")
-def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.stats(tenant['org_id'])
+def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.stats(tenant['org_id'],office_ids=office_scope_ids(context))
 @router.get("/settings")
 def settings(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.settings_for(tenant['org_id'])
 @router.put("/settings")
@@ -59,11 +70,14 @@ def settings_save(body:Settings,tenant=Depends(get_current_tenant),_=Depends(req
 @router.post("/overdue/refresh")
 def overdue(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.issue"))):return {"updated":repo.refresh_overdue(tenant['org_id'])}
 @router.get("/export")
-def export(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.export"))):return Response(repo.export(tenant['org_id']),media_type="text/csv; charset=utf-8",headers={"Content-Disposition":"attachment; filename=slaivio-facturation.csv"})
+def export(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.export")),context=Depends(get_current_office_context)):return Response(repo.export(tenant['org_id'],office_ids=office_scope_ids(context)),media_type="text/csv; charset=utf-8",headers={"Content-Disposition":"attachment; filename=slaivio-facturation.csv"})
 @router.post("")
 def create(body:DocumentCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create"))):return repo.create(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
 @router.get("/{document_id}")
 def detail(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.detail(tenant['org_id'],document_id)
+@router.post("/{document_id}/office")
+def office_assignment(document_id:UUID,body:OfficeAssignment,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):
+ return assign_office(tenant['org_id'],str(document_id),str(body.office_id),body.expected_version,actor(tenant),name(tenant))
 @router.get("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read"))])
 def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
  return get_package_invoice(tenant['org_id'],str(package_id))

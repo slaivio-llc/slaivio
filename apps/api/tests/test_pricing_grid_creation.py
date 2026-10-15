@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock
 
 from app.api.pricing import GridCreate
@@ -27,6 +28,8 @@ def test_grid_creation_can_atomically_create_a_base_price_rule(monkeypatch):
         shipping_service_id="service-id",
         calculation_method="PER_KG",
         initial_price=8.5,
+        initial_category_code="FRAGILE",
+        initial_package_type="carton",
     ).model_dump()
     created = repository.create_grid("org-id", "actor-id", "Agent", payload)
 
@@ -36,6 +39,10 @@ def test_grid_creation_can_atomically_create_a_base_price_rule(monkeypatch):
     assert "insert into pricing_grid_rules" in str(rule_insert.args[0])
     assert rule_insert.args[1]["amount"] == 8.5
     assert rule_insert.args[1]["method"] == "PER_KG"
+    assert json.loads(rule_insert.args[1]["conditions"]) == {
+        "category_code": "FRAGILE",
+        "package_type": "carton",
+    }
     assert [call.args[3] for call in audit.call_args_list] == [
         "GRID_CREATED",
         "RULE_CREATED",

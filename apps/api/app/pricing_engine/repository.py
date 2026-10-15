@@ -26,6 +26,8 @@ def dashboard(o):
 
 def create_grid(o,a,n,p):
  initial_price=p.pop('initial_price',None)
+ initial_category_code=p.pop('initial_category_code',None)
+ initial_package_type=p.pop('initial_package_type',None)
  with engine.begin() as c:
   service=c.execute(text("""select s.id from shipping_services s
    where s.org_id=:o and s.id=cast(:s as uuid) and s.active
@@ -40,13 +42,17 @@ def create_grid(o,a,n,p):
   row=dict(c.execute(text("""insert into pricing_grids(org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,created_by,updated_by) values(:o,:workspace_id,:grid_code,:name,:description,cast(:route_id as uuid),cast(:shipping_service_id as uuid),upper(:currency_code),:calculation_method,:visibility,'DRAFT',:effective_from,:effective_until,:volumetric_divisor,:chargeable_weight_rule,:rounding_increment,:minimum_weight_kg,:minimum_cbm,:maximum_weight_kg,:maximum_cbm,:maximum_declared_value,:tax_inclusive,:tax_rate,:requires_approval,:a,:a) returning *"""),{"o":o,"a":a,**p}).mappings().one())
   _audit(c,o,str(row['id']),'GRID_CREATED',a,n,new=row)
   if initial_price is not None:
+   conditions={key:value for key,value in (
+    ("category_code",initial_category_code),("package_type",initial_package_type)
+   ) if value is not None}
    rule=dict(c.execute(text("""insert into pricing_grid_rules(
       org_id,grid_id,rule_code,name,conditions,action_type,calculation_method,amount,
       percentage,priority,stackable,active,effective_from)
-     values(:o,:g,:code,'Tarif de base','{}'::jsonb,'SET_PRICE',:method,:amount,
+     values(:o,:g,:code,'Tarif de base',cast(:conditions as jsonb),'SET_PRICE',:method,:amount,
       null,100,false,true,:effective_from) returning *"""),{
        "o":o,"g":row["id"],"code":f"BASE-{p['grid_code']}",
        "method":p["calculation_method"],"amount":initial_price,
+       "conditions":_json(conditions),
        "effective_from":p["effective_from"],
    }).mappings().one())
    _audit(c,o,str(row['id']),'RULE_CREATED',a,n,new=rule)
@@ -184,6 +190,9 @@ def _match(rule,p):
  if rule.get('client_id') and str(rule['client_id'])!=str(p.get('client_id')): return False
  if rule.get('client_segment') and rule['client_segment']!=p.get('client_segment'): return False
  if rule.get('category_code') and rule['category_code']!=p.get('category_code'): return False
+ conditions=rule.get('conditions') or {}
+ if conditions.get('category_code') and conditions['category_code']!=p.get('category_code'): return False
+ if conditions.get('package_type') and conditions['package_type']!=p.get('package_type'): return False
  return True
 
 def quote(o,p,a):
@@ -214,13 +223,26 @@ def quote(o,p,a):
    chargeable=max(chargeable,Decimal(str(grid['minimum_weight_kg'] or 0)))
   if (grid['maximum_weight_kg'] and actual>grid['maximum_weight_kg']) or (grid['maximum_cbm'] and cbm>grid['maximum_cbm']) or (grid['maximum_declared_value'] and Decimal(str(p.get('declared_value') or 0))>grid['maximum_declared_value']): raise HTTPException(422,"manual_quote_required")
   rules=_rows(c.execute(text("select x.*,cat.code category_code from pricing_grid_rules x left join pricing_categories cat on cat.id=x.category_id and cat.org_id=x.org_id where x.org_id=:o and x.grid_id=:g and x.active and x.effective_from<=:at and (x.effective_until is null or x.effective_until>:at) order by (x.client_id is not null) desc,(x.client_segment is not null) desc,(x.category_id is not null) desc,x.priority desc"),{"o":o,"g":grid['id'],"at":p['priced_at']}))
-  matched=[r for r in rules if _match(r,p)]; blockers=[r for r in matched if r['action_type'] in('PROHIBIT','MANUAL_QUOTE')]
+  matched=[r for r in rules if _match(r,p)]
+  matched.sort(key=lambda rule:(
+   bool(rule.get('client_id')),
+   bool(rule.get('client_segment')),
+   int(bool(rule.get('category_id') or rule.get('category_code') or (rule.get('conditions') or {}).get('category_code')))
+    +int(bool((rule.get('conditions') or {}).get('package_type'))),
+   rule.get('priority') or 0,
+   bool(rule.get('category_id') or rule.get('category_code') or (rule.get('conditions') or {}).get('category_code')),
+   bool((rule.get('conditions') or {}).get('package_type')),
+  ),reverse=True)
+  blockers=[r for r in matched if r['action_type'] in('PROHIBIT','MANUAL_QUOTE')]
   if blockers: raise HTTPException(422,blockers[0]['action_type'].lower())
   base_rule=next((r for r in matched if r['action_type']=='SET_PRICE'),None)
   if not base_rule and grid['calculation_method']!='TIERED':
-   category_prices=[r for r in rules if r['action_type']=='SET_PRICE' and r.get('category_id')]
+   price_rules=[r for r in rules if r['action_type']=='SET_PRICE']
+   category_prices=[r for r in price_rules if r.get('category_id') or r.get('category_code') or (r.get('conditions') or {}).get('category_code')]
+   package_prices=[r for r in price_rules if (r.get('conditions') or {}).get('package_type')]
    if category_prices and not p.get('category_code'): raise HTTPException(422,{"code":"pricing_input_required","field":"category_code"})
-   if category_prices: raise HTTPException(422,"no_matching_pricing_rule")
+   if package_prices and not p.get('package_type'): raise HTTPException(422,{"code":"pricing_input_required","field":"package_type"})
+   if category_prices or package_prices: raise HTTPException(422,"no_matching_pricing_rule")
    raise HTTPException(422,"pricing_grid_has_no_price_rules")
   method=(base_rule or {}).get('calculation_method') or grid['calculation_method']
   if density_switch and method=='PER_CBM': method='PER_KG'

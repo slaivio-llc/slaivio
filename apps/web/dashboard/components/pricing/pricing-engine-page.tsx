@@ -49,6 +49,27 @@ const calculationLabels: Record<string, string> = {
   FIXED: "Montant fixe",
   TIERED: "Selon des paliers",
 };
+const goodsClassificationLabels: Record<string, string> = {
+  ORDINARY_GOODS: "Marchandise ordinaire",
+  SENSITIVE_GOODS: "Marchandise sensible",
+  DANGEROUS_GOODS: "Marchandise dangereuse",
+  FRAGILE: "Fragile",
+  ELECTRONICS: "Électronique",
+  BATTERY: "Batterie",
+  LIQUID: "Liquide",
+  FOOD: "Alimentaire",
+  PHARMACEUTICAL: "Pharmaceutique",
+  HIGH_VALUE: "Haute valeur",
+};
+const packageTypeLabels: Record<string, string> = {
+  carton: "Carton",
+  sac: "Sac",
+  caisse: "Caisse",
+  palette: "Palette",
+  document: "Document",
+  lot: "Lot",
+  other: "Autre",
+};
 type View =
   | "OVERVIEW"
   | "GRIDS"
@@ -173,7 +194,6 @@ export function PricingEnginePage() {
       {selected && (
         <GridDrawer
           detail={selected}
-          categories={catalog?.categories||[]}
           close={() => setSelected(null)}
           versionCreated={async id=>setSelected(await gridDetail(id))}
           changed={async () => {
@@ -339,6 +359,8 @@ function CreateGrid({
         currency_code: String(f.get("currency") || "USD").trim().toUpperCase(),
         calculation_method: method,
         initial_price: Number(f.get("price")),
+        initial_category_code: String(f.get("classification") || "") || null,
+        initial_package_type: String(f.get("package_type") || "") || null,
         effective_from: new Date().toISOString(),
       });
       await done(created.id);
@@ -363,6 +385,12 @@ function CreateGrid({
         <label className="grid gap-1.5 text-sm">Comment calculer le prix ?<select name="method" className={input} value={method} onChange={e=>setMethod(e.target.value)}>{Object.entries(calculationLabels).filter(([value])=>value!=="TIERED"&&value!=="CUSTOM").map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
         <label className="grid gap-1.5 text-sm">{priceLabel}<input required name="price" type="number" min="0.01" step="0.01" className={input} placeholder="Ex. 8.50"/></label>
       </div>
+      <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
+        <legend className="px-1 text-xs font-semibold text-slate-700">À quels colis ce prix s’applique-t-il ?</legend>
+        <label className="grid gap-1.5 text-sm">Marchandise<select name="classification" className={input}><option value="">Toutes les marchandises</option>{Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
+        <label className="grid gap-1.5 text-sm">Type d’emballage<select name="package_type" className={input}><option value="">Tous les types</option>{Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
+        <p className="text-xs text-slate-500 sm:col-span-2">Laissez « Toutes » pour créer un prix général. Les prix définis pour une marchandise ou un emballage précis seront prioritaires.</p>
+      </fieldset>
       <label className="grid gap-1.5 text-sm">Devise<input required name="currency" className={input} defaultValue="USD" minLength={3} maxLength={3}/></label>
       <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">Le tarif sera créé en brouillon avec son prix de base. Il faudra le vérifier puis le publier avant qu’il soit utilisé pour calculer les prix.</p>
       {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
@@ -374,13 +402,11 @@ function CreateGrid({
 }
 function GridDrawer({
   detail,
-  categories,
   close,
   versionCreated,
   changed,
 }: {
   detail: Awaited<ReturnType<typeof gridDetail>>;
-  categories:Catalog["categories"];
   close: () => void;
   versionCreated:(id:string)=>Promise<void>;
   changed: () => Promise<void>;
@@ -431,44 +457,53 @@ function GridDrawer({
         </div>
       }
     >
-        <main className="grid gap-4 md:grid-cols-2">
-          {g.status==="DRAFT"&&<p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 md:col-span-2">
+        <main className="grid gap-4">
+          {g.status==="DRAFT"&&<p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
             {detail.rules.length
               ? "Le prix de base est configuré. Vérifiez-le, faites-le approuver, puis publiez le tarif pour qu’il soit utilisé."
               : "Ce brouillon n’a pas encore de prix. Ajoutez un prix de base avant de demander son approbation."}
           </p>}
-          <Card title="Nouvelle version">
-            <p className="mb-3 text-xs text-slate-600">Prépare une copie modifiable de cette grille. Les versions précédentes et leurs prix appliqués restent conservés.</p>
-            <form className="grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={prepareVersion}>
-              <label className="grid gap-1 text-xs">Date d’application<input required type="datetime-local" value={versionDate} onChange={e=>setVersionDate(e.target.value)} className={input}/></label>
-              <button disabled={versionSaving} className={`${btn} self-end`}>{versionSaving?"Préparation…":"Préparer la version suivante"}</button>
-            </form>
+          {g.status!=="DRAFT"&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Cette version est en lecture seule. Créez une nouvelle version dans les options avancées pour modifier ses règles sans changer les tarifs historiques.</p>}
+          <Card title="Prix par marchandise et type de colis">
+            <p className="mb-3 text-xs text-slate-600">Chaque prix précis remplace le prix général pour les colis concernés. Le prix général reste utilisé pour les autres colis.</p>
+            <div className="divide-y divide-slate-100">
+              {detail.rules.filter(rule=>rule.action_type==="SET_PRICE").map((rule,i)=>{
+                const conditions=(rule.conditions||{}) as Record<string,string>;
+                const scope=[
+                  conditions.category_code?goodsClassificationLabels[conditions.category_code]||conditions.category_code:rule.category_name?String(rule.category_name):"Toutes marchandises",
+                  conditions.package_type?packageTypeLabels[conditions.package_type]||conditions.package_type:"Tous emballages",
+                ].join(" · ");
+                const price=rule.amount===null||rule.amount===undefined?"Prix par paliers":`${rule.amount} ${g.currency_code} · ${calculationLabels[String(rule.calculation_method)]||rule.calculation_method}`;
+                return <div key={String(rule.id||i)} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span><strong className="block font-medium">{scope}</strong><span className="text-xs text-slate-500">{String(rule.name||"Prix spécifique")}</span></span><span className="font-semibold">{price}</span></div>;
+              })}
+              {!detail.rules.some(rule=>rule.action_type==="SET_PRICE")&&<p className="py-3 text-sm text-slate-500">Aucun prix de base configuré.</p>}
+            </div>
+            {g.status==="DRAFT"&&<AddRule grid={g.id} changed={changed} />}
           </Card>
-          {g.status!=="DRAFT"&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 md:col-span-2">Cette version est en lecture seule. Créez une nouvelle version pour modifier ses règles sans changer les tarifs historiques.</p>}
-          <Card title="Règles">
-            {detail.rules.map((x, i) => (
-              <Row key={i} x={x} />
-            ))}
-            {g.status==="DRAFT"&&<AddRule grid={g.id} categories={categories} changed={changed} />}
-          </Card>
-          <Card title="Prix par quantité (paliers)">
-            <p className="mb-2 text-xs text-slate-600">À utiliser si le prix change selon le poids, le volume ou le nombre d’unités.</p>
-            {detail.tiers.map((x, i) => (
-              <Row key={i} x={x} />
-            ))}
-            {g.status==="DRAFT"&&<AddTier grid={g.id} rules={detail.rules} changed={changed} />}
-          </Card>
-          <Card title="Frais supplémentaires">
-            {detail.fees.map((x, i) => (
-              <Row key={i} x={x} />
-            ))}
-            {g.status==="DRAFT"&&<AddFee grid={g.id} changed={changed} />}
-          </Card>
-          <Card title="Historique audité">
-            {detail.audit.slice(0, 10).map((x, i) => (
-              <Row key={i} x={x} />
-            ))}
-          </Card>
+          <details className="rounded-xl border border-slate-200 bg-white">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Options avancées (paliers, frais, versions et historique)</summary>
+            <div className="grid gap-4 border-t border-slate-100 p-4 md:grid-cols-2">
+              <Card title="Paliers selon quantité">
+                <p className="mb-2 text-xs text-slate-600">À utiliser uniquement si le prix varie par tranche de poids, volume ou nombre d’unités.</p>
+                {detail.tiers.map((x, i) => <Row key={i} x={x} />)}
+                {g.status==="DRAFT"&&<AddTier grid={g.id} rules={detail.rules} changed={changed} />}
+              </Card>
+              <Card title="Frais supplémentaires">
+                {detail.fees.map((x, i) => <Row key={i} x={x} />)}
+                {g.status==="DRAFT"&&<AddFee grid={g.id} changed={changed} />}
+              </Card>
+              <Card title="Nouvelle version">
+                <p className="mb-3 text-xs text-slate-600">Prépare une copie modifiable sans changer les tarifs déjà appliqués.</p>
+                <form className="grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={prepareVersion}>
+                  <label className="grid gap-1 text-xs">Date d’application<input required type="datetime-local" value={versionDate} onChange={e=>setVersionDate(e.target.value)} className={input}/></label>
+                  <button disabled={versionSaving} className={`${btn} self-end`}>{versionSaving?"Préparation…":"Préparer la version suivante"}</button>
+                </form>
+              </Card>
+              <Card title="Historique">
+                {detail.audit.slice(0, 10).map((x, i) => <Row key={i} x={x} />)}
+              </Card>
+            </div>
+          </details>
         </main>
     </OperationDrawer>
   );
@@ -476,21 +511,23 @@ function GridDrawer({
 
 function AddRule({
   grid,
-  categories,
   changed,
 }: {
   grid: string;
-  categories:Catalog["categories"];
   changed: () => Promise<void>;
 }) {
   const [open,setOpen]=useState(false),[error,setError]=useState(""),[saving,setSaving]=useState(false);
   const [method,setMethod]=useState("PER_KG");
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();const form=new FormData(event.currentTarget);
-    const name=String(form.get("name")||"").trim(),method=String(form.get("method"));
+    const method=String(form.get("method"));
+    const categoryCode=String(form.get("classification")||"");
+    const packageType=String(form.get("package_type")||"");
+    const conditions={...(categoryCode?{category_code:categoryCode}:{}),...(packageType?{package_type:packageType}:{})};
+    const scope=[categoryCode?goodsClassificationLabels[categoryCode]:"toutes marchandises",packageType?packageTypeLabels[packageType]:"tous emballages"].join(" · ");
     setSaving(true);setError("");
     try{
-      await addGridRule(grid,{rule_code:`RULE-${Date.now()}`,name,category_id:form.get("category")||null,conditions:{},action_type:"SET_PRICE",calculation_method:method,amount:Number(form.get("amount"))||null,percentage:method==="PERCENT_VALUE"?Number(form.get("amount")):null,min_weight_kg:Number(form.get("min_weight"))||null,max_weight_kg:Number(form.get("max_weight"))||null,min_cbm:Number(form.get("min_cbm"))||null,max_cbm:Number(form.get("max_cbm"))||null,priority:100,stackable:false,effective_from:new Date().toISOString()});
+      await addGridRule(grid,{rule_code:`RULE-${Date.now()}`,name:`Prix ${scope}`,conditions,action_type:"SET_PRICE",calculation_method:method,amount:Number(form.get("amount")),percentage:method==="PERCENT_VALUE"?Number(form.get("amount")):null,priority:100,stackable:false,effective_from:new Date().toISOString()});
       setOpen(false);await changed();
     }catch{setError("La règle n’a pas été enregistrée. Vérifiez ses valeurs et la catégorie sélectionnée.");}
     finally{setSaving(false);}
@@ -498,20 +535,14 @@ function AddRule({
   return (
     <PermissionGuard permission="pricing.update">
       <div className="mt-3">
-        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter une règle de prix</button>:<form className="grid gap-2 border-t pt-3" onSubmit={submit}>
-          <label className="grid gap-1 text-xs">Libellé<input required name="name" maxLength={120} className={input} placeholder="Ex. Électronique"/></label>
-          <label className="grid gap-1 text-xs">Catégorie (facultative)<select name="category" className={input}><option value="">Toutes les catégories</option>{categories.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs">Méthode<select name="method" className={input} value={method} onChange={event=>setMethod(event.target.value)}>{Object.entries(calculationLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-            {method!=="TIERED"?<label className="grid gap-1 text-xs">Prix / montant / taux<input required name="amount" type="number" min="0" step="0.01" className={input}/></label>:<p className="self-center text-xs text-slate-600">Ajoutez les montants dans la section « Paliers » après l’enregistrement de cette règle.</p>}
-            <label className="grid gap-1 text-xs">Poids min. (kg)<input name="min_weight" type="number" min="0" step="0.001" className={input}/></label>
-            <label className="grid gap-1 text-xs">Poids max. (kg)<input name="max_weight" type="number" min="0" step="0.001" className={input}/></label>
-            <label className="grid gap-1 text-xs">Volume min. (CBM)<input name="min_cbm" type="number" min="0" step="0.0001" className={input}/></label>
-            <label className="grid gap-1 text-xs">Volume max. (CBM)<input name="max_cbm" type="number" min="0" step="0.0001" className={input}/></label>
-          </div>
-          <p className="text-[11px] text-slate-500">Pour un pourcentage sur la valeur déclarée, saisissez le taux en pourcentage. Laissez les bornes vides si elles ne s’appliquent pas.</p>
+        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un prix par colis</button>:<form className="grid gap-3 border-t pt-3 sm:grid-cols-2" onSubmit={submit}>
+          <label className="grid gap-1 text-xs">Marchandise<select name="classification" className={input}><option value="">Toutes les marchandises</option>{Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
+          <label className="grid gap-1 text-xs">Type d’emballage<select name="package_type" className={input}><option value="">Tous les types</option>{Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
+          <label className="grid gap-1 text-xs">Calcul du prix<select name="method" className={input} value={method} onChange={event=>setMethod(event.target.value)}>{Object.entries(calculationLabels).filter(([key])=>key!=="TIERED"&&key!=="CUSTOM").map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+          <label className="grid gap-1 text-xs">{method==="PERCENT_VALUE"?"Taux (%)":"Prix"}<input required name="amount" type="number" min="0.01" step="0.01" className={input}/></label>
+          <p className="text-[11px] text-slate-500 sm:col-span-2">Le prix s’applique à la combinaison choisie et prend priorité sur le tarif général.</p>
           {error&&<p role="alert" className="text-xs text-red-700">{error}</p>}
-          <div className="flex justify-end gap-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>Annuler</button><button disabled={saving} className={primary}>{saving?"Enregistrement…":"Enregistrer la règle"}</button></div>
+          <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>Annuler</button><button disabled={saving} className={primary}>{saving?"Enregistrement…":"Enregistrer le prix"}</button></div>
         </form>}
       </div>
     </PermissionGuard>
@@ -600,6 +631,7 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
           route_id: f.get("route"),
           shipping_service_id: f.get("service"),
           category_code: f.get("category")||null,
+          package_type: f.get("package_type")||null,
           weight_kg: Number(f.get("weight")),
           length_cm: Number(f.get("length")) || null,
           width_cm: Number(f.get("width")) || null,
@@ -617,7 +649,7 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
       const detail=axios.isAxiosError(cause)?cause.response?.data?.detail:null;
       const code=typeof detail==="string"?detail:detail?.code;
       const field=typeof detail==="object"&&detail?detail.field:null;
-      const missing:Record<string,string>={weight_kg:"le poids",volume_cbm:"le volume en CBM",declared_value:"la valeur déclarée",category_code:"la catégorie de marchandise"};
+      const missing:Record<string,string>={weight_kg:"le poids",volume_cbm:"le volume en CBM",declared_value:"la valeur déclarée",category_code:"la catégorie de marchandise",package_type:"le type d’emballage"};
       setError(code==="pricing_input_required"&&typeof field==="string"?`Renseignez ${missing[field]||"les informations manquantes"} pour cette grille.`:code==="no_matching_pricing_tier"?"Aucun palier ne couvre cette quantité. Vérifiez les bornes de la grille.":code==="no_matching_pricing_rule"?"Aucune règle tarifaire ne correspond à cette catégorie ou à cette quantité.":"Aucune grille active compatible ou règle nécessitant un devis manuel.");
     }
   }
@@ -649,13 +681,14 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
               </option>
             ))}
         </select>
-        <select name="category" className={input}>
-          <option value="">Aucune catégorie précisée</option>
-          {catalog?.categories.map((x) => (
-            <option key={x.id} value={x.code}>
-              {x.name}
-            </option>
-          ))}
+        <select name="category" className={input} aria-label="Marchandise">
+          <option value="">Toutes marchandises</option>
+          {Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}
+          {catalog?.categories.map((x) => <option key={x.id} value={x.code}>{x.name}</option>)}
+        </select>
+        <select name="package_type" className={input} aria-label="Type d’emballage">
+          <option value="">Tous les types d’emballage</option>
+          {Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}
         </select>
         {[
           ["weight", "Poids réel kg"],

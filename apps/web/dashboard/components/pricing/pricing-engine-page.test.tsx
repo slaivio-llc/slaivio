@@ -93,7 +93,14 @@ describe("PricingEnginePage grid creation", () => {
         tier_count: 0,
         fee_count: 0,
       },
-      rules: [{ id: "rule-1", name: "Tarif de base", amount: 8.5 }],
+      rules: [{
+        id: "rule-1",
+        name: "Tarif de base",
+        action_type: "SET_PRICE",
+        conditions: { category_code: "FRAGILE", package_type: "carton" },
+        amount: 8.5,
+        calculation_method: "PER_KG",
+      }],
       tiers: [],
       fees: [],
       costs: [],
@@ -117,6 +124,12 @@ describe("PricingEnginePage grid creation", () => {
     fireEvent.change(screen.getByLabelText("Prix par kilogramme (kg)"), {
       target: { value: "8.50" },
     });
+    fireEvent.change(screen.getByLabelText("Marchandise"), {
+      target: { value: "FRAGILE" },
+    });
+    fireEvent.change(screen.getByLabelText("Type d’emballage"), {
+      target: { value: "carton" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Créer le tarif" }));
 
     await waitFor(() => expect(pricingService.createGrid).toHaveBeenCalledOnce());
@@ -127,8 +140,11 @@ describe("PricingEnginePage grid creation", () => {
       shipping_service_id: "service-1",
       calculation_method: "PER_KG",
       initial_price: 8.5,
+      initial_category_code: "FRAGILE",
+      initial_package_type: "carton",
       currency_code: "USD",
     }));
     expect(await screen.findByText(/tarif de base/i)).toBeInTheDocument();
+    expect(screen.getByText("Fragile · Carton")).toBeInTheDocument();
   });
 });

@@ -64,6 +64,7 @@ def make_price_rule(**overrides):
         "amount": 2,
         "category_id": None,
         "category_code": None,
+        "conditions": {},
         "client_id": None,
         "client_segment": None,
         **overrides,
@@ -137,3 +138,92 @@ def test_quote_requires_weight_for_per_kg_pricing(monkeypatch):
 
     assert error.value.status_code == 422
     assert error.value.detail == {"code": "pricing_input_required", "field": "weight_kg"}
+
+
+def test_quote_prefers_matching_goods_and_package_type_rule(monkeypatch):
+    calculator(
+        monkeypatch,
+        make_grid(),
+        [
+            make_price_rule(amount=2, name="Prix général"),
+            make_price_rule(
+                id="specific-rule",
+                amount=5,
+                name="Prix fragile en carton",
+                conditions={"category_code": "FRAGILE", "package_type": "carton"},
+            ),
+        ],
+    )
+
+    result = repository.quote(
+        "org-id",
+        {
+            "route_id": "route-id",
+            "shipping_service_id": "service-id",
+            "category_code": "FRAGILE",
+            "package_type": "carton",
+            "weight_kg": 3,
+            "priced_at": "2026-10-14T10:00:00Z",
+        },
+        "actor-id",
+    )
+
+    assert result["subtotal"] == 15
+
+
+def test_quote_falls_back_to_general_price_for_other_package_type(monkeypatch):
+    calculator(
+        monkeypatch,
+        make_grid(),
+        [
+            make_price_rule(amount=2, name="Prix général"),
+            make_price_rule(
+                id="specific-rule",
+                amount=5,
+                name="Prix fragile en carton",
+                conditions={"category_code": "FRAGILE", "package_type": "carton"},
+            ),
+        ],
+    )
+
+    result = repository.quote(
+        "org-id",
+        {
+            "route_id": "route-id",
+            "shipping_service_id": "service-id",
+            "category_code": "FRAGILE",
+            "package_type": "palette",
+            "weight_kg": 3,
+            "priced_at": "2026-10-14T10:00:00Z",
+        },
+        "actor-id",
+    )
+
+    assert result["subtotal"] == 6
+
+
+def test_quote_requires_package_type_for_package_specific_prices(monkeypatch):
+    calculator(
+        monkeypatch,
+        make_grid(),
+        [
+            make_price_rule(
+                conditions={"package_type": "carton"},
+            ),
+        ],
+    )
+
+    with pytest.raises(HTTPException) as error:
+        repository.quote(
+            "org-id",
+            {
+                "route_id": "route-id",
+                "shipping_service_id": "service-id",
+                "weight_kg": 3,
+                "priced_at": "2026-10-14T10:00:00Z",
+            },
+            "actor-id",
+        )
+
+    assert error.value.status_code == 422
+    assert error.value.detail == {"code": "pricing_input_required", "field": "package_type"}

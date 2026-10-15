@@ -2033,6 +2033,7 @@ def price_package(org_id,package_id,user_id,service_id):
     if not route_id:raise HTTPException(422,"package_route_required_for_pricing")
     result=quote(org_id,{"route_id":route_id,"shipping_service_id":service_id,
         "category_code":item.get("goods_classification") or item.get("category"),
+        "package_type":item.get("package_type"),
         "client_id":item.get("client_id"),"weight_kg":float(item.get("weight_kg") or 0),
         "volume_cbm":float(item.get("volume_cbm") or 0),
         "length_cm":item.get("length_cm"),"width_cm":item.get("width_cm"),"height_cm":item.get("height_cm"),

@@ -7,7 +7,7 @@ from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.finance import repository as repo
 from app.finance.package_invoices import create_package_invoice, get_package_invoice
-from app.core.office_context import get_current_office_context, office_scope_ids
+from app.core.office_context import get_current_office_context, office_scope_ids, validate_office_assignment
 from app.finance.office_scope import require_document, assign_office
 
 def require_finance_scope(request:Request,context=Depends(get_current_office_context),tenant=Depends(get_current_tenant)):
@@ -31,7 +31,7 @@ def name(t):return str(t.get("actor_name") or "Membre de l'agence")
 class Line(BaseModel):
  description:str=Field(min_length=1,max_length=500);quantity:float=Field(gt=0);unit_price:float=Field(ge=0);discount_rate:float=Field(default=0,ge=0,le=100);tax_rate:float=Field(default=0,ge=0,le=100);metadata:dict={}
 class DocumentCreate(BaseModel):
- document_type:str;client_id:str;dossier_id:str|None=None;source_document_id:str|None=None;currency:str=Field(min_length=3,max_length=3);due_date:date|None=None;notes:str|None=None;terms:str|None=None;lines:list[Line]=Field(min_length=1,max_length=200)
+ document_type:str;client_id:str;dossier_id:str|None=None;source_document_id:str|None=None;currency:str=Field(min_length=3,max_length=3);due_date:date|None=None;notes:str|None=None;terms:str|None=None;office_id:UUID|None=None;lines:list[Line]=Field(min_length=1,max_length=200)
  @field_validator('document_type')
  @classmethod
  def kind(cls,v):
@@ -96,8 +96,21 @@ def settings_save(body:Settings,tenant=Depends(get_current_tenant),_=Depends(req
 def overdue(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.issue"))):return {"updated":repo.refresh_overdue(tenant['org_id'])}
 @router.get("/export")
 def export(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.export")),context=Depends(get_current_office_context)):return Response(repo.export(tenant['org_id'],office_ids=office_scope_ids(context)),media_type="text/csv; charset=utf-8",headers={"Content-Disposition":"attachment; filename=slaivio-facturation.csv"})
+def resolve_create_payload(body:DocumentCreate, context:dict|None=None):
+ payload = body.model_dump()
+ office_id = payload.get('office_id')
+ if not office_id and isinstance(context, dict):
+  office_id = context.get('selected_office_id')
+ if office_id:
+  office_id = str(office_id)
+  if isinstance(context, dict):
+   validate_office_assignment(context, office_id)
+  payload['office_id'] = office_id
+ return payload
+
 @router.post("")
-def create(body:DocumentCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create"))):return repo.create(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
+def create(body:DocumentCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create")),context=Depends(get_current_office_context)):
+ return repo.create(tenant['org_id'],actor(tenant),name(tenant),resolve_create_payload(body, context))
 @router.get("/{document_id}/due-obligations")
 def due_obligations(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.get_due_obligations(tenant['org_id'],document_id)
 @router.post("/{document_id}/due-obligations")
@@ -113,8 +126,11 @@ def office_assignment(document_id:UUID,body:OfficeAssignment,tenant=Depends(get_
 def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
  return get_package_invoice(tenant['org_id'],str(package_id))
 @router.post("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_permission("finance.read"))])
-def package_invoice_create(package_id:UUID,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create"))):
- return create_package_invoice(tenant['org_id'],str(package_id),actor(tenant),name(tenant),body.expected_version)
+def package_invoice_create(package_id:UUID,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create")),context=Depends(get_current_office_context)):
+ office_id = context.get('selected_office_id')
+ if office_id:
+  validate_office_assignment(context, office_id)
+ return create_package_invoice(tenant['org_id'],str(package_id),actor(tenant),name(tenant),body.expected_version, office_id=office_id)
 @router.get("/{document_id}/print")
 def printable(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return Response(repo.printable(tenant['org_id'],document_id),media_type="text/html; charset=utf-8")
 @router.post("/{document_id}/issue")

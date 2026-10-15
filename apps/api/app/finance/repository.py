@@ -50,8 +50,14 @@ def create_in_transaction(c,o,a,n,payload):
  if not c.execute(text("select 1 from clients where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['client_id'],"o":o}).first():raise HTTPException(422,'finance_client_not_found')
  if payload.get('dossier_id') and not c.execute(text("select 1 from dossiers where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['dossier_id'],"o":o}).first():raise HTTPException(422,'finance_dossier_not_found')
  if payload.get('source_document_id') and not c.execute(text("select 1 from finance_documents where id=cast(:id as uuid) and org_id=:o"),{"id":payload['source_document_id'],"o":o}).first():raise HTTPException(422,'finance_source_document_not_found')
+ office_id = payload.get('office_id')
+ if office_id is not None:
+  office_id = str(office_id)
+  office = c.execute(text("select 1 from organization_locations where org_id=:o and id=:office and location_type='OFFICE' and status='ACTIVE'"),{'o':o,'office':office_id}).first()
+  if not office: raise HTTPException(422,'finance_office_not_found')
+  payload['office_id'] = office_id
  doc_id=c.execute(text("select gen_random_uuid()::text")).scalar_one();num=number(c,o,payload['document_type'])
- doc=dict(c.execute(text("insert into finance_documents(id,org_id,document_type,document_number,client_id,dossier_id,source_document_id,currency,subtotal,discount_total,tax_total,total,balance_due,due_date,notes,terms,created_by,created_by_name) values(cast(:id as uuid),:o,:document_type,:num,cast(:client_id as uuid),cast(:dossier_id as uuid),cast(:source_document_id as uuid),:currency,:sub,:disc,:tax,:total,:total,:due_date,:notes,:terms,:a,:n) returning *"),{"id":doc_id,"o":o,"num":num,"a":a,"n":n,"sub":sub,"disc":disc,"tax":tax,"total":total,**payload}).mappings().one())
+ doc=dict(c.execute(text("insert into finance_documents(id,org_id,document_type,document_number,client_id,dossier_id,source_document_id,office_id,currency,subtotal,discount_total,tax_total,total,balance_due,due_date,notes,terms,created_by,created_by_name) values(cast(:id as uuid),:o,:document_type,:num,cast(:client_id as uuid),cast(:dossier_id as uuid),cast(:source_document_id as uuid),cast(:office_id as uuid),:currency,:sub,:disc,:tax,:total,:total,:due_date,:notes,:terms,:a,:n) returning *"),{"id":doc_id,"o":o,"num":num,"a":a,"n":n,"sub":sub,"disc":disc,"tax":tax,"total":total,**payload}).mappings().one())
  for x in lines:c.execute(text("insert into finance_document_lines(org_id,document_id,position,description,quantity,unit_price,discount_rate,tax_rate,line_subtotal,line_discount,line_tax,line_total,metadata) values(:o,cast(:d as uuid),:position,:description,:quantity,:unit_price,:discount_rate,:tax_rate,:line_subtotal,:line_discount,:line_tax,:line_total,cast(:metadata as jsonb))"),{"o":o,"d":doc_id,**x,"metadata":json.dumps(x.get('metadata') or {})})
  event(c,o,doc_id,'CREATED',a,n,{"number":num,"total":str(total)});return doc
 def detail(o,d):

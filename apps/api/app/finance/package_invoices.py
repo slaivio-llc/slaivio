@@ -19,7 +19,7 @@ def get_package_invoice(org_id, package_id):
         return dict(row) if row else None
 
 
-def invoice_payload(package):
+def invoice_payload(package, office_id=None):
     snapshot = package.get('pricing_snapshot')
     if not isinstance(snapshot, dict) or not snapshot:
         raise HTTPException(409, 'package_pricing_required')
@@ -38,15 +38,18 @@ def invoice_payload(package):
         raise HTTPException(409, 'package_legacy_payments_require_reconciliation')
     if not package.get('client_id'):
         raise HTTPException(409, 'package_client_required')
-    return dict(document_type='INVOICE', client_id=str(package['client_id']),
+    payload = dict(document_type='INVOICE', client_id=str(package['client_id']),
         dossier_id=None, source_document_id=None, currency=currency,
         due_date=None, notes=None, terms=None, lines=[dict(
             description=f"Transport du colis {package['package_reference']}",
             quantity=1, unit_price=total, discount_rate=0, tax_rate=0,
             metadata={'package_id': str(package['id'])})])
+    if office_id:
+        payload['office_id'] = str(office_id)
+    return payload
 
 
-def create_package_invoice(org_id, package_id, actor_id, actor_name, expected_version):
+def create_package_invoice(org_id, package_id, actor_id, actor_name, expected_version, office_id=None):
     with finance.engine.begin() as conn:
         package = conn.execute(text("""select * from cargo_packages
             where org_id=:o and id=:p and deleted_at is null for update"""),
@@ -60,7 +63,7 @@ def create_package_invoice(org_id, package_id, actor_id, actor_name, expected_ve
             return dict(existing)
         if package['row_version'] != expected_version:
             raise HTTPException(409, 'package_version_conflict')
-        payload = invoice_payload(package)
+        payload = invoice_payload(package, office_id=office_id)
         doc = finance.create_in_transaction(conn, org_id, actor_id, actor_name, payload)
         snapshot = {'package_reference': package['package_reference'],
                     'package_version': expected_version, 'pricing': package['pricing_snapshot']}

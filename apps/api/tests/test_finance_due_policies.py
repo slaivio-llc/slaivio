@@ -74,3 +74,26 @@ def test_due_obligations_are_replayed_idempotently(monkeypatch):
 
     assert obligations[0]['amount'] == Decimal('50.00')
     assert obligations[0]['trigger_event'] == 'RECEPTION'
+
+
+def test_create_uses_selected_office_for_scoped_members(monkeypatch):
+    from app.api import finance as api
+
+    captured = {}
+
+    def fake_create(org_id, actor_id, actor_name, payload):
+        captured['payload'] = payload
+        return {'created': True, 'office_id': payload.get('office_id')}
+
+    monkeypatch.setattr(api.repo, 'create', fake_create)
+    payload = api.DocumentCreate(
+        document_type='INVOICE',
+        client_id='client-1',
+        currency='USD',
+        office_id=None,
+        lines=[{'description': 'Cargo', 'quantity': 1, 'unit_price': 10, 'discount_rate': 0, 'tax_rate': 0}],
+    )
+    result = api.resolve_create_payload(payload, {'selected_office_id': 'office-1', 'allowed_office_ids': ['office-1']})
+
+    assert result['office_id'] == 'office-1'
+    assert captured == {}

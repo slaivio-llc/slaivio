@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import date, datetime
 from decimal import Decimal
 import json
@@ -266,8 +267,8 @@ def list_clients(
     }
 
 
-def get_client(org_id: str, client_id: str) -> dict | None:
-    with engine.connect() as conn:
+def get_client(org_id: str, client_id: str, *, connection=None) -> dict | None:
+    with (nullcontext(connection) if connection is not None else engine.connect()) as conn:
         row = conn.execute(
             text("""
                 select
@@ -339,12 +340,12 @@ def get_client(org_id: str, client_id: str) -> dict | None:
     return _one(row)
 
 
-def _find_duplicate(org_id: str, phone: str | None, email: str | None, exclude_id: str | None = None) -> dict | None:
+def _find_duplicate(org_id: str, phone: str | None, email: str | None, exclude_id: str | None = None, *, connection=None) -> dict | None:
     clauses = ["org_id = :org_id", "deleted_at is null"]
     params: dict[str, Any] = {"org_id": org_id}
     identity_filters = []
     if phone:
-        identity_filters.append("phone = :phone or whatsapp_phone = :phone")
+        identity_filters.append("normalized_phone = :phone or phone = :phone or whatsapp_phone = :phone")
         params["phone"] = phone
     if email:
         identity_filters.append("email = :email")
@@ -356,7 +357,7 @@ def _find_duplicate(org_id: str, phone: str | None, email: str | None, exclude_i
         clauses.append("id <> :exclude_id")
         params["exclude_id"] = exclude_id
 
-    with engine.connect() as conn:
+    with (nullcontext(connection) if connection is not None else engine.connect()) as conn:
         row = conn.execute(
             text(f"""
                 select id::text, coalesce(display_name, name, phone, email) display_name, phone, email
@@ -370,7 +371,12 @@ def _find_duplicate(org_id: str, phone: str | None, email: str | None, exclude_i
     return _one(row)
 
 
-def create_client(org_id: str, user_id: str, payload: dict) -> dict:
+def create_client(org_id: str, user_id: str, payload: dict, *, connection=None) -> dict:
+    """Create through the shared CRM path, optionally in a caller-owned transaction.
+
+    A supplied connection must already be transactional. Its owner commits or
+    rolls back the client, network identity, audit and surrounding workflow.
+    """
     phone = normalize_phone(payload.get("phone"))
     whatsapp_phone = normalize_phone(payload.get("whatsapp_phone")) or phone
     email = normalize_email(payload.get("email"))
@@ -379,17 +385,17 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
     display_name = (payload.get("display_name") or name or company_name or phone or email or "").strip()
 
     try:
-        with engine.begin() as conn:
+        with (nullcontext(connection) if connection is not None else engine.begin()) as conn:
             request_key = payload.get('idempotency_key')
             fingerprint = request_fingerprint(payload) if request_key else None
             if request_key:
                 replay_id = replay_request(conn, org_id, user_id, str(request_key), fingerprint)
                 if replay_id:
-                    replay = get_client(org_id, replay_id)
+                    replay = get_client(org_id, replay_id, connection=conn)
                     if not replay:
                         raise ValueError('client_creation_no_longer_available')
                     return replay
-            duplicate = _find_duplicate(org_id, phone or whatsapp_phone, email)
+            duplicate = _find_duplicate(org_id, phone or whatsapp_phone, email, connection=conn)
             if duplicate:
                 raise ValueError('duplicate_client')
             network_client_id = None
@@ -471,7 +477,7 @@ def create_client(org_id: str, user_id: str, payload: dict) -> dict:
 
     if row is None:
         raise RuntimeError("client_insert_failed")
-    created = get_client(org_id, row[0])
+    created = get_client(org_id, row[0], connection=connection)
     return created or {}
 
 

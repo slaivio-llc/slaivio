@@ -6,6 +6,8 @@ from datetime import datetime
 from sqlalchemy import text
 
 from app.db.database import engine
+from app.clients.repository import create_client
+from app.clients.phone import normalize_contact_phone
 
 
 PROFILE_FIELDS = ("full_name", "country", "city", "customer_type")
@@ -130,6 +132,12 @@ def upsert_journey(org_id: str, phone: str, extracted: dict, *, inbound_at: date
 
 
 def convert_journey(org_id: str, phone: str, actor_id: str = "slaivio-ai") -> dict | None:
+    try:
+        normalized_phone = normalize_contact_phone(phone)
+    except ValueError:
+        return None  # A provider JID or ambiguous local number is not a CRM identity.
+    if not normalized_phone:
+        return None
     with engine.begin() as conn:
         journey = conn.execute(text("""
           select * from parcel_customer_journeys
@@ -152,24 +160,19 @@ def convert_journey(org_id: str, phone: str, actor_id: str = "slaivio-ai") -> di
           from clients where org_id=:org_id and deleted_at is null
             and (normalized_phone=:phone or phone=:phone or whatsapp_phone=:phone)
           order by created_at limit 2
-        """), {"org_id": org_id, "phone": phone}).mappings().all()
+        """), {"org_id": org_id, "phone": normalized_phone}).mappings().all()
         if len(client) > 1:
             return None  # Ambiguous channel identity must not select an arbitrary client.
         client = client[0] if client else None
         if not client:
-            client = conn.execute(text("""
-              insert into clients(
-                org_id,name,display_name,phone,whatsapp_phone,normalized_phone,country,city,
-                customer_type,lifecycle_status,source,preferred_language,credit_enabled,
-                credit_limit,current_balance,total_spent,last_activity_at,created_by,updated_by
-              ) values(
-                :org_id,:name,:name,:phone,:phone,:phone,:country,:city,
-                case when :customer_type='company' then 'business' else :customer_type end,
-                'lead','whatsapp','FR',false,0,0,0,now(),:actor,:actor
-              ) returning id::text,client_reference,display_name
-            """), {"org_id": org_id, "name": journey["full_name"], "phone": phone,
-                     "country": journey["country"], "city": journey["city"],
-                     "customer_type": journey["customer_type"], "actor": actor_id}).mappings().one()
+            client = create_client(org_id, actor_id, {
+                "name": journey["full_name"], "phone": normalized_phone,
+                "country": journey.get("country"), "city": journey.get("city"),
+                "customer_type": "individual", "source": "whatsapp",
+                "idempotency_key": str(journey["id"]),
+            }, connection=conn)
+            if not client.get("id"):
+                raise RuntimeError("client_insert_failed")
         conn.execute(text("""
           update parcel_customer_journeys set client_id=cast(:client_id as uuid),stage='CONVERTED',
             followup_status='CANCELLED',next_followup_at=null,converted_at=coalesce(converted_at,now()),updated_at=now()

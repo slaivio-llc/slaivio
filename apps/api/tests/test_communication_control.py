@@ -21,6 +21,33 @@ def test_contextual_router_receives_previous_route(monkeypatch):
     assert result['query'] == 'tarif Chine Kinshasa'
 
 
+@pytest.mark.parametrize('message', ['My parcel arrived broken', 'Je veux parler à votre équipe'])
+def test_semantic_handoff_in_preview_has_no_mutations(monkeypatch, message):
+    monkeypatch.setattr(service, 'get_pilot_ai_settings', lambda _: {})
+    monkeypatch.setattr(service, '_provider_response', lambda *args, **kwargs: {
+        'success': True, 'content': 'HUMAN_REVIEW|'})
+    monkeypatch.setattr(service, 'search_knowledge', lambda *args, **kwargs: pytest.fail('No retrieval needed'))
+    monkeypatch.setattr(service, '_parcel_qualification', lambda *args: pytest.fail('Preview cannot mutate CRM'))
+    result = service.preview_pilot_response(org_id='agency', message=message)
+    assert result['decision'] == 'REVIEW_REQUIRED'
+    assert result['reason'] == 'prise_en_charge_humaine'
+
+
+def test_semantic_handoff_blocks_auto_reply_and_conversion(monkeypatch):
+    monkeypatch.setattr(service, 'get_pilot_ai_settings', lambda _: {})
+    monkeypatch.setattr(service, 'conversation_ai_context', lambda *args: {
+        'org_id': 'agency', 'source_message': 'My parcel arrived broken',
+        'source_message_id': 'message', 'organization_name': 'Agence'})
+    monkeypatch.setattr(service, '_provider_response', lambda *args, **kwargs: {
+        'success': True, 'content': 'HUMAN_REVIEW|'})
+    monkeypatch.setattr(service, 'log_ai_run', lambda **kwargs: {})
+    monkeypatch.setattr(service, '_parcel_qualification', lambda *args: pytest.fail('Must not convert'))
+    result = service.prepare_pilot_suggestion(org_id='agency', client_phone='+123', response_mode='CONTROLLED_AUTO')
+    assert not result['eligible_for_auto']
+    assert result['intent'] == 'HUMAN_REVIEW'
+    assert result['reason'] == 'prise_en_charge_humaine'
+
+
 @pytest.mark.parametrize('message', ['Je veux un remboursement', 'Modifier mon dossier'])
 def test_sensitive_requests_never_qualify_or_convert(monkeypatch, message):
     monkeypatch.setattr(service, 'get_pilot_ai_settings', lambda _: {})

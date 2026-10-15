@@ -42,8 +42,8 @@ maintenant simulée explicitement. Cela ne valide pas les requêtes SQL en produ
 
 ## Suite indispensable — module non terminé
 
-1. Remplacer l'INSERT client historique par le service CRM commun, avec transaction,
-   idempotence, identité réseau, validations entreprise, audit et périmètre bureau.
+1. Compléter les validations entreprise et le périmètre bureau de la conversion.
+   L'INSERT historique a été remplacé par le dépôt CRM partagé (voir lot ci-dessous).
    La conversion actuelle reste limitée aux particuliers ; elle ne s'exécute que
    si la réponse a passé les contrôles existants.
 2. Construire les identités de contact/conversation indépendantes du téléphone,
@@ -66,3 +66,31 @@ maintenant simulée explicitement. Cela ne valide pas les requêtes SQL en produ
    indisponible, preuves de livraison et conservation de l'historique.
 
 Ne pas présenter ce lot de sécurisation comme la livraison complète du module.
+
+## Lot suivant — CRM partagé et revue humaine
+
+- `create_client`, `get_client` et la recherche de doublons peuvent participer à
+  une transaction existante sans la fermer ni la valider. Le chemin manuel
+  conserve son comportement de transaction autonome.
+- La conversion utilise désormais `create_client` : normalisation, identité
+  réseau, audit et protection de répétition par identifiant du parcours.
+  Le parcours et la conversation sont rattachés dans la même transaction.
+- Une erreur CRM se propage : aucun parcours n'est marqué converti après un échec.
+- Un JID WhatsApp ou un numéro local sans indicatif ne peut plus être transformé
+  arbitrairement en identité téléphonique client.
+- Le routeur sémantique peut demander une prise en charge humaine dans toutes
+  les langues prises en charge par le fournisseur. Preview et conversation
+  reconnaissent ce résultat ; il n'autorise ni conversion ni réponse automatique.
+  Les tests simulent ce résultat : ils ne mesurent pas la qualité réelle du modèle.
+- Aucune migration supplémentaire. La migration 126 reste requise pour la
+  protection de création CRM et les migrations réseau existantes pour l'identité.
+
+Validation élargie :
+
+```powershell
+cd apps/api
+python -m pytest tests/test_communication_crm_transaction.py tests/test_communication_control.py tests/test_client_creation_requests.py tests/test_pilot_inbox_ai.py -q -p no:cacheprovider
+```
+
+Les tests de connexion simulée vérifient le contrat de transaction, pas les
+verrous ni les rollbacks réels PostgreSQL. La recette d'intégration reste à faire.

@@ -213,6 +213,9 @@ def _route_customer_message(
     """Route free-form language and produce a better retrieval query without fixed phrases."""
     system_prompt = f"""Tu es le routeur conversationnel du service client de {organization_name}.
 Détermine le sens réel du message, quelle que soit sa langue, son orthographe, son registre ou sa formulation.
+En priorité, si la personne demande un agent humain, signale une marchandise endommagée,
+un litige, une fraude, une contestation ou une action nécessitant validation humaine,
+retourne exactement HUMAN_REVIEW| sans générer de réponse métier.
 Si le message est uniquement une interaction sociale qui ne demande aucune information métier
 (salutation, remerciement, acquiescement, prise de contact ou fin de conversation), réponds naturellement
 au nom de l’entreprise avec le préfixe exact SOCIAL_RESPONSE|.
@@ -236,6 +239,8 @@ La réponse sociale doit être humaine, brève, dans la langue du client et sans
     if not result.get("success") or not result.get("content"):
         return {"kind": "KNOWLEDGE", "query": message}
     value = result["content"].strip().strip("`").strip()
+    if re.match(r"^HUMAN_REVIEW\s*\|", value, re.IGNORECASE):
+        return {"kind": "HUMAN_REVIEW"}
     social_match = re.match(r"^SOCIAL_RESPONSE\s*\|\s*(.+)$", value, re.IGNORECASE | re.DOTALL)
     if social_match:
         response = _compact_customer_reply(social_match.group(1), max_chars=320)
@@ -323,6 +328,14 @@ def preview_pilot_response(
         organization_name=settings.get("organization_name") or "notre entreprise",
         style=style,
     )
+    classification = _classify(message)
+    if (route["kind"] == "HUMAN_REVIEW" or classification["risk"] == "SENSITIVE"
+            or classification["intent"] == "BUSINESS_ACTION"):
+        return {
+            "answer": "Cette demande nécessite une vérification par notre équipe.",
+            "decision": "REVIEW_REQUIRED", "grounded": False,
+            "requires_knowledge": False, "reason": "prise_en_charge_humaine", "sources": [],
+        }
     if route["kind"] == "SOCIAL":
         return {
             "answer": route["response"],
@@ -423,7 +436,11 @@ def prepare_pilot_suggestion(
             style=style,
             recent_messages=context.get("recent_messages"),
         )
-        if route["kind"] == "SOCIAL":
+        if route["kind"] == "HUMAN_REVIEW":
+            response_text = "Cette demande nécessite une vérification par notre équipe."
+            classification.update(intent="HUMAN_REVIEW", risk="REVIEW")
+            reason = "prise_en_charge_humaine"
+        elif route["kind"] == "SOCIAL":
             response_text = route["response"]
             classification.update(intent=CONVERSATIONAL_INTENT, risk="SAFE")
             confidence = 0.95

@@ -125,7 +125,7 @@ export function PricingEnginePage() {
     <div className="min-h-full bg-[#f7f7f6]">
       <OperationPageHeader
         title="Tarification"
-        description="Configurez vos prix, règles, paliers et frais pour toutes vos routes et services cargo."
+        description="Définissez les prix facturés aux clients selon la route et le service choisis."
         actions={
           <>
             <a className={btn} href="/api/pricing/export.csv">
@@ -135,7 +135,7 @@ export function PricingEnginePage() {
             <PermissionGuard permission="pricing.create">
               <button className={primary} onClick={() => setCreateOpen(true)}>
                 <Plus size={14} />
-                Nouvelle grille
+                Nouveau tarif
               </button>
             </PermissionGuard>
           </>
@@ -166,7 +166,7 @@ export function PricingEnginePage() {
               open={async (g) => setSelected(await gridDetail(g.id))}
             />
           ) : (
-            <EmptyState title="Aucune grille tarifaire" description="Créez une grille en sélectionnant une route et un service déjà configurés dans l’agence." />
+            <EmptyState title="Aucun tarif créé" description="Créez un tarif avec son prix de base pour une route et un service de l’agence." />
           )}
         </>
       )}
@@ -185,15 +185,16 @@ export function PricingEnginePage() {
       {createOpen && catalog && (
         <OperationDrawer
           open
-          title="Nouvelle grille tarifaire"
-          description="Une grille versionne les prix d’une combinaison Route + Service."
+          title="Créer un tarif"
+          description="Choisissez une route, un service et le prix facturé aux clients."
           close={() => setCreateOpen(false)}
         >
           <CreateGrid
             catalog={catalog}
-            done={async () => {
+            done={async (gridId) => {
               setCreateOpen(false);
               await load();
+              setSelected(await gridDetail(gridId));
             }}
           />
         </OperationDrawer>
@@ -214,12 +215,11 @@ function GridTable({
         <thead className="bg-[#f5f6f6]">
           <tr>
             {[
-              "Grille",
+              "Tarif",
               "Route",
               "Service",
-              "Méthode",
+              "Calcul et prix de base",
               "Devise",
-              "Règles",
               "Validité",
               "Version",
               "Statut",
@@ -247,12 +247,11 @@ function GridTable({
                 {g.service_name}
                 <small className="block">{g.shipping_mode}</small>
               </td>
-              <td>{g.calculation_method}</td>
+              <td>              {calculationLabels[g.base_price_method || g.calculation_method] || g.calculation_method}
+              <small className="block">
+                {g.base_price != null ? `${g.base_price} ${g.currency_code}` : "Prix de base à définir"}
+              </small></td>
               <td>{g.currency_code}</td>
-              <td>
-                {g.rule_count} règles · {g.tier_count} paliers · {g.fee_count}{" "}
-                frais
-              </td>
               <td>
                 {new Date(g.effective_from).toLocaleDateString("fr-FR")}
                 <small className="block">
@@ -274,8 +273,7 @@ function GridTable({
       </table>
       {!grids.length && (
         <p className="p-16 text-center text-[13px]">
-          Aucune grille. Créez une grille, ses règles puis faites-la approuver
-          et activer.
+          Aucun tarif créé. Créez un tarif avec son prix de base, puis faites-le vérifier et publier.
         </p>
       )}
     </div>
@@ -317,11 +315,11 @@ function CreateGrid({
   done,
 }: {
   catalog: Catalog;
-  done: () => Promise<void>;
+  done: (gridId: string) => Promise<void>;
 }) {
   const [route, setRoute] = useState("");
   const [service, setService] = useState("");
-  const [step, setStep] = useState(1);
+  const [method, setMethod] = useState("PER_KG");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -330,64 +328,46 @@ function CreateGrid({
     setSaving(true);
     setError("");
     try {
-      await createGrid({
-        grid_code: f.get("code"),
-        name: f.get("name"),
-        route_id: f.get("route"),
-        shipping_service_id: f.get("service"),
-        currency_code: f.get("currency"),
-        calculation_method: f.get("method"),
-        visibility: f.get("visibility"),
-        effective_from: new Date(String(f.get("effective"))).toISOString(),
-        volumetric_divisor: Number(f.get("divisor")),
-        chargeable_weight_rule: f.get("weight_rule"),
-        rounding_increment: Number(f.get("rounding")),
-        minimum_weight_kg: Number(f.get("minimum_weight")) || null,
-        minimum_cbm: Number(f.get("minimum_cbm")) || null,
-        weight_volume_switch_kg_per_cbm: Number(f.get("density_switch")) || null,
-        tax_inclusive: false,
-        tax_rate: Number(f.get("tax")),
-        requires_approval: true,
+      const name = String(f.get("name") || "").trim();
+      const codeBase = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 45);
+      const created = await createGrid({
+        grid_code: `${codeBase || "TARIF"}-${Date.now().toString().slice(-6)}`,
+        name,
+        route_id: route,
+        shipping_service_id: service,
+        currency_code: String(f.get("currency") || "USD").trim().toUpperCase(),
+        calculation_method: method,
+        initial_price: Number(f.get("price")),
+        effective_from: new Date().toISOString(),
       });
-      await done();
+      await done(created.id);
     } catch {
-      setError("La grille n’a pas pu être créée. Vérifiez son code, sa route et le service associé, puis réessayez.");
+      setError("Le tarif n’a pas pu être créé. Vérifiez la route, le service et le montant puis réessayez.");
     } finally {
       setSaving(false);
     }
   }
+  const priceLabel = method === "PERCENT_VALUE" ? "Taux appliqué à la valeur déclarée (%)"
+    : method === "FIXED" ? "Montant forfaitaire"
+    : `Prix ${method === "PER_KG" ? "par kilogramme (kg)"
+      : method === "PER_CBM" ? "par mètre cube (CBM)"
+      : method === "PER_PACKAGE" ? "par colis" : "par unité"}`;
   return (
-    <form onSubmit={submit} className="grid gap-5 p-5">
-      <ol className="grid grid-cols-3 gap-2 text-xs" aria-label="Étapes de création">
-        {["Trajet et service", "Mode de calcul", "Application"].map((label,index)=><li key={label} aria-current={step===index+1?"step":undefined} className={`rounded-lg border p-3 ${step===index+1?"border-emerald-700 bg-emerald-50 text-emerald-900":"border-slate-200 text-slate-500"}`}><span className="font-semibold">{index+1}.</span> {label}</li>)}
-      </ol>
-      <section hidden={step!==1} className="grid gap-4">
-        <p className="text-sm text-slate-600">Chaque grille associe une route configurée à un service proposé sur cette route.</p>
-        <label className="grid gap-1.5 text-sm">Code de la grille<input required name="code" className={input} minLength={3} maxLength={60} placeholder="Ex. AIR-CAN-FIH-2026"/></label>
-        <label className="grid gap-1.5 text-sm">Nom de la grille<input required name="name" className={input} minLength={3} maxLength={160} placeholder="Ex. Express Chine – Kinshasa"/></label>
-        <label className="grid gap-1.5 text-sm">Route<select required name="route" className={input} value={route} onChange={e=>{setRoute(e.target.value);setService("");}}><option value="">Choisir une route configurée</option>{catalog.routes.map(x=><option key={x.id} value={x.id}>{x.route_name}</option>)}</select></label>
-        <label className="grid gap-1.5 text-sm">Service<select required name="service" className={input} value={service} disabled={!route} onChange={e=>setService(e.target.value)}><option value="">Choisir un service de cette route</option>{catalog.services.filter(x=>x.route_id===route).map(x=><option key={x.id} value={x.id}>{x.service_name}</option>)}</select></label>
-      </section>
-      <section hidden={step!==2} className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-sm sm:col-span-2">Calcul principal<select name="method" className={input}>{Object.entries(calculationLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-        <label className="grid gap-1.5 text-sm">Devise<input required name="currency" className={input} defaultValue="USD" minLength={3} maxLength={3}/></label>
-        <label className="grid gap-1.5 text-sm">Arrondi du poids facturable (kg)<input required name="rounding" type="number" min="0.001" step="0.001" defaultValue="0.5" className={input}/></label>
-        <label className="grid gap-1.5 text-sm">Minimum facturable (kg)<input name="minimum_weight" type="number" min="0" step="0.001" placeholder="Aucun minimum" className={input}/></label>
-        <label className="grid gap-1.5 text-sm">Minimum de volume (CBM)<input name="minimum_cbm" type="number" min="0" step="0.0001" placeholder="Aucun minimum" className={input}/></label>
-        <label className="grid gap-1.5 text-sm">Poids volumétrique<input required name="divisor" type="number" min="0.001" step="0.001" defaultValue="6000" className={input}/><span className="text-xs text-slate-500">Poids volumétrique = CBM × 1 000 000 ÷ diviseur.</span></label>
-        <label className="grid gap-1.5 text-sm">Poids facturable<select name="weight_rule" className={input}><option value="MAX">Maximum entre réel et volumétrique</option><option value="ACTUAL">Poids réel</option><option value="VOLUMETRIC">Poids volumétrique</option></select></label>
-        <label className="grid gap-1.5 text-sm sm:col-span-2">Seuil de densité facultatif (kg/CBM)<input name="density_switch" type="number" min="0.001" step="0.001" placeholder="Ex. 450 — bascule du CBM au poids si dépassé" className={input}/><span className="text-xs text-slate-500">Règle propre à cette grille ; laissez vide si elle ne s’applique pas.</span></label>
-      </section>
-      <section hidden={step!==3} className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-sm">Applicable à partir du<input required name="effective" type="datetime-local" defaultValue={new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)} className={input}/></label>
-        <label className="grid gap-1.5 text-sm">Visibilité<select name="visibility" className={input}><option value="INTERNAL">Équipe uniquement</option><option value="PUBLIC">Communicable aux clients</option><option value="CONTRACTUAL">Clients sous contrat</option></select></label>
-        <label className="grid gap-1.5 text-sm">Taxe (%)<input name="tax" type="number" min="0" max="100" step="0.01" defaultValue="0" className={input}/></label>
-        <p className="self-center text-xs text-slate-600">La grille sera créée en brouillon. Elle ne devient applicable qu’après vérification, approbation et activation.</p>
-      </section>
+    <form onSubmit={submit} className="grid gap-4 p-5">
+      <p className="text-sm text-slate-600">Indiquez le trajet, le service et le prix de base. Les réglages avancés pourront être ajustés ensuite.</p>
+      <label className="grid gap-1.5 text-sm">Nom du tarif<input required name="name" className={input} minLength={3} maxLength={160} placeholder="Ex. Fret aérien Chine – Kinshasa"/></label>
+      <label className="grid gap-1.5 text-sm">Route<select required name="route" className={input} value={route} onChange={e=>{setRoute(e.target.value);setService("");}}><option value="">Choisir une route</option>{catalog.routes.map(x=><option key={x.id} value={x.id}>{x.route_name}</option>)}</select></label>
+      <label className="grid gap-1.5 text-sm">Service<select required name="service" className={input} value={service} disabled={!route} onChange={e=>setService(e.target.value)}><option value="">Choisir un service</option>{catalog.services.filter(x=>x.route_id===route).map(x=><option key={x.id} value={x.id}>{x.service_name}</option>)}</select></label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="grid gap-1.5 text-sm">Comment calculer le prix ?<select name="method" className={input} value={method} onChange={e=>setMethod(e.target.value)}>{Object.entries(calculationLabels).filter(([value])=>value!=="TIERED"&&value!=="CUSTOM").map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        <label className="grid gap-1.5 text-sm">{priceLabel}<input required name="price" type="number" min="0.01" step="0.01" className={input} placeholder="Ex. 8.50"/></label>
+      </div>
+      <label className="grid gap-1.5 text-sm">Devise<input required name="currency" className={input} defaultValue="USD" minLength={3} maxLength={3}/></label>
+      <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">Le tarif sera créé en brouillon avec son prix de base. Il faudra le vérifier puis le publier avant qu’il soit utilisé pour calculer les prix.</p>
       {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-      <div className="flex justify-between border-t pt-4">
-        <button type="button" className={btn} disabled={step===1||saving} onClick={()=>setStep(value=>value-1)}>Précédent</button>
-        {step<3?<button type="button" className={primary} disabled={saving} onClick={event=>{const form=event.currentTarget.form;if(form&&!form.reportValidity())return;setStep(value=>value+1);}}>Continuer</button>:<button disabled={saving} className={primary}>{saving?"Création…":"Créer le brouillon"}</button>}
+      <div className="flex justify-end border-t pt-4">
+        <button disabled={saving} className={primary}>{saving?"Création…":"Créer le tarif"}</button>
       </div>
     </form>
   );
@@ -435,7 +415,7 @@ function GridDrawer({
                   catch{setActionError("L’approbation a échoué. Vérifiez les permissions et l’état de la grille.");}
                 }}
               >
-                Approuver
+                Valider le tarif
               </button>
               <button
                 className={primary}
@@ -444,7 +424,7 @@ function GridDrawer({
                   catch{setActionError("La publication a échoué. Vérifiez l’approbation, les règles de prix et les dates d’application.");}
                 }}
               >
-                Activer
+                Publier le tarif
               </button>
             </PermissionGuard>
             {actionError&&<p role="alert" className="basis-full text-right text-xs text-red-700">{actionError}</p>}
@@ -452,6 +432,11 @@ function GridDrawer({
       }
     >
         <main className="grid gap-4 md:grid-cols-2">
+          {g.status==="DRAFT"&&<p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 md:col-span-2">
+            {detail.rules.length
+              ? "Le prix de base est configuré. Vérifiez-le, faites-le approuver, puis publiez le tarif pour qu’il soit utilisé."
+              : "Ce brouillon n’a pas encore de prix. Ajoutez un prix de base avant de demander son approbation."}
+          </p>}
           <Card title="Nouvelle version">
             <p className="mb-3 text-xs text-slate-600">Prépare une copie modifiable de cette grille. Les versions précédentes et leurs prix appliqués restent conservés.</p>
             <form className="grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={prepareVersion}>
@@ -466,7 +451,8 @@ function GridDrawer({
             ))}
             {g.status==="DRAFT"&&<AddRule grid={g.id} categories={categories} changed={changed} />}
           </Card>
-          <Card title="Paliers">
+          <Card title="Prix par quantité (paliers)">
+            <p className="mb-2 text-xs text-slate-600">À utiliser si le prix change selon le poids, le volume ou le nombre d’unités.</p>
             {detail.tiers.map((x, i) => (
               <Row key={i} x={x} />
             ))}

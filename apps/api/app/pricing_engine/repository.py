@@ -15,10 +15,17 @@ def dashboard(o):
   stats=dict(c.execute(text("""select count(*) filter(where status='ACTIVE')::int active_grids,count(distinct route_id) filter(where status='ACTIVE')::int priced_routes,count(distinct shipping_service_id) filter(where status='ACTIVE')::int priced_services,(select count(*)::int from pricing_grid_rules where org_id=:o and active) special_rules,(select count(*)::int from pricing_promotions where org_id=:o and status='ACTIVE' and effective_from<=now() and (effective_until is null or effective_until>now())) active_promotions,count(*) filter(where status='ACTIVE' and effective_until between now() and now()+interval '30 days')::int expiring_soon,max(updated_at) last_modified from pricing_grids where org_id=:o and archived_at is null"""),{"o":o}).mappings().one())
   settings=dict(c.execute(text("select * from pricing_settings where org_id=:o"),{"o":o}).mappings().first() or {})
   alerts=_rows(c.execute(text("select * from pricing_alerts where org_id=:o and status='OPEN' order by severity desc,created_at desc limit 20"),{"o":o}))
-  grids=_rows(c.execute(text("""select g.*,r.route_name,r.origin_city,r.origin_country,r.destination_city,r.destination_country,s.service_name,s.shipping_mode,(select count(*) from pricing_grid_rules x where x.grid_id=g.id and x.active)::int rule_count,(select count(*) from pricing_tiers x where x.grid_id=g.id)::int tier_count,(select count(*) from pricing_fees x where x.grid_id=g.id and x.active)::int fee_count from pricing_grids g join shipping_routes r on r.id=g.route_id and r.org_id=g.org_id join shipping_services s on s.id=g.shipping_service_id and s.org_id=g.org_id where g.org_id=:o and g.archived_at is null order by g.status='ACTIVE' desc,g.updated_at desc limit 100"""),{"o":o}))
+  grids=_rows(c.execute(text("""select g.*,r.route_name,r.origin_city,r.origin_country,r.destination_city,r.destination_country,s.service_name,s.shipping_mode,
+   (select x.amount from pricing_grid_rules x where x.org_id=g.org_id and x.grid_id=g.id and x.active and x.action_type='SET_PRICE' and x.category_id is null and x.client_id is null and x.client_segment is null order by x.priority desc limit 1) base_price,
+   (select coalesce(x.calculation_method,g.calculation_method) from pricing_grid_rules x where x.org_id=g.org_id and x.grid_id=g.id and x.active and x.action_type='SET_PRICE' and x.category_id is null and x.client_id is null and x.client_segment is null order by x.priority desc limit 1) base_price_method,
+   (select count(*) from pricing_grid_rules x where x.grid_id=g.id and x.active)::int rule_count,
+   (select count(*) from pricing_tiers x where x.grid_id=g.id)::int tier_count,
+   (select count(*) from pricing_fees x where x.grid_id=g.id and x.active)::int fee_count
+   from pricing_grids g join shipping_routes r on r.id=g.route_id and r.org_id=g.org_id join shipping_services s on s.id=g.shipping_service_id and s.org_id=g.org_id where g.org_id=:o and g.archived_at is null order by g.status='ACTIVE' desc,g.updated_at desc limit 100"""),{"o":o}))
   return {"stats":stats,"settings":settings,"alerts":alerts,"grids":grids}
 
 def create_grid(o,a,n,p):
+ initial_price=p.pop('initial_price',None)
  with engine.begin() as c:
   service=c.execute(text("""select s.id from shipping_services s
    where s.org_id=:o and s.id=cast(:s as uuid) and s.active
@@ -31,7 +38,19 @@ def create_grid(o,a,n,p):
     and r.active and r.status in('ACTIVE','LIMITED') and r.archived_at is null)"""),{"o":o,"s":p['shipping_service_id'],"r":p['route_id']}).first()
   if not service: raise HTTPException(422,"route_service_mismatch")
   row=dict(c.execute(text("""insert into pricing_grids(org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,created_by,updated_by) values(:o,:workspace_id,:grid_code,:name,:description,cast(:route_id as uuid),cast(:shipping_service_id as uuid),upper(:currency_code),:calculation_method,:visibility,'DRAFT',:effective_from,:effective_until,:volumetric_divisor,:chargeable_weight_rule,:rounding_increment,:minimum_weight_kg,:minimum_cbm,:maximum_weight_kg,:maximum_cbm,:maximum_declared_value,:tax_inclusive,:tax_rate,:requires_approval,:a,:a) returning *"""),{"o":o,"a":a,**p}).mappings().one())
-  _audit(c,o,str(row['id']),'GRID_CREATED',a,n,new=row); return row
+  _audit(c,o,str(row['id']),'GRID_CREATED',a,n,new=row)
+  if initial_price is not None:
+   rule=dict(c.execute(text("""insert into pricing_grid_rules(
+      org_id,grid_id,rule_code,name,conditions,action_type,calculation_method,amount,
+      percentage,priority,stackable,active,effective_from)
+     values(:o,:g,:code,'Tarif de base','{}'::jsonb,'SET_PRICE',:method,:amount,
+      null,100,false,true,:effective_from) returning *"""),{
+       "o":o,"g":row["id"],"code":f"BASE-{p['grid_code']}",
+       "method":p["calculation_method"],"amount":initial_price,
+       "effective_from":p["effective_from"],
+   }).mappings().one())
+   _audit(c,o,str(row['id']),'RULE_CREATED',a,n,new=rule)
+  return row
 
 def create_category(o,p,a,n):
  code=p['code'].strip().upper()

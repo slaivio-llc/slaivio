@@ -73,16 +73,39 @@ describe("PricingEnginePage grid creation", () => {
       promotions: [],
     });
     pricingService.createGrid.mockResolvedValue({ id: "grid-1" });
+    pricingService.gridDetail.mockResolvedValue({
+      grid: {
+        id: "grid-1",
+        grid_code: "AIR-TEST",
+        name: "Tarif aérien",
+        route_id: "route-1",
+        shipping_service_id: "service-1",
+        route_name: "Route 1",
+        service_name: "Service 1",
+        shipping_mode: "AIR",
+        currency_code: "USD",
+        calculation_method: "PER_KG",
+        visibility: "INTERNAL",
+        status: "DRAFT",
+        effective_from: "2026-10-15T12:00:00Z",
+        version: 1,
+        rule_count: 1,
+        tier_count: 0,
+        fee_count: 0,
+      },
+      rules: [{ id: "rule-1", name: "Tarif de base", amount: 8.5 }],
+      tiers: [],
+      fees: [],
+      costs: [],
+      audit: [],
+    });
   });
 
-  it("submits values from all wizard steps", async () => {
+  it("creates a ready-to-configure draft with its base price in one step", async () => {
     render(<PricingEnginePage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /Nouvelle grille/ }));
-    fireEvent.change(screen.getByLabelText("Code de la grille"), {
-      target: { value: "AIR-ROUTE-2026" },
-    });
-    fireEvent.change(screen.getByLabelText("Nom de la grille"), {
+    fireEvent.click(await screen.findByRole("button", { name: /Nouveau tarif/ }));
+    fireEvent.change(screen.getByLabelText("Nom du tarif"), {
       target: { value: "Tarif aérien" },
     });
     fireEvent.change(screen.getByLabelText("Route"), {
@@ -91,21 +114,21 @@ describe("PricingEnginePage grid creation", () => {
     fireEvent.change(screen.getByLabelText("Service"), {
       target: { value: "service-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Continuer" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Continuer" }));
-    fireEvent.click(screen.getByRole("button", { name: "Créer le brouillon" }));
+    fireEvent.change(screen.getByLabelText("Prix par kilogramme (kg)"), {
+      target: { value: "8.50" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Créer le tarif" }));
 
     await waitFor(() => expect(pricingService.createGrid).toHaveBeenCalledOnce());
     expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({
-      grid_code: "AIR-ROUTE-2026",
+      grid_code: expect.stringMatching(/^TARIF-AERIEN-\d{6}$/),
       name: "Tarif aérien",
       route_id: "route-1",
       shipping_service_id: "service-1",
       calculation_method: "PER_KG",
-      volumetric_divisor: 6000,
-      chargeable_weight_rule: "MAX",
-      rounding_increment: 0.5,
+      initial_price: 8.5,
+      currency_code: "USD",
     }));
+    expect(await screen.findByText(/tarif de base/i)).toBeInTheDocument();
   });
 });

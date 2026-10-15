@@ -237,9 +237,10 @@ export function FinancePage() {
 }
 function CreateModal({ close, done }: { close: () => void; done: () => void }) {
   const [clients, setClients] = useState<ClientRecord[]>([]),
+    [currency, setCurrency] = useState("USD"),
     [lines, setLines] = useState([
       {
-        description: "Transport cargo",
+        description: "Prestation de transport",
         quantity: 1,
         unit_price: 0,
         discount_rate: 0,
@@ -290,12 +291,15 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
               </option>
             ))}
           </select></label>
-          <label className="grid gap-1 text-[13px]">Devise<select required name="currency" defaultValue="USD" className={input}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code}>{code}</option>)}</select></label>
+          <label className="grid gap-1 text-[13px]">Devise<select required name="currency" value={currency} onChange={event=>setCurrency(event.target.value)} className={input}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code}>{code}</option>)}</select></label>
           <label className="grid gap-1 text-[13px]">Échéance (optionnelle)<input name="due_date" type="date" className={input} /></label>
         </div>
-        <div>
-          <div className="mb-2 flex justify-between">
-            <b className="text-[13px]">Lignes</b>
+        <section className="space-y-3 rounded-lg bg-slate-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <b className="text-[13px]">Prestations facturées</b>
+              <p className="mt-1 text-xs text-slate-600">Pour chaque prestation, indiquez la quantité et le prix par unité. Le montant est calculé automatiquement.</p>
+            </div>
             <button
               type="button"
               className={button}
@@ -316,87 +320,27 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
             </button>
           </div>
           {lines.map((l, i) => (
-            <div key={i} className="mb-2 grid grid-cols-12 gap-2">
-              <input
-                required
-                className={`${input} col-span-5`}
-                value={l.description}
-                onChange={(e) =>
-                  setLines(
-                    lines.map((x, j) =>
-                      j === i ? { ...x, description: e.target.value } : x,
-                    ),
-                  )
-                }
-                placeholder="Description"
-              />
-              <input
-                required
-                type="number"
-                step="0.001"
-                min="0.001"
-                className={`${input} col-span-2`}
-                value={l.quantity}
-                onChange={(e) =>
-                  setLines(
-                    lines.map((x, j) =>
-                      j === i ? { ...x, quantity: Number(e.target.value) } : x,
-                    ),
-                  )
-                }
-              />
-              <input
-                required
-                type="number"
-                step="0.01"
-                min="0"
-                className={`${input} col-span-2`}
-                value={l.unit_price}
-                onChange={(e) =>
-                  setLines(
-                    lines.map((x, j) =>
-                      j === i
-                        ? { ...x, unit_price: Number(e.target.value) }
-                        : x,
-                    ),
-                  )
-                }
-              />
-              <input
-                type="number"
-                min="0"
-                max="100"
-                className={`${input} col-span-1`}
-                value={l.tax_rate}
-                title="Taxe %"
-                onChange={(e) =>
-                  setLines(
-                    lines.map((x, j) =>
-                      j === i ? { ...x, tax_rate: Number(e.target.value) } : x,
-                    ),
-                  )
-                }
-              />
-              <button
-                type="button"
-                className="col-span-2 text-[12px] text-red-600"
-                onClick={() =>
-                  lines.length > 1 && setLines(lines.filter((_, j) => j !== i))
-                }
-              >
-                Retirer
-              </button>
+            <div key={i} className="grid gap-3 rounded-lg bg-white p-3 sm:grid-cols-2 lg:grid-cols-[minmax(180px,2fr)_minmax(90px,.7fr)_minmax(120px,1fr)_minmax(100px,.8fr)_auto]">
+              <label className="grid gap-1 text-xs font-medium text-slate-700">Prestation<input required aria-label={`Prestation ${i+1}`} className={input} value={l.description} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,description:e.target.value}:x))} placeholder="Ex. Transport du colis"/></label>
+              <label className="grid gap-1 text-xs font-medium text-slate-700">Quantité<input required aria-label={`Quantité ${i+1}`} type="number" step="0.001" min="0.001" className={input} value={l.quantity} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,quantity:Number(e.target.value)}:x))}/></label>
+              <label className="grid gap-1 text-xs font-medium text-slate-700">Prix unitaire<input required aria-label={`Prix unitaire ${i+1}`} type="number" step="0.01" min="0" className={input} value={l.unit_price} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,unit_price:Number(e.target.value)}:x))}/></label>
+              <label className="grid gap-1 text-xs font-medium text-slate-700">Taxe (%)<input aria-label={`Taxe ${i+1}`} type="number" min="0" max="100" step="0.01" className={input} value={l.tax_rate} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,tax_rate:Number(e.target.value)}:x))}/></label>
+              <div className="flex items-end justify-between gap-3 lg:flex-col lg:items-end lg:justify-center">
+                <span className="text-xs text-slate-500">Montant</span>
+                <strong className="text-sm">{cash(l.quantity*l.unit_price*(1+l.tax_rate/100),currency)}</strong>
+                {lines.length>1&&<button type="button" className="text-xs text-red-600 hover:underline" onClick={()=>setLines(lines.filter((_,j)=>j!==i))}>Retirer</button>}
+              </div>
             </div>
           ))}
-        </div>
+        </section>
         <textarea
           name="notes"
-          className="min-h-16 w-full rounded border p-3 text-[13px]"
+          className="min-h-16 w-full rounded bg-slate-50 p-3 text-[13px] outline-none focus:ring-2 focus:ring-emerald-700"
           placeholder="Notes internes ou visibles sur le document"
         />
         <textarea
           name="terms"
-          className="min-h-16 w-full rounded border p-3 text-[13px]"
+          className="min-h-16 w-full rounded bg-slate-50 p-3 text-[13px] outline-none focus:ring-2 focus:ring-emerald-700"
           placeholder="Conditions de règlement"
         />
         {error && <p className="text-[13px] text-red-600">{error}</p>}

@@ -394,7 +394,7 @@ function CreateGrid({
       <label className="grid gap-1.5 text-sm">Devise<input required name="currency" className={input} defaultValue="USD" minLength={3} maxLength={3}/></label>
       <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">Le tarif sera créé en brouillon avec son prix de base. Il faudra le vérifier puis le publier avant qu’il soit utilisé pour calculer les prix.</p>
       {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-      <div className="flex justify-end border-t pt-4">
+      <div className="flex justify-end pt-2">
         <button disabled={saving} className={primary}>{saving?"Création…":"Créer le tarif"}</button>
       </div>
     </form>
@@ -535,7 +535,7 @@ function AddRule({
   return (
     <PermissionGuard permission="pricing.update">
       <div className="mt-3">
-        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un prix par colis</button>:<form className="grid gap-3 border-t pt-3 sm:grid-cols-2" onSubmit={submit}>
+        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un prix par colis</button>:<form className="grid gap-3 pt-3 sm:grid-cols-2" onSubmit={submit}>
           <label className="grid gap-1 text-xs">Marchandise<select name="classification" className={input}><option value="">Toutes les marchandises</option>{Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
           <label className="grid gap-1 text-xs">Type d’emballage<select name="package_type" className={input}><option value="">Tous les types</option>{Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
           <label className="grid gap-1 text-xs">Calcul du prix<select name="method" className={input} value={method} onChange={event=>setMethod(event.target.value)}>{Object.entries(calculationLabels).filter(([key])=>key!=="TIERED"&&key!=="CUSTOM").map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
@@ -569,7 +569,7 @@ function AddTier({
   return (
     <PermissionGuard permission="pricing.update">
       <div className="mt-3">
-        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un palier</button>:<form className="grid gap-2 border-t pt-3" onSubmit={submit}>
+        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un palier</button>:<form className="grid gap-3 pt-3" onSubmit={submit}>
           <label className="grid gap-1 text-xs">Règle concernée<select name="rule" className={input}><option value="">Palier général</option>{rules.filter(x=>x.action_type==="SET_PRICE").map(x=><option key={String(x.id)} value={String(x.id)}>{String(x.name)}</option>)}</select></label>
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="grid gap-1 text-xs">Base<select name="basis" className={input}><option value="WEIGHT">Poids (kg)</option><option value="CBM">Volume (CBM)</option><option value="UNITS">Unités</option><option value="VALUE">Valeur déclarée</option></select></label>
@@ -602,7 +602,7 @@ function AddFee({
   }
   return (
     <PermissionGuard permission="pricing.update">
-      <div className="mt-3">{!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un frais</button>:<form className="grid gap-2 border-t pt-3" onSubmit={submit}>
+      <div className="mt-3">{!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un frais</button>:<form className="grid gap-3 pt-3" onSubmit={submit}>
         <label className="grid gap-1 text-xs">Nom du frais<input required name="name" maxLength={120} className={input} placeholder="Ex. Frais de manutention"/></label>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="grid gap-1 text-xs">Type<select name="fee_type" className={input}>{["HANDLING","WAREHOUSE","PACKAGING","CUSTOMS","INSURANCE","LAST_MILE","PICKUP","REMOTE_AREA","FUEL","DANGEROUS_GOODS","SENSITIVE_GOODS","DOCUMENTATION","INSPECTION","STORAGE","OTHER"].map(value=><option key={value} value={value}>{businessLabel(value)}</option>)}</select></label>

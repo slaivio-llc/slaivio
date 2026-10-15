@@ -39,15 +39,19 @@ def stats(o):
   counts["by_currency"]=rows(c.execute(text("select currency,coalesce(sum(total),0) invoiced,coalesce(sum(amount_paid),0) collected,coalesce(sum(balance_due),0) outstanding from finance_documents where org_id=:o and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID') group by currency order by currency"),{"o":o}))
   return counts
 def create(o,a,n,payload):
- lines,sub,disc,tax,total=calculate(payload.pop('lines'))
  with engine.begin() as c:
-  if not c.execute(text("select 1 from clients where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['client_id'],"o":o}).first():raise HTTPException(422,'finance_client_not_found')
-  if payload.get('dossier_id') and not c.execute(text("select 1 from dossiers where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['dossier_id'],"o":o}).first():raise HTTPException(422,'finance_dossier_not_found')
-  if payload.get('source_document_id') and not c.execute(text("select 1 from finance_documents where id=cast(:id as uuid) and org_id=:o"),{"id":payload['source_document_id'],"o":o}).first():raise HTTPException(422,'finance_source_document_not_found')
-  doc_id=c.execute(text("select gen_random_uuid()::text")).scalar_one();num=number(c,o,payload['document_type'])
-  doc=dict(c.execute(text("insert into finance_documents(id,org_id,document_type,document_number,client_id,dossier_id,source_document_id,currency,subtotal,discount_total,tax_total,total,balance_due,due_date,notes,terms,created_by,created_by_name) values(cast(:id as uuid),:o,:document_type,:num,cast(:client_id as uuid),cast(:dossier_id as uuid),cast(:source_document_id as uuid),:currency,:sub,:disc,:tax,:total,:total,:due_date,:notes,:terms,:a,:n) returning *"),{"id":doc_id,"o":o,"num":num,"a":a,"n":n,"sub":sub,"disc":disc,"tax":tax,"total":total,**payload}).mappings().one())
-  for x in lines:c.execute(text("insert into finance_document_lines(org_id,document_id,position,description,quantity,unit_price,discount_rate,tax_rate,line_subtotal,line_discount,line_tax,line_total,metadata) values(:o,cast(:d as uuid),:position,:description,:quantity,:unit_price,:discount_rate,:tax_rate,:line_subtotal,:line_discount,:line_tax,:line_total,cast(:metadata as jsonb))"),{"o":o,"d":doc_id,**x,"metadata":json.dumps(x.get('metadata') or {})})
-  event(c,o,doc_id,'CREATED',a,n,{"number":num,"total":str(total)});return doc
+  return create_in_transaction(c,o,a,n,payload)
+
+def create_in_transaction(c,o,a,n,payload):
+ payload=dict(payload)
+ lines,sub,disc,tax,total=calculate(payload.pop('lines'))
+ if not c.execute(text("select 1 from clients where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['client_id'],"o":o}).first():raise HTTPException(422,'finance_client_not_found')
+ if payload.get('dossier_id') and not c.execute(text("select 1 from dossiers where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['dossier_id'],"o":o}).first():raise HTTPException(422,'finance_dossier_not_found')
+ if payload.get('source_document_id') and not c.execute(text("select 1 from finance_documents where id=cast(:id as uuid) and org_id=:o"),{"id":payload['source_document_id'],"o":o}).first():raise HTTPException(422,'finance_source_document_not_found')
+ doc_id=c.execute(text("select gen_random_uuid()::text")).scalar_one();num=number(c,o,payload['document_type'])
+ doc=dict(c.execute(text("insert into finance_documents(id,org_id,document_type,document_number,client_id,dossier_id,source_document_id,currency,subtotal,discount_total,tax_total,total,balance_due,due_date,notes,terms,created_by,created_by_name) values(cast(:id as uuid),:o,:document_type,:num,cast(:client_id as uuid),cast(:dossier_id as uuid),cast(:source_document_id as uuid),:currency,:sub,:disc,:tax,:total,:total,:due_date,:notes,:terms,:a,:n) returning *"),{"id":doc_id,"o":o,"num":num,"a":a,"n":n,"sub":sub,"disc":disc,"tax":tax,"total":total,**payload}).mappings().one())
+ for x in lines:c.execute(text("insert into finance_document_lines(org_id,document_id,position,description,quantity,unit_price,discount_rate,tax_rate,line_subtotal,line_discount,line_tax,line_total,metadata) values(:o,cast(:d as uuid),:position,:description,:quantity,:unit_price,:discount_rate,:tax_rate,:line_subtotal,:line_discount,:line_tax,:line_total,cast(:metadata as jsonb))"),{"o":o,"d":doc_id,**x,"metadata":json.dumps(x.get('metadata') or {})})
+ event(c,o,doc_id,'CREATED',a,n,{"number":num,"total":str(total)});return doc
 def detail(o,d):
  with engine.connect() as c:
   doc=c.execute(text("select d.*,coalesce(c.name,c.phone,c.email,'Client') client_name,c.phone client_phone,c.email client_email,ds.dossier_reference from finance_documents d left join clients c on c.id=d.client_id and c.org_id=d.org_id left join dossiers ds on ds.id=d.dossier_id and ds.org_id=d.org_id where d.org_id=:o and d.id=:d"),{"o":o,"d":d}).mappings().first()

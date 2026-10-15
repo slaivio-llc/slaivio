@@ -1,12 +1,21 @@
 from datetime import date,datetime,timezone
 from decimal import Decimal
-from fastapi import APIRouter,Depends,Query,Response
+from uuid import UUID
+from fastapi import APIRouter,Depends,Query,Response,HTTPException
 from pydantic import BaseModel,Field,field_validator
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.finance import repository as repo
+from app.finance.package_invoices import create_package_invoice, get_package_invoice
+from app.core.office_context import get_current_office_context, office_scope_ids
 
-router=APIRouter(prefix="/finance",tags=["finance"])
+def require_finance_scope(context=Depends(get_current_office_context)):
+ # Legacy documents have no reliable office attribution. Fail closed until the
+ # whole ledger can be filtered, including exports, payments and receipts.
+ if office_scope_ids(context) is not None:
+  raise HTTPException(403,'finance_office_scope_not_supported')
+
+router=APIRouter(prefix="/finance",tags=["finance"],dependencies=[Depends(require_finance_scope)])
 def actor(t):return str(t.get("user_id") or "system")
 def name(t):return str(t.get("actor_name") or "Membre de l'agence")
 class Line(BaseModel):
@@ -55,6 +64,12 @@ def export(tenant=Depends(get_current_tenant),_=Depends(require_permission("fina
 def create(body:DocumentCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create"))):return repo.create(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
 @router.get("/{document_id}")
 def detail(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.detail(tenant['org_id'],document_id)
+@router.get("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read"))])
+def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
+ return get_package_invoice(tenant['org_id'],str(package_id))
+@router.post("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_permission("finance.read"))])
+def package_invoice_create(package_id:UUID,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create"))):
+ return create_package_invoice(tenant['org_id'],str(package_id),actor(tenant),name(tenant),body.expected_version)
 @router.get("/{document_id}/print")
 def printable(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return Response(repo.printable(tenant['org_id'],document_id),media_type="text/html; charset=utf-8")
 @router.post("/{document_id}/issue")

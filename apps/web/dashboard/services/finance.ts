@@ -3,6 +3,8 @@ export type FinanceDocument={id:string;document_type:"QUOTE"|"INVOICE"|"CREDIT_N
 export type FinanceLine={description:string;quantity:number;unit_price:number;discount_rate:number;tax_rate:number;line_total?:number};
 export type FinancePayment={id:string;receipt_number:string;amount:number;currency:string;method:string;reference?:string;paid_at:string;status:"CONFIRMED"|"REVERSED";receipt_snapshot?:{version:number}|null};
 export async function paymentReceipt(documentId:string,paymentId:string){return (await api.get<Blob>(`/finance/${documentId}/payments/${paymentId}/receipt`,{responseType:"blob"})).data}
+export async function getPackageInvoice(packageId:string){return (await api.get<FinanceDocument|null>(`/finance/packages/${packageId}/invoice`)).data}
+export async function createPackageInvoice(packageId:string,expected_version:number){return (await api.post<FinanceDocument>(`/finance/packages/${packageId}/invoice`,{expected_version})).data}
 export type FinanceStats={invoices:number;drafts:number;overdue:number;by_currency:{currency:string;invoiced:number;collected:number;outstanding:number}[]};
 export async function listFinance(params:Record<string,unknown>={}){return (await api.get<{items:FinanceDocument[];pagination:{total:number}}>("/finance",{params})).data}
 export async function financeStats(){return (await api.get<FinanceStats>("/finance/stats")).data}

@@ -70,6 +70,32 @@ contrat `/finance/stats` change, les anciens totaux sans devise sont supprimés.
   après timeout, l'échec de rafraîchissement après confirmation et le dépassement du solde.
   La recette base de données et navigateur reste nécessaire.
 
+## Troisième lot : facture depuis le colis
+
+- Depuis l'onglet Paiement du colis, préparation d'une facture DRAFT à partir de
+  `pricing_snapshot`, uniquement si montant et devise correspondent au colis.
+  Pas de montant saisi de nouveau ni de nouveau calcul tarifaire.
+- Le client doit exister dans la même organisation. Les encaissements historiques
+  `fees_paid` non nuls imposent un rapprochement ; ils ne sont pas importés en silence.
+- Verrou colis, version contrôlée, transaction unique et index unique de facture
+  active : les reprises renvoient la même facture. Un snapshot conserve la référence,
+  la version du colis et le résultat tarifaire utilisé.
+- Réutilisation de la création Finance, sans deuxième modèle de facturation.
+  Aucune émission automatique, aucune notification ni mutation logistique.
+- L'onglet lit les montants depuis Finance, pas par soustraction de champs Cargo.
+  Les anciens autres consommateurs de fees_total/fees_paid restent à migrer.
+- IMPORTANT : toutes les routes `/finance` refusent désormais les contextes limités
+  par bureau (403). Les documents historiques n'ont pas de rattachement bureau
+  fiable. Un membre autorisé à tous les bureaux doit sélectionner la vue organisation
+  complète ; un membre restreint ne peut pas contourner ses droits en retirant le filtre.
+  Il s'agit d'une protection temporaire, pas de la livraison de Finance multi-bureaux.
+- Migration `137_finance_package_invoices.sql` avant déploiement API (après 136).
+  Aucun rattachement des anciennes factures n'est inventé : vérifier les documents
+  historiques avant de facturer des opérations anciennes. Migration non exécutée ici.
+- Validation : 36 tests backend et 9 tests frontend ciblés réussis,
+  TypeScript et ESLint réussis.
+  Verrous, index et trigger restent à tester sur PostgreSQL avant production.
+
 ## SasPay — contraintes fournies, intégration pas encore implémentée
 
 - Vérifier les schémas des endpoints officiels avant codage de l'adaptateur.

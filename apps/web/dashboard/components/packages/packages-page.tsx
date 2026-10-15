@@ -1,4 +1,5 @@
 "use client";
+import { PackageFinance } from "@/components/finance/package-finance";
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { ParcelPackageCreateDrawer } from './parcel-receipt-drawer';
@@ -2122,39 +2123,8 @@ function ShipmentTab({
 }
 
 function PaymentTab({ item }: { item: PackageRecord }) {
-  const remaining = Number(item.fees_total || 0) - Number(item.fees_paid || 0);
-  return (
-    <div className="space-y-5">
-      <Section title="Paiement colis">
-        <div className="grid grid-cols-3 gap-3">
-          <SmallMetric
-            label="Facturé"
-            value={formatMoney(item.fees_total, item.currency)}
-          />
-          <SmallMetric
-            label="Payé"
-            value={formatMoney(item.fees_paid, item.currency)}
-          />
-          <SmallMetric
-            label="Reste"
-            value={formatMoney(Math.max(remaining, 0), item.currency)}
-          />
-        </div>
-      </Section>
-      <Section title="Statut">
-        <Field
-          label="Paiement"
-          value={
-            paymentLabels[item.payment_clearance_status] ||
-            item.payment_clearance_status
-          }
-        />
-        <Field label="Devise" value={item.currency || "-"} />
-      </Section>
-    </div>
-  );
+  return <PermissionGuard permission="finance.read"><PackageFinance key={item.id} packageId={item.id} version={item.row_version} /></PermissionGuard>;
 }
-
 function AnomaliesTab({
   item,
   onUpdated,

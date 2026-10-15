@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 
 from sqlalchemy import text
 
@@ -285,6 +286,18 @@ def log_ai_run(
     intent=None, confidence=None, risk_level="REVIEW", reason=None,
     source_ids=None, draft_id=None, outbound_message_id=None, metadata=None,
 ) -> dict:
+    # Knowledge IDs are UUIDs; live operational sources use namespaced IDs.
+    # Preserve provenance without attempting to cast service:/location: to uuid[].
+    knowledge_ids = []
+    operational_ids = []
+    for source_id in source_ids or []:
+        try:
+            knowledge_ids.append(str(UUID(str(source_id))))
+        except ValueError:
+            operational_ids.append(str(source_id))
+    audit_metadata = dict(metadata or {})
+    if operational_ids:
+        audit_metadata["operational_source_ids"] = operational_ids
     with engine.begin() as conn:
         row = conn.execute(text("""
           insert into pilot_inbox_ai_runs(
@@ -312,9 +325,9 @@ def log_ai_run(
             "response_mode": response_mode, "outcome": outcome,
             "intent": intent, "confidence": confidence,
             "risk_level": risk_level, "reason": reason,
-            "source_ids": source_ids or [], "draft_id": draft_id,
+            "source_ids": knowledge_ids, "draft_id": draft_id,
             "outbound_message_id": outbound_message_id,
-            "metadata": json.dumps(metadata or {}, default=str),
+            "metadata": json.dumps(audit_metadata, default=str),
         }).mappings().one()
         return dict(row)
 

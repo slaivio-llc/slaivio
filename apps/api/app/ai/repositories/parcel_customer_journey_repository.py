@@ -19,7 +19,8 @@ def is_parcel_organization(org_id: str) -> bool:
 
 
 def _missing(values: dict) -> list[str]:
-    return [field for field in PROFILE_FIELDS if not str(values.get(field) or "").strip()]
+    required = ("full_name", "customer_type")
+    return [field for field in required if not str(values.get(field) or "").strip()]
 
 
 def get_journey(org_id: str, phone: str) -> dict | None:
@@ -136,6 +137,13 @@ def convert_journey(org_id: str, phone: str, actor_id: str = "slaivio-ai") -> di
         """), {"org_id": org_id, "phone": phone}).mappings().first()
         if not journey or journey["stage"] not in {"QUALIFIED", "QUALIFYING"}:
             return None
+        extraction = (journey.get("metadata") or {}).get("last_extraction") or {}
+        confidence = extraction.get("confidence")
+        if (extraction.get("service_intent_confirmed") is not True
+                or not isinstance(confidence, (int, float))
+                or isinstance(confidence, bool) or not 0.9 <= confidence <= 1
+                or journey.get("customer_type") != "individual"):
+            return None
         missing = _missing(dict(journey))
         if missing:
             return None
@@ -143,8 +151,11 @@ def convert_journey(org_id: str, phone: str, actor_id: str = "slaivio-ai") -> di
           select id::text,client_reference,coalesce(display_name,name) display_name
           from clients where org_id=:org_id and deleted_at is null
             and (normalized_phone=:phone or phone=:phone or whatsapp_phone=:phone)
-          order by created_at limit 1
-        """), {"org_id": org_id, "phone": phone}).mappings().first()
+          order by created_at limit 2
+        """), {"org_id": org_id, "phone": phone}).mappings().all()
+        if len(client) > 1:
+            return None  # Ambiguous channel identity must not select an arbitrary client.
+        client = client[0] if client else None
         if not client:
             client = conn.execute(text("""
               insert into clients(

@@ -12,6 +12,12 @@ from app.knowledge.repository import _search_terms
 ROOT = Path(__file__).parents[3]
 
 
+@pytest.fixture(autouse=True)
+def isolate_operational_sources(monkeypatch):
+    # These are orchestration unit tests, not live database integration tests.
+    monkeypatch.setattr(ai_service, "parcel_operational_knowledge", lambda _org_id: [])
+
+
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 

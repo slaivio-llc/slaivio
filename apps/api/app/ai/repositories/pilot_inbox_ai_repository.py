@@ -87,6 +87,7 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
         if not row:
             return None
         context = dict(row)
+        context["client_finance_access"] = False
         context["recent_messages"] = [dict(item) for item in conn.execute(text("""
           select direction, text_body, created_at
           from (

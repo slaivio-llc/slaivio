@@ -232,6 +232,38 @@ def _safe_context_snapshot(context: dict) -> dict:
     }
 
 
+def _customer_safe_operational_context(context: dict, message: str) -> str:
+    """Return only customer-visible, organization-scoped operational context.
+
+    Personal financial amounts are never included unless the server explicitly
+    marks the customer as entitled to see them. This avoids leaking private debt,
+    payments, or invoices through a public WhatsApp answer.
+    """
+    operational_lines: list[str] = []
+    for package in context.get("packages") or []:
+        operational_lines.append(
+            "Colis {tracking} : statut={status}; destination={destination}; ETA={eta}; "
+            "dernière_position={location}; départ={departure}; date_départ={departure_at}.".format(
+                tracking=package.get("tracking_id") or package.get("package_reference") or "non renseigné",
+                status=package.get("status") or "non renseigné",
+                destination=", ".join(filter(None, [package.get("destination_city"), package.get("destination_country")])) or "non renseignée",
+                eta=package.get("eta_at") or "non renseignée",
+                location=package.get("last_scan_location") or "non renseignée",
+                departure=package.get("departure_code") or "non affecté",
+                departure_at=package.get("departure_scheduled_at") or "non renseignée",
+            )
+        )
+
+    finance = context.get("finance_summary") or {}
+    if context.get("client_finance_access") and finance and (finance.get("balance_due") or finance.get("amount_paid")):
+        operational_lines.append(
+            f"Compte client : payé={finance.get('amount_paid') or 0} {finance.get('currency') or ''}; "
+            f"solde à payer={finance.get('balance_due') or 0} {finance.get('currency') or ''}."
+        )
+
+    return "\n".join(operational_lines) if _matches(OPERATIONAL_PATTERNS, message) else ""
+
+
 def _grounding_check(response_text: str, knowledge: list[dict], operational_context: str = "") -> tuple[bool, str | None]:
     source_text = " ".join(item.get("matched_content") or item.get("content") or "" for item in knowledge) + " " + operational_context
     response_numbers = set(re.findall(r"\d+(?:[.,]\d+)?", response_text))
@@ -347,30 +379,7 @@ def prepare_pilot_suggestion(
     response_text = None
     confidence = float(classification["confidence"])
     reason = classification["reason"]
-    operational_lines = []
-    for package in context.get("packages") or []:
-        operational_lines.append(
-            "Colis {tracking} : statut={status}; destination={destination}; ETA={eta}; "
-            "dernière_position={location}; départ={departure}; date_départ={departure_at}.".format(
-                tracking=package.get("tracking_id") or package.get("package_reference") or "non renseigné",
-                status=package.get("status") or "non renseigné",
-                destination=", ".join(filter(None, [package.get("destination_city"), package.get("destination_country")])) or "non renseignée",
-                eta=package.get("eta_at") or "non renseignée",
-                location=package.get("last_scan_location") or "non renseignée",
-                departure=package.get("departure_code") or "non affecté",
-                departure_at=package.get("departure_scheduled_at") or "non renseignée",
-            )
-        )
-    finance = context.get("finance_summary") or {}
-    if finance and (finance.get("balance_due") or finance.get("amount_paid")):
-        operational_lines.append(
-            f"Compte client : payé={finance.get('amount_paid') or 0} {finance.get('currency') or ''}; "
-            f"solde à payer={finance.get('balance_due') or 0} {finance.get('currency') or ''}."
-        )
-    # Customer records are authoritative only when the question is actually
-    # about tracking or finance. Their mere presence must not make an
-    # unrelated generated answer eligible for automatic sending.
-    operational_context = "\n".join(operational_lines) if _matches(OPERATIONAL_PATTERNS, message) else ""
+    operational_context = _customer_safe_operational_context(context, message)
 
     if classification["risk"] == "SENSITIVE":
         response_text = "Merci pour votre message. Votre demande nécessite une vérification par notre responsable avant que nous puissions vous répondre précisément."

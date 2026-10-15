@@ -122,6 +122,96 @@ def settings_for(o):
   c.execute(text("insert into finance_settings(org_id) values(:o) on conflict do nothing"),{"o":o});return dict(c.execute(text("select * from finance_settings where org_id=:o"),{"o":o}).mappings().one())
 def save_settings(o,a,p):
  with engine.begin() as c:return dict(c.execute(text("""insert into finance_settings(org_id,legal_name,tax_identifier,billing_address,default_currency,default_tax_rate,default_payment_terms_days,document_footer,updated_by) values(:o,:legal_name,:tax_identifier,:billing_address,:default_currency,:default_tax_rate,:default_payment_terms_days,:document_footer,:a) on conflict(org_id) do update set legal_name=excluded.legal_name,tax_identifier=excluded.tax_identifier,billing_address=excluded.billing_address,default_currency=excluded.default_currency,default_tax_rate=excluded.default_tax_rate,default_payment_terms_days=excluded.default_payment_terms_days,document_footer=excluded.document_footer,updated_by=excluded.updated_by,updated_at=now() returning *"""),{"o":o,"a":a,**p}).mappings().one())
+
+def calculate_due_amount(total, policy):
+ total = money(total)
+ rule_type = str(policy.get('rule_type') or 'PERCENTAGE').upper()
+ if rule_type == 'PERCENTAGE':
+  percent = D(str(policy.get('percentage') if policy.get('percentage') is not None else 0))
+  if not percent.is_finite() or percent < 0 or percent > 100:
+   raise HTTPException(422, 'invalid_due_policy_percentage')
+  return money(total * percent / D('100'))
+ if rule_type == 'FIXED_AMOUNT':
+  fixed = money(policy.get('fixed_amount') if policy.get('fixed_amount') is not None else 0)
+  return fixed
+ raise HTTPException(422, 'invalid_due_policy_rule')
+
+def list_due_policies(o):
+ with engine.connect() as c:
+  return [dict(x) for x in c.execute(text("select * from finance_due_policies where org_id=:o order by is_active desc,row_version desc,created_at desc"),{'o':o}).mappings().all()]
+
+def upsert_due_policy(o,a,n,payload):
+ payload = dict(payload)
+ name = str(payload.get('name') or '').strip()
+ if not name:
+  raise HTTPException(422, 'due_policy_name_required')
+ trigger = str(payload.get('trigger_event') or 'MANUAL').upper()
+ if trigger not in {'RECEPTION','ARRIVAL','DELIVERY','MANUAL'}:
+  raise HTTPException(422, 'invalid_due_policy_trigger')
+ currency = str(payload.get('currency') or 'USD').upper()
+ if len(currency) != 3 or not currency.isalpha():
+  raise HTTPException(422, 'invalid_due_policy_currency')
+ rule_type = str(payload.get('rule_type') or 'PERCENTAGE').upper()
+ if rule_type == 'PERCENTAGE':
+  percentage = D(str(payload.get('percentage') if payload.get('percentage') is not None else 0))
+  if not percentage.is_finite() or percentage < 0 or percentage > 100:
+   raise HTTPException(422, 'invalid_due_policy_percentage')
+  fixed_amount = None
+ else:
+  fixed_amount = money(payload.get('fixed_amount') if payload.get('fixed_amount') is not None else 0)
+  if fixed_amount < 0:
+   raise HTTPException(422, 'invalid_due_policy_amount')
+  percentage = None
+ with engine.begin() as c:
+  row = c.execute(text("""insert into finance_due_policies(org_id,name,trigger_event,rule_type,percentage,fixed_amount,currency,is_active,created_by,created_by_name)
+      values(:o,:name,:trigger_event,:rule_type,:percentage,:fixed_amount,:currency,:is_active,:a,:n)
+      on conflict(org_id,name) do update set
+        trigger_event=excluded.trigger_event,
+        rule_type=excluded.rule_type,
+        percentage=excluded.percentage,
+        fixed_amount=excluded.fixed_amount,
+        currency=excluded.currency,
+        is_active=excluded.is_active,
+        row_version=finance_due_policies.row_version + 1,
+        updated_at=now(),
+        created_by=excluded.created_by,
+        created_by_name=excluded.created_by_name
+      returning *"""),{
+       'o':o,'name':name,'trigger_event':trigger,'rule_type':rule_type,'percentage':percentage,
+       'fixed_amount':fixed_amount,'currency':currency,'is_active':payload.get('is_active',True),
+       'a':a,'n':n}).mappings().one()
+  event(c,o,None,'DUE_POLICY_SAVED',a,n,{"policy_id":str(row['id']),"name":name,"trigger_event":trigger,"row_version":row['row_version']})
+  return dict(row)
+
+def get_due_obligations(o,d):
+ with engine.connect() as c:
+  rows = c.execute(text("select * from finance_due_obligations where org_id=:o and document_id=:d order by created_at asc"),{'o':o,'d':d}).mappings().all()
+  return [dict(x) for x in rows]
+
+def evaluate_due_obligations(o,d,trigger_event=None,a='system',n='System'):
+ with engine.begin() as c:
+  doc = c.execute(text("select * from finance_documents where org_id=:o and id=:d"),{'o':o,'d':d}).mappings().first()
+  if not doc:
+   raise HTTPException(404,'finance_document_not_found')
+  policies = c.execute(text("select * from finance_due_policies where org_id=:o and is_active=true and (:event is null or trigger_event=:event) order by row_version desc,created_at desc"),{'o':o,'event':trigger_event}).mappings().all()
+  obligations=[]
+  for policy in policies:
+   amount = calculate_due_amount(doc['total'], policy)
+   row = c.execute(text("""insert into finance_due_obligations(org_id,document_id,policy_id,policy_row_version,trigger_event,amount,currency,status)
+       values(:o,:d,:policy,:row_version,:trigger_event,:amount,:currency,'OPEN')
+       on conflict(org_id,document_id,policy_id,trigger_event) do update set
+         amount=excluded.amount,
+         currency=excluded.currency,
+         policy_row_version=excluded.policy_row_version,
+         updated_at=now()
+       returning *"""),{
+       'o':o,'d':d,'policy':policy['id'],'row_version':policy['row_version'],'trigger_event':policy['trigger_event'],'amount':amount,'currency':doc['currency']}).mappings().first()
+   if not row:
+    row = c.execute(text("select * from finance_due_obligations where org_id=:o and document_id=:d and policy_id=:policy and trigger_event=:trigger_event"),{'o':o,'d':d,'policy':policy['id'],'trigger_event':policy['trigger_event']}).mappings().first()
+   obligations.append(dict(row))
+   event(c,o,d,'DUE_OBLIGATION_POSTED',a,n,{"policy_id":str(policy['id']),"trigger_event":policy['trigger_event'],"amount":str(amount),"row_version":policy['row_version']})
+  return obligations
+
 def quote_decision(o,d,a,n,version,accepted,reason=None):
  status='ACCEPTED' if accepted else 'REJECTED'
  with engine.begin() as c:

@@ -58,9 +58,34 @@ class Convert(Version):due_date:date|None=None
 class Credit(Version):invoice_id:str
 class Reverse(BaseModel):reason:str=Field(min_length=4,max_length=500)
 class Settings(BaseModel):legal_name:str|None=None;tax_identifier:str|None=None;billing_address:str|None=None;default_currency:str=Field(min_length=3,max_length=3);default_tax_rate:float=Field(ge=0,le=100);default_payment_terms_days:int=Field(ge=0,le=365);document_footer:str|None=None
+class DuePolicy(BaseModel):
+ name:str=Field(min_length=1,max_length=120)
+ trigger_event:str=Field(pattern=r'^(RECEPTION|ARRIVAL|DELIVERY|MANUAL)$')
+ rule_type:str=Field(pattern=r'^(PERCENTAGE|FIXED_AMOUNT)$')
+ percentage:float|None=Field(default=None,ge=0,le=100)
+ fixed_amount:Decimal|None=Field(default=None,gt=0,allow_inf_nan=False,max_digits=18,decimal_places=2)
+ currency:str=Field(default='USD',min_length=3,max_length=3)
+ is_active:bool=True
+ @field_validator('currency')
+ @classmethod
+ def currency_code(cls,v):return v.upper()
+ @field_validator('fixed_amount')
+ @classmethod
+ def fixed_required_for_rule(cls,v,info):
+  if info.data.get('rule_type')=='FIXED_AMOUNT' and v is None: raise ValueError('fixed_amount_required')
+  return v
+ @field_validator('percentage')
+ @classmethod
+ def percent_required_for_rule(cls,v,info):
+  if info.data.get('rule_type')=='PERCENTAGE' and v is None: raise ValueError('percentage_required')
+  return v
 
 @router.get("")
 def index(q:str|None=None,status:str|None=None,document_type:str|None=None,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.list_documents(tenant['org_id'],q,status,document_type,page,page_size,office_ids=office_scope_ids(context))
+@router.get("/due-policies")
+def due_policies(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.list_due_policies(tenant['org_id'])
+@router.post("/due-policies")
+def due_policies_save(body:DuePolicy,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):return repo.upsert_due_policy(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
 @router.get("/stats")
 def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.stats(tenant['org_id'],office_ids=office_scope_ids(context))
 @router.get("/settings")
@@ -73,6 +98,12 @@ def overdue(tenant=Depends(get_current_tenant),_=Depends(require_permission("fin
 def export(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.export")),context=Depends(get_current_office_context)):return Response(repo.export(tenant['org_id'],office_ids=office_scope_ids(context)),media_type="text/csv; charset=utf-8",headers={"Content-Disposition":"attachment; filename=slaivio-facturation.csv"})
 @router.post("")
 def create(body:DocumentCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create"))):return repo.create(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
+@router.get("/{document_id}/due-obligations")
+def due_obligations(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.get_due_obligations(tenant['org_id'],document_id)
+@router.post("/{document_id}/due-obligations")
+def due_obligations_recalculate(document_id:str,body:dict|None=None,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):
+ trigger_event = ((body or {}).get('trigger_event') if isinstance(body, dict) else None)
+ return repo.evaluate_due_obligations(tenant['org_id'],document_id,trigger_event=str(trigger_event).upper() if trigger_event else None, a=actor(tenant), n=name(tenant))
 @router.get("/{document_id}")
 def detail(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.detail(tenant['org_id'],document_id)
 @router.post("/{document_id}/office")

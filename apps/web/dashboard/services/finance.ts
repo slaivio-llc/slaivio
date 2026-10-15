@@ -16,7 +16,13 @@ export async function payFinance(id:string,payload:{amount:number;currency:strin
 export async function voidFinance(id:string,expected_version:number,reason:string){return (await api.post<FinanceDocument>(`/finance/${id}/void`,{expected_version,reason})).data}
 export async function exportFinance(){return (await api.get<Blob>("/finance/export",{responseType:"blob"})).data}
 export type FinanceSettings={legal_name:string|null;tax_identifier:string|null;billing_address:string|null;default_currency:string;default_tax_rate:number;default_payment_terms_days:number;document_footer:string|null};
-export async function getFinanceSettings(){return (await api.get<FinanceSettings>("/finance/settings")).data}export async function saveFinanceSettings(p:FinanceSettings){return (await api.put<FinanceSettings>("/finance/settings",p)).data}
+export type FinanceDuePolicy={id?:string;name:string;trigger_event:"RECEPTION"|"ARRIVAL"|"DELIVERY"|"MANUAL";rule_type:"PERCENTAGE"|"FIXED_AMOUNT";percentage?:number|null;fixed_amount?:number|null;currency:string;is_active:boolean;row_version?:number};
+export async function getFinanceSettings(){return (await api.get<FinanceSettings>("/finance/settings")).data}
+export async function saveFinanceSettings(p:FinanceSettings){return (await api.put<FinanceSettings>("/finance/settings",p)).data}
+export async function listFinanceDuePolicies(){return (await api.get<FinanceDuePolicy[]>("/finance/due-policies")).data}
+export async function saveFinanceDuePolicy(policy:FinanceDuePolicy){return (await api.post<FinanceDuePolicy>("/finance/due-policies",policy)).data}
+export async function getFinanceDueObligations(documentId:string){return (await api.get<Array<{id:string;amount:number;currency:string;trigger_event:string;status:string}>>(`/finance/${documentId}/due-obligations`)).data}
+export async function refreshFinanceDueObligations(documentId:string,trigger_event?:string){return (await api.post<Array<{id:string;amount:number;currency:string;trigger_event:string;status:string}>>(`/finance/${documentId}/due-obligations`,trigger_event?{trigger_event}:{})).data}
 export async function decideQuote(id:string,expected_version:number,accepted:boolean,reason?:string|null){return (await api.post(`/finance/${id}/decision`,{expected_version,accepted,reason})).data}
 export async function convertQuote(id:string,expected_version:number,due_date?:string|null){return (await api.post<FinanceDocument>(`/finance/${id}/convert`,{expected_version,due_date})).data}
 export async function applyCredit(id:string,expected_version:number,invoice_id:string){return (await api.post(`/finance/${id}/apply-credit`,{expected_version,invoice_id})).data}

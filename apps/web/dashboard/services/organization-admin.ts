@@ -3,7 +3,7 @@ export type Member={id:string;member_display_name?:string;member_email?:string;r
 export type OfficeContext={office_access_scope:"ALL_OFFICES"|"SELECTED_OFFICES";offices:Array<{location_id:string;name:string;country:string;city:string}>;selected_office_id:string|null;allowed_office_ids:string[]};
 export type Role={id:string;role_code:string;role_name:string;description?:string;system_role:boolean;permission_count:number;member_count:number};
 export type Permission={id:string;permission_code:string;description?:string};
-export type AdminData={organization:Record<string,unknown>&{row_version:number};settings:(Record<string,unknown>&{row_version:number})|null;members:Member[];invitations:Array<Record<string,unknown>>;roles:Role[];permissions:Permission[];workspaces:Array<Record<string,unknown>>;locations:Array<Record<string,unknown>>;integrations:Array<Record<string,unknown>>;numbering:Array<Record<string,unknown>>;billing:Record<string,unknown>|null;data_requests:Array<Record<string,unknown>>;api_keys:Array<Record<string,unknown>>};
+export type AdminData={organization:Record<string,unknown>&{row_version:number};settings:(Record<string,unknown>&{row_version:number})|null;members:Member[];invitations:Array<Record<string,unknown>>;roles:Role[];permissions:Permission[];audit:Array<Record<string,unknown>>;workspaces:Array<Record<string,unknown>>;locations:Array<Record<string,unknown>>;integrations:Array<Record<string,unknown>>;numbering:Array<Record<string,unknown>>;billing:Record<string,unknown>|null;data_requests:Array<Record<string,unknown>>;api_keys:Array<Record<string,unknown>>};
 export async function getAdmin(){return (await api.get<AdminData>('/organization/admin')).data}
 export async function updateOrganization(payload:Record<string,unknown>){return (await api.patch('/organization/admin',payload)).data}
 export async function updateSettings(payload:Record<string,unknown>){return (await api.patch('/organization/admin/settings',payload)).data}
@@ -38,10 +38,8 @@ export type PilotSettingsData={
  ai:{pilot_response_mode:"SUGGESTION_ONLY"|"CONTROLLED_AUTO"|"PAUSED";pilot_require_published_knowledge:boolean;system_prompt:string;user_prompt_template:string;communication_style:"PROFESSIONAL"|"CONCISE"|"FORMAL"|"WARM";prompt_row_version:number;prompt_score?:number;updated_at:string};
  knowledge:{default_language:"FR"|"EN";pilot_default_review_days:number;pilot_row_version:number;published_count:number;draft_count:number;whatsapp_ready_count:number};
  parcel_operations?:{package_number_pattern:string;prospect_followup_delay_hours:number;incomplete_profile_followup_hours:number;notify_next_departure:boolean;notify_package_milestones:boolean;require_payment_clearance:boolean;required_profile_fields:string[];row_version:number;updated_at:string}|null;
- reference_settings:{timezone:string;row_version:number};
 };
 export async function getPilotSettings(){return(await api.get<PilotSettingsData>('/organization/admin/pilot')).data}
-export async function savePilotReferenceSettings(payload:{timezone:string;expected_version:number}){return(await api.patch('/organization/admin/pilot/reference-settings',payload)).data}
 export async function selectPilotWhatsappNumber(number_id:string){return(await api.patch('/organization/admin/pilot/whatsapp-number',{number_id})).data}
 export async function savePilotWhatsappPreferences(numberId:string,payload:{auto_mark_read:boolean;group_replies_enabled:boolean;group_on_dossier_create:boolean}){return(await api.patch(`/organization/admin/pilot/whatsapp-number/${numberId}/preferences`,payload)).data}
 export async function activatePilotWazzap(payload:{phone_number:string;verified_name?:string;default_language?:string;default_timezone?:string}){return(await api.post('/organization/admin/pilot/wazzap/activate',payload)).data}

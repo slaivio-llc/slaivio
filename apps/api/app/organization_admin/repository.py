@@ -31,6 +31,7 @@ def overview(org_id):
           left join organization_memberships m on m.org_id=r.org_id and m.role_code=r.role_code and m.status='ACTIVE'
           where r.org_id=:o group by r.id order by r.system_role desc,r.role_name"""),{"o":org_id}))
         permissions=_rows(c.execute(text("select id,permission_code,description from permissions order by permission_code")))
+        audit=_rows(c.execute(text("select * from audit_logs where org_id=:o order by created_at desc limit 100"),{"o":org_id}))
         workspaces=_rows(c.execute(text("select * from organization_workspaces where org_id=:o order by status,name"),{"o":org_id}))
         locations=_rows(c.execute(text("select * from organization_locations where org_id=:o order by status,name"),{"o":org_id}))
         integrations=_rows(c.execute(text("select * from organization_integrations where org_id=:o order by provider,account_label"),{"o":org_id}))
@@ -38,7 +39,7 @@ def overview(org_id):
         billing=c.execute(text("select * from organization_billing_profiles where org_id=:o"),{"o":org_id}).mappings().first()
         data_requests=_rows(c.execute(text("select * from organization_data_requests where org_id=:o order by created_at desc limit 50"),{"o":org_id}))
         api_keys=_rows(c.execute(text("select id::text,name,key_prefix,scopes,status,last_used_at,expires_at,created_at from developer_api_keys where org_id=:o order by created_at desc"),{"o":org_id}))
-        return {"organization":dict(org) if org else None,"settings":dict(settings) if settings else None,"members":members,"invitations":invitations,"roles":roles,"permissions":permissions,"workspaces":workspaces,"locations":locations,"integrations":integrations,"numbering":numbering,"billing":dict(billing) if billing else None,"data_requests":data_requests,"api_keys":api_keys}
+        return {"organization":dict(org) if org else None,"settings":dict(settings) if settings else None,"members":members,"invitations":invitations,"roles":roles,"permissions":permissions,"audit":audit,"workspaces":workspaces,"locations":locations,"integrations":integrations,"numbering":numbering,"billing":dict(billing) if billing else None,"data_requests":data_requests,"api_keys":api_keys}
 
 def update_org(org_id, actor, data, version):
     allowed={'organization_name','legal_name','country','city','address','phone','email','website','registration_number','tax_number','logo_url','organization_type','whatsapp','province','postal_code','registration_country','legal_address','logo_dark_url','primary_color','secondary_color','document_display_name','signature_url','stamp_url'}

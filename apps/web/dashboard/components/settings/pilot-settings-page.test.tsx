@@ -87,7 +87,6 @@ const settings: adminService.PilotSettingsData = {
     row_version: 1,
     updated_at: "2026-09-18T00:00:00Z",
   },
-  reference_settings: { timezone: "Africa/Kinshasa", row_version: 1 },
 };
 
 beforeEach(() => {

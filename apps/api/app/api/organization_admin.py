@@ -1,5 +1,4 @@
 import re
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any,Literal
 from fastapi import APIRouter,Depends,HTTPException
 from pydantic import BaseModel,Field,field_validator
@@ -82,18 +81,6 @@ class PilotKnowledgeDefaults(BaseModel):
     default_language:Literal['FR','EN']='FR'
     default_review_days:int=Field(ge=7,le=730)
     expected_version:int=Field(ge=1)
-class PilotReferenceSettings(BaseModel):
-    timezone:str=Field(min_length=1,max_length=80)
-    expected_version:int=Field(ge=1)
-
-    @field_validator('timezone')
-    @classmethod
-    def validate_timezone(cls,value:str)->str:
-        try:
-            ZoneInfo(value)
-        except (ZoneInfoNotFoundError, ValueError) as exc:
-            raise ValueError('invalid_timezone') from exc
-        return value
 class ParcelOperationSettings(BaseModel):
     package_number_pattern:str=Field(min_length=8,max_length=100)
     prospect_followup_delay_hours:int=Field(ge=1,le=720)
@@ -113,13 +100,6 @@ class ParcelOperationSettings(BaseModel):
 @router.get('/pilot',dependencies=[Depends(require_permission('pilot.settings.read'))])
 def get_pilot_settings(tenant=Depends(get_current_tenant)):
     return {'status':'ok',**pilot_repo.overview(tenant['org_id'])}
-
-@router.patch('/pilot/reference-settings',dependencies=[Depends(require_permission('pilot.settings.manage'))])
-def patch_pilot_reference_settings(body:PilotReferenceSettings,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
-    row=repo.save_settings(tenant['org_id'],actor(manager),{'timezone':body.timezone},body.expected_version)
-    if not row:
-        raise HTTPException(409,'organization_settings_were_modified')
-    return {'status':'ok','reference_settings':{'timezone':row['timezone'],'row_version':row['row_version']}}
 
 @router.patch('/pilot/whatsapp-number',dependencies=[Depends(require_permission('pilot.settings.manage'))])
 def patch_pilot_whatsapp_number(body:PilotWhatsappNumber,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):

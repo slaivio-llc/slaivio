@@ -72,7 +72,6 @@ const EN_LABELS: Record<string, string> = {
   "Dossiers": "Cases",
   "Connaissances": "Knowledge",
   "Paramètres": "Settings",
-  "Historique des actions": "Action history",
   "Alertes": "Alerts",
   "Compte": "Account",
   "Langue": "Language",

@@ -25,6 +25,13 @@ def overview(org_id: str) -> dict:
             text("insert into ai_settings(org_id) values(:org_id) on conflict(org_id) do nothing"),
             {"org_id": org_id},
         )
+        conn.execute(
+            text("insert into organization_settings(org_id) values(:org_id) on conflict(org_id) do nothing"),
+            {"org_id": org_id},
+        )
+        reference_settings = _dict(conn.execute(text("""
+          select timezone,row_version from organization_settings where org_id=:org_id
+        """), {"org_id": org_id}).fetchone())
         organization = _dict(conn.execute(text("""
           select id,coalesce(organization_name,name) organization_name,legal_name,organization_type,
                  country,city,address,phone,email,website,logo_url,row_version,
@@ -102,6 +109,7 @@ def overview(org_id: str) -> dict:
         raise HTTPException(404, "pilot_organization_not_found")
     return {
         "organization": organization,
+        "reference_settings": reference_settings,
         "responsible": responsible,
         "team": team,
         "locations": locations,

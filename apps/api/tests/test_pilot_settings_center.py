@@ -24,14 +24,29 @@ def test_pilot_settings_migration_is_additive_and_role_scoped():
 def test_pilot_settings_api_returns_only_the_agency_facing_context():
     api = read("apps/api/app/api/organization_admin.py")
     repository = read("apps/api/app/organization_admin/pilot_repository.py")
-    for route in ("'/pilot'", "'/pilot/whatsapp-number'", "'/pilot/knowledge'"):
+    for route in ("'/pilot'", "'/pilot/whatsapp-number'", "'/pilot/knowledge'", "'/pilot/reference-settings'"):
         assert route in api
     assert "pilot.settings.read" in api
     assert "pilot.settings.manage" in api
-    for dataset in ("organization", "responsible", "numbering", "whatsapp_numbers", "ai", "knowledge"):
+    for dataset in ("organization", "responsible", "numbering", "whatsapp_numbers", "ai", "knowledge", "reference_settings"):
         assert f'"{dataset}"' in repository
     assert "access_token" not in repository
     assert "where org_id=:org_id" in repository
+
+
+def test_organization_audit_logs_are_only_exposed_by_the_audit_permission_route():
+    api = read("apps/api/app/api/audit.py")
+    administration = read("apps/api/app/organization_admin/repository.py")
+    assert 'Depends(require_permission("audit.read"))' in api
+    assert '"/audit/logs"' in api
+    assert "audit=_rows(" not in administration
+    assert '"audit":audit' not in administration
+
+
+def test_settings_timezone_defaults_to_kinshasa_without_overwriting_existing_agencies():
+    migration = read("infra/sql/141_settings_reference_timezone.sql")
+    assert "alter column timezone set default 'Africa/Kinshasa'" in migration
+    assert "update organization_settings" not in migration
 
 
 def test_whatsapp_selection_uses_connected_portfolio_numbers_and_is_audited():

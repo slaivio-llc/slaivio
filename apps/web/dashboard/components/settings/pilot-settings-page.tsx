@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Copy, Loader2, Mail, Music2, ShieldCheck, Smartphone, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, Loader2, Mail, Music2, ShieldCheck, Smartphone, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -27,6 +27,7 @@ import {
   pilotWhatsappQrErrorMessage,
   testPilotAIPrompt,
   updateOrganization,
+  savePilotReferenceSettings,
   type PilotSettingsData,
   type PilotQRConnection,
   type PilotAIPromptTestResult,
@@ -34,6 +35,9 @@ import {
 import { getNotificationPreferences, saveNotificationPreference, type NotificationPreference } from "@/services/notification-center";
 import { getOrganizationNetwork, grantNetworkOffices, inviteNetworkMember, listNetworkInvitations, setupOrganizationNetwork, type NetworkInvitation, type OrganizationNetwork } from "@/services/organization-network";
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
+import { SettingsHome } from "@/components/settings/settings-home";
+import { getTimeZoneOptions } from "@/components/settings/time-zone-options";
+import { AuditSettings } from "@/components/settings/audit-settings";
 
 const sections = [
   ["company", "Entreprise"],
@@ -46,20 +50,22 @@ const sections = [
   ["knowledge", "Connaissances"],
   ["privacy", "Confidentialité & données"],
   ["notifications", "Notifications"],
+  ["audit", "Historique des actions"],
 ] as const;
-type Section = (typeof sections)[number][0];
+type Section = (typeof sections)[number][0] | "home";
 const inputClass = "h-9 w-full rounded-[7px] border border-[#d5dade] bg-white px-3 text-[13px] text-[#293038] outline-none transition focus:border-[#12a865]";
 
 export function PilotSettingsPage() {
   const locale = useDashboardLocale();
   const router = useRouter();
   const params = useSearchParams();
-  const [section, setSection] = useState<Section>("company");
+  const [section, setSection] = useState<Section>(params.get("section") ? "company" : "home");
   const [data, setData] = useState<PilotSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const parcelFreight = data?.organization.organization_type === "PARCEL_FREIGHT";
+  const requestedSection = params.get("section");
   const visibleSections = useMemo(
     () => sections.filter(([key]) =>
       parcelFreight || !["network", "services", "routes"].includes(key),
@@ -79,18 +85,19 @@ export function PilotSettingsPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    const requested = params.get("section") as Section | null;
-    if (params.get("section") === "communication") { setSection("channels"); return; }
+    const requested = requestedSection as Section | null;
+    if (!requested) { setSection("home"); return; }
+    if (requestedSection === "communication") { setSection("channels"); return; }
     if (requested === "network" && data && !parcelFreight) { setSection("company"); return; }
     if (requested && visibleSections.some(([key]) => key === requested)) setSection(requested);
-  }, [data, params, parcelFreight, visibleSections]);
+  }, [data, requestedSection, parcelFreight, visibleSections]);
 
   function choose(next: Section) {
     setSection(next);
     setNotice("");
-    router.replace(`/app/settings?section=${next}`, { scroll: false });
+    router.replace(next === "home" ? "/app/settings" : `/app/settings?section=${next}`, { scroll: false });
   }
 
   async function run(action: () => Promise<unknown>, message: string) {
@@ -112,12 +119,16 @@ export function PilotSettingsPage() {
     }
   }
 
+  if (section === "home") return <SettingsHome pilot transportEnabled={data ? parcelFreight : false}/>;
   if (loading && !data) return <LoadingState label="Chargement des paramètres…" />;
   if (!data) return <ErrorState title="Paramètres indisponibles" description={error} retry={load} />;
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader divider={false} title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>
       <main className="mx-auto min-w-0 w-full max-w-[1200px] px-6 pb-10 sm:px-8">
+        <button type="button" onClick={() => choose("home")} className="mb-2 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-[13px] font-medium text-[#63716a] transition hover:bg-[#f2f7f4] hover:text-[#087a46]">
+          <ArrowLeft size={15}/>{dashboardLabel(locale, "Tous les paramètres")}
+        </button>
         <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map(([key, label]) => {
             const active = section === key;
@@ -143,6 +154,7 @@ export function PilotSettingsPage() {
           {section === "knowledge" && <KnowledgeSettings data={data} run={run}/>} 
           {section === "privacy" && <PrivacySettings organizationName={data.organization.organization_name}/>}
           {section === "notifications" && <NotificationSettings/>}
+          {section === "audit" && <AuditSettings/>}
         </div>
       </main>
   </div>;
@@ -165,6 +177,7 @@ function Field({label, hint, children}:{label:string;hint?:string;children:React
 
 function CompanySettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<unknown>,message:string)=>Promise<void>}) {
   const organization = data.organization;
+  const [logoUrl,setLogoUrl]=useState(organization.logo_url || "");
   async function submit(event:FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -178,7 +191,25 @@ function CompanySettings({data,run}:{data:PilotSettingsData;run:(action:()=>Prom
     }), "Les informations de l’entreprise ont été enregistrées.");
   }
   const [addressLine1="",addressLine2=""]=(organization.address||"").split("\n",2);
-  return <><SectionHeader title="Entreprise" description="Ces coordonnées identifient votre entreprise dans SLAIVIO et dans les communications autorisées."/><SettingsCard title="Identité et coordonnées"><form onSubmit={submit} className="grid max-w-[760px] gap-4"><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Nom de l’entreprise"><input name="organization_name" required defaultValue={organization.organization_name || ""} className={inputClass}/></Field><Field label="Raison sociale" hint="Optionnel si elle est différente du nom utilisé avec les clients."><input name="legal_name" defaultValue={organization.legal_name || ""} className={inputClass}/></Field></div><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Téléphone"><PhoneField name="phone" defaultValue={organization.phone||""} initialCountry={organization.country||""} className={inputClass}/></Field><Field label="Email"><input name="email" type="email" defaultValue={organization.email || ""} className={inputClass}/></Field></div><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Site web"><input name="website" type="url" defaultValue={organization.website || ""} className={inputClass} placeholder="https://"/></Field><Field label="Logo de l’agence" hint="Lien HTTPS du logo affiché sur le suivi public des colis."><input name="logo_url" type="url" pattern="https://.*" defaultValue={organization.logo_url || ""} className={inputClass} placeholder="https://exemple.com/logo.png"/></Field></div><div className="grid items-start gap-4 sm:grid-cols-2"><FormGeographyFields key={`pilot-company-geo-${organization.row_version}`} initialCountry={organization.country || ""} initialCity={organization.city || ""} className={inputClass} fieldClassName="grid content-start gap-2 text-[13px] font-semibold text-[#404b54]"/></div><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Adresse · ligne 1"><input name="address_line_1" autoComplete="address-line1" defaultValue={addressLine1} className={inputClass}/></Field><Field label="Adresse · ligne 2" hint="Appartement, bâtiment ou complément (optionnel)."><input name="address_line_2" autoComplete="address-line2" defaultValue={addressLine2} className={inputClass}/></Field></div><PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><OperationButton type="submit" variant="primary">Enregistrer</OperationButton></div></PermissionGuard></form></SettingsCard></>;
+  return <><SectionHeader title="Entreprise" description="Ces coordonnées identifient votre entreprise dans SLAIVIO et dans les communications autorisées."/><SettingsCard title="Identité et coordonnées"><form onSubmit={submit} className="grid max-w-[760px] gap-4"><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Nom de l’entreprise"><input name="organization_name" required defaultValue={organization.organization_name || ""} className={inputClass}/></Field><Field label="Raison sociale" hint="Optionnel si elle est différente du nom utilisé avec les clients."><input name="legal_name" defaultValue={organization.legal_name || ""} className={inputClass}/></Field></div><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Téléphone"><PhoneField name="phone" defaultValue={organization.phone||""} initialCountry={organization.country||""} className={inputClass}/></Field><Field label="Email"><input name="email" type="email" defaultValue={organization.email || ""} className={inputClass}/></Field></div><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Site web"><input name="website" type="url" defaultValue={organization.website || ""} className={inputClass} placeholder="https://"/></Field><Field label="Logo de l’agence" hint="Lien HTTPS du logo affiché sur le suivi public des colis."><input name="logo_url" type="url" pattern="https://.*" value={logoUrl} onChange={event=>setLogoUrl(event.target.value)} className={inputClass} placeholder="https://exemple.com/logo.png"/></Field></div>{logoUrl && <div className="flex min-h-24 items-center gap-4 rounded-xl bg-[#f7f9f8] p-4"><Image src={logoUrl} alt="Aperçu du logo de l’agence" width={160} height={64} className="max-h-16 w-auto object-contain" unoptimized/><span className="text-[12px] text-[#69747d]">Aperçu avant enregistrement</span></div>}<div className="grid items-start gap-4 sm:grid-cols-2"><FormGeographyFields key={`pilot-company-geo-${organization.row_version}`} initialCountry={organization.country || ""} initialCity={organization.city || ""} className={inputClass} fieldClassName="grid content-start gap-2 text-[13px] font-semibold text-[#404b54]"/></div><div className="grid items-start gap-4 sm:grid-cols-2"><Field label="Adresse · ligne 1"><input name="address_line_1" autoComplete="address-line1" defaultValue={addressLine1} className={inputClass}/></Field><Field label="Adresse · ligne 2" hint="Appartement, bâtiment ou complément (optionnel)."><input name="address_line_2" autoComplete="address-line2" defaultValue={addressLine2} className={inputClass}/></Field></div><PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><OperationButton type="submit" variant="primary">Enregistrer</OperationButton></div></PermissionGuard></form></SettingsCard><ReferenceSettings data={data} run={run}/></>;
+}
+
+function ReferenceSettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<unknown>,message:string)=>Promise<void>}) {
+  const locale=useDashboardLocale();
+  const options=useMemo(()=>getTimeZoneOptions(locale),[locale]);
+  const [timezone,setTimezone]=useState(data.reference_settings.timezone);
+  return <SettingsCard framed className="mt-6 max-w-[760px]" title="Fuseau horaire de référence" description="Utilisé pour les dates et heures communes de l’agence. Les horaires et fuseaux des bureaux restent configurés séparément.">
+    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <Field label="Fuseau horaire">
+        <select value={timezone} onChange={event=>setTimezone(event.target.value)} className={inputClass}>
+          {options.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </Field>
+      <PermissionGuard permission="pilot.settings.manage">
+        <OperationButton variant="primary" onClick={()=>run(()=>savePilotReferenceSettings({timezone,expected_version:data.reference_settings.row_version}),"Le fuseau horaire de référence a été enregistré.")}>Enregistrer</OperationButton>
+      </PermissionGuard>
+    </div>
+  </SettingsCard>;
 }
 
 const networkRoleLabels:Record<string,string>={OWNER:"Propriétaire",MANAGER:"Responsable",OPERATOR:"Opérations",WAREHOUSE:"Entrepôt",SUPPORT:"Service client",FINANCE:"Finance"};

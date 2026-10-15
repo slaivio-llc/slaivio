@@ -1,9 +1,11 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   Boxes,
   Building2,
+  ClipboardList,
   CreditCard,
   Database,
   FileText,
@@ -18,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   archiveWorkspace,
@@ -50,6 +53,10 @@ import {
   type NotificationPreference,
 } from "@/services/notification-center";
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
+import { SettingsHome } from "@/components/settings/settings-home";
+import { getTimeZoneOptions } from "@/components/settings/time-zone-options";
+import { useDashboardLocale } from "@/components/i18n/dashboard-language";
+import { AuditSettings } from "@/components/settings/audit-settings";
 const input =
   "h-9 w-full rounded-[5px] border border-[#d8d9dc] bg-white px-3 text-[13px] outline-none focus:border-[#16855f]";
 const button =
@@ -71,6 +78,7 @@ const tabs = [
   ["billing", "Abonnement Slaivio", CreditCard],
   ["security", "Sécurité", ShieldCheck],
   ["data", "Données & confidentialité", Database],
+  ["audit", "Historique des actions", ClipboardList],
 ] as const;
 type Section = (typeof tabs)[number][0];
 const sectionTitles: Record<Section, [string, string]> = {
@@ -88,6 +96,7 @@ const sectionTitles: Record<Section, [string, string]> = {
   billing: ["Abonnement Slaivio", "Plan, usage et facturation de votre abonnement à la plateforme."],
   security: ["Sécurité", "Protection des comptes, sessions et règles d’authentification."],
   data: ["Données & confidentialité", "Export, conservation et demandes sensibles sur les données."],
+  audit: ["Historique des actions", "Actions sensibles enregistrées dans les modules de l’organisation."],
 };
 function val(f: FormData, k: string) {
   return String(f.get(k) || "").trim() || null;
@@ -96,7 +105,7 @@ export function OrganizationAdminPage() {
   const router = useRouter(),
     params = useSearchParams();
   const [data, setData] = useState<AdminData | null>(null),
-    [tab, setTab] = useState<Section>("general"),
+    [tab, setTab] = useState<Section | "home">(params.get("section") ? "general" : "home"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   useEffect(() => {
@@ -107,8 +116,9 @@ export function OrganizationAdminPage() {
       organization: "agency",
       spaces: "workspaces",
     };
-    const resolved = requested ? aliases[requested] || requested : "general";
-    if (tabs.some(([id]) => id === resolved)) setTab(resolved as Section);
+    const resolved = requested ? aliases[requested] || requested : "home";
+    if (resolved === "home") setTab("home");
+    else if (tabs.some(([id]) => id === resolved)) setTab(resolved as Section);
   }, [params]);
   const load = useCallback(async () => {
     try {
@@ -119,8 +129,8 @@ export function OrganizationAdminPage() {
     }
   }, []);
   useEffect(() => {
-    load();
-  }, [load]);
+    if (tab !== "home") void load();
+  }, [load, tab]);
   async function run(action: () => Promise<unknown>, message: string) {
     try {
       setError("");
@@ -137,10 +147,11 @@ export function OrganizationAdminPage() {
       );
     }
   }
-  function select(section: Section) {
+  function select(section: Section | "home") {
     setTab(section);
-    router.replace(`/app/settings?section=${section}`, { scroll: false });
+    router.replace(section === "home" ? "/app/settings" : `/app/settings?section=${section}`, { scroll: false });
   }
+  if (tab === "home") return <SettingsHome pilot={false}/>;
   if (!data) return error
     ? <ErrorState title="Paramètres indisponibles" description={error} retry={load} />
     : <LoadingState label="Chargement des paramètres…" />;
@@ -171,6 +182,9 @@ export function OrganizationAdminPage() {
         </aside>
         <main className="min-w-0 p-5 lg:p-7">
           <div className="mx-auto max-w-[1120px]">
+            <button type="button" onClick={() => select("home")} className="mb-4 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-[13px] font-medium text-[#63716a] transition hover:bg-[#f2f7f4] hover:text-[#087a46]">
+              <ArrowLeft size={15}/>Tous les paramètres
+            </button>
             <label className="mb-5 grid gap-1.5 text-[12px] font-medium text-[#59636e] lg:hidden">
               Section des paramètres
               <select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>
@@ -211,6 +225,7 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
+            {tab === "audit" && <AuditSettings />}{" "}
           </div>
         </main>
       </div>
@@ -388,6 +403,7 @@ function Organization({
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
   const o = data.organization;
+  const [logoUrl, setLogoUrl] = useState(String(o.logo_url || ""));
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -403,6 +419,7 @@ function Organization({
           phone: val(f, "phone"),
           email: val(f, "email"),
           website: val(f, "website"),
+          logo_url: val(f, "logo_url"),
           registration_number: val(f, "registration"),
           tax_number: val(f, "tax"),
         }),
@@ -442,6 +459,24 @@ function Organization({
               />
             </label>
           ))}
+          <label className="text-[12px] text-[#555d68]">
+            Logo de l’agence
+            <input
+              className={`${input} mt-1`}
+              name="logo_url"
+              type="url"
+              pattern="https://.*"
+              value={logoUrl}
+              onChange={(event) => setLogoUrl(event.target.value)}
+              placeholder="https://exemple.com/logo.png"
+            />
+          </label>
+          {logoUrl && (
+            <div className="flex min-h-24 items-center gap-4 rounded-xl bg-[#f7f9f8] p-4">
+              <Image src={logoUrl} alt="Aperçu du logo de l’agence" width={160} height={64} className="max-h-16 w-auto object-contain" unoptimized />
+              <span className="text-[12px] text-[#69747d]">Aperçu avant enregistrement</span>
+            </div>
+          )}
           <div className="md:col-span-2">
             <button className={primary}>Enregistrer le profil</button>
           </div>
@@ -818,7 +853,9 @@ function Preferences({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  const locale=useDashboardLocale();
   const s = data.settings || { row_version: 1 };
+  const timeZones=useMemo(()=>getTimeZoneOptions(locale).map(({value,label})=>[value,label]),[locale]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -829,7 +866,7 @@ function Preferences({
           timezone: val(f, "timezone"),
           currency_code: val(f, "currency"),
           country_code: val(f, "country"),
-          language_code: val(f, "language"),
+          language_code: String(s.language_code || "fr"),
           date_format: val(f, "date"),
           weight_unit: val(f, "weight"),
           volume_unit: val(f, "volume"),
@@ -846,12 +883,11 @@ function Preferences({
   return (
     <Card
       title="Préférences de l’espace"
-      description="Formats appliqués à tous les collaborateurs de l’agence."
+      description="Fuseau horaire de référence, formats et unités partagés par l’organisation."
     >
       <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
         <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <SettingSelect label="Langue de l’interface" name="language" value={String(s.language_code || "fr")} options={[["fr","Français"],["en","English"]]} />
-          <SettingSelect label="Fuseau horaire" name="timezone" value={String(s.timezone || "UTC")} options={[["Africa/Kinshasa","Kinshasa"],["Africa/Douala","Douala"],["Africa/Abidjan","Abidjan"],["Asia/Shanghai","Chine"],["Asia/Dubai","Dubaï"],["UTC","Temps universel (UTC)"]]} />
+          <SettingSelect label="Fuseau horaire de référence" name="timezone" value={String(s.timezone || "Africa/Kinshasa")} options={timeZones} />
           <SettingSelect label="Devise comptable principale" name="currency" value={String(s.currency_code || "USD")} options={["USD","CDF","EUR","CNY","AED","XAF","GHS","KES"].map(x=>[x,x])} />
           <FormGeographyFields initialCountry={String(s.country_code || data.organization.country || "")} countryValueMode="isoCode" showCity={false} className={`${input} mt-1`} fieldClassName="grid gap-1 text-[13px]" countryLabel="Pays principal" />
           <SettingSelect label="Format de date" name="date" value={String(s.date_format || "DD/MM/YYYY")} options={[["DD/MM/YYYY","31/12/2026"],["MM/DD/YYYY","12/31/2026"],["YYYY-MM-DD","2026-12-31"]]} />

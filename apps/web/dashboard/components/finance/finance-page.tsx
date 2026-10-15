@@ -1,6 +1,7 @@
 "use client";
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { RecordPaymentForm } from "./record-payment-form";
+import { SasPayCheckout } from "./saspay-checkout";
 import { FinanceOfficeAssignment } from "./finance-office-assignment";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
@@ -511,7 +512,7 @@ function Detail({
               </PermissionGuard>
             )}
         </div>
-        {paymentOpen && <PermissionGuard permission="finance.payments"><RecordPaymentForm document={item} onCancel={() => setPaymentOpen(false)} onRecorded={async () => { await reload(); setPaymentOpen(false); }} /></PermissionGuard>}
+        {paymentOpen && <PermissionGuard permission="finance.payments"><div className="space-y-3"><RecordPaymentForm document={item} onCancel={() => setPaymentOpen(false)} onRecorded={async () => { await reload(); setPaymentOpen(false); }} /><SasPayCheckout document={item} onConfirmed={async () => { await reload(); setPaymentOpen(false); }} /></div></PermissionGuard>}
         {item.payments?.length ? (
           <section className="rounded bg-white p-4">
             <h3 className="mb-2 font-semibold">Paiements et reçus</h3>
@@ -523,6 +524,9 @@ function Detail({
                 <span>
                   {p.receipt_number} · {p.method === "MANUAL" ? "Enregistré par l’agence" : p.method}
                   {p.status === "REVERSED" && <span className="ml-2 text-red-700">Annulé</span>}
+                  {p.provider === "SASPAY" && <small className="block text-slate-500">
+                    Débité client {p.provider_charged == null ? "—" : cash(p.provider_charged, p.currency)} · frais {p.provider_fee == null ? "—" : cash(p.provider_fee, p.currency)} · net agence {p.provider_net_amount == null ? "—" : cash(p.provider_net_amount, p.currency)} ({p.fee_charge_mode || "—"})
+                  </small>}
                 </span>
                 <b>{cash(p.amount, p.currency)}</b>
                 {p.status === "CONFIRMED" && p.receipt_snapshot ? <button type="button" disabled={busy} className={button} onClick={() => run(async () => {

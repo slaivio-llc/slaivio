@@ -31,6 +31,12 @@ def row(value):
     return result
 
 
+def scalar(value):
+    result = MagicMock()
+    result.scalar_one.return_value = value
+    return result
+
+
 def payload():
     return dict(amount='30.00', currency='USD', method='CASH', reference=None,
                 idempotency_key='payment-request-1', paid_at=None)
@@ -58,7 +64,7 @@ def test_partial_payment_preserves_credit(monkeypatch):
     doc = dict(currency='USD', total=100, amount_paid=10, balance_due=70)
     uuid = MagicMock()
     uuid.scalar_one.return_value = 'payment'
-    conn = connection(monkeypatch, [MagicMock(), row(None), row(doc), uuid,
+    conn = connection(monkeypatch, [MagicMock(), row(None), row(doc), scalar(0), uuid,
                                     row({'id': 'payment'}), MagicMock(), MagicMock()])
     monkeypatch.setattr(repo, 'capture_identity', lambda *args: {'version': 1})
     monkeypatch.setattr(repo, 'receipt_number', lambda *args: 'REC-1')
@@ -85,6 +91,17 @@ def test_invalid_payment_does_not_insert(monkeypatch, currency, balance, error):
     assert conn.execute.call_count == 3
 
 
+def test_manual_payment_cannot_consume_saspay_reserved_balance(monkeypatch):
+    conn = connection(monkeypatch, [MagicMock(), row(None), row({
+        'currency': 'USD', 'balance_due': 70,
+    }), scalar(50)])
+    with pytest.raises(HTTPException) as exc:
+        repo.pay('agency', 'invoice', 'agent', 'Agent', payload())
+    assert exc.value.status_code == 409
+    assert exc.value.detail == 'payment_conflicts_with_saspay_attempt'
+    assert conn.execute.call_count == 4
+
+
 def test_reversal_preserves_credit_and_audit(monkeypatch):
     conn = connection(monkeypatch, [row({'amount': 30}), row({
         'total': 100, 'amount_paid': 40, 'balance_due': 40,
@@ -96,6 +113,15 @@ def test_reversal_preserves_credit_and_audit(monkeypatch):
     assert result['amount_paid'] == Decimal('10')
     assert 'REVERSED' in str(conn.execute.call_args_list[2].args[0])
     assert audit.call_args.args[3] == 'PAYMENT_REVERSED'
+
+
+def test_invoice_with_open_saspay_attempt_cannot_be_voided(monkeypatch):
+    conn = connection(monkeypatch, [row({'id': 'invoice'}), row({'id': 'attempt'})])
+    with pytest.raises(HTTPException) as exc:
+        repo.void('agency', 'invoice', 'agent', 'Agent', 1, 'duplicate')
+    assert exc.value.status_code == 409
+    assert exc.value.detail == 'saspay_attempt_open'
+    assert conn.execute.call_count == 2
 
 
 def test_stats_keep_currencies_separate(monkeypatch):

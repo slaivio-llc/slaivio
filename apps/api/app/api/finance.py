@@ -2,13 +2,14 @@ from datetime import date,datetime,timezone
 from decimal import Decimal
 from uuid import UUID
 from fastapi import APIRouter,Depends,Query,Response,HTTPException,Request
-from pydantic import BaseModel,Field,field_validator
+from pydantic import BaseModel,Field,SecretStr,field_validator
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.finance import repository as repo
 from app.finance.package_invoices import create_package_invoice, get_package_invoice
 from app.core.office_context import get_current_office_context, office_scope_ids, require_package_office_scope, validate_office_assignment
 from app.finance.office_scope import require_document, assign_office
+from app.finance import saspay_repository
 
 def require_finance_scope(request:Request,context=Depends(get_current_office_context),tenant=Depends(get_current_tenant)):
  offices=office_scope_ids(context)
@@ -80,12 +81,34 @@ class DuePolicy(BaseModel):
   if info.data.get('rule_type')=='PERCENTAGE' and v is None: raise ValueError('percentage_required')
   return v
 
+class SasPayConnection(BaseModel):
+ merchant_id:str=Field(min_length=1,max_length=160)
+ environment:str=Field(pattern=r'^(TEST|LIVE)$')
+ api_key:SecretStr=Field(min_length=12,max_length=500)
+ signing_secret:SecretStr=Field(min_length=16,max_length=500)
+
+class SasPayCheckout(BaseModel):
+ idempotency_key:str=Field(min_length=8,max_length=160)
+
+webhook_router=APIRouter(tags=["finance-saspay-webhooks"])
+
 @router.get("")
 def index(q:str|None=None,status:str|None=None,document_type:str|None=None,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.list_documents(tenant['org_id'],q,status,document_type,page,page_size,office_ids=office_scope_ids(context))
 @router.get("/due-policies")
 def due_policies(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.list_due_policies(tenant['org_id'])
 @router.post("/due-policies")
 def due_policies_save(body:DuePolicy,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):return repo.upsert_due_policy(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
+@router.get("/saspay/connection")
+def saspay_connection(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
+ return saspay_repository.connection_status(tenant['org_id'])
+@router.put("/saspay/connection")
+def saspay_connection_save(body:SasPayConnection,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):
+ return saspay_repository.configure_connection(
+  tenant['org_id'],body.merchant_id,body.environment,body.api_key.get_secret_value(),
+  body.signing_secret.get_secret_value(),actor(tenant))
+@router.get("/{document_id}/saspay-attempts")
+def saspay_open_attempt(document_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
+ return saspay_repository.get_open_attempt(tenant['org_id'],str(document_id))
 @router.get("/stats")
 def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.stats(tenant['org_id'],office_ids=office_scope_ids(context))
 @router.get("/settings")
@@ -137,6 +160,15 @@ def printable(document_id:str,tenant=Depends(get_current_tenant),_=Depends(requi
 def issue(document_id:str,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.issue"))):return repo.issue(tenant['org_id'],document_id,actor(tenant),name(tenant),body.expected_version)
 @router.post("/{document_id}/payments")
 def payment(document_id:str,body:Payment,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.payments"))):return repo.pay(tenant['org_id'],document_id,actor(tenant),name(tenant),body.model_dump())
+@router.post("/{document_id}/saspay-checkout")
+def saspay_checkout(document_id:UUID,body:SasPayCheckout,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.payments"))):
+ return saspay_repository.start_checkout(tenant['org_id'],str(document_id),body.idempotency_key,actor(tenant))
+@router.get("/{document_id}/saspay-attempts/{attempt_id}")
+def saspay_attempt(document_id:UUID,attempt_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
+ return saspay_repository.get_attempt(tenant['org_id'],str(document_id),str(attempt_id))
+@router.post("/{document_id}/saspay-attempts/{attempt_id}/reconcile")
+def saspay_reconcile(document_id:UUID,attempt_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.payments"))):
+ return saspay_repository.reconcile_checkout(tenant['org_id'],str(document_id),str(attempt_id))
 @router.get("/{document_id}/payments/{payment_id}/receipt")
 def receipt(document_id:str,payment_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
  return Response(repo.receipt(tenant['org_id'],document_id,payment_id),media_type="text/html; charset=utf-8",headers={"Cache-Control":"no-store","Content-Disposition":"attachment; filename=receipt.html","X-Content-Type-Options":"nosniff"})
@@ -150,3 +182,24 @@ def credit(document_id:str,body:Credit,tenant=Depends(get_current_tenant),_=Depe
 def reverse(document_id:str,payment_id:str,body:Reverse,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.reverse_payment"))):return repo.reverse_payment(tenant['org_id'],document_id,payment_id,actor(tenant),name(tenant),body.reason)
 @router.post("/{document_id}/void")
 def void(document_id:str,body:Void,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.void"))):return repo.void(tenant['org_id'],document_id,actor(tenant),name(tenant),body.expected_version,body.reason)
+
+@webhook_router.post("/webhooks/saspay/{org_id}")
+async def saspay_webhook(org_id:str,request:Request):
+ if len(request.headers.get("content-length","0")) > 7:
+  try:
+   if int(request.headers["content-length"]) > 1_048_576:
+    raise HTTPException(413,"saspay_webhook_payload_too_large")
+  except ValueError:
+   raise HTTPException(400,"saspay_webhook_content_length_invalid")
+ chunks=[]
+ total=0
+ async for chunk in request.stream():
+  total+=len(chunk)
+  if total > 1_048_576:
+   raise HTTPException(413,"saspay_webhook_payload_too_large")
+  chunks.append(chunk)
+ return saspay_repository.handle_webhook(
+  org_id,b"".join(chunks),
+  request.headers.get("x-webhook-signature",""),
+  request.headers.get("x-webhook-timestamp",""),
+  request.headers.get("x-webhook-event",""))

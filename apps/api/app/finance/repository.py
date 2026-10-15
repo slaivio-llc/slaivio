@@ -96,9 +96,35 @@ def pay(o,d,a,n,p):
   doc=c.execute(text("select * from finance_documents where org_id=:o and id=:d and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE') for update"),{"o":o,"d":d}).mappings().first()
   if not doc:raise HTTPException(409,'invoice_not_payable')
   if currency!=doc['currency']:raise HTTPException(422,'payment_currency_mismatch')
-  if amount>money(doc['balance_due']):raise HTTPException(422,'payment_exceeds_balance')
+  balance=money(doc['balance_due'])
+  if amount>balance:raise HTTPException(422,'payment_exceeds_balance')
+  reserved=money(c.execute(text("""select coalesce(sum(requested_amount),0)
+    from finance_saspay_attempts
+    where org_id=:o and document_id=:d
+      and status in ('CREATING','PENDING','AMBIGUOUS')"""),
+    {"o":o,"d":d}).scalar_one())
+  if p.get('provider')!='SASPAY' and reserved and amount>max(balance-reserved,D('0')):
+   raise HTTPException(409,'payment_conflicts_with_saspay_attempt')
   pid=c.execute(text("select gen_random_uuid()::text")).scalar_one();receipt=receipt_number(c,o)
-  payment=dict(c.execute(text("insert into finance_payments(id,org_id,document_id,receipt_number,amount,currency,method,reference,paid_at,idempotency_key,recorded_by,recorded_by_name) values(cast(:id as uuid),:o,:d,:receipt,:amount,:currency,:method,:reference,:paid_at,:idempotency_key,:a,:n) returning *"),{**p,"id":pid,"o":o,"d":d,"receipt":receipt,"a":a,"n":n,"amount":amount,"currency":currency}).mappings().one())
+  payment=dict(c.execute(text("""insert into finance_payments(
+      id,org_id,document_id,receipt_number,amount,currency,method,reference,paid_at,
+      idempotency_key,recorded_by,recorded_by_name,provider,provider_transaction_id,
+      provider_amount,provider_fee,provider_charged,provider_net_amount,fee_charge_mode
+    ) values(
+      cast(:id as uuid),:o,:d,:receipt,:amount,:currency,:method,:reference,:paid_at,
+      :idempotency_key,:a,:n,:provider,:provider_transaction_id,:provider_amount,
+      :provider_fee,:provider_charged,:provider_net_amount,:fee_charge_mode
+    ) returning *"""),{
+       **p,"id":pid,"o":o,"d":d,"receipt":receipt,"a":a,"n":n,
+       "amount":amount,"currency":currency,
+       "provider":p.get('provider'),
+       "provider_transaction_id":p.get('provider_transaction_id'),
+       "provider_amount":p.get('provider_amount'),
+       "provider_fee":p.get('provider_fee'),
+       "provider_charged":p.get('provider_charged'),
+       "provider_net_amount":p.get('provider_net_amount'),
+       "fee_charge_mode":p.get('fee_charge_mode'),
+   }).mappings().one())
   snapshot=capture_identity(c,o,d)
   c.execute(text("update finance_payments set receipt_snapshot=cast(:snapshot as jsonb) where org_id=:o and id=:id"),{"o":o,"id":pid,"snapshot":json.dumps(snapshot)})
   payment['receipt_snapshot']=snapshot
@@ -107,7 +133,7 @@ def pay(o,d,a,n,p):
   balance=money(doc['balance_due'])-amount
   status='PAID' if balance==0 else 'PARTIALLY_PAID'
   c.execute(text("update finance_documents set amount_paid=:paid,balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:d and org_id=:o"),{"paid":paid,"balance":balance,"status":status,"d":d,"o":o})
-  event(c,o,d,'PAYMENT_RECORDED',a,n,{"amount":str(amount),"currency":currency,"receipt":receipt,"source":"AGENCY"},pid)
+  event(c,o,d,'PAYMENT_RECORDED',a,n,{"amount":str(amount),"currency":currency,"receipt":receipt,"source":p.get('provider') or 'AGENCY'},pid)
   return payment
 def receipt(o,d,payment_id):
  with engine.connect() as c:
@@ -117,6 +143,12 @@ def receipt(o,d,payment_id):
 
 def void(o,d,a,n,version,reason):
  with engine.begin() as c:
+  doc=c.execute(text("select id from finance_documents where org_id=:o and id=:d for update"),{"o":o,"d":d}).first()
+  if not doc:raise HTTPException(409,'finance_document_not_voidable')
+  active=c.execute(text("""select 1 from finance_saspay_attempts
+    where org_id=:o and document_id=:d and status in ('CREATING','PENDING','AMBIGUOUS')
+    limit 1"""),{"o":o,"d":d}).first()
+  if active:raise HTTPException(409,'saspay_attempt_open')
   row=c.execute(text("update finance_documents set status='VOID',voided_by=:a,voided_at=now(),row_version=row_version+1,updated_at=now(),notes=concat_ws(E'\n',notes,:reason) where org_id=:o and id=:d and status in ('DRAFT','ISSUED') and amount_paid=0 and row_version=:v returning *"),{"o":o,"d":d,"a":a,"v":version,"reason":'ANNULATION: '+reason}).mappings().first()
   if not row:raise HTTPException(409,'finance_document_not_voidable')
   event(c,o,d,'VOIDED',a,n,{"reason":reason});return dict(row)
@@ -239,6 +271,11 @@ def apply_credit(o,credit_id,invoice_id,a,n,version):
   if not credit or not invoice or credit['client_id']!=invoice['client_id'] or credit['currency']!=invoice['currency']:raise HTTPException(409,'credit_not_applicable')
   if credit.get('office_id') != invoice.get('office_id'):
    raise HTTPException(409,'credit_office_mismatch')
+  active=c.execute(text("""select 1 from finance_saspay_attempts
+    where org_id=:o and document_id=:invoice
+      and status in ('CREATING','PENDING','AMBIGUOUS')
+    limit 1"""),{"o":o,"invoice":invoice_id}).first()
+  if active:raise HTTPException(409,'saspay_attempt_open')
   amount=min(money(credit['total']),money(invoice['balance_due']));balance=money(invoice['balance_due'])-amount;status='PAID' if balance==0 else 'PARTIALLY_PAID'
   c.execute(text("update finance_documents set credit_applied=:amount,status='ACCEPTED',source_document_id=:invoice,row_version=row_version+1,updated_at=now() where id=:credit and org_id=:o"),{"amount":amount,"invoice":invoice_id,"credit":credit_id,"o":o});c.execute(text("update finance_documents set balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:invoice and org_id=:o"),{"balance":balance,"status":status,"invoice":invoice_id,"o":o});event(c,o,credit_id,'CREDIT_APPLIED',a,n,{"invoice_id":invoice_id,"amount":str(amount)});event(c,o,invoice_id,'CREDIT_RECEIVED',a,n,{"credit_id":credit_id,"amount":str(amount)});return {"amount":amount,"invoice_balance":balance}
 def reverse_payment(o,d,payment_id,a,n,reason):

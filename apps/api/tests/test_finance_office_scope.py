@@ -85,6 +85,7 @@ def test_credit_can_be_applied_within_the_same_office(monkeypatch):
     conn.execute.side_effect=[
         MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=credit)))),
         MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=invoice)))),
+        MagicMock(first=MagicMock(return_value=None)),
         credit_update,
         invoice_update,
     ]
@@ -92,8 +93,24 @@ def test_credit_can_be_applied_within_the_same_office(monkeypatch):
     audit=MagicMock();monkeypatch.setattr(repository,'event',audit)
     result=repository.apply_credit('agency','credit','invoice','actor','Agent',1)
     assert result=={'amount':75,'invoice_balance':0}
-    assert conn.execute.call_count==4
+    assert conn.execute.call_count==5
     assert audit.call_args_list[0].args[3]=='CREDIT_APPLIED'
+
+def test_credit_cannot_be_applied_while_saspay_checkout_is_open(monkeypatch):
+    engine=MagicMock();conn=engine.begin.return_value.__enter__.return_value
+    credit={'id':'credit','client_id':'client','currency':'USD','office_id':'office-a'}
+    invoice={'id':'invoice','client_id':'client','currency':'USD','office_id':'office-a'}
+    conn.execute.side_effect=[
+        MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=credit)))),
+        MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=invoice)))),
+        MagicMock(first=MagicMock(return_value={'id':'attempt'})),
+    ]
+    monkeypatch.setattr(repository,'engine',engine)
+    with pytest.raises(HTTPException) as exc:
+        repository.apply_credit('agency','credit','invoice','actor','Agent',1)
+    assert exc.value.status_code==409
+    assert exc.value.detail=='saspay_attempt_open'
+    assert conn.execute.call_count==3
 
 def test_assignment_is_audited_and_versioned(monkeypatch):
     engine=MagicMock();conn=engine.begin.return_value.__enter__.return_value

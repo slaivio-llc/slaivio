@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     public_base_url: str | None = None
     public_web_base_url: str = "https://slaivio.com"
     platform_quarantine_encryption_key: str | None = None
+    finance_provider_encryption_key: str | None = None
     quarantine_replay_max_attempts: int = Field(default=5, ge=1, le=20)
     quarantine_replay_lease_seconds: int = Field(default=900, ge=60, le=3600)
 
@@ -122,6 +123,11 @@ class Settings(BaseSettings):
                 Fernet(self.platform_quarantine_encryption_key.encode("ascii"))
             except (ValueError, UnicodeEncodeError):
                 errors.append("PLATFORM_QUARANTINE_ENCRYPTION_KEY must be a valid Fernet key")
+        if self.finance_provider_encryption_key:
+            try:
+                Fernet(self.finance_provider_encryption_key.encode("ascii"))
+            except (ValueError, UnicodeEncodeError):
+                errors.append("FINANCE_PROVIDER_ENCRYPTION_KEY must be a valid Fernet key")
         if not (self.clerk_issuer_url or self.clerk_jwks_url):
             errors.append("CLERK_ISSUER_URL or CLERK_JWKS_URL is required")
         if not self.clerk_webhook_secret:

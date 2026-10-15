@@ -2,7 +2,7 @@ import {api} from "./api";
 export async function assignFinanceOffice(documentId:string,office_id:string,expected_version:number){return (await api.post(`/finance/${documentId}/office`,{office_id,expected_version})).data}
 export type FinanceDocument={id:string;document_type:"QUOTE"|"INVOICE"|"CREDIT_NOTE";document_number:string;client_id:string;client_name:string;dossier_reference?:string;status:string;currency:string;subtotal:number;discount_total:number;tax_total:number;total:number;amount_paid:number;balance_due:number;due_date?:string;row_version:number;created_at:string;lines?:FinanceLine[];payments?:FinancePayment[];events?:Array<{id:string;event_type:string;actor_name?:string;created_at:string}>};
 export type FinanceLine={description:string;quantity:number;unit_price:number;discount_rate:number;tax_rate:number;line_total?:number};
-export type FinancePayment={id:string;receipt_number:string;amount:number;currency:string;method:string;reference?:string;paid_at:string;status:"CONFIRMED"|"REVERSED";receipt_snapshot?:{version:number}|null};
+export type FinancePayment={id:string;receipt_number:string;amount:number;currency:string;method:string;reference?:string;paid_at:string;status:"CONFIRMED"|"REVERSED";receipt_snapshot?:{version:number}|null;provider?:string|null;provider_amount?:number|null;provider_fee?:number|null;provider_charged?:number|null;provider_net_amount?:number|null;fee_charge_mode?:"ADD_ON"|"DEDUCTED"|null};
 export async function paymentReceipt(documentId:string,paymentId:string){return (await api.get<Blob>(`/finance/${documentId}/payments/${paymentId}/receipt`,{responseType:"blob"})).data}
 export async function getPackageInvoice(packageId:string){return (await api.get<FinanceDocument|null>(`/finance/packages/${packageId}/invoice`)).data}
 export async function createPackageInvoice(packageId:string,expected_version:number){return (await api.post<FinanceDocument>(`/finance/packages/${packageId}/invoice`,{expected_version})).data}
@@ -13,6 +13,11 @@ export async function createFinance(payload:{document_type:string;client_id:stri
 export async function getFinance(id:string){return (await api.get<FinanceDocument>(`/finance/${id}`)).data}
 export async function issueFinance(id:string,expected_version:number){return (await api.post<FinanceDocument>(`/finance/${id}/issue`,{expected_version})).data}
 export async function payFinance(id:string,payload:{amount:number;currency:string;method:string;reference?:string|null;paid_at:string;idempotency_key:string}){return (await api.post<FinancePayment>(`/finance/${id}/payments`,payload)).data}
+export type SasPayAttempt={id:string;status:"CREATING"|"PENDING"|"AMBIGUOUS"|"SUCCEEDED"|"FAILED"|"CANCELLED";requested_amount:string;currency:string;checkout_url:string|null;created_at:string};
+export async function startSasPayCheckout(documentId:string,idempotency_key:string){return (await api.post<SasPayAttempt>(`/finance/${documentId}/saspay-checkout`,{idempotency_key})).data}
+export async function getOpenSasPayAttempt(documentId:string){return (await api.get<SasPayAttempt|null>(`/finance/${documentId}/saspay-attempts`)).data}
+export async function getSasPayAttempt(documentId:string,attemptId:string){return (await api.get<SasPayAttempt>(`/finance/${documentId}/saspay-attempts/${attemptId}`)).data}
+export async function reconcileSasPayCheckout(documentId:string,attemptId:string){return (await api.post<{status:string;payment_id?:string}>(`/finance/${documentId}/saspay-attempts/${attemptId}/reconcile`)).data}
 export async function voidFinance(id:string,expected_version:number,reason:string){return (await api.post<FinanceDocument>(`/finance/${id}/void`,{expected_version,reason})).data}
 export async function exportFinance(){return (await api.get<Blob>("/finance/export",{responseType:"blob"})).data}
 export type FinanceSettings={legal_name:string|null;tax_identifier:string|null;billing_address:string|null;default_currency:string;default_tax_rate:number;default_payment_terms_days:number;document_footer:string|null};

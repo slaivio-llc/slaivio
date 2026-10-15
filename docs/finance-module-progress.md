@@ -124,24 +124,75 @@ Validation : 53 tests backend ciblés réussis sur dépôts simulés, TypeScript
 ESLint réussis. La migration,
 les triggers et la concurrence restent à vérifier sur PostgreSQL avant production.
 
-## SasPay — contraintes fournies, intégration pas encore implémentée
+## SasPay — premier lot d'encaissement
 
-- Vérifier les schémas des endpoints officiels avant codage de l'adaptateur.
-- Clés exclusivement backend, rattachées au bon marchand/agence ; ne pas encaisser
-  toutes les agences sur un compte global par défaut.
-- Checkout hébergé privilégié pour le parcours demandé. Sa création ne supporte pas
-  Idempotency-Key : réservation locale et réconciliation des réponses ambiguës,
-  jamais une boucle de retry aveugle.
-- Un retour navigateur réussi, une session créée ou un statut PENDING ne prouvent
-  pas un paiement. Vérification serveur du paiement et rapprochement de la demande,
-  de la transaction entrante, du marchand, du montant et de la devise obligatoires.
-- Webhook : HMAC sur timestamp + point + corps brut, comparaison constante,
-  tolérance 300 secondes et unicité du paiement externe en base.
-- Conserver amount, charged, fee et net_amount séparément. Définir explicitement
-  le crédit de la créance et le traitement des frais et conversions ; ne pas
-  assimiler le net marchand au montant payé pour le service.
-- Pas de retraits, payouts ni transferts wallet : hors du périmètre d'encaissement.
-- Aucun secret, webhook distant, paiement, déploiement ou migration exécuté ici.
+Les schémas ont été vérifiés dans la documentation officielle actuelle :
+`POST /checkout-sessions/`, `GET /checkout-sessions/{id}/status/`,
+`GET /payments/{payment_id}/verify/` et la signature webhook
+`X-Webhook-Signature` + `X-Webhook-Timestamp` + `X-Webhook-Event`.
+La création d'une session n'accepte pas `Idempotency-Key`; l'API de paiement
+vérifie donc strictement les sessions côté serveur et ne rejoue jamais à l'aveugle
+une création dont la réponse est incertaine.
+
+Implémenté :
+
+- Migration `140_finance_saspay_payins.sql` : connexion chiffrée par organisation,
+  réservations locales de checkout, tentative unique ouverte par facture, ID
+  externe unique et journal de rejeu webhook. Un compte marchand ne peut pas être
+  associé à plusieurs organisations.
+- Adaptateur hébergé vers `https://api.saspay.me/api/v1`, avec Bearer token,
+  timeout borné, aucun retry HTTP et vérification stricte du marchand, de l'URL
+  `https://pay.saspay.me`, du montant demandé et de la devise.
+- Réservation en base avant l'appel distant. Les expirations réseau / erreurs
+  serveur restent `AMBIGUOUS`; le frontend conserve la même clé locale et ne crée
+  pas une deuxième session. Une ambiguïté sans ID de session nécessite un
+  rapprochement manuel depuis SasPay ; aucun endpoint officiel de recherche par
+  métadonnée n'a été confirmé.
+- Une tentative ouverte réserve le solde restant : les paiements manuels qui
+  consommeraient ce montant, l'application d'un avoir et l'annulation de la
+  facture sont refusés jusqu'à la résolution de la tentative. Les clés
+  étrangères composites garantissent aussi que facture, tentative et webhook
+  appartiennent à la même organisation.
+- Webhook public signé sur les octets bruts, horodatage limité à 300 secondes,
+  comparaison HMAC en temps constant, puis appel serveur à `verify` avant
+  rapprochement. Une URL de retour, un événement seul ou un état `PENDING` ne
+  crée pas de paiement.
+- Rapprochement strict de la transaction vérifiée : marchand propre à
+  l'organisation, `INBOUND`, `PAIEMENT`, état `SUCCESS`, marqueur de tentative,
+  montant demandé et devise doivent correspondre. Les paiements résultants
+  réutilisent le modèle et la clé d'idempotence Finance existants.
+- Le solde client est crédité du montant SasPay `requested_amount`, jamais du
+  `net_amount`. `provider_amount`, `provider_fee`, `provider_charged`,
+  `provider_net_amount` et `fee_charge_mode` restent séparés dans l'historique.
+  Leur cohérence arithmétique est validée pour les modes `ADD_ON` et `DEDUCTED`.
+  La devise doit être identique à celle de la facture ; aucune conversion
+  implicite n'est acceptée.
+- L'interface permet d'ouvrir le checkout et de demander une vérification
+  serveur. Elle ne traite pas le retour navigateur comme une preuve. Seuls
+  l'identifiant et la clé d'idempotence non sensibles sont conservés en
+  `sessionStorage`; aucune clé prestataire n'est exposée au dashboard.
+- Connexion administrable par `PUT /finance/saspay/connection` avec
+  `finance.settings`; le statut ne renvoie jamais les secrets. Il faut fournir
+  `FINANCE_PROVIDER_ENCRYPTION_KEY` (clé Fernet dédiée). Les clés `sk_live_`
+  sont refusées hors de `APP_ENV=production`. La configuration est par
+  organisation, jamais par défaut au compte SaaS.
+
+Validation locale : les tests backend utilisent un transport simulé / mocks,
+sans requête SasPay ni paiement réel. TypeScript et tests front ciblés doivent être
+relancés pour chaque évolution. La migration n'a pas été appliquée ici.
+
+Prérequis avant tout essai sandbox : appliquer la migration 140, générer et
+configurer la clé Fernet, puis relier explicitement le compte marchand de chaque
+organisation. Créer ensuite depuis le tableau de bord SasPay un webhook
+`transaction.success` vers `/webhooks/saspay/{org_id}` avec le même secret de
+signature. Aucun compte ni paiement live n'est configuré par ce lot. Les
+connexions `LIVE` ne sont autorisées qu'en production ; aucune recette sandbox,
+PostgreSQL, concurrence, webhook distant ou production n'a été exécutée.
+
+Limites restantes : provisioning des comptes marchands via un écran dédié,
+traitement manuel des créations ambiguës sans ID, suivi automatique des échecs
+webhook, recette PostgreSQL et sandbox autorisée. Les payouts, retraits et
+transferts de wallet sont hors périmètre.
 
 ## Communication
 

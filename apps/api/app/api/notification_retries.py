@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.core.permissions import require_permission
 
 from app.core.tenant_context import get_current_tenant
 from app.db.notification_repository import list_retryable_notifications
@@ -11,9 +12,9 @@ from app.services.notification_retry_service import (
 router = APIRouter()
 
 
-@router.get("/notifications/retryable")
+@router.get("/notifications/retryable", dependencies=[Depends(require_permission("inbox.read"))])
 def get_retryable_notifications(
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=100),
     tenant: dict = Depends(get_current_tenant),
 ):
     notifications = list_retryable_notifications(
@@ -28,7 +29,7 @@ def get_retryable_notifications(
     }
 
 
-@router.post("/notifications/{notification_id}/retry")
+@router.post("/notifications/{notification_id}/retry", dependencies=[Depends(require_permission("inbox.reply"))])
 def retry_one_notification(
     notification_id: str,
     tenant: dict = Depends(get_current_tenant),
@@ -44,7 +45,7 @@ def retry_one_notification(
     return result
 
 
-@router.post("/notifications/retry-due")
+@router.post("/notifications/retry-due", dependencies=[Depends(require_permission("inbox.reply"))])
 def retry_due(tenant: dict = Depends(get_current_tenant)):
     return retry_due_notifications(
         org_id=tenant["org_id"],

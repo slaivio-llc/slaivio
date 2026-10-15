@@ -254,6 +254,7 @@ class MetaWhatsAppProvider(WhatsAppProvider):
 
         return {
             "success": success,
+            "http_status": response.get("status_code"),
             "provider": "meta",
             "provider_message_id": provider_message_id,
             "status": "accepted" if success else "failed",

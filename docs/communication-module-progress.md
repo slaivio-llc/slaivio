@@ -118,3 +118,49 @@ Tests ciblés : `test_communication_assignment.py`, `test_pilot_inbox.py`,
 `test_pilot_inbox_privacy.py`, `test_communication_control.py`,
 `test_communication_crm_transaction.py`. Tests de dépôts simulés ; recette PostgreSQL
 et navigateur avec deux agents encore requise.
+
+## Lot envoi des notifications — protection contre les doublons
+
+- Réservation atomique par organisation et notification avant l'appel fournisseur.
+  Deux workers ne peuvent pas réserver le même envoi en attente.
+- Les canaux non implémentés sont refusés explicitement : un email ne part jamais
+  via le fournisseur WhatsApp. Ce refus n'ajoute pas un connecteur Gmail/TikTok.
+- Une erreur de synchronisation Colis ou du journal d'événements après acceptation
+  ne marque plus le message FAILED et ne déclenche pas une nouvelle expédition.
+- Un timeout, un résultat illisible, un HTTP 5xx ou un échec portant déjà un identifiant
+  fournisseur restent UNKNOWN. Un refus HTTP 4xx (hors 408), sans identifiant de
+  message, peut être traité comme rejeté. Ce choix privilégie l'absence de doublons.
+- Une reprise ne peut remettre en attente que FAILED et IDLE/REJECTED, dans la bonne
+  organisation, avec un compteur inférieur au plafond. Les reprises manuelles
+  incrémentent aussi le compteur. Les files ignorent les envois réservés ou inconnus.
+- En cas d'arrêt du worker après réservation, la notification reste CLAIMED et ne
+  repart pas aveuglément. L'exactement-une-fois côté fournisseur n'est pas garanti.
+- La file GET `/notifications/reconciliation` expose aux agents avec `inbox.manage`
+  les UNKNOWN et CLAIMED de plus de cinq minutes, sans corps de message ni téléphone.
+  Cette file est une API de diagnostic ; son interface opérateur reste à construire.
+- Lecture : `inbox.read`. Envoi/reprise : `inbox.reply`. L'ancienne route mark-sent
+  répond HTTP 410 : un clic ne constitue pas une preuve de livraison.
+- SENT signifie accepté par le fournisseur, pas livré au téléphone. Les callbacks
+  restent la source des informations de livraison/lecture.
+
+### Déploiement et recette
+
+1. Suspendre les workers d'envoi le temps de la mise à niveau ; ne pas faire tourner
+   simultanément l'ancien sender sans réservation et le nouveau.
+2. Appliquer `135_communication_dispatch_claim.sql` avant l'API et les workers.
+   Aucune migration n'a été exécutée dans cette session.
+3. Redémarrer avec le même code partout. Vérifier une notification, une double
+   demande d'envoi, un rejet fournisseur et un timeout dans un environnement de test.
+4. Pour UNKNOWN/CLAIMED ancien : consulter le fournisseur et les callbacks avant
+   toute correction. Ne jamais réinitialiser automatiquement ces lignes par cron.
+5. Vérifier les erreurs de projection dans les logs et réparer la projection sans
+   réenvoyer le message. Aucun secret, corps de message ou erreur fournisseur brute
+   n'est journalisé par le nouveau sender.
+
+Validation : 87 tests ciblés réussis (dépôts et fournisseurs simulés). Pas de
+validation des verrous PostgreSQL, de connexion WhatsApp ou de navigateur dans ce lot.
+
+**Module toujours incomplet** : regroupement des colis par destinataire, audiences
+et annonces, identité multicanale, couverture métier de l'IA, périmètre bureaux et
+recette de bout en bout restent ouverts. Ce lot ne doit pas être présenté comme
+une finalisation complète du cahier des charges.

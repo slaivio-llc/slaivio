@@ -57,6 +57,7 @@ class WazzapWhatsAppProvider(WhatsAppProvider):
 
         return {
             "success": success,
+            "http_status": response.get("status_code"),
             "provider": "wazzap",
             "provider_message_id": (
                 result.get("messageId") if isinstance(result, dict) else None

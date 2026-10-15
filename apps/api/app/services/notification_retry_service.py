@@ -42,7 +42,7 @@ def retry_notification(org_id: str, notification_id: str) -> dict:
             "message": "notification_not_found",
         }
 
-    reset = reset_notification_for_retry(notification_id)
+    reset = reset_notification_for_retry(notification_id, org_id=org_id)
 
     if not reset:
         return {

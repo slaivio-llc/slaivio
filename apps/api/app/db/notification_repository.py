@@ -81,6 +81,7 @@ def list_pending_notifications(
                 from notification_outbox
                 where org_id = :org_id
                   and status = 'PENDING'
+                  and dispatch_state = 'IDLE'
                 order by created_at asc
                 limit :limit
             """),
@@ -113,6 +114,41 @@ def get_notification_by_id(
         ).fetchone()
 
         return dict(result._mapping) if result else None
+
+
+def list_dispatch_reconciliation(org_id: str, limit: int = 50):
+    """Read-only queue: never reset ambiguous sends without external evidence."""
+    with engine.connect() as conn:
+        return [dict(row) for row in conn.execute(text("""
+          select id,channel,notification_type,status,dispatch_state,dispatch_started_at,
+                 provider,provider_message_id,last_provider_status,created_at
+          from notification_outbox
+          where org_id=:org_id and (
+            dispatch_state='UNKNOWN' or
+            (dispatch_state='CLAIMED' and dispatch_started_at < now()-interval '5 minutes')
+          )
+          order by dispatch_started_at asc limit :limit
+        """), {"org_id": org_id, "limit": max(1, min(limit, 100))}).mappings()]
+
+
+def claim_notification_dispatch(org_id: str, notification_id: str):
+    with engine.begin() as conn:
+        row = conn.execute(text("""
+          update notification_outbox set dispatch_state='CLAIMED',dispatch_started_at=now()
+          where org_id=:org_id and id=:id and status='PENDING' and dispatch_state='IDLE'
+          returning *
+        """), {"org_id": org_id, "id": notification_id}).mappings().first()
+        return dict(row) if row else None
+
+
+def finish_notification_dispatch(org_id: str, notification_id: str, state: str):
+    if state not in {'ACCEPTED', 'REJECTED', 'UNKNOWN'}:
+        raise ValueError('invalid_dispatch_state')
+    with engine.begin() as conn:
+        conn.execute(text("""
+          update notification_outbox set dispatch_state=:state
+          where org_id=:org_id and id=:id and dispatch_state='CLAIMED'
+        """), {"org_id": org_id, "id": notification_id, "state": state})
 
 
 def mark_notification_sent(
@@ -384,6 +420,8 @@ def list_retryable_notifications(
                 where org_id = :org_id
                   and status = 'FAILED'
                   and retry_status = 'RETRYABLE'
+                  and dispatch_state in ('IDLE','REJECTED')
+                  and retry_count < max_retry_count
                   and next_retry_at <= now()
                 order by next_retry_at asc
                 limit :limit
@@ -397,7 +435,7 @@ def list_retryable_notifications(
         return [dict(row._mapping) for row in result.fetchall()]
 
 
-def reset_notification_for_retry(notification_id: str):
+def reset_notification_for_retry(notification_id: str, *, org_id: str):
     with engine.connect() as conn:
         result = conn.execute(
             text("""
@@ -405,12 +443,18 @@ def reset_notification_for_retry(notification_id: str):
                 set
                     status = 'PENDING',
                     retry_status = 'RETRYING',
+                    retry_count = retry_count + 1,
+                    dispatch_state = 'IDLE',
+                    dispatch_started_at = null,
                     failed_at = null,
                     error_message = null
                 where id = :notification_id
+                  and org_id = :org_id and status = 'FAILED'
+                  and dispatch_state in ('IDLE','REJECTED')
+                  and retry_count < max_retry_count
                 returning *
             """),
-            {"notification_id": notification_id},
+            {"notification_id": notification_id, "org_id": org_id},
         )
 
         conn.commit()

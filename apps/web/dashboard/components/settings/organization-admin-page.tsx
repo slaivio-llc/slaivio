@@ -1,7 +1,6 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Bell,
   Boxes,
   Building2,
@@ -53,7 +52,6 @@ import {
   type NotificationPreference,
 } from "@/services/notification-center";
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
-import { SettingsHome } from "@/components/settings/settings-home";
 import { getTimeZoneOptions } from "@/components/settings/time-zone-options";
 import { useDashboardLocale } from "@/components/i18n/dashboard-language";
 import { AuditSettings } from "@/components/settings/audit-settings";
@@ -105,7 +103,7 @@ export function OrganizationAdminPage() {
   const router = useRouter(),
     params = useSearchParams();
   const [data, setData] = useState<AdminData | null>(null),
-    [tab, setTab] = useState<Section | "home">(params.get("section") ? "general" : "home"),
+    [tab, setTab] = useState<Section>("general"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   useEffect(() => {
@@ -116,9 +114,8 @@ export function OrganizationAdminPage() {
       organization: "agency",
       spaces: "workspaces",
     };
-    const resolved = requested ? aliases[requested] || requested : "home";
-    if (resolved === "home") setTab("home");
-    else if (tabs.some(([id]) => id === resolved)) setTab(resolved as Section);
+    const resolved = requested ? aliases[requested] || requested : "general";
+    if (tabs.some(([id]) => id === resolved)) setTab(resolved as Section);
   }, [params]);
   const load = useCallback(async () => {
     try {
@@ -129,8 +126,8 @@ export function OrganizationAdminPage() {
     }
   }, []);
   useEffect(() => {
-    if (tab !== "home") void load();
-  }, [load, tab]);
+    void load();
+  }, [load]);
   async function run(action: () => Promise<unknown>, message: string) {
     try {
       setError("");
@@ -147,11 +144,10 @@ export function OrganizationAdminPage() {
       );
     }
   }
-  function select(section: Section | "home") {
+  function select(section: Section) {
     setTab(section);
-    router.replace(section === "home" ? "/app/settings" : `/app/settings?section=${section}`, { scroll: false });
+    router.replace(`/app/settings?section=${section}`, { scroll: false });
   }
-  if (tab === "home") return <SettingsHome pilot={false}/>;
   if (!data) return error
     ? <ErrorState title="Paramètres indisponibles" description={error} retry={load} />
     : <LoadingState label="Chargement des paramètres…" />;
@@ -182,9 +178,6 @@ export function OrganizationAdminPage() {
         </aside>
         <main className="min-w-0 p-5 lg:p-7">
           <div className="mx-auto max-w-[1120px]">
-            <button type="button" onClick={() => select("home")} className="mb-4 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-[13px] font-medium text-[#63716a] transition hover:bg-[#f2f7f4] hover:text-[#087a46]">
-              <ArrowLeft size={15}/>Tous les paramètres
-            </button>
             <label className="mb-5 grid gap-1.5 text-[12px] font-medium text-[#59636e] lg:hidden">
               Section des paramètres
               <select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>

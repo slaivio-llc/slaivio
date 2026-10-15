@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Copy, Loader2, Mail, Music2, ShieldCheck, Smartphone, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { Check, Copy, Loader2, Mail, Music2, ShieldCheck, Smartphone, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,7 +35,6 @@ import {
 import { getNotificationPreferences, saveNotificationPreference, type NotificationPreference } from "@/services/notification-center";
 import { getOrganizationNetwork, grantNetworkOffices, inviteNetworkMember, listNetworkInvitations, setupOrganizationNetwork, type NetworkInvitation, type OrganizationNetwork } from "@/services/organization-network";
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
-import { SettingsHome } from "@/components/settings/settings-home";
 import { getTimeZoneOptions } from "@/components/settings/time-zone-options";
 import { AuditSettings } from "@/components/settings/audit-settings";
 
@@ -52,20 +51,19 @@ const sections = [
   ["notifications", "Notifications"],
   ["audit", "Historique des actions"],
 ] as const;
-type Section = (typeof sections)[number][0] | "home";
+type Section = (typeof sections)[number][0];
 const inputClass = "h-9 w-full rounded-[7px] border border-[#d5dade] bg-white px-3 text-[13px] text-[#293038] outline-none transition focus:border-[#12a865]";
 
 export function PilotSettingsPage() {
   const locale = useDashboardLocale();
   const router = useRouter();
   const params = useSearchParams();
-  const [section, setSection] = useState<Section>(params.get("section") ? "company" : "home");
+  const [section, setSection] = useState<Section>("company");
   const [data, setData] = useState<PilotSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const parcelFreight = data?.organization.organization_type === "PARCEL_FREIGHT";
-  const requestedSection = params.get("section");
   const visibleSections = useMemo(
     () => sections.filter(([key]) =>
       parcelFreight || !["network", "services", "routes"].includes(key),
@@ -87,17 +85,16 @@ export function PilotSettingsPage() {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
-    const requested = requestedSection as Section | null;
-    if (!requested) { setSection("home"); return; }
-    if (requestedSection === "communication") { setSection("channels"); return; }
+    const requested = params.get("section") as Section | null;
+    if (params.get("section") === "communication") { setSection("channels"); return; }
     if (requested === "network" && data && !parcelFreight) { setSection("company"); return; }
     if (requested && visibleSections.some(([key]) => key === requested)) setSection(requested);
-  }, [data, requestedSection, parcelFreight, visibleSections]);
+  }, [data, params, parcelFreight, visibleSections]);
 
   function choose(next: Section) {
     setSection(next);
     setNotice("");
-    router.replace(next === "home" ? "/app/settings" : `/app/settings?section=${next}`, { scroll: false });
+    router.replace(`/app/settings?section=${next}`, { scroll: false });
   }
 
   async function run(action: () => Promise<unknown>, message: string) {
@@ -119,16 +116,12 @@ export function PilotSettingsPage() {
     }
   }
 
-  if (section === "home") return <SettingsHome pilot transportEnabled={data ? parcelFreight : false}/>;
   if (loading && !data) return <LoadingState label="Chargement des paramètres…" />;
   if (!data) return <ErrorState title="Paramètres indisponibles" description={error} retry={load} />;
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader divider={false} title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>
       <main className="mx-auto min-w-0 w-full max-w-[1200px] px-6 pb-10 sm:px-8">
-        <button type="button" onClick={() => choose("home")} className="mb-2 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-[13px] font-medium text-[#63716a] transition hover:bg-[#f2f7f4] hover:text-[#087a46]">
-          <ArrowLeft size={15}/>{dashboardLabel(locale, "Tous les paramètres")}
-        </button>
         <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map(([key, label]) => {
             const active = section === key;

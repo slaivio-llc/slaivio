@@ -123,22 +123,8 @@ beforeEach(() => {
 });
 
 describe("PilotSettingsPage navigation", () => {
-  it("shows a settings hub with clear destinations and a personal language selector", async () => {
-    const user = userEvent.setup();
-    render(<PilotSettingsPage />);
-
-    expect(screen.getByRole("heading", { name: "Paramètres" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Finance et moyens de paiement" })).toHaveAttribute("href", "/app/finance");
-    expect(screen.getByRole("link", { name: "Tarifs et conditions de facturation" })).toHaveAttribute("href", "/app/pricing");
-    expect(await screen.findByRole("link", { name: "Routes commerciales" })).toHaveAttribute("href", "/app/settings?section=routes");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Langue de votre interface" }), "en");
-    expect(window.localStorage.getItem("slaivio-locale")).toBe("en");
-    await user.selectOptions(screen.getByRole("combobox", { name: "Your interface language" }), "fr");
-  });
-
   it("keeps every settings section visible and switches sections without a filter menu", async () => {
     const user = userEvent.setup();
-    requestedSection = "company";
     render(<PilotSettingsPage />);
 
     const labels = [
@@ -169,7 +155,6 @@ describe("PilotSettingsPage navigation", () => {
   });
 
   it("hides parcel network settings from a vehicle-import agency", async () => {
-    requestedSection = "company";
     vi.mocked(adminService.getPilotSettings).mockResolvedValue({
       ...settings,
       organization: { ...settings.organization, organization_type: "VEHICLE_IMPORT" },
@@ -184,7 +169,6 @@ describe("PilotSettingsPage navigation", () => {
 
   it("keeps only knowledge defaults in settings", async () => {
     const user = userEvent.setup();
-    requestedSection = "company";
     render(<PilotSettingsPage />);
 
     await user.click(await screen.findByRole("button", { name: "Connaissances" }));

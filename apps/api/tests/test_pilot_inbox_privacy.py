@@ -1,4 +1,8 @@
-from app.ai.services.pilot_inbox_ai_service import _customer_safe_operational_context
+from app.ai.services.pilot_inbox_ai_service import (
+    DEFAULT_SYSTEM_PROMPT,
+    _customer_safe_operational_context,
+    _customer_support_prompt,
+)
 
 
 def test_customer_context_excludes_private_finance_without_explicit_access():
@@ -46,3 +50,17 @@ def test_customer_context_allows_private_finance_only_if_explicitly_authorized()
     assert "Compte client" in result
     assert "450000" in result
     assert "75000" in result
+
+
+def test_customer_prompt_forbids_private_finance_and_internal_data():
+    prompt = _customer_support_prompt(
+        organization_name="Slaivio Cargo",
+        company_rules=DEFAULT_SYSTEM_PROMPT,
+        style="PROFESSIONAL",
+        sources="Service: livraison internationale",
+    )
+
+    assert "facture" in prompt.lower()
+    assert "marge" in prompt.lower()
+    assert "solde privé" in prompt.lower()
+    assert "données d’un autre client" in prompt.lower()

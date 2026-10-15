@@ -1,6 +1,7 @@
 "use client";
 
 import axios from "axios";
+import { useUser } from "@clerk/nextjs";
 import { InboxClientCreator } from './inbox-client-creator';
 import { getTenantContext } from '@/services/tenant';
 import { Archive, ArrowLeft, ArrowRight, WandSparkles as Bot, CheckCheck, ChevronDown, CircleAlert, ExternalLink, Info, MessageCircle, MoreHorizontal, Paperclip, RotateCw, Send, Sparkles, UserRound, Users, X } from "lucide-react";
@@ -19,7 +20,7 @@ import { EmptyState, LoadingState } from "@/components/ui/page-state";
 import { dashboardLabel, useDashboardLocale } from "@/components/i18n/dashboard-language";
 import { searchDossierClients, type DossierClientSearchResult } from "@/services/dossiers";
 import {
-  generateInboxAISuggestion, getInboxAISettings, getInboxConversation, listInboxAIDrafts,
+  claimInboxConversation, generateInboxAISuggestion, getInboxAISettings, getInboxConversation, listInboxAIDrafts,
   listInboxConversations, markInboxConversationRead, sendInboxReply, summarizeInboxConversation,
   updateInboxAIMode, updateInboxContext, updateInboxConversationAIMode, updateInboxState,
   type InboxAIMode, type InboxAISettings, type InboxAISuggestion, type InboxConversation,
@@ -30,11 +31,11 @@ const fieldClass = "h-10 w-full rounded-[7px] border border-[#d4d9df] bg-white p
 const miniAction = "inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-[#d9dfe2] bg-white px-2.5 text-[11px] font-semibold text-[#4f5b63] hover:bg-[#f2f5f3] disabled:opacity-50";
 const menuAction = "flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left text-[12px] font-medium text-[#48535b] hover:bg-[#f2f5f3]";
 const filters: Array<{ id: InboxView; label: string }> = [
-  { id: "all", label: "Toutes" }, { id: "groups", label: "Groupes" }, { id: "private", label: "Privées" }, { id: "unread", label: "Non lues" },
-  { id: "attention", label: "À reprendre" }, { id: "ai", label: "IA active" },
+  { id: "all", label: "Toutes" }, { id: "waiting", label: "Non traitées" }, { id: "mine", label: "Mes conversations" },
 ];
 
 export function PilotInboxPage() {
+  const { user } = useUser();
   const locale = useDashboardLocale();
   const { online, cache, cached } = usePilotOffline();
   const [view, setView] = useState<InboxView>("all");
@@ -55,6 +56,7 @@ export function PilotInboxPage() {
   const [draftId, setDraftId] = useState<string>();
   const [requestedMode, setRequestedMode] = useState<InboxAIMode | null>(null);
   const [modeBusy, setModeBusy] = useState(false);
+  const [claimBusy, setClaimBusy] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [clientQuery, setClientQuery] = useState("");
@@ -157,6 +159,22 @@ export function PilotInboxPage() {
   async function changeAgencyMode(mode: InboxAIMode) { if (mode === "CONTROLLED_AUTO" && aiSettings?.pilot_response_mode !== mode) setRequestedMode(mode); else await saveAgencyMode(mode); }
   async function changeConversationMode(mode: "INHERIT" | "CONTROLLED_AUTO" | "PAUSED", phone = detail?.phone) { if (!phone) return; setModeBusy(true); try { await updateInboxConversationAIMode(phone, mode); if (mode !== "INHERIT" || aiSettings?.pilot_response_mode !== "SUGGESTION_ONLY") setSuggestion(null); if (phone === detail?.phone) setDetail(await getInboxConversation(phone)); await loadList(true); } catch (cause) { setActionError(apiError(cause)); } finally { setModeBusy(false); } }
   async function bulkMode(mode: "CONTROLLED_AUTO" | "PAUSED") { setModeBusy(true); try { await Promise.all(selectedItems.map(item => updateInboxConversationAIMode(item.phone, mode))); setChecked(new Set()); await loadList(true); } catch (cause) { setActionError(apiError(cause)); } finally { setModeBusy(false); } }
+  async function claimConversation(release = false) {
+    if (!detail || claimBusy || !online) return;
+    const phone = detail.phone;
+    setClaimBusy(true);
+    try {
+      await claimInboxConversation(phone, detail.assignment?.row_version || 0, release);
+      const refreshed = await getInboxConversation(phone);
+      setDetail(current => current?.phone === phone ? refreshed : current);
+      setSuggestion(null);
+      setActionError("");
+      await loadList(true);
+    } catch (cause) {
+      const code = axios.isAxiosError(cause) ? cause.response?.data?.detail : null;
+      setActionError(code === "conversation_already_assigned" ? "Cette conversation est déjà prise en charge par un autre agent." : apiError(cause));
+    } finally { setClaimBusy(false); }
+  }
   async function bulkRead() { try { await Promise.all(selectedItems.map(item => markInboxConversationRead(item.phone))); setChecked(new Set()); await loadList(true); } catch (cause) { setActionError(apiError(cause)); } }
   async function askSuggestion() { if (!detail) return; if (!online) { setActionError("L’IA nécessite une connexion. La conversation reste consultable hors ligne."); return; } setAiLoading(true); try { setSuggestion(await generateInboxAISuggestion(detail.phone)); } catch (cause) { setActionError(apiError(cause)); } finally { setAiLoading(false); } }
   async function askSummary() { if (!detail) return; if (!online) { setActionError("L’IA nécessite une connexion. La conversation reste consultable hors ligne."); return; } setAiLoading(true); try { setSummary((await summarizeInboxConversation(detail.phone)).summary); } catch (cause) { setActionError(apiError(cause)); } finally { setAiLoading(false); } }
@@ -174,6 +192,14 @@ export function PilotInboxPage() {
 
       <section className={`${selectedPhone ? "flex" : "hidden lg:flex"} min-h-0 flex-col bg-white`}>{!selectedPhone ? <EmptyConversation /> : detailLoading && !detail ? <LoadingState label="Ouverture de la conversation…" /> : detail ? <>
         <ConversationHeader detail={detail} agencyMode={aiSettings?.pilot_response_mode || "SUGGESTION_ONLY"} busy={modeBusy} aiLoading={aiLoading} menuOpen={menuOpen} setMenuOpen={setMenuOpen} changeMode={changeConversationMode} summarize={askSummary} back={() => { setSelectedPhone(null); setDetail(null); }} info={() => setContextOpen(true)} archive={() => setCloseRequested(true)} reopen={() => changeState("OPEN", false)} attention={() => changeState("OPEN", true)} />
+        <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-slate-500">
+          <span>{detail.assignment?.assigned_to ? detail.assignment.assigned_to === user?.id ? "Prise en charge par vous" : "Prise en charge par un autre agent" : "Conversation non attribuée"}</span>
+          <PermissionGuard permission="inbox.manage">
+            {(!detail.assignment?.assigned_to || detail.assignment.assigned_to === user?.id) && <button className={miniAction} disabled={claimBusy || !online} onClick={() => void claimConversation(Boolean(detail.assignment?.assigned_to))}>
+              {claimBusy ? "Enregistrement…" : detail.assignment?.assigned_to ? "Libérer" : "Prendre en charge"}
+            </button>}
+          </PermissionGuard>
+        </div>
         <div ref={messagesScroll} onScroll={trackScroll} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white px-3 py-5 sm:px-6"><div className="mx-auto grid max-w-[760px] gap-2">{detail.has_older_messages && <button disabled={olderLoading} onClick={loadOlder} className="mx-auto mb-2 rounded-full bg-[#f1f3f2] px-3 py-1.5 text-[11px] font-semibold">{olderLoading ? "Chargement…" : "Afficher les messages précédents"}</button>}{detail.messages.map((message, index) => <div key={message.id}>{isNewDay(detail.messages, index) && <DaySeparator value={message.created_at} />}<MessageBubble message={message} /></div>)}<div ref={messagesEnd} /></div>{newMessages > 0 && <button onClick={jumpToLatest} className="sticky bottom-3 left-1/2 z-10 mx-auto flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#24312b] px-4 py-2 text-[11px] font-semibold text-white shadow-lg">{newMessages} nouveau{newMessages > 1 ? "x" : ""} message{newMessages > 1 ? "s" : ""}<ChevronDown size={14} /></button>}</div>
         {(summary || suggestion) && <AIWorkPanel summary={summary} suggestion={suggestion} close={() => setSummary("")} use={() => { if (suggestion) { setReplyText(suggestion.response_text); setDraftId(suggestion.draft.id); } }} />}
         <ReplyComposer detail={detail} sending={sending} aiLoading={aiLoading} showSuggestion={!detail.is_group && (detail.assignment?.ai_mode_override || aiSettings?.pilot_response_mode) === "SUGGESTION_ONLY"} error={actionError} value={replyText} change={setReplyText} suggest={askSuggestion} submit={reply} />

@@ -51,7 +51,8 @@ def test_pilot_inbox_repository_is_tenant_scoped_and_uses_the_multi_client_model
 def test_inbox_list_passes_only_the_active_tenant(monkeypatch):
     captured = {}
 
-    def fake_list(org_id, view, query, page, page_size, *legacy_filters):
+    def fake_list(org_id, view, query, page, page_size, *legacy_filters, actor_id=None):
+        assert actor_id == "owner-a"
         captured.update(org_id=org_id, view=view, query=query, page=page, page_size=page_size)
         return {"items": [], "page": page, "page_size": page_size, "total": 0}
 
@@ -84,9 +85,9 @@ def test_pilot_inbox_ui_is_a_real_whatsapp_workspace():
 
     for label in (
         "Toutes",
-        "Non lues",
-        "À reprendre",
-        "IA active",
+        "Non traitées",
+        "Mes conversations",
+        "Prendre en charge",
         "Nom, téléphone ou identifiant",
         "Client",
         "Dossier associé",

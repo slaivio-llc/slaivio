@@ -12,6 +12,7 @@ from app.db.pilot_inbox_repository import (
     set_context,
     update_state,
     update_ai_mode,
+    claim_conversation,
 )
 
 
@@ -33,19 +34,24 @@ class ConversationAIModeRequest(BaseModel):
     mode: str = "INHERIT"
 
 
+class ConversationClaimRequest(BaseModel):
+    expected_version: int = Field(ge=0)
+    release: bool = False
+
+
 def _actor(tenant: dict) -> str:
     return str(tenant.get("user_id") or "system")
 
 
 def _translate_error(exc: ValueError):
     code = str(exc)
-    status = 409 if code == "stale_conversation_version" else 404 if code in {"conversation_not_found", "client_not_found"} else 400
+    status = 409 if code in {"stale_conversation_version", "conversation_already_assigned"} else 403 if code == "agent_not_active" else 404 if code in {"conversation_not_found", "client_not_found"} else 400
     raise HTTPException(status_code=status, detail=code) from exc
 
 
 @router.get("/inbox/conversations", dependencies=[Depends(require_permission("inbox.read"))])
 def list_conversations(
-    view: str = Query(default="all", pattern="^(all|unread|attention|ai|groups|private|waiting|open|closed)$"),
+    view: str = Query(default="all", pattern="^(all|mine|unread|attention|ai|groups|private|waiting|open|closed)$"),
     q: str | None = Query(default=None, max_length=120),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=40, ge=1, le=100),
@@ -59,6 +65,7 @@ def list_conversations(
     result = list_pilot_conversations(
         tenant["org_id"], view, q, page, page_size,
         number_role, status, queue_name, priority, requires_attention,
+        actor_id=_actor(tenant),
     )
     return {
         "status": "ok",
@@ -78,6 +85,16 @@ def get_conversation(
     if not detail["messages"]:
         raise HTTPException(status_code=404, detail="conversation_not_found")
     return {"status": "ok", **detail}
+
+
+@router.patch("/inbox/conversations/{phone}/owner", dependencies=[Depends(require_permission("inbox.manage"))])
+def take_conversation(phone: str, body: ConversationClaimRequest, tenant=Depends(get_current_tenant)):
+    try:
+        assignment = claim_conversation(tenant["org_id"], phone, _actor(tenant),
+                                        body.expected_version, release=body.release)
+    except ValueError as exc:
+        _translate_error(exc)
+    return {"status": "ok", "assignment": assignment}
 
 
 @router.patch("/inbox/conversations/{phone}/context", dependencies=[Depends(require_permission("inbox.manage"))])

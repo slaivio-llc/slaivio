@@ -1,6 +1,6 @@
 import { api } from "@/services/api";
 
-export type InboxView = "all" | "groups" | "private" | "unread" | "attention" | "ai";
+export type InboxView = "all" | "waiting" | "mine" | "groups" | "private" | "unread" | "attention" | "ai";
 export type InboxAIMode = "SUGGESTION_ONLY" | "CONTROLLED_AUTO" | "PAUSED";
 export type InboxAISettings = {
   enabled: boolean;
@@ -103,6 +103,7 @@ export type InboxDossier = {
 };
 
 export type InboxAssignment = {
+  assigned_to?: string | null;
   client_id?: string | null;
   dossier_id?: string | null;
   status: "OPEN" | "CLOSED";
@@ -144,6 +145,12 @@ export async function updateInboxContext(phone: string, payload: { client_id: st
 
 export async function updateInboxState(phone: string, payload: { status: "OPEN" | "CLOSED"; requires_attention: boolean }) {
   return (await api.patch(`/inbox/conversations/${encodeURIComponent(phone)}/state`, payload)).data;
+}
+
+export async function claimInboxConversation(phone: string, expectedVersion: number, release = false) {
+  return (await api.patch(`/inbox/conversations/${encodeURIComponent(phone)}/owner`, {
+    expected_version: expectedVersion, release,
+  })).data;
 }
 
 export async function updateInboxConversationAIMode(phone: string, mode: "INHERIT" | "CONTROLLED_AUTO" | "PAUSED") {

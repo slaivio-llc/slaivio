@@ -42,10 +42,17 @@ def list_conversations(
     org_id: str, view: str = "all", query: str | None = None, page: int = 1, page_size: int = 40,
     number_role: str | None = None, status: str | None = None, queue_name: str | None = None,
     priority: str | None = None, requires_attention: bool | None = None,
+    actor_id: str | None = None,
 ):
     conditions = ["conversation.org_id = :org_id"]
     params = {"org_id": org_id, "limit": page_size, "offset": (page - 1) * page_size}
-    if view == "unread":
+    if view == "mine":
+        if not actor_id:
+            raise ValueError("actor_required")
+        conditions.append("assignment.assigned_to = :actor_id")
+        conditions.append("coalesce(assignment.status, 'OPEN') <> 'CLOSED'")
+        params["actor_id"] = actor_id
+    elif view == "unread":
         conditions.append("coalesce(assignment.status, 'OPEN') <> 'CLOSED'")
         conditions.append("coalesce(assignment.unread_count, 0) > 0")
     elif view == "attention":
@@ -123,6 +130,7 @@ def list_conversations(
           coalesce(assignment.queue_name, 'UNASSIGNED') queue_name,
           coalesce(assignment.priority, 'NORMAL') priority,
           assignment.row_version,
+          assignment.assigned_to,
           {AI_OVERRIDE_SQL} ai_mode_override,
           coalesce({AI_OVERRIDE_SQL}, {AI_DEFAULT_SQL}) effective_ai_mode,
           client.id client_id,
@@ -213,7 +221,7 @@ def conversation_detail(org_id: str, phone: str, before=None, message_limit: int
         """), {"org_id": org_id, "phone": phone, "sender_phone": sender_phone}).mappings().first()
         assignment = conn.execute(text("""
           select client_id, dossier_id, status, unread_count, requires_attention,
-                 waiting_since, last_read_at, row_version, ai_mode_override
+                 waiting_since, last_read_at, row_version, ai_mode_override, assigned_to
           from conversation_assignments
           where org_id = :org_id and client_phone = :phone
         """), {"org_id": org_id, "phone": phone}).mappings().first()
@@ -357,6 +365,48 @@ def update_ai_mode(org_id: str, phone: str, mode: str | None, actor_id: str):
         """), {
             "org_id": org_id, "phone": phone, "mode": mode, "actor_id": actor_id,
         }).mappings().one()
+        return dict(row)
+
+
+def claim_conversation(org_id: str, phone: str, actor_id: str, expected_version: int, *, release: bool = False):
+    """Compare-and-set ownership. Never silently steal another agent's work."""
+    with engine.begin() as conn:
+        member = conn.execute(text("""
+          select 1 from organization_memberships
+          where org_id=:org_id and clerk_user_id=:actor and status='ACTIVE'
+        """), {"org_id": org_id, "actor": actor_id}).first()
+        if not member:
+            raise ValueError("agent_not_active")
+        conn.execute(text("select pg_advisory_xact_lock(hashtextextended(:scope,0))"),
+                     {"scope": f"conversation-claim:{org_id}:{phone}"})
+        exists = conn.execute(text("""
+          select 1 from messages where org_id=:org_id
+            and coalesce(nullif(conversation_jid,''),case when direction='outbound' then to_phone else from_phone end)=:phone
+          limit 1
+        """), {"org_id": org_id, "phone": phone}).first()
+        if not exists:
+            raise ValueError("conversation_not_found")
+        current = conn.execute(text("""
+          select row_version,assigned_to from conversation_assignments
+          where org_id=:org_id and client_phone=:phone for update
+        """), {"org_id": org_id, "phone": phone}).mappings().first()
+        if (current["row_version"] if current else 0) != expected_version:
+            raise ValueError("stale_conversation_version")
+        if current and current["assigned_to"] not in (None, actor_id):
+            raise ValueError("conversation_already_assigned")
+        owner = None if release else actor_id
+        row = conn.execute(text("""
+          insert into conversation_assignments(org_id,client_phone,status,queue_name,assigned_to,ai_mode_override,updated_by)
+          values(:org_id,:phone,'OPEN','PILOT',:owner,'PAUSED',:actor)
+          on conflict(org_id,client_phone) do update set
+            assigned_to=excluded.assigned_to,ai_mode_override='PAUSED',updated_by=excluded.updated_by
+          returning *
+        """), {"org_id": org_id, "phone": phone, "owner": owner, "actor": actor_id}).mappings().one()
+        conn.execute(text("""
+          insert into audit_logs(org_id,actor_id,entity_type,entity_id,action,metadata,severity)
+          values(:org_id,:actor,'conversation',:id,:action,'{}'::jsonb,'INFO')
+        """), {"org_id": org_id, "actor": actor_id, "id": str(row["id"]),
+                 "action": "conversation.released" if release else "conversation.claimed"})
         return dict(row)
 
 

@@ -94,3 +94,27 @@ python -m pytest tests/test_communication_crm_transaction.py tests/test_communic
 
 Les tests de connexion simulée vérifient le contrat de transaction, pas les
 verrous ni les rollbacks réels PostgreSQL. La recette d'intégration reste à faire.
+
+## Lot Inbox — prise en charge
+
+- Les trois vues principales sont Toutes, Non traitées et Mes conversations.
+  Non traitées utilise la file existante (non lues ou demandant une intervention) ;
+  Mes conversations filtre les conversations ouvertes attribuées à l'identité authentifiée.
+- Prendre en charge / Libérer sont disponibles aux utilisateurs ayant `inbox.manage`.
+  Une adhésion active dans l'organisation est requise par le dépôt.
+- L'attribution vérifie la version et verrouille la ligne ; la première attribution
+  est sérialisée par verrou transactionnel. Un autre agent ne peut pas reprendre ou
+  libérer silencieusement le propriétaire actuel. Les changements sont audités.
+- Prendre en charge suspend l'IA. Libérer la conversation ne la réactive pas.
+- Appliquer **134_communication_assignment.sql avant le déploiement API**.
+  Cette migration n'a pas été exécutée ici.
+- Attribution n'est pas autorisation : les droits d'accès existants restent nécessaires.
+  Il reste notamment à harmoniser le périmètre bureau sur tous les endpoints,
+  à contrôler les réponses concurrentes et à permettre une réattribution administrative.
+- Les autres vues restent supportées par l'API. L'interface ne prétend pas encore
+  intégrer Gmail/TikTok. Ce lot n'est pas la finalisation du modèle multicanal.
+
+Tests ciblés : `test_communication_assignment.py`, `test_pilot_inbox.py`,
+`test_pilot_inbox_privacy.py`, `test_communication_control.py`,
+`test_communication_crm_transaction.py`. Tests de dépôts simulés ; recette PostgreSQL
+et navigateur avec deux agents encore requise.

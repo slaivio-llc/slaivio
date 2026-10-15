@@ -47,6 +47,29 @@ contrat `/finance/stats` change, les anciens totaux sans devise sont supprimés.
 6. Recette migrations / PostgreSQL / concurrence / isolation inter-agences et bureaux,
    puis sandbox fournisseur et navigateur. Aucun paiement réel pendant les tests.
 
+## Deuxième lot : saisie intégrée et reçus
+
+- Remplacement des prompts navigateur de paiement par un formulaire intégré :
+  montant uniquement, client/facture/devise connus ; source manuelle explicite.
+- La même demande et sa clé sont conservées lors d'une reprise dans le formulaire.
+  Après confirmation, un échec de rafraîchissement ne renvoie pas de paiement.
+  Cette protection mémoire ne survit pas à la fermeture/recharge de la page : en
+  cas de résultat ambigu, vérifier l'historique avant de créer une nouvelle demande.
+- Les reçus des nouveaux paiements mémorisent atomiquement le nom agence, le nom
+  client, la référence facture et l'URL du logo. Aucun recalcul du solde n'y figure.
+  L'URL est figée mais le fichier distant du logo n'est pas archivé dans ce lot.
+- Téléchargement HTML imprimable en PDF par le navigateur ; accès authentifié avec
+  finance.read, filtrage organisation + facture + paiement, aucune route publique.
+- Paiements annulés signalés et génération de reçu refusée. Les anciens paiements
+  sans identité historique ne sont pas rétroactivement enrichis avec les données
+  actuelles ; un message indique l'indisponibilité du reçu historique.
+- Migration `136_finance_payment_receipts.sql` à appliquer AVANT l'API. Pas exécutée
+  par l'agent. Aucun compte fournisseur ni paiement SasPay n'est utilisé dans ce lot.
+- 23 tests backend ciblés et 6 tests frontend passent (dépôt/API simulés),
+  TypeScript et ESLint passent. Les tests frontend couvrent la reprise identique
+  après timeout, l'échec de rafraîchissement après confirmation et le dépassement du solde.
+  La recette base de données et navigateur reste nécessaire.
+
 ## SasPay — contraintes fournies, intégration pas encore implémentée
 
 - Vérifier les schémas des endpoints officiels avant codage de l'adaptateur.

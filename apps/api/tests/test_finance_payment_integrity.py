@@ -59,7 +59,8 @@ def test_partial_payment_preserves_credit(monkeypatch):
     uuid = MagicMock()
     uuid.scalar_one.return_value = 'payment'
     conn = connection(monkeypatch, [MagicMock(), row(None), row(doc), uuid,
-                                    row({'id': 'payment'}), MagicMock()])
+                                    row({'id': 'payment'}), MagicMock(), MagicMock()])
+    monkeypatch.setattr(repo, 'capture_identity', lambda *args: {'version': 1})
     monkeypatch.setattr(repo, 'receipt_number', lambda *args: 'REC-1')
     audit = MagicMock()
     monkeypatch.setattr(repo, 'event', audit)

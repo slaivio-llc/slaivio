@@ -1,5 +1,6 @@
 "use client";
 import { useResourceLink } from "@/components/ui/use-resource-link";
+import { RecordPaymentForm } from "./record-payment-form";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -16,7 +17,7 @@ import {
   getFinance,
   issueFinance,
   listFinance,
-  payFinance,
+  paymentReceipt,
   voidFinance,
   type FinanceDocument,
   type FinanceStats,
@@ -220,6 +221,7 @@ export function FinancePage() {
       )}
       {selected && (
         <Detail
+          key={selected.id}
           item={selected}
           close={() => { setSelected(null); closeResourceLink(); }}
           reload={async () => {
@@ -410,8 +412,9 @@ function Detail({
 }: {
   item: FinanceDocument;
   close: () => void;
-  reload: () => void;
+  reload: () => void | Promise<void>;
 }) {
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function run(fn: () => Promise<unknown>) {
@@ -481,24 +484,7 @@ function Detail({
                 <button
                   disabled={busy}
                   className={primary}
-                  onClick={() => {
-                    const raw = window.prompt(
-                      `Montant reçu (${item.currency})`,
-                      String(item.balance_due),
-                    );
-                    if (!raw) return;
-                    const method =
-                      window.prompt("Mode de paiement", "CASH") || "CASH";
-                    run(() =>
-                      payFinance(item.id, {
-                        amount: Number(raw),
-                        currency: item.currency,
-                        method,
-                        paid_at: new Date().toISOString(),
-                        idempotency_key: crypto.randomUUID(),
-                      }),
-                    );
-                  }}
+                  onClick={() => setPaymentOpen(true)}
                 >
                   Enregistrer un paiement
                 </button>
@@ -523,6 +509,7 @@ function Detail({
               </PermissionGuard>
             )}
         </div>
+        {paymentOpen && <PermissionGuard permission="finance.payments"><RecordPaymentForm document={item} onCancel={() => setPaymentOpen(false)} onRecorded={async () => { await reload(); setPaymentOpen(false); }} /></PermissionGuard>}
         {item.payments?.length ? (
           <section className="rounded bg-white p-4">
             <h3 className="mb-2 font-semibold">Paiements et reçus</h3>
@@ -532,9 +519,17 @@ function Detail({
                 className="flex justify-between border-t py-3 text-[13px]"
               >
                 <span>
-                  {p.receipt_number} · {p.method}
+                  {p.receipt_number} · {p.method === "MANUAL" ? "Enregistré par l’agence" : p.method}
+                  {p.status === "REVERSED" && <span className="ml-2 text-red-700">Annulé</span>}
                 </span>
                 <b>{cash(p.amount, p.currency)}</b>
+                {p.status === "CONFIRMED" && p.receipt_snapshot ? <button type="button" disabled={busy} className={button} onClick={() => run(async () => {
+                  const blob = await paymentReceipt(item.id, p.id);
+                  const url = URL.createObjectURL(blob);
+                  const anchor = document.createElement("a");
+                  anchor.href = url; anchor.download = `${p.receipt_number}.html`; anchor.click();
+                  setTimeout(() => URL.revokeObjectURL(url), 1000);
+                })}>Télécharger le reçu</button> : p.status === "CONFIRMED" ? <span className="text-xs text-slate-500">Reçu historique non disponible</span> : null}
               </div>
             ))}
           </section>

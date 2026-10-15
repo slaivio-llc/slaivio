@@ -5,6 +5,7 @@ from decimal import Decimal,ROUND_HALF_UP
 from fastapi import HTTPException
 from sqlalchemy import text
 from app.db.database import engine
+from app.finance.receipts import capture_identity, render_receipt
 
 D=Decimal
 def money(v):return D(str(v or 0)).quantize(D("0.01"),rounding=ROUND_HALF_UP)
@@ -86,6 +87,9 @@ def pay(o,d,a,n,p):
   if amount>money(doc['balance_due']):raise HTTPException(422,'payment_exceeds_balance')
   pid=c.execute(text("select gen_random_uuid()::text")).scalar_one();receipt=receipt_number(c,o)
   payment=dict(c.execute(text("insert into finance_payments(id,org_id,document_id,receipt_number,amount,currency,method,reference,paid_at,idempotency_key,recorded_by,recorded_by_name) values(cast(:id as uuid),:o,:d,:receipt,:amount,:currency,:method,:reference,:paid_at,:idempotency_key,:a,:n) returning *"),{**p,"id":pid,"o":o,"d":d,"receipt":receipt,"a":a,"n":n,"amount":amount,"currency":currency}).mappings().one())
+  snapshot=capture_identity(c,o,d)
+  c.execute(text("update finance_payments set receipt_snapshot=cast(:snapshot as jsonb) where org_id=:o and id=:id"),{"o":o,"id":pid,"snapshot":json.dumps(snapshot)})
+  payment['receipt_snapshot']=snapshot
   paid=money(doc['amount_paid'])+amount
   # Preserve previously applied credits: do not recompute from invoice total.
   balance=money(doc['balance_due'])-amount
@@ -93,6 +97,12 @@ def pay(o,d,a,n,p):
   c.execute(text("update finance_documents set amount_paid=:paid,balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:d and org_id=:o"),{"paid":paid,"balance":balance,"status":status,"d":d,"o":o})
   event(c,o,d,'PAYMENT_RECORDED',a,n,{"amount":str(amount),"currency":currency,"receipt":receipt,"source":"AGENCY"},pid)
   return payment
+def receipt(o,d,payment_id):
+ with engine.connect() as c:
+  payment=c.execute(text("select * from finance_payments where org_id=:o and document_id=:d and id=:p"),{"o":o,"d":d,"p":payment_id}).mappings().first()
+  if not payment:raise HTTPException(404,'finance_payment_not_found')
+  return render_receipt(dict(payment))
+
 def void(o,d,a,n,version,reason):
  with engine.begin() as c:
   row=c.execute(text("update finance_documents set status='VOID',voided_by=:a,voided_at=now(),row_version=row_version+1,updated_at=now(),notes=concat_ws(E'\n',notes,:reason) where org_id=:o and id=:d and status in ('DRAFT','ISSUED') and amount_paid=0 and row_version=:v returning *"),{"o":o,"d":d,"a":a,"v":version,"reason":'ANNULATION: '+reason}).mappings().first()

@@ -61,6 +61,9 @@ def printable(document_id:str,tenant=Depends(get_current_tenant),_=Depends(requi
 def issue(document_id:str,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.issue"))):return repo.issue(tenant['org_id'],document_id,actor(tenant),name(tenant),body.expected_version)
 @router.post("/{document_id}/payments")
 def payment(document_id:str,body:Payment,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.payments"))):return repo.pay(tenant['org_id'],document_id,actor(tenant),name(tenant),body.model_dump())
+@router.get("/{document_id}/payments/{payment_id}/receipt")
+def receipt(document_id:str,payment_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
+ return Response(repo.receipt(tenant['org_id'],document_id,payment_id),media_type="text/html; charset=utf-8",headers={"Cache-Control":"no-store","Content-Disposition":"attachment; filename=receipt.html","X-Content-Type-Options":"nosniff"})
 @router.post("/{document_id}/decision")
 def decision(document_id:str,body:Decision,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.issue"))):return repo.quote_decision(tenant['org_id'],document_id,actor(tenant),name(tenant),body.expected_version,body.accepted,body.reason)
 @router.post("/{document_id}/convert")

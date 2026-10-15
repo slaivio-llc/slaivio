@@ -56,6 +56,12 @@ def create_package_invoice(org_id, package_id, actor_id, actor_name, expected_ve
             {'o': org_id, 'p': package_id}).mappings().first()
         if not package:
             raise HTTPException(404, 'package_not_found')
+        if office_id is not None:
+            office = conn.execute(text("""select 1 from organization_locations
+                where org_id=:o and id=:office and location_type='OFFICE' and status='ACTIVE'"""),
+                {'o': org_id, 'office': str(office_id)}).first()
+            if not office:
+                raise HTTPException(422, 'finance_office_not_found')
         existing = conn.execute(text("""select * from finance_documents where org_id=:o
             and package_id=:p and document_type='INVOICE' and status<>'VOID'"""),
             {'o': org_id, 'p': package_id}).mappings().first()

@@ -86,6 +86,25 @@ def test_draft_and_snapshot_created_in_same_transaction(monkeypatch):
     assert audit.call_args.args[3] == 'PACKAGE_INVOICE_DRAFT_CREATED'
 
 
+def test_package_invoice_creation_requires_active_office(monkeypatch):
+    conn = MagicMock()
+    package_row = MagicMock(); package_row.mappings.return_value.first.return_value = package()
+    office_row = MagicMock(); office_row.first.return_value = None
+    conn.execute.side_effect = [package_row, office_row]
+    engine = MagicMock()
+    engine.begin.return_value.__enter__.return_value = conn
+    monkeypatch.setattr(invoices.finance, 'engine', engine)
+    with pytest.raises(HTTPException) as exc:
+        invoices.create_package_invoice('org', 'parcel', 'actor', 'Agent', 3, office_id='office-1')
+    assert exc.value.detail == 'finance_office_not_found'
+
+
+def test_finance_package_invoice_routes_require_package_scope_in_context():
+    text = open('app/api/finance.py', encoding='utf-8').read()
+    assert 'require_package_office_scope' in text
+    assert 'Depends(require_package_office_scope)' in text
+
+
 @pytest.mark.parametrize('context', [
     {'selected_office_id': 'office'},
     {'office_access_scope': 'SELECTED_OFFICES', 'allowed_office_ids': []},

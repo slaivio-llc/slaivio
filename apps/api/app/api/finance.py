@@ -7,7 +7,7 @@ from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.finance import repository as repo
 from app.finance.package_invoices import create_package_invoice, get_package_invoice
-from app.core.office_context import get_current_office_context, office_scope_ids, validate_office_assignment
+from app.core.office_context import get_current_office_context, office_scope_ids, require_package_office_scope, validate_office_assignment
 from app.finance.office_scope import require_document, assign_office
 
 def require_finance_scope(request:Request,context=Depends(get_current_office_context),tenant=Depends(get_current_tenant)):
@@ -122,10 +122,10 @@ def detail(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_
 @router.post("/{document_id}/office")
 def office_assignment(document_id:UUID,body:OfficeAssignment,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):
  return assign_office(tenant['org_id'],str(document_id),str(body.office_id),body.expected_version,actor(tenant),name(tenant))
-@router.get("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read"))])
-def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
+@router.get("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_package_office_scope),Depends(require_permission("finance.read"))])
+def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant)):
  return get_package_invoice(tenant['org_id'],str(package_id))
-@router.post("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_permission("finance.read"))])
+@router.post("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_package_office_scope),Depends(require_permission("finance.read"))])
 def package_invoice_create(package_id:UUID,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create")),context=Depends(get_current_office_context)):
  office_id = context.get('selected_office_id')
  if office_id:

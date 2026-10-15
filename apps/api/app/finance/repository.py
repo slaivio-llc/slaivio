@@ -33,7 +33,10 @@ def list_documents(o,q=None,status=None,kind=None,page=1,page_size=50):
   items=rows(c.execute(text(f"select d.*,coalesce(c.name,c.phone,c.email,'Client') client_name,ds.dossier_reference from finance_documents d left join clients c on c.id=d.client_id and c.org_id=d.org_id left join dossiers ds on ds.id=d.dossier_id and ds.org_id=d.org_id where {w} order by d.created_at desc limit :limit offset :offset"),p))
   return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":max(1,(total+page_size-1)//page_size)}}
 def stats(o):
- with engine.connect() as c:return dict(c.execute(text("select count(*) filter(where document_type='INVOICE')::int invoices,count(*) filter(where status='DRAFT')::int drafts,count(*) filter(where status='OVERDUE' or (status in ('ISSUED','PARTIALLY_PAID') and due_date<current_date))::int overdue,coalesce(sum(total) filter(where document_type='INVOICE' and status<>'VOID'),0) invoiced,coalesce(sum(amount_paid) filter(where document_type='INVOICE' and status<>'VOID'),0) collected,coalesce(sum(balance_due) filter(where document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE')),0) outstanding from finance_documents where org_id=:o"),{"o":o}).mappings().one())
+ with engine.connect() as c:
+  counts=dict(c.execute(text("select count(*) filter(where document_type='INVOICE')::int invoices,count(*) filter(where status='DRAFT')::int drafts,count(*) filter(where document_type='INVOICE' and (status='OVERDUE' or (status in ('ISSUED','PARTIALLY_PAID') and due_date<current_date)))::int overdue from finance_documents where org_id=:o"),{"o":o}).mappings().one())
+  counts["by_currency"]=rows(c.execute(text("select currency,coalesce(sum(total),0) invoiced,coalesce(sum(amount_paid),0) collected,coalesce(sum(balance_due),0) outstanding from finance_documents where org_id=:o and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID') group by currency order by currency"),{"o":o}))
+  return counts
 def create(o,a,n,payload):
  lines,sub,disc,tax,total=calculate(payload.pop('lines'))
  with engine.begin() as c:
@@ -54,19 +57,42 @@ def issue(o,d,a,n,version):
   row=c.execute(text("update finance_documents set status='ISSUED',issue_date=current_date,issued_at=now(),issued_by=:a,row_version=row_version+1,updated_at=now() where org_id=:o and id=:d and status='DRAFT' and row_version=:v returning *"),{"o":o,"d":d,"a":a,"v":version}).mappings().first()
   if not row:raise HTTPException(409,'finance_document_state_conflict')
   event(c,o,d,'ISSUED',a,n);return dict(row)
+def payment_amount(value):
+ try:
+  amount = D(str(value))
+  if not amount.is_finite() or amount <= 0 or amount != amount.quantize(D('0.01')):
+   raise ValueError()
+  return amount.quantize(D('0.01'))
+ except (ValueError, ArithmeticError):
+  raise HTTPException(422, 'invalid_payment_amount')
+
 def pay(o,d,a,n,p):
+ amount=payment_amount(p['amount'])
+ currency=str(p['currency']).strip().upper()
  with engine.begin() as c:
+  # Serialize the logical payment, even when a retry targets another document.
+  c.execute(text("select pg_advisory_xact_lock(hashtextextended(:scope,0))"),
+            {"scope":f"finance-payment:{o}:{p['idempotency_key']}"})
   old=c.execute(text("select * from finance_payments where org_id=:o and idempotency_key=:k"),{"o":o,"k":p['idempotency_key']}).mappings().first()
-  if old:return dict(old)
+  if old:
+   if (str(old['document_id']) != str(d) or money(old['amount']) != amount
+       or old['currency'] != currency or old['method'] != p['method']
+       or (old.get('reference') or '') != (p.get('reference') or '')):
+    raise HTTPException(409,'payment_idempotency_conflict')
+   return dict(old)
   doc=c.execute(text("select * from finance_documents where org_id=:o and id=:d and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE') for update"),{"o":o,"d":d}).mappings().first()
   if not doc:raise HTTPException(409,'invoice_not_payable')
-  amount=money(p['amount'])
-  if p['currency']!=doc['currency']:raise HTTPException(422,'payment_currency_mismatch')
+  if currency!=doc['currency']:raise HTTPException(422,'payment_currency_mismatch')
   if amount>money(doc['balance_due']):raise HTTPException(422,'payment_exceeds_balance')
   pid=c.execute(text("select gen_random_uuid()::text")).scalar_one();receipt=receipt_number(c,o)
-  payment=dict(c.execute(text("insert into finance_payments(id,org_id,document_id,receipt_number,amount,currency,method,reference,paid_at,idempotency_key,recorded_by,recorded_by_name) values(cast(:id as uuid),:o,:d,:receipt,:amount,:currency,:method,:reference,:paid_at,:idempotency_key,:a,:n) returning *"),{"id":pid,"o":o,"d":d,"receipt":receipt,"a":a,"n":n,**p}).mappings().one())
-  paid=money(doc['amount_paid'])+amount;balance=money(doc['total'])-paid;status='PAID' if balance==0 else 'PARTIALLY_PAID'
-  c.execute(text("update finance_documents set amount_paid=:paid,balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:d and org_id=:o"),{"paid":paid,"balance":balance,"status":status,"d":d,"o":o});event(c,o,d,'PAYMENT_RECORDED',a,n,{"amount":str(amount),"receipt":receipt},pid);return payment
+  payment=dict(c.execute(text("insert into finance_payments(id,org_id,document_id,receipt_number,amount,currency,method,reference,paid_at,idempotency_key,recorded_by,recorded_by_name) values(cast(:id as uuid),:o,:d,:receipt,:amount,:currency,:method,:reference,:paid_at,:idempotency_key,:a,:n) returning *"),{**p,"id":pid,"o":o,"d":d,"receipt":receipt,"a":a,"n":n,"amount":amount,"currency":currency}).mappings().one())
+  paid=money(doc['amount_paid'])+amount
+  # Preserve previously applied credits: do not recompute from invoice total.
+  balance=money(doc['balance_due'])-amount
+  status='PAID' if balance==0 else 'PARTIALLY_PAID'
+  c.execute(text("update finance_documents set amount_paid=:paid,balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:d and org_id=:o"),{"paid":paid,"balance":balance,"status":status,"d":d,"o":o})
+  event(c,o,d,'PAYMENT_RECORDED',a,n,{"amount":str(amount),"currency":currency,"receipt":receipt,"source":"AGENCY"},pid)
+  return payment
 def void(o,d,a,n,version,reason):
  with engine.begin() as c:
   row=c.execute(text("update finance_documents set status='VOID',voided_by=:a,voided_at=now(),row_version=row_version+1,updated_at=now(),notes=concat_ws(E'\n',notes,:reason) where org_id=:o and id=:d and status in ('DRAFT','ISSUED') and amount_paid=0 and row_version=:v returning *"),{"o":o,"d":d,"a":a,"v":version,"reason":'ANNULATION: '+reason}).mappings().first()
@@ -105,7 +131,9 @@ def reverse_payment(o,d,payment_id,a,n,reason):
  with engine.begin() as c:
   p=c.execute(text("select * from finance_payments where org_id=:o and document_id=:d and id=:p and status='CONFIRMED' for update"),{"o":o,"d":d,"p":payment_id}).mappings().first();doc=c.execute(text("select * from finance_documents where org_id=:o and id=:d for update"),{"o":o,"d":d}).mappings().first()
   if not p or not doc:raise HTTPException(409,'payment_not_reversible')
-  paid=max(D('0'),money(doc['amount_paid'])-money(p['amount']));balance=money(doc['total'])-money(doc.get('credit_applied'))-paid;status='ISSUED' if paid==0 else 'PARTIALLY_PAID'
+  paid=money(doc['amount_paid'])-money(p['amount'])
+  if paid<0:raise HTTPException(409,'payment_balance_inconsistent')
+  balance=money(doc['balance_due'])+money(p['amount']);status='ISSUED' if paid==0 else 'PARTIALLY_PAID'
   c.execute(text("update finance_payments set status='REVERSED',reversed_at=now(),reversed_by=:a,reversal_reason=:r where id=:p and org_id=:o"),{"a":a,"r":reason,"p":payment_id,"o":o});c.execute(text("update finance_documents set amount_paid=:paid,balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:d and org_id=:o"),{"paid":paid,"balance":balance,"status":status,"d":d,"o":o});event(c,o,d,'PAYMENT_REVERSED',a,n,{"payment_id":payment_id,"reason":reason},payment_id);return {"amount_paid":paid,"balance_due":balance,"status":status}
 def refresh_overdue(o):
  with engine.begin() as c:return c.execute(text("update finance_documents set status='OVERDUE',row_version=row_version+1,updated_at=now() where org_id=:o and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID') and balance_due>0 and due_date<current_date"),{"o":o}).rowcount

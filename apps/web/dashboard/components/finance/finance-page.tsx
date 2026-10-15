@@ -31,9 +31,7 @@ const empty: FinanceStats = {
   invoices: 0,
   drafts: 0,
   overdue: 0,
-  invoiced: 0,
-  collected: 0,
-  outstanding: 0,
+  by_currency: [],
 };
 const labels: Record<string, string> = {
   QUOTE: "Devis",
@@ -138,8 +136,8 @@ export function FinancePage() {
         <OperationMetricGrid>
           {[
             ["Factures", stats.invoices],
-            ["Paiements reçus", cash(stats.collected)],
-            ["À encaisser", cash(stats.outstanding)],
+            ["Paiements reçus", stats.by_currency.map(row => cash(row.collected, row.currency)).join(" · ") || "—"],
+            ["À encaisser", stats.by_currency.map(row => cash(row.outstanding, row.currency)).join(" · ") || "—"],
             ["En retard", stats.overdue],
           ].map(([l, v]) => (
             <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { setActiveMetric(String(l)); if (l === "Factures") { setKind("INVOICE"); setStatus(""); } else if (l === "En retard") { setKind(""); setStatus("OVERDUE"); } else { setKind(""); setStatus(""); } }} />

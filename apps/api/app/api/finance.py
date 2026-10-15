@@ -1,4 +1,5 @@
 from datetime import date,datetime,timezone
+from decimal import Decimal
 from fastapi import APIRouter,Depends,Query,Response
 from pydantic import BaseModel,Field,field_validator
 from app.core.permissions import require_permission
@@ -22,7 +23,16 @@ class DocumentCreate(BaseModel):
  def currency_code(cls,v):return v.upper()
 class Version(BaseModel):expected_version:int=Field(ge=1)
 class Void(Version):reason:str=Field(min_length=4,max_length=500)
-class Payment(BaseModel):amount:float=Field(gt=0);currency:str=Field(min_length=3,max_length=3);method:str=Field(min_length=2,max_length=50);reference:str|None=None;paid_at:datetime=Field(default_factory=lambda:datetime.now(timezone.utc));idempotency_key:str=Field(min_length=8,max_length=160)
+class Payment(BaseModel):
+ amount:Decimal=Field(gt=0,max_digits=18,decimal_places=2,allow_inf_nan=False)
+ currency:str=Field(pattern=r'^[A-Za-z]{3}$')
+ method:str=Field(min_length=2,max_length=50)
+ reference:str|None=None
+ paid_at:datetime=Field(default_factory=lambda:datetime.now(timezone.utc))
+ idempotency_key:str=Field(min_length=8,max_length=160)
+ @field_validator('currency')
+ @classmethod
+ def currency_code(cls,v):return v.upper()
 class Decision(Version):accepted:bool;reason:str|None=Field(default=None,max_length=500)
 class Convert(Version):due_date:date|None=None
 class Credit(Version):invoice_id:str

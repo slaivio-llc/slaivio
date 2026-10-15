@@ -237,6 +237,8 @@ def apply_credit(o,credit_id,invoice_id,a,n,version):
   credit=c.execute(text("select * from finance_documents where org_id=:o and id=:id and document_type='CREDIT_NOTE' and status='ISSUED' and credit_applied=0 and row_version=:v for update"),{"o":o,"id":credit_id,"v":version}).mappings().first()
   invoice=c.execute(text("select * from finance_documents where org_id=:o and id=:id and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE') for update"),{"o":o,"id":invoice_id}).mappings().first()
   if not credit or not invoice or credit['client_id']!=invoice['client_id'] or credit['currency']!=invoice['currency']:raise HTTPException(409,'credit_not_applicable')
+  if credit.get('office_id') != invoice.get('office_id'):
+   raise HTTPException(409,'credit_office_mismatch')
   amount=min(money(credit['total']),money(invoice['balance_due']));balance=money(invoice['balance_due'])-amount;status='PAID' if balance==0 else 'PARTIALLY_PAID'
   c.execute(text("update finance_documents set credit_applied=:amount,status='ACCEPTED',source_document_id=:invoice,row_version=row_version+1,updated_at=now() where id=:credit and org_id=:o"),{"amount":amount,"invoice":invoice_id,"credit":credit_id,"o":o});c.execute(text("update finance_documents set balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:invoice and org_id=:o"),{"balance":balance,"status":status,"invoice":invoice_id,"o":o});event(c,o,credit_id,'CREDIT_APPLIED',a,n,{"invoice_id":invoice_id,"amount":str(amount)});event(c,o,invoice_id,'CREDIT_RECEIVED',a,n,{"credit_id":credit_id,"amount":str(amount)});return {"amount":amount,"invoice_balance":balance}
 def reverse_payment(o,d,payment_id,a,n,reason):

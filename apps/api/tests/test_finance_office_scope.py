@@ -61,6 +61,40 @@ def test_export_forwards_scope(monkeypatch):
     repository.export('agency',office_ids=[])
     assert load.call_args.kwargs['office_ids']==[]
 
+def test_credit_cannot_be_applied_across_offices(monkeypatch):
+    engine=MagicMock();conn=engine.begin.return_value.__enter__.return_value
+    credit={'id':'credit','client_id':'client','currency':'USD','office_id':'office-a'}
+    invoice={'id':'invoice','client_id':'client','currency':'USD','office_id':'office-b'}
+    conn.execute.side_effect=[
+        MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=credit)))),
+        MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=invoice)))),
+    ]
+    monkeypatch.setattr(repository,'engine',engine)
+    with pytest.raises(HTTPException) as exc:
+        repository.apply_credit('agency','credit','invoice','actor','Agent',1)
+    assert exc.value.status_code==409
+    assert exc.value.detail=='credit_office_mismatch'
+    assert conn.execute.call_count==2
+
+def test_credit_can_be_applied_within_the_same_office(monkeypatch):
+    engine=MagicMock();conn=engine.begin.return_value.__enter__.return_value
+    credit={'id':'credit','client_id':'client','currency':'USD','office_id':'office-a','total':100,'credit_applied':0}
+    invoice={'id':'invoice','client_id':'client','currency':'USD','office_id':'office-a','balance_due':75}
+    credit_update=MagicMock()
+    invoice_update=MagicMock()
+    conn.execute.side_effect=[
+        MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=credit)))),
+        MagicMock(mappings=MagicMock(return_value=MagicMock(first=MagicMock(return_value=invoice)))),
+        credit_update,
+        invoice_update,
+    ]
+    monkeypatch.setattr(repository,'engine',engine)
+    audit=MagicMock();monkeypatch.setattr(repository,'event',audit)
+    result=repository.apply_credit('agency','credit','invoice','actor','Agent',1)
+    assert result=={'amount':75,'invoice_balance':0}
+    assert conn.execute.call_count==4
+    assert audit.call_args_list[0].args[3]=='CREDIT_APPLIED'
+
 def test_assignment_is_audited_and_versioned(monkeypatch):
     engine=MagicMock();conn=engine.begin.return_value.__enter__.return_value
     conn.execute.return_value.mappings.return_value.first.return_value={'id':DOC,'office_id':'office'}

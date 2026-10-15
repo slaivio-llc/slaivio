@@ -176,7 +176,8 @@ export async function startSession(id, orgId) {
         session.status = "QR_READY";
         session.qrDataUrl = await QRCode.toDataURL(update.qr, { margin: 1, width: 320 });
         session.qrExpiresAt = new Date(Date.now() + 55_000).toISOString();
-        await notify(session, "QR_READY", {}, String(Date.now()));
+        logger.info({ connectionId: id }, "qr_code_generated");
+        await safeNotify(session, "QR_READY", {}, String(Date.now()));
       }
       if (update.connection === "open") {
         clearConnectionWatchdog(session);

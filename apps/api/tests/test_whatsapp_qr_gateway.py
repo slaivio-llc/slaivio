@@ -67,6 +67,63 @@ def test_gateway_auth_failure_is_normalized(monkeypatch):
         raise AssertionError("Expected QR gateway authentication failure")
 
 
+def test_gateway_rejects_non_json_success_response_with_safe_diagnostic(monkeypatch, caplog):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_url", "https://gateway.example.test")
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_shared_secret", "s" * 32)
+
+    class Response:
+        ok = True
+        status_code = 200
+        headers = {"Content-Type": "text/html"}
+
+        @staticmethod
+        def json():
+            raise ValueError("not JSON")
+
+    monkeypatch.setattr(
+        whatsapp_qr_gateway_client.requests,
+        "request",
+        lambda *args, **kwargs: Response(),
+    )
+
+    try:
+        whatsapp_qr_gateway_client.qr_gateway_request("POST", "/connections/test/start", {})
+    except whatsapp_qr_gateway_client.QRGatewayError as error:
+        assert error.code == "pilot_whatsapp_qr_gateway_invalid_response"
+    else:
+        raise AssertionError("Expected invalid gateway response")
+
+    assert "status=200, content_type=text/html" in caplog.text
+    assert "not JSON" not in caplog.text
+
+
+def test_gateway_classifies_non_json_http_error_by_status(monkeypatch):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_url", "https://gateway.example.test")
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_shared_secret", "s" * 32)
+
+    class Response:
+        ok = False
+        status_code = 404
+        headers = {"Content-Type": "text/html"}
+
+        @staticmethod
+        def json():
+            raise ValueError("not JSON")
+
+    monkeypatch.setattr(
+        whatsapp_qr_gateway_client.requests,
+        "request",
+        lambda *args, **kwargs: Response(),
+    )
+
+    try:
+        whatsapp_qr_gateway_client.qr_gateway_request("POST", "/connections/test/start", {})
+    except whatsapp_qr_gateway_client.QRGatewayError as error:
+        assert error.code == "pilot_whatsapp_qr_gateway_request_rejected"
+    else:
+        raise AssertionError("Expected rejected gateway request")
+
+
 def test_start_route_returns_gateway_error_as_http_error(monkeypatch):
     monkeypatch.setattr(
         whatsapp_qr,

@@ -1,11 +1,15 @@
 import hashlib
 import hmac
 import json
+import logging
 import time
 
 import requests
 
 from app.core.config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class QRGatewayError(ValueError):
@@ -61,12 +65,6 @@ def qr_gateway_request(method: str, path: str, payload: dict | None = None) -> d
         )
     except requests.RequestException as exc:
         raise QRGatewayError("pilot_whatsapp_qr_gateway_unreachable") from exc
-    try:
-        data = response.json()
-    except ValueError:
-        raise QRGatewayError("pilot_whatsapp_qr_gateway_invalid_response", 502)
-    if not isinstance(data, dict):
-        raise QRGatewayError("pilot_whatsapp_qr_gateway_invalid_response", 502)
     if not response.ok:
         if response.status_code == 401:
             code = "pilot_whatsapp_qr_gateway_auth_failed"
@@ -75,4 +73,20 @@ def qr_gateway_request(method: str, path: str, payload: dict | None = None) -> d
         else:
             code = "pilot_whatsapp_qr_gateway_request_rejected"
         raise QRGatewayError(code, 502 if response.status_code != 503 else 503)
+    try:
+        data = response.json()
+    except ValueError:
+        logger.warning(
+            "QR gateway returned a non-JSON response (status=%s, content_type=%s)",
+            response.status_code,
+            response.headers.get("Content-Type", "unknown"),
+        )
+        raise QRGatewayError("pilot_whatsapp_qr_gateway_invalid_response", 502)
+    if not isinstance(data, dict):
+        logger.warning(
+            "QR gateway returned a non-object JSON response (status=%s, content_type=%s)",
+            response.status_code,
+            response.headers.get("Content-Type", "unknown"),
+        )
+        raise QRGatewayError("pilot_whatsapp_qr_gateway_invalid_response", 502)
     return data

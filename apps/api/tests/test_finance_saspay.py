@@ -304,3 +304,26 @@ def test_confirmed_payment_credits_requested_amount_not_net_proceeds(monkeypatch
     assert payment["fee_charge_mode"] == "DEDUCTED"
     assert payment["idempotency_key"] == f"saspay:{ATTEMPT}"
     assert result == {"status": "SUCCEEDED", "payment_id": "finance-payment"}
+
+
+def test_duplicate_success_is_idempotent_without_recreating_payment(monkeypatch):
+    attempt = {
+        "id": ATTEMPT, "status": "SUCCEEDED", "provider_payment_id": "provider-1",
+    }
+    pay = MagicMock()
+    monkeypatch.setattr(saspay_repository.finance, "pay", pay)
+    result = saspay_repository._apply_verified_payment(
+        "agency", attempt, {}, MERCHANT
+    )
+    assert result == {"status": "SUCCEEDED", "payment_id": "provider-1"}
+    pay.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["FAILED", "CANCELLED"])
+def test_terminal_saspay_attempt_cannot_be_resurrected(status):
+    with pytest.raises(HTTPException) as exc:
+        saspay_repository._apply_verified_payment(
+            "agency", {"id": ATTEMPT, "status": status}, {}, MERCHANT
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.detail == "saspay_attempt_terminal"

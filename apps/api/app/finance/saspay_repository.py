@@ -247,6 +247,19 @@ def start_checkout(org_id: str, document_id: str, idempotency_key: str,
 def _apply_verified_payment(org_id: str, attempt: dict, transaction: dict,
                             merchant_id: str, actor_id: str = "saspay",
                             actor_name: str = "SasPay") -> dict:
+    current_status = str(attempt.get("status") or "").upper()
+    if current_status == "SUCCEEDED":
+        # Webhook delivery is at-least-once. A duplicate success must be
+        # idempotent and must not create another payment.
+        return {
+            "status": "SUCCEEDED",
+            "payment_id": attempt.get("provider_payment_id"),
+        }
+    if current_status in {"FAILED", "CANCELLED"}:
+        # A terminal provider result cannot be resurrected by a late callback.
+        raise HTTPException(409, "saspay_attempt_terminal")
+    if current_status not in {"CREATING", "PENDING", "AMBIGUOUS"}:
+        raise HTTPException(409, "saspay_attempt_state_conflict")
     validated = validate_verified_transaction(
         transaction,
         merchant_id=merchant_id,

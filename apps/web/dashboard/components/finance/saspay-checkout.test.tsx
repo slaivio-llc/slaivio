@@ -41,9 +41,17 @@ const pendingAttempt = {
 
 describe("SasPayCheckout", () => {
   beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_FINANCE_MANUAL_PAYMENTS_ONLY", "0");
     sessionStorage.clear();
     vi.clearAllMocks();
     financeApi.getOpenSasPayAttempt.mockResolvedValue(null);
+  });
+
+  it("disables external checkout by default in V1 manual-only mode", () => {
+    vi.stubEnv("NEXT_PUBLIC_FINANCE_MANUAL_PAYMENTS_ONLY", "true");
+    render(<SasPayCheckout document={document} onConfirmed={vi.fn()} />);
+    expect(screen.getByText("Paiement manuel uniquement")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Créer le lien de paiement" })).not.toBeInTheDocument();
   });
 
   it("stores a stable local key and never treats pending or browser return as payment confirmation", async () => {

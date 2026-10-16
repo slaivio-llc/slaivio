@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     public_web_base_url: str = "https://slaivio.com"
     platform_quarantine_encryption_key: str | None = None
     finance_provider_encryption_key: str | None = None
+    finance_manual_payments_only: bool = True
     quarantine_replay_max_attempts: int = Field(default=5, ge=1, le=20)
     quarantine_replay_lease_seconds: int = Field(default=900, ge=60, le=3600)
 

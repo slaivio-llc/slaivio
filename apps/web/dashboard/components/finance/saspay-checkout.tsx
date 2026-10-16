@@ -24,11 +24,13 @@ export function SasPayCheckout({ document, onConfirmed }: {
   document: FinanceDocument;
   onConfirmed: () => Promise<void>;
 }) {
+  const manualPaymentsOnly = process.env.NEXT_PUBLIC_FINANCE_MANUAL_PAYMENTS_ONLY !== "0" && process.env.NEXT_PUBLIC_FINANCE_MANUAL_PAYMENTS_ONLY !== "false";
   const [attempt, setAttempt] = useState<SasPayAttempt | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (manualPaymentsOnly) return;
     let active = true;
     const savedId = window.sessionStorage.getItem(storageKey(document.id));
     const request = savedId
@@ -95,6 +97,15 @@ export function SasPayCheckout({ document, onConfirmed }: {
 
   const open = attempt && ["CREATING", "PENDING", "AMBIGUOUS"].includes(attempt.status);
   const retryAllowed = attempt && ["FAILED", "CANCELLED"].includes(attempt.status);
+
+  if (manualPaymentsOnly) {
+    return <section className="space-y-2 rounded-lg border border-[#e5e8eb] bg-slate-50 p-4" aria-label="Paiement manuel uniquement">
+      <div>
+        <h3 className="text-sm font-semibold">Paiement manuel uniquement</h3>
+        <p className="mt-1 text-xs text-slate-600">La V1 exige un enregistrement manuel des paiements. Le paiement en ligne est désactivé par défaut et ne sera réactivé explicitement par l’équipe produit.</p>
+      </div>
+    </section>;
+  }
 
   return <section className="space-y-2 rounded-lg border border-[#e5e8eb] p-4" aria-label="Paiement SasPay">
     <div>

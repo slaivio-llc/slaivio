@@ -17,6 +17,11 @@ MERCHANT = "6f1e2b3a-8c4d-4a2f-9e1b-2d3c4f5a6b7c"
 ATTEMPT = "b5fdab11-a21c-4ed1-88c3-70f4bd79cbb8"
 
 
+@pytest.fixture(autouse=True)
+def allow_external_provider_flows_for_saspay_tests(monkeypatch):
+    monkeypatch.setattr(settings, "finance_manual_payments_only", False)
+
+
 def signature(body: bytes, timestamp: str, secret: str = "webhook-secret") -> str:
     signed = timestamp.encode() + b"." + body
     return hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
@@ -185,8 +190,19 @@ def test_connection_secrets_are_encrypted_and_never_returned(monkeypatch):
     assert "api_key" not in result and "signing_secret" not in result
 
 
+def test_manual_payments_only_blocks_external_provider_flows(monkeypatch):
+    monkeypatch.setattr(settings, "finance_manual_payments_only", True)
+    with pytest.raises(HTTPException) as exc:
+        saspay_repository.configure_connection(
+            "agency", MERCHANT, "TEST", "sk_test_supersecret", "signing-secret-value", "admin"
+        )
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "manual_payments_only"
+
+
 def test_live_merchant_connection_is_refused_outside_production(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "development")
+    monkeypatch.setattr(settings, "finance_manual_payments_only", False)
     with pytest.raises(HTTPException) as exc:
         saspay_repository.configure_connection(
             "agency", MERCHANT, "LIVE", "sk_live_secret", "signing-secret-value", "admin"

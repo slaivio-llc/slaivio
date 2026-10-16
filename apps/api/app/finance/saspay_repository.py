@@ -24,8 +24,14 @@ from app.finance.saspay import (
 )
 
 
+def _require_manual_payment_opt_in() -> None:
+    if settings.finance_manual_payments_only:
+        raise HTTPException(403, "manual_payments_only")
+
+
 def configure_connection(org_id: str, merchant_id: str, environment: str,
                          api_key: str, signing_secret: str, actor_id: str) -> dict:
+    _require_manual_payment_opt_in()
     environment = environment.upper()
     if environment not in {"TEST", "LIVE"}:
         raise HTTPException(422, "saspay_environment_invalid")
@@ -118,6 +124,7 @@ def _public_attempt(row: dict) -> dict:
 
 def start_checkout(org_id: str, document_id: str, idempotency_key: str,
                    actor_id: str, client: SasPayClient | None = None) -> dict:
+    _require_manual_payment_opt_in()
     connection_data = _load_connection(org_id)
     attempt_id = str(uuid4())
     with engine.begin() as conn:
@@ -285,6 +292,7 @@ def _apply_verified_payment(org_id: str, attempt: dict, transaction: dict,
 
 def reconcile_checkout(org_id: str, document_id: str, attempt_id: str,
                        client: SasPayClient | None = None) -> dict:
+    _require_manual_payment_opt_in()
     with engine.connect() as conn:
         attempt_row = conn.execute(text("""select * from finance_saspay_attempts
             where org_id=:org and document_id=:document and id=cast(:id as uuid)"""),
@@ -330,6 +338,7 @@ def reconcile_checkout(org_id: str, document_id: str, attempt_id: str,
 def handle_webhook(org_id: str, raw_body: bytes, signature: str,
                    timestamp: str, event_header: str,
                    client: SasPayClient | None = None) -> dict:
+    _require_manual_payment_opt_in()
     connection_data = _load_connection(org_id)
     if not verify_webhook_signature(
         raw_body, signature, timestamp, connection_data["signing_secret"]

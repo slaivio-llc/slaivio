@@ -126,6 +126,44 @@ export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
   },
 ];
 
+// Cargo workspace navigation: modules are grouped by the daily agency workflow.
+export const cargoAgencyNavigation: readonly AppNavigationGroup[] = [
+  { label: "Opérations", icon: Package, collapsible: true, routes: [
+    { label: "Colis", href: "/app/packages", icon: Package, keywords: ["colis", "poids", "destination", "statut"] },
+    { label: "Expéditions", href: "/app/shipments", icon: Truck, permission: "shipments.read", keywords: ["expédition", "départ", "manifeste", "transport"] },
+    { label: "Tracking", href: "/app/tracking", icon: Radar, permission: "tracking.read", keywords: ["tracking", "suivi", "statut"] },
+    { label: "Départs", href: "/app/departures", icon: Truck, permission: "departures.read", keywords: ["départ", "calendrier"] },
+    { label: "Entrepôts", href: "/app/warehouses", icon: Warehouse, permission: "warehouses.read", keywords: ["entrepôt", "stock", "bureau"] },
+  ] },
+  { label: "Clients", icon: Users, collapsible: false, routes: [
+    { label: "Clients", href: "/app/clients", icon: Users, permission: "clients.read", keywords: ["client", "historique", "contact"] },
+  ] },
+  { label: "Communication", icon: MessageCircle, collapsible: true, routes: [
+    { label: "Boîte de réception", href: "/app/inbox", icon: MessageCircle, permission: "inbox.read", keywords: ["whatsapp", "message", "conversation"] },
+    { label: "Notifications", href: "/app/notifications", icon: BellRing, permission: "notifications.read", keywords: ["notification", "alerte"] },
+    { label: "Annonces & Relances", href: "/app/communication/annonces-relances", icon: Megaphone, keywords: ["annonce", "campagne", "relance", "whatsapp"] },
+    { label: "Connaissances", href: "/app/knowledge", icon: BookOpen, permission: "pilot.knowledge.read", keywords: ["connaissance", "fichier", "image", "ia"] },
+    { label: "Paramètres", href: "/app/settings?section=integrations", icon: Settings, permission: "organization.read", keywords: ["communication", "whatsapp", "canal"] },
+  ] },
+  { label: "Finance", icon: ReceiptText, collapsible: true, routes: [
+    { label: "Vue d’ensemble", href: "/app/finance?section=overview", icon: BarChart3, permission: "finance.read", keywords: ["indicateurs", "aperçu"] },
+    { label: "Factures", href: "/app/finance?section=invoices", icon: ReceiptText, permission: "finance.read", keywords: ["facture", "devis"] },
+    { label: "Paiements", href: "/app/finance?section=payments", icon: HandCoins, permission: "finance.read", keywords: ["paiement", "reçu", "encaissement"] },
+    { label: "Soldes clients", href: "/app/finance?section=balances", icon: BadgeDollarSign, permission: "finance.read", keywords: ["solde", "créance", "client"] },
+    { label: "Paramètres", href: "/app/finance?section=settings", icon: Settings, permission: "finance.settings", keywords: ["condition", "exigibilité", "paiement"] },
+  ] },
+  { label: "Rapports", icon: BarChart3, collapsible: true, routes: [
+    { label: "Rapports", href: "/app/reports", icon: BarChart3, permission: "analytics.read", keywords: ["rapport", "analytics", "performance", "export"] },
+  ] },
+  { label: "Gestion", icon: Settings, collapsible: true, routes: [
+    { label: "Organisation et équipe", href: "/app/settings", icon: Building2, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "équipe", "accès"] },
+    { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "trajet", "origine", "destination"] },
+    { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "transport", "offre"] },
+    { label: "Tarification", href: "/app/pricing", icon: BadgeDollarSign, permission: "pricing.read", keywords: ["tarif", "grille", "prix", "simulateur"] },
+    { label: "Dossiers", href: "/app/dossiers", icon: Folder, permission: "dossiers.read", keywords: ["dossier", "documents", "client"] },
+  ] },
+];
+
 // The former operational surface stays available behind CARGO_OS. Nothing is deleted.
 export const cargoOsNavigation: readonly AppNavigationGroup[] = [
   {
@@ -186,10 +224,10 @@ export const cargoOsNavigation: readonly AppNavigationGroup[] = [
 export function getAppNavigation(profile: ProductProfile = getProductProfile(), workspaceKind: string = "OFFICE") {
   if (profile === PRODUCT_PROFILES.PILOT_V1) return pilotV1Navigation;
   if (profile === PRODUCT_PROFILES.PARCEL_FREIGHT) {
-    if (workspaceKind === "WAREHOUSE") return parcelFreightNavigation
+    if (workspaceKind === "WAREHOUSE") return cargoAgencyNavigation
       .filter(group => group.label !== "Finance")
       .map(group => ({...group, routes: group.routes.map(route => route.href === "/app/warehouses" ? {...route, label: "Stockage et emplacements"} : route)}));
-    return parcelFreightNavigation.map(group => ({...group, routes: group.routes.filter(route => route.href !== "/app/warehouses")}));
+    return cargoAgencyNavigation.map(group => ({...group, routes: group.routes.filter(route => route.href !== "/app/warehouses")}));
   }
   return cargoOsNavigation;
 }

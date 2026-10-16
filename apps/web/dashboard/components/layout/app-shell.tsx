@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -78,6 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const appNavigation = useMemo(() => getAppNavigation(productProfile, workspaceKind), [productProfile,workspaceKind]);
   const searchableAppRoutes = useMemo(() => appNavigation.flatMap((group) => group.routes), [appNavigation]);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const { permissions, loading: permissionsLoading, available: permissionsAvailable } = usePermissions();
@@ -89,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [supportView, setSupportView] = useState<SupportView>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
-    pilot ? { Communication: true } : { Clients: false, Opérations: true, "Offre commerciale": false, Communication: false, Pilotage: false },
+    pilot ? { Communication: true, Opérations: true, Finance: true } : { Clients: false, Opérations: true, "Offre commerciale": false, Communication: false, Pilotage: false },
   );
 
   useEffect(() => {
@@ -140,31 +141,36 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (pilot) {
       setSidebarCollapsed(false);
-      return;
+      if (!cargo) return;
     }
     const savedCollapsed = window.localStorage.getItem("slaivio.sidebar.collapsed");
     const savedGroups = window.localStorage.getItem("slaivio.sidebar.groups");
-    setSidebarCollapsed(savedCollapsed === "1");
+    if (!pilot) setSidebarCollapsed(savedCollapsed === "1");
     if (savedGroups) {
       try {
         const parsed = JSON.parse(savedGroups) as Record<string, boolean>;
+        if (cargo) {
+          setOpenGroups((current) => Object.fromEntries(appNavigation.map((group) => [group.label, parsed[group.label] ?? current[group.label] ?? false])));
+          return;
+        }
         const selected = appNavigation.find((group) => parsed[group.label])?.label || "Opérations";
         setOpenGroups(Object.fromEntries(appNavigation.map((group) => [group.label, group.label === selected])));
       } catch { /* Ignore stale preferences. */ }
     }
-  }, [appNavigation, pilot]);
+  }, [appNavigation, pilot, cargo]);
 
   useEffect(() => {
-    if (pilot) return;
+    if (pilot && !cargo) return;
     const activeGroup = groupedRoutes.find((group) =>
-      group.routes.some((route) => pathname === route.href || pathname.startsWith(`${route.href}/`)),
+      group.routes.some((route) => isNavigationRouteActive(pathname, searchParams, route.href)),
     );
     if (!activeGroup) return;
     setOpenGroups((current) => {
+      if (cargo) return current[activeGroup.label] === true ? current : { ...current, [activeGroup.label]: true };
       const next = Object.fromEntries(groupedRoutes.map((group) => [group.label, group.label === activeGroup.label]));
       return Object.keys(next).every((key) => current[key] === next[key]) ? current : next;
     });
-  }, [groupedRoutes, pathname, pilot]);
+  }, [groupedRoutes, pathname, searchParams, pilot, cargo]);
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
@@ -210,6 +216,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   function toggleGroup(label: string) {
     setOpenGroups((current) => {
+      if (cargo) {
+        const next = { ...current, [label]: current[label] === false };
+        window.localStorage.setItem("slaivio.sidebar.groups", JSON.stringify(next));
+        return next;
+      }
       const willOpen = current[label] === false;
       const next = Object.fromEntries(groupedRoutes.map((group) => [group.label, willOpen && group.label === label]));
       window.localStorage.setItem("slaivio.sidebar.groups", JSON.stringify(next));
@@ -229,19 +240,23 @@ export function AppShell({ children }: { children: ReactNode }) {
         className={`fixed inset-0 z-40 bg-black/25 lg:hidden ${mobileOpen ? "block" : "hidden"}`}
       />
 
-      <aside data-ui="sidebar" className={`slaivio-sidebar fixed inset-y-0 left-0 z-50 flex w-[248px] flex-col border-r border-[#e8eaed] bg-white transition-[width,transform] duration-200 lg:relative lg:z-auto lg:translate-x-0 ${pilot ? "lg:w-[232px]" : sidebarCollapsed ? "lg:w-[56px]" : "lg:w-[248px]"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className={`flex shrink-0 items-center ${pilot ? "h-[72px] px-3" : `h-[60px] border-b border-[#e3e4e5] ${sidebarCollapsed ? "lg:justify-center lg:px-1" : "px-4"}`}`}>
-          {pilot ? <div className="min-w-0 flex-1"><OrganizationSwitcher menuPlacement="down" /></div> : <Link href="/app" className={`flex items-center ${sidebarCollapsed?"lg:hidden":""}`} onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly={sidebarCollapsed}/></Link>}
+      <aside data-ui="sidebar" className={`slaivio-sidebar fixed inset-y-0 left-0 z-50 flex w-[292px] flex-col border-r border-[#e8eaed] bg-white transition-[width,transform] duration-200 lg:relative lg:z-auto lg:translate-x-0 ${cargo ? "lg:w-[292px]" : pilot ? "lg:w-[232px]" : sidebarCollapsed ? "lg:w-[56px]" : "lg:w-[248px]"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className={`flex shrink-0 items-center ${cargo ? "min-h-[150px] border-b border-[#e8eaed] px-3 py-3" : pilot ? "h-[72px] px-3" : `h-[60px] border-b border-[#e3e4e5] ${sidebarCollapsed ? "lg:justify-center lg:px-1" : "px-4"}`}`}>
+          {cargo ? <div className="min-w-0 flex-1">
+            <Link href="/app" className="flex h-10 items-center gap-2 px-1" onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly /><span><span className="block text-[14px] font-semibold leading-5 text-[#20252b]">SLAIVIO</span><span className="block text-[11px] leading-4 text-[#79818a]">Cargo OS</span></span></Link>
+            <div className="mt-2"><OrganizationSwitcher menuPlacement="down" header /></div>
+            <div className="mt-2 rounded-md bg-[#f7f8f8] px-2.5 py-2"><OfficeContextSelector /></div>
+          </div> : pilot ? <div className="min-w-0 flex-1"><OrganizationSwitcher menuPlacement="down" /></div> : <Link href="/app" className={`flex items-center ${sidebarCollapsed?"lg:hidden":""}`} onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly={sidebarCollapsed}/></Link>}
           <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="ml-auto rounded-[4px] p-1.5 text-[#555] hover:bg-[#f0f1f1] lg:hidden">
             <X size={17} />
           </button>
-          {!pilot && <button onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Agrandir la navigation" : "Réduire la navigation"} title={sidebarCollapsed ? "Agrandir la navigation" : "Réduire la navigation"} className={`ml-auto hidden h-8 w-8 place-items-center rounded-[5px] text-[#656c74] hover:bg-[#f0f1f1] lg:grid ${sidebarCollapsed ? "lg:mx-auto lg:border lg:border-[#dfe1e3] lg:bg-white lg:shadow-sm" : ""}`}>
+          {!pilot && !cargo && <button onClick={toggleSidebar} aria-label={sidebarCollapsed ? "Agrandir la navigation" : "Réduire la navigation"} title={sidebarCollapsed ? "Agrandir la navigation" : "Réduire la navigation"} className={`ml-auto hidden h-8 w-8 place-items-center rounded-[5px] text-[#656c74] hover:bg-[#f0f1f1] lg:grid ${sidebarCollapsed ? "lg:mx-auto lg:border lg:border-[#dfe1e3] lg:bg-white lg:shadow-sm" : ""}`}>
             {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>}
         </div>
 
-        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot ? "px-3 py-3" : `py-2.5 ${sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
-          {pilot ? (
+        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot && !cargo ? "px-3 py-3" : `py-2.5 ${sidebarCollapsed && !cargo ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
+          {pilot && !cargo ? (
             <div>
               <PilotRailLink href="/app" icon={<Home size={19} />} active={pathname === "/app"} label={dashboardLabel(locale, "Accueil", "/app")} />
               {pilotPrimaryRoutes.map((route) => (
@@ -249,28 +264,28 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={route.href}
                   href={route.href}
                   icon={<route.icon size={19} />}
-                  active={pathname === route.href || pathname.startsWith(`${route.href}/`)}
+                  active={isNavigationRouteActive(pathname, searchParams, route.href)}
                   label={pilotRouteLabel(locale, route.label, route.href)}
                 />
               ))}
             </div>
           ) : <>
-            <SidebarLink href="/app" icon={<Home size={18} />} active={pathname === "/app"} label={dashboardLabel(locale, "Accueil", "/app")} collapsed={sidebarCollapsed} />
+            <SidebarLink href="/app" icon={<Home size={18} />} active={pathname === "/app"} label={cargo ? "Dashboard" : dashboardLabel(locale, "Accueil", "/app")} collapsed={sidebarCollapsed} />
             {groupedRoutes.map((group) => group.collapsible === false && group.routes[0] ? (
             <div key={group.label} className="mt-1">
               <SidebarLink
                 href={group.routes[0].href}
                 icon={<group.icon size={18} />}
-                active={pathname === group.routes[0].href || pathname.startsWith(`${group.routes[0].href}/`)}
+                active={isNavigationRouteActive(pathname, searchParams, group.routes[0].href)}
                 label={dashboardLabel(locale, group.routes[0].label, group.routes[0].href)}
                 collapsed={sidebarCollapsed}
               />
             </div>
           ) : (
             <section data-ui="sidebar-group" key={group.label} className={sidebarCollapsed ? "mt-1" : "mt-3"}>
-              <button type="button" onClick={() => toggleGroup(group.label)} title={sidebarCollapsed ? dashboardLabel(locale, group.label) : undefined} aria-expanded={!sidebarCollapsed && openGroups[group.label] !== false} className={`flex w-full items-center text-[#53606c] hover:text-[#20252b] ${sidebarCollapsed ? "h-10 justify-center rounded-[6px] hover:bg-[#f0f2f3]" : "h-9 gap-2.5 px-2"}`}>
+              <button type="button" onClick={() => toggleGroup(group.label)} title={sidebarCollapsed ? dashboardLabel(locale, group.label) : undefined} aria-expanded={!sidebarCollapsed && openGroups[group.label] !== false} className={`flex w-full items-center text-[#30373d] hover:text-[#20252b] ${cargo ? "h-10 gap-3 px-2.5" : sidebarCollapsed ? "h-10 justify-center rounded-[6px] hover:bg-[#f0f2f3]" : "h-9 gap-2.5 px-2"}`}>
                 <group.icon size={16} strokeWidth={1.8} className="shrink-0 text-[#69747f]" />
-                {!sidebarCollapsed && <><span data-ui="sidebar-group-label" className="truncate text-[12px] font-[650] uppercase tracking-[0.045em]">{dashboardLabel(locale, group.label)}</span><ChevronDown size={14} className={`ml-auto text-[#8a939c] transition-transform ${openGroups[group.label] === false ? "-rotate-90" : ""}`} /></>}
+                {!sidebarCollapsed && <><span data-ui="sidebar-group-label" className={`truncate ${cargo ? "text-[14px] font-semibold" : "text-[12px] font-[650] uppercase tracking-[0.045em]"}`}>{dashboardLabel(locale, group.label)}</span><ChevronDown size={14} className={`ml-auto text-[#8a939c] transition-transform ${openGroups[group.label] === false ? "-rotate-90" : ""}`} /></>}
               </button>
               <div className={`ml-[17px] space-y-1 border-l border-[#e2e6e9] pl-2.5 ${sidebarCollapsed || openGroups[group.label] === false ? "hidden" : ""}`}>
                 {group.routes.map((route) => (
@@ -278,7 +293,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     key={route.href}
                     href={route.href}
                     icon={<route.icon size={16} />}
-                    active={pathname === route.href || pathname.startsWith(`${route.href}/`)}
+                    active={isNavigationRouteActive(pathname, searchParams, route.href)}
                     label={dashboardLabel(locale, route.label, route.href)}
                     collapsed={sidebarCollapsed}
                     nested
@@ -290,13 +305,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           </>}
         </nav>
 
-        {cargo && permissionsAvailable && permissions.includes("organization.read") && <div className="mt-auto shrink-0 pb-3"><PilotRailButton label={dashboardLabel(locale, "Paramètres")} icon={<Settings size={19}/>} onClick={() => router.push("/app/settings")} active={pathname === "/app/settings"}/></div>}
+        {cargo && <div className="mt-auto shrink-0 border-t border-[#e8eaed] p-2.5">
+          {permissionsAvailable && permissions.includes("organization.read") && <CargoUtilityButton label={dashboardLabel(locale, "Paramètres généraux")} icon={<Settings size={17}/>} active={pathname === "/app/settings" && !searchParams.has("section")} onClick={() => router.push("/app/settings")} />}
+          <CargoUtilityButton label={dashboardLabel(locale, "Aide & Support")} icon={<CircleHelp size={17}/>} active={Boolean(supportView)} onClick={() => { setFloatingPanel(null); setSupportView("topics"); }} />
+          <CargoUtilityButton label={dashboardLabel(locale, "Mon compte")} icon={<UserRound size={17}/>} active={floatingPanel === "account"} onClick={() => togglePanel("account")} />
+        </div>}
         {pilot && !cargo && <div className="mt-auto flex shrink-0 items-center px-3 pb-3 lg:grid lg:px-0 lg:pb-0">
           <PilotRailButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={19} />} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />
           <AccountTrigger onClick={() => togglePanel("account")} rail />
         </div>}
 
-        {!pilot && <div className={`shrink-0 border-t border-[#e3e4e5] ${sidebarCollapsed ? "lg:p-1.5" : "p-3"}`}>
+        {!pilot && !cargo && <div className={`shrink-0 border-t border-[#e3e4e5] ${sidebarCollapsed ? "lg:p-1.5" : "p-3"}`}>
           {!permissionsLoading && !permissionsAvailable && (
             <div className="mb-2 rounded-[5px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-800">
               Les droits n’ont pas pu être chargés. Les API continuent de protéger les actions.
@@ -331,9 +350,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             {!cargo && <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />}
             {!pilot && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={16} />} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />}
             {!pilot && <AccountTrigger onClick={() => togglePanel("account")} />}
-            {cargo && <HeaderButton label={locale === "en" ? "Help" : "Aide"} icon={<CircleHelp size={16}/>} onClick={() => { setFloatingPanel(null); setSupportView("topics"); }} />}
-            {cargo && permissionsAvailable && permissions.includes("notifications.read") && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={16}/>} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"}/>}
-            {cargo && <AccountTrigger onClick={() => togglePanel("account")} />}
           </div>
         </header>
 
@@ -341,7 +357,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {floatingPanel === "help" && <div className="fixed right-[82px] top-[52px] z-50"><HelpMenu close={() => setFloatingPanel(null)} /></div>}
         {floatingPanel === "notifications" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-[70px] left-3 lg:left-[96px]" : "right-[48px] top-[52px]"}`}><NotificationsMenu pilot={pilot && !cargo} close={() => setFloatingPanel(null)} /></div>}
         {floatingPanel === "language" && <div className="fixed right-[82px] top-[52px] z-50"><LanguageMenu close={() => setFloatingPanel(null)}/></div>}
-        {floatingPanel === "account" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-3 left-3 lg:left-[96px]" : "right-3 top-[52px]"}`}>{cargo && clerkEnabled ? <CargoAccountMenu locale={locale} close={() => setFloatingPanel(null)} preferences={() => setFloatingPanel("language")}/> : <AccountMenu close={() => setFloatingPanel(null)} openSupport={() => { setFloatingPanel(null); setSupportView("topics"); }} />}</div>}
+        {floatingPanel === "account" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-3 left-3 lg:left-[96px]" : cargo ? "bottom-3 left-3" : "right-3 top-[52px]"}`}>{cargo && clerkEnabled ? <CargoAccountMenu locale={locale} close={() => setFloatingPanel(null)} preferences={() => setFloatingPanel("language")}/> : <AccountMenu close={() => setFloatingPanel(null)} openSupport={() => { setFloatingPanel(null); setSupportView("topics"); }} />}</div>}
 
         {supportView && <SupportDialog locale={locale} view={supportView} setView={setSupportView} close={() => setSupportView(null)} />}
 
@@ -396,6 +412,20 @@ function SidebarLink({ href, icon, active, label, collapsed = false, nested = fa
       {!collapsed && <span className="truncate">{label}</span>}
     </Link>
   );
+}
+
+function isNavigationRouteActive(pathname: string, searchParams: URLSearchParams, href: string) {
+  const url = new URL(href, "https://slaivio.local");
+  if (pathname !== url.pathname && !pathname.startsWith(`${url.pathname}/`)) return false;
+  if (url.pathname === "/app/settings" && url.searchParams.size === 0 && searchParams.has("section")) return false;
+  for (const [key, value] of url.searchParams.entries()) {
+    if (searchParams.get(key) !== value) return false;
+  }
+  return true;
+}
+
+function CargoUtilityButton({ label, icon, active, onClick }: { label: string; icon: ReactNode; active: boolean; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className={`flex h-10 w-full items-center gap-3 rounded-md px-2.5 text-left text-[13px] transition ${active ? "bg-[#e8f3ef] font-medium text-[#145f49]" : "text-[#3f474f] hover:bg-[#f2f4f4]"}`}>{icon}<span>{label}</span></button>;
 }
 
 function PilotRailLink({ href, icon, active, label }: { href: string; icon: ReactNode; active: boolean; label: string }) {

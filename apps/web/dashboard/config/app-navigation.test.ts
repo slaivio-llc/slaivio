@@ -33,27 +33,22 @@ describe("product navigation", () => {
     expect(getAppNavigation(PRODUCT_PROFILES.CARGO_OS).find((group) => group.label === "Opérations")?.routes.some((route) => route.href === "/app/routes")).toBe(false);
   });
 
-  it("exposes only the agreed parcel and freight agency modules", () => {
+  it("organizes parcel and freight modules in the Cargo sidebar", () => {
     const routes = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT).flatMap((group) => group.routes);
 
-    expect(routes.map((route) => route.href)).toEqual([
-      "/app/clients",
-      "/app/operations",
-      "/app/packages",
-      "/app/shipments",
-      "/app/communication",
-      "/app/inbox",
-      "/app/followups",
-      "/app/knowledge",
-      "/app/finance",
-      "/app/pricing",
-    ]);
-    expect(routes.some((route) => route.href === "/app/broadcasts")).toBe(false);
-    expect(routes.some((route) => route.href === "/app/tracking")).toBe(false);
+    expect(routes.some((route) => route.href === "/app/tracking")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/communication/annonces-relances")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/reports")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/services")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/routes")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/finance?section=overview")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/finance?section=invoices")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/finance?section=payments")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/finance?section=balances")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/finance?section=settings")).toBe(true);
     const operations = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT)
       .find((group) => group.label === "Opérations");
-    expect(operations?.routes.some((route) => route.href === "/app/routes")).toBe(false);
-    expect(operations?.routes.some((route) => route.href === "/app/services")).toBe(false);
+    expect(operations?.routes.some((route) => route.href === "/app/tracking")).toBe(true);
   });
 
   it("keeps agency settings in the bottom utility rail, not the compact navigation", () => {
@@ -72,7 +67,7 @@ describe("product navigation", () => {
     const office = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT, "OFFICE").flatMap(group => group.routes);
     const warehouse = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT, "WAREHOUSE").flatMap(group => group.routes);
     expect(office.some(route => route.href === "/app/warehouses")).toBe(false);
-    expect(office.some(route => route.href === "/app/finance")).toBe(true);
+    expect(office.some(route => route.href.startsWith("/app/finance"))).toBe(true);
     expect(warehouse.some(route => route.href === "/app/warehouses")).toBe(true);
     expect(warehouse.some(route => route.href === "/app/finance")).toBe(false);
   });

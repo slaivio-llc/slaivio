@@ -5,6 +5,7 @@ import { FinanceOfficeAssignment } from "./finance-office-assignment";
 import { FinanceDuePolicySettings } from "./finance-due-policy-settings";
 import { PaymentReverseButton } from "./finance-completion-actions";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
@@ -98,6 +99,8 @@ function packageInvoiceError(e: unknown) {
   return (code && messages[code]) || err(e);
 }
 export function FinancePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<FinanceDocument[]>([]),
     [stats, setStats] = useState(empty),
     [q, setQ] = useState(""),
@@ -108,7 +111,7 @@ export function FinancePage() {
     [error, setError] = useState(""),
     [create, setCreate] = useState(false),
     [policySettings, setPolicySettings] = useState(false),
-    [section, setSection] = useState<"overview" | "invoices" | "payments" | "balances">("overview"),
+    [section, setSection] = useState<"overview" | "invoices" | "payments" | "balances" | "settings">("overview"),
     [paymentRows, setPaymentRows] = useState<FinancePaymentRow[]>([]),
     [balanceRows, setBalanceRows] = useState<FinanceBalanceRow[]>([]),
     [currency, setCurrency] = useState(""),
@@ -117,6 +120,23 @@ export function FinancePage() {
     [openPaymentOnDetail, setOpenPaymentOnDetail] = useState(false),
     [selected, setSelected] = useState<FinanceDocument | null>(null);
   const closeResourceLink = useResourceLink(getFinance, setSelected, setError);
+  useEffect(() => {
+    const requested = searchParams.get("section");
+    if (requested === "overview" || requested === "invoices" || requested === "payments" || requested === "balances" || requested === "settings") {
+      setSection(requested);
+      setPolicySettings(requested === "settings");
+    } else if (requested === null) {
+      setSection("overview");
+      setPolicySettings(false);
+    }
+  }, [searchParams]);
+  function selectSection(next: "overview" | "invoices" | "payments" | "balances" | "settings") {
+    setSection(next);
+    setStatus(""); setKind(""); setActiveMetric("");
+    if (next === "settings") setPolicySettings(true);
+    else setPolicySettings(false);
+    router.replace(next === "overview" ? "/app/finance" : `/app/finance?section=${next}`, { scroll: false });
+  }
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -207,8 +227,8 @@ export function FinancePage() {
       />
       <main>
         <nav aria-label="Sections Finance" className="flex gap-1 overflow-x-auto border-b border-[#e6e8e9] px-6">
-          {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>{setSection(key);setStatus("");setKind("");setActiveMetric("");}} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section===key?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>{label}</button>)}
-          <PermissionGuard permission="finance.settings"><button type="button" onClick={()=>setPolicySettings(true)} className="shrink-0 border-b-2 border-transparent px-3 py-3 text-[13px] text-[#68717d] hover:text-[#17212b]">Paramètres</button></PermissionGuard>
+          {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>selectSection(key)} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section===key?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>{label}</button>)}
+          <PermissionGuard permission="finance.settings"><button type="button" aria-current={section==="settings"?"page":undefined} onClick={()=>selectSection("settings")} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section==="settings"?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>Paramètres</button></PermissionGuard>
         </nav>
         {section === "overview" && <OperationMetrics>
         <OperationMetricGrid>
@@ -220,7 +240,7 @@ export function FinancePage() {
             ["Factures impayées", stats.unpaid_invoice_count],
             ["Factures partiellement payées", stats.partially_paid_invoice_count],
           ].map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { setActiveMetric(String(l)); setSection("invoices"); setKind("INVOICE"); setStatus(String(l).includes("partiellement") ? "PARTIALLY_PAID" : ""); }} />
+            <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { selectSection("invoices"); setActiveMetric(String(l)); setKind("INVOICE"); setStatus(String(l).includes("partiellement") ? "PARTIALLY_PAID" : ""); }} />
           ))}
         </OperationMetricGrid>
         </OperationMetrics>}

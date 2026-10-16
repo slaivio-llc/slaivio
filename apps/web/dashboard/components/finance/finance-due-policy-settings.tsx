@@ -38,9 +38,10 @@ export function FinanceDuePolicySettings({ open, close }: { open: boolean; close
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     setBusy(true);
     setError("");
-    const form = new FormData(event.currentTarget);
+    const form = new FormData(formElement);
     const type = String(form.get("rule_type")) as FinanceDuePolicy["rule_type"];
     const amount = Number(form.get(type === "PERCENTAGE" ? "percentage" : "fixed_amount"));
     try {
@@ -54,7 +55,7 @@ export function FinanceDuePolicySettings({ open, close }: { open: boolean; close
         is_active: true,
       });
       await load();
-      event.currentTarget.reset();
+      formElement.reset();
       setRuleType("PERCENTAGE");
     } catch (cause) {
       setError((cause as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "La règle n’a pas pu être enregistrée.");

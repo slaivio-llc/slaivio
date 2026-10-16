@@ -17,7 +17,7 @@ export function ParcelCommunicationHub(){
   const connected=settings?.whatsapp_numbers.some(number=>number.is_default&&number.connection_status==="CONNECTED")??false;
   return <div className="min-h-full bg-white"><OperationPageHeader title="Communication" description="Centralisez WhatsApp, les relances commerciales et les connaissances utilisées par l’IA."/><OperationContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
     <ModuleCard href="/app/inbox" icon={<MessageCircle size={18}/>} title="Messagerie WhatsApp" value={connected?"Connecté":"À connecter"} detail="Conversations clients, réponses automatiques et reprise manuelle." loading={loading}/>
-    <ModuleCard href="/app/followups" icon={<BellRing size={18}/>} title="Annonces et relances" value={String((followups?.due_today??0)+(followups?.overdue??0))} detail={`${followups?.due_today??0} aujourd’hui · ${followups?.overdue??0} en retard`} loading={loading}/>
+    <ModuleCard href="/app/communication/annonces-relances" icon={<BellRing size={18}/>} title="Annonces et relances" value={String((followups?.due_today??0)+(followups?.overdue??0))} detail={`${followups?.due_today??0} aujourd’hui · ${followups?.overdue??0} en retard`} loading={loading}/>
     <ModuleCard href="/app/knowledge" icon={<BookOpen size={18}/>} title="Connaissances" value={String(settings?.knowledge.whatsapp_ready_count??0)} detail="Informations publiées et utilisables par l’IA avec les clients." loading={loading}/>
   </OperationContent></div>;
 }

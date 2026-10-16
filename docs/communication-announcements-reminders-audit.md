@@ -25,6 +25,11 @@ Date : 2026-10-16
 - Les callbacks de livraison ne régressent pas un état `READ` vers `DELIVERED`, ni un état terminal vers un état antérieur.
 - Le démarrage d'une campagne utilisait `null` comme valeur Python, ce qui faisait échouer la validation ; la comparaison est corrigée et couverte par test.
 - Aucun envoi réel n'a été effectué.
+- Une seconde vérification d'éligibilité est maintenant exécutée juste avant l'appel fournisseur : suppressions/consentement commercial pour une annonce, état actuel de la facture ou du retrait et liste d'arrêt pour une relance.
+- Les tâches de relance distinguent désormais l'ajout à l'outbox (`DISPATCHING`) de l'acceptation fournisseur (`SENT`). Un état métier résolu ou un opt-out annule l'envoi en attente sans appeler le fournisseur.
+- Les relances de paiement exigent une facture avec solde et échéance passée ; les relances de retrait exigent toujours un ordre `READY` ou `NOTIFIED`.
+- Les états fournisseur des relances sont projetés vers l'historique d'envoi en tenant compte de l'organisation.
+- Les lots de relances pilot restent en cours tant qu'un dispatch est ambigu/en attente et passent en échec partiel si une tentative échoue ou est annulée sans tentative encore active.
 
 ## Écarts à traiter dans les prochains lots
 

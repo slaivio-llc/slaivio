@@ -45,3 +45,16 @@ def test_followup_cron_matches_the_partial_idempotency_index():
     assert "create unique index idx_followup_idempotency" in repair
     assert "where idempotency_key is not null" in repair
     assert "row_number() over" in repair
+
+
+def test_followup_dispatch_revalidates_financial_and_pickup_conditions():
+    repo = text("apps/api/app/db/followup_repository.py")
+    sender = text("apps/api/app/services/notification_sender.py")
+    delivery = text("apps/api/app/db/whatsapp_delivery_repository.py")
+    assert "due_date is not null and due_date<=current_date" in repo
+    assert "status in('READY','NOTIFIED')" in repo
+    assert "validate_notification_before_send" in repo
+    assert "status='DISPATCHING',notification_id=:notification" in repo
+    assert "validate_followup_notification(org_id, notification_id)" in sender
+    assert "sync_followup_notification_status" in sender
+    assert "where a.org_id=:org_id and a.notification_id=:notification_id" in delivery

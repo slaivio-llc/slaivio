@@ -211,6 +211,14 @@ def mark_notification_failed(
         return dict(row._mapping) if row else None
 
 
+def cancel_notification_before_dispatch(org_id: str, notification_id: str, reason: str) -> None:
+    with engine.begin() as conn:
+        conn.execute(text("""update notification_outbox
+            set status='CANCELLED',error_code=:reason,error_message='Eligibility changed before dispatch',updated_at=now()
+            where org_id=:org_id and id=:notification_id and status='PENDING' and dispatch_state='CLAIMED'"""),
+            {"org_id": org_id, "notification_id": notification_id, "reason": reason})
+
+
 def sync_package_notification_status(notification: dict, status: str, *, provider: str | None = None,
                                      provider_message_id: str | None = None, error: str | None = None) -> None:
     with engine.begin() as conn:

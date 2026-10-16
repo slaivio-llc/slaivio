@@ -54,3 +54,10 @@ def test_whatsapp_reply_updates_the_pilot_recipient():
     assert "pilot_recipient_id" in repository
     assert "update pilot_followup_recipients" in repository
     assert "status='RESPONDED'" in repository
+
+
+def test_queued_pilot_batch_finishes_when_dispatches_are_terminal():
+    repository = source("apps/api/app/db/pilot_followup_repository.py")
+    assert "set status='PARTIAL_FAILED'" in repository
+    assert "attempt.status in('FAILED','CANCELLED')" in repository
+    assert "attempt.status not in('SENT','DELIVERED','READ','FAILED','CANCELLED')" in repository

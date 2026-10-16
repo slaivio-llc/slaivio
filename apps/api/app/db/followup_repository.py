@@ -269,9 +269,9 @@ def _condition_still_true(conn,item):
     if kind=='CLIENT_PAYMENT_DUE' and subject:
         return bool(conn.execute(text("select 1 from clients where org_id=:o and id=:id and deleted_at is null and payment_amount_due>payment_amount_paid"),{'o':item['org_id'],'id':subject}).first())
     if kind.startswith('PAYMENT') and subject:
-        return bool(conn.execute(text("select 1 from finance_documents where org_id=:o and id=:id and balance_due>0 and status in('ISSUED','PARTIALLY_PAID','OVERDUE')"),{'o':item['org_id'],'id':subject}).first())
+        return bool(conn.execute(text("select 1 from finance_documents where org_id=:o and id=:id and balance_due>0 and due_date is not null and due_date<=current_date and status in('ISSUED','PARTIALLY_PAID','OVERDUE')"),{'o':item['org_id'],'id':subject}).first())
     if kind.startswith('PICKUP') and subject:
-        return bool(conn.execute(text("select 1 from pickup_orders where org_id=:o and id=:id and status not in('RELEASED','CANCELLED')"),{'o':item['org_id'],'id':subject}).first())
+        return bool(conn.execute(text("select 1 from pickup_orders where org_id=:o and id=:id and status in('READY','NOTIFIED')"),{'o':item['org_id'],'id':subject}).first())
     if kind.startswith('QUOTE') and subject:
         return bool(conn.execute(text("select 1 from finance_documents where org_id=:o and id=:id and document_type='QUOTE' and status='ISSUED'"),{'o':item['org_id'],'id':subject}).first())
     if kind in ('PACKAGE_DROP_REMINDER','PARCEL_NOT_DROPPED') and item.get('dossier_id'):
@@ -456,13 +456,58 @@ def process_attempt_queue(limit=100):
             try:
                 if c.execute(text("select 1 from followup_stop_list where org_id=:o and client_id=:client and channel=:channel"),{'o':a['org_id'],'client':a['client_id'],'channel':a['channel']}).first():raise ValueError('stop_list')
                 n=create_notification_outbox(org_id=a['org_id'],client_id=a['client_id'],dossier_id=a.get('dossier_id'),recipient_phone=a['recipient'],notification_type=f"FOLLOWUP:{a['followup_type']}",message=a['message'],channel=(a['channel'] or 'WHATSAPP').lower())
-                c.execute(text("update followup_attempts set status='SENT',notification_id=:notification,sent_at=now() where id=:id and status='QUEUED'"),{'notification':n['id'],'id':a['id']})
+                c.execute(text("update followup_attempts set status='DISPATCHING',notification_id=:notification where org_id=:org_id and id=:id and status='QUEUED'"),{'notification':n['id'],'org_id':a['org_id'],'id':a['id']})
                 next_step=c.execute(text("select delay_minutes from followup_sequence_steps s join followup_tasks f on f.sequence_id=s.sequence_id where f.id=:id and s.step_number=f.current_step+1"),{'id':a['followup_id']}).scalar()
                 if next_step is not None:c.execute(text("update followup_tasks set current_step=current_step+1,status='SCHEDULED',due_at=now()+(:delay||' minutes')::interval,updated_at=now() where id=:id"),{'delay':next_step,'id':a['followup_id']})
-                _event(c,a['org_id'],a['followup_id'],'SENT',None,{'attempt_id':str(a['id'])});processed+=1
+                _event(c,a['org_id'],a['followup_id'],'OUTBOX_QUEUED',None,{'attempt_id':str(a['id'])});processed+=1
             except Exception as exc:
                 retries=int(a.get('retry_count') or 0)+1;permanent=retries>=3
                 c.execute(text("update followup_attempts set status=:s,retry_count=:r,error_message=:e,failed_at=case when :s='FAILED' then now() end where id=:id"),{'s':'FAILED' if permanent else 'QUEUED','r':retries,'e':type(exc).__name__,'id':a['id']})
                 if permanent:c.execute(text("update followup_tasks set status='FAILED',error_message=:e,row_version=row_version+1,updated_at=now() where id=:id"),{'e':type(exc).__name__,'id':a['followup_id']});_event(c,a['org_id'],a['followup_id'],'FAILED',None,{'attempt_id':str(a['id'])})
     return processed
+
+def validate_notification_before_send(org_id,notification_id):
+    """Recheck task state, source condition and opt-out immediately before provider dispatch."""
+    with engine.begin() as c:
+        attempt=c.execute(text("""select a.*,f.followup_type,f.subject_id,f.dossier_id,f.client_id,
+              f.status task_status,f.archived_at
+            from followup_attempts a join followup_tasks f on f.org_id=a.org_id and f.id=a.followup_id
+            where a.org_id=:org_id and a.notification_id=cast(:notification_id as uuid)
+            for update of a,f"""),{'org_id':org_id,'notification_id':notification_id}).mappings().first()
+        if not attempt:return True
+        if attempt['status']!='DISPATCHING' or attempt['archived_at'] is not None or attempt['task_status'] not in ('WAITING_RESPONSE','SCHEDULED','DUE'):
+            return False
+        reason=None
+        if not _condition_still_true(c,attempt):reason='business_condition_resolved_or_not_due'
+        elif attempt.get('client_id') and c.execute(text("select 1 from followup_stop_list where org_id=:org_id and client_id=:client_id and channel=:channel"),
+                {'org_id':org_id,'client_id':attempt['client_id'],'channel':attempt['channel']}).first():reason='recipient_opted_out'
+        if not reason:return True
+        c.execute(text("update followup_attempts set status='CANCELLED',error_code=:reason where org_id=:org_id and id=:id and status='DISPATCHING'"),
+            {'org_id':org_id,'id':attempt['id'],'reason':reason})
+        if reason=='business_condition_resolved_or_not_due':
+            c.execute(text("update followup_tasks set status='COMPLETED',completed_at=coalesce(completed_at,now()),row_version=row_version+1,updated_at=now() where org_id=:org_id and id=:id and status in('WAITING_RESPONSE','SCHEDULED','DUE')"),
+                {'org_id':org_id,'id':attempt['followup_id']})
+        else:
+            c.execute(text("update followup_tasks set status='CANCELLED',row_version=row_version+1,updated_at=now() where org_id=:org_id and id=:id and status in('WAITING_RESPONSE','SCHEDULED','DUE')"),
+                {'org_id':org_id,'id':attempt['followup_id']})
+        _event(c,org_id,attempt['followup_id'],'DISPATCH_CANCELLED',None,{'attempt_id':str(attempt['id']),'reason':reason})
+        return False
+
+def sync_notification_status(org_id,notification_id,status,provider_message_id=None,error=None):
+    normalized=status.upper()
+    if normalized not in ('SENT','FAILED'):
+        return None
+    with engine.begin() as c:
+        row=c.execute(text("""update followup_attempts set status=:status,
+              provider_message_id=coalesce(:provider_message_id,provider_message_id),
+              sent_at=case when :status='SENT' then coalesce(sent_at,now()) else sent_at end,
+              failed_at=case when :status='FAILED' then coalesce(failed_at,now()) else failed_at end,
+              error_message=case when :status='FAILED' then :error else error_message end
+            where org_id=:org_id and notification_id=cast(:notification_id as uuid)
+            returning followup_id,id"""),{'org_id':org_id,'notification_id':notification_id,'status':normalized,
+                'provider_message_id':provider_message_id,'error':error}).mappings().first()
+        if row and normalized=='FAILED':
+            c.execute(text("update followup_tasks set status='FAILED',row_version=row_version+1,updated_at=now() where org_id=:org_id and id=:id and status='WAITING_RESPONSE'"),
+                {'org_id':org_id,'id':row['followup_id']})
+        return dict(row) if row else None
 

@@ -159,3 +159,18 @@ def update_notification_delivery_status(
                 {"org_id": org_id, "notification_id": str(notification["id"]), "status": campaign_status,
                  "error_code": error_code, "error_message": error_message},
             )
+            followup_status = campaign_status
+            conn.execute(text("""update followup_attempts a set
+                status=case
+                  when a.status='READ' then 'READ'
+                  when a.status='DELIVERED' and :status<>'READ' then 'DELIVERED'
+                  when a.status='FAILED' then 'FAILED'
+                  else :status end,
+                delivered_at=case when :status in ('DELIVERED','READ') then coalesce(a.delivered_at,now()) else a.delivered_at end,
+                read_at=case when :status='READ' then coalesce(a.read_at,now()) else a.read_at end,
+                failed_at=case when :status='FAILED' and a.status not in ('DELIVERED','READ') then coalesce(a.failed_at,now()) else a.failed_at end,
+                error_code=case when :status='FAILED' and a.status not in ('DELIVERED','READ') then :error_code else a.error_code end,
+                error_message=case when :status='FAILED' and a.status not in ('DELIVERED','READ') then :error_message else a.error_message end
+              where a.org_id=:org_id and a.notification_id=:notification_id"""),
+              {"org_id": org_id, "notification_id": str(notification["id"]), "status": followup_status,
+               "error_code": error_code, "error_message": error_message})

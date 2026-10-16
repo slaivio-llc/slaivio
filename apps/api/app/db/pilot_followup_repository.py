@@ -319,6 +319,18 @@ def list_batches(org_id: str, view: str | None = None, q: str | None = None) -> 
     with engine.begin() as conn:
         conn.execute(text("""
           update pilot_followup_batches batch
+          set status='PARTIAL_FAILED',completed_at=coalesce(completed_at,now()),updated_at=now()
+          where batch.org_id=:org_id and batch.status='QUEUED'
+            and exists(select 1 from pilot_followup_recipients recipient
+              join followup_attempts attempt on attempt.org_id=recipient.org_id and attempt.followup_id=recipient.followup_task_id
+              where recipient.org_id=batch.org_id and recipient.batch_id=batch.id and attempt.status in('FAILED','CANCELLED'))
+            and not exists(select 1 from pilot_followup_recipients recipient
+              join followup_attempts attempt on attempt.org_id=recipient.org_id and attempt.followup_id=recipient.followup_task_id
+              where recipient.org_id=batch.org_id and recipient.batch_id=batch.id
+                and attempt.status not in('SENT','DELIVERED','READ','FAILED','CANCELLED'))
+        """), {"org_id": org_id})
+        conn.execute(text("""
+          update pilot_followup_batches batch
           set status='COMPLETED',completed_at=coalesce(completed_at,now()),updated_at=now()
           where batch.org_id=:org_id and batch.status='QUEUED'
             and exists(select 1 from pilot_followup_recipients recipient where recipient.batch_id=batch.id)

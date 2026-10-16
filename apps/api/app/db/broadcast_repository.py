@@ -111,6 +111,31 @@ def sync_notification_status(org_id, notification_id, status, provider_message_i
     where org_id=:org_id and notification_id=cast(:notification_id as uuid)
     returning id,broadcast_id,status"""),{'org_id':org_id,'notification_id':notification_id,
         'status':normalized,'provider_message_id':provider_message_id,'error':error}).mappings().first()
+
+def validate_notification_before_send(org_id, notification_id):
+ """Recheck consent and suppression after queueing, immediately before provider dispatch."""
+ with engine.begin() as c:
+  recipient=c.execute(text("""select r.*,b.broadcast_type from broadcast_recipients r
+      join broadcasts b on b.org_id=r.org_id and b.id=r.broadcast_id
+      where r.org_id=:org_id and r.notification_id=cast(:notification_id as uuid)
+      for update of r"""),{'org_id':org_id,'notification_id':notification_id}).mappings().first()
+  if not recipient:return True
+  if recipient['status']!='DISPATCHING':return False
+  reason=None
+  contact=recipient.get('recipient_phone') if recipient['channel']=='WHATSAPP' else recipient.get('recipient_email')
+  if not contact:reason='MISSING_CONTACT_AT_SEND'
+  elif c.execute(text("select 1 from broadcast_suppressions where org_id=:org_id and contact=:contact and channel=:channel"),
+      {'org_id':org_id,'contact':contact,'channel':recipient['channel']}).first():reason='DO_NOT_CONTACT_AT_SEND'
+  elif recipient['broadcast_type']=='COMMERCIAL' and not c.execute(text("""select 1 from broadcast_consents
+      where org_id=:org_id and contact=:contact and channel=:channel and consent_status='OPTED_IN'"""),
+      {'org_id':org_id,'contact':contact,'channel':recipient['channel']}).first():reason='MARKETING_CONSENT_REQUIRED_AT_SEND'
+  if not reason:return True
+  c.execute(text("""update broadcast_recipients set status='EXCLUDED',exclusion_reason=:reason
+      where org_id=:org_id and id=:id and status='DISPATCHING'"""),
+      {'org_id':org_id,'id':recipient['id'],'reason':reason})
+  event(c,org_id,recipient['broadcast_id'],'RECIPIENT_EXCLUDED_AT_SEND',None,
+      {'recipient_id':str(recipient['id']),'reason':reason},str(recipient['id']))
+  return False
 def link_reply(o,client_id,message):
  value=(message or '').lower();intent='UNSUBSCRIBE' if 'stop' in value else 'INTERESTED' if any(x in value for x in ('intéressé','interesse','prix','devis')) else 'QUESTION'
  with engine.begin() as c:

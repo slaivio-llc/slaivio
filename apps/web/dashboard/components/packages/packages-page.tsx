@@ -1396,7 +1396,7 @@ function PackageDetails({
     { key: "measures", label: "Mesures" },
     { key: "warehouse", label: "Entrepôt" },
     { key: "shipment", label: "Expédition" },
-    { key: "payment", label: "Paiement" },
+    { key: "payment", label: "Finance" },
     { key: "anomalies", label: "Anomalies" },
     { key: "documents", label: "Documents" },
     { key: "media", label: "Photos" },
@@ -1405,7 +1405,7 @@ function PackageDetails({
     { key: "history", label: "Historique" },
     { key: "settings", label: "Paramètres" },
   ];
-  const primaryTabKeys: DetailTab[] = ["summary", "dossier", "warehouse", "shipment", "history"];
+  const primaryTabKeys: DetailTab[] = ["summary", "shipment", "payment", "dossier"];
 
   async function refreshPackage(next: PackageRecord) {
     onUpdated(next);
@@ -2123,7 +2123,7 @@ function ShipmentTab({
 }
 
 function PaymentTab({ item, onUpdated }: { item: PackageRecord; onUpdated: (item: PackageRecord) => void }) {
-  return <PermissionGuard permission="finance.read"><PackageFinance key={item.id} item={item} onUpdated={onUpdated} /></PermissionGuard>;
+  return <PermissionGuard permission="finance.read" fallback={<p role="status" className="text-sm text-slate-600">Vous n’avez pas l’autorisation de consulter Finance pour ce colis. Demandez au responsable de l’agence l’accès « finance.read ».</p>}><PackageFinance key={item.id} item={item} onUpdated={onUpdated} /></PermissionGuard>;
 }
 function AnomaliesTab({
   item,

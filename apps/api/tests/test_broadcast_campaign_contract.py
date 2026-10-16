@@ -79,7 +79,20 @@ def test_saved_audience_can_target_selected_existing_clients_tenant_safely():
     repo = read("apps/api/app/db/broadcast_repository.py")
     ui = read("apps/web/dashboard/components/broadcasts/broadcasts-page.tsx")
     assert "selected_client_ids=[str(value)" in repo
-    assert "c.id=any(cast(:client_ids as uuid[]))" in repo
+    assert "c.id=any(cast(:group_client_ids as uuid[]))" in repo
     assert "c.org_id=:o" in repo
     assert "Sélectionner des clients précis" in ui
     assert "client_ids: selectedClientIds" in ui
+
+
+def test_new_campaign_selects_existing_clients_directly():
+    repo = read("apps/api/app/db/broadcast_repository.py")
+    api = read("apps/api/app/api/broadcasts.py")
+    ui = read("apps/web/dashboard/components/broadcasts/broadcasts-page.tsx")
+    migration = read("infra/sql/143_broadcast_campaign_selected_clients.sql")
+    assert "selected_client_ids:list[str]" in api
+    assert "selected_client_ids" in repo
+    assert "selected_client_ids: selectedClientIds" in ui
+    assert "Ajouter des clients précis" in ui
+    assert "selected_client_ids jsonb" in migration
+    assert "a.org_id=b.org_id and a.id=b.audience_id" in repo

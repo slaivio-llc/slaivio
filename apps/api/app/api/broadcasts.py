@@ -7,7 +7,7 @@ from app.db import broadcast_repository as repo
 router=APIRouter(prefix='/broadcasts',tags=['broadcasts'])
 def actor(t):return str(t.get('user_id') or '')
 class Campaign(BaseModel):
- workspace_id:str|None=None;title:str=Field(min_length=2,max_length=180);message:str=Field(min_length=2,max_length=5000);campaign_type:str='INFORMATIONAL';objective:str='INFORM';channels:list[str]=['WHATSAPP'];audience_id:str|None=None;template_id:str|None=None;language_versions:dict[str,Any]={};media:list[Any]=[];variable_defaults:dict[str,Any]={};scheduled_at:str|None=None;timezone_mode:str='WORKSPACE'
+ workspace_id:str|None=None;title:str=Field(min_length=2,max_length=180);message:str=Field(min_length=2,max_length=5000);campaign_type:str='INFORMATIONAL';objective:str='INFORM';channels:list[str]=['WHATSAPP'];audience_id:str|None=None;selected_client_ids:list[str]=Field(default_factory=list,max_length=500);template_id:str|None=None;language_versions:dict[str,Any]={};media:list[Any]=[];variable_defaults:dict[str,Any]={};scheduled_at:str|None=None;timezone_mode:str='WORKSPACE'
 class Audience(BaseModel):workspace_id:str|None=None;name:str;audience_type:str='DYNAMIC';filter_config:dict[str,Any]={}
 class Mutation(BaseModel):action:str=Field(pattern='^(APPROVE|START|PAUSE|RESUME|CANCEL|ARCHIVE)$');expected_version:int=Field(ge=1)
 class Template(BaseModel):workspace_id:str|None=None;name:str;channel:str='WHATSAPP';category:str='UTILITY';language:str='fr';subject:str|None=None;preheader:str|None=None;body:str;variables:list[str]=[];media_config:dict[str,Any]={};buttons:list[Any]=[];provider_template_name:str|None=None;provider_status:str='DRAFT'

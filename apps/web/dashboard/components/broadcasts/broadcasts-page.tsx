@@ -259,7 +259,19 @@ function CampaignModal({
   done: () => void;
 }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [clientSearch, setClientSearch] = useState(""),
+    [clientOptions, setClientOptions] = useState<ClientRecord[]>([]),
+    [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      listClients({ q: clientSearch.trim() || undefined, page: 1, page_size: 30, sort: "name_asc" })
+        .then((data) => { if (active) setClientOptions(data.items); })
+        .catch(() => { if (active) setClientOptions([]); });
+    }, 200);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [clientSearch]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -273,6 +285,7 @@ function CampaignModal({
         objective: f.get("objective"),
         channels: [f.get("channel")],
         audience_id: f.get("audience") || null,
+        selected_client_ids: selectedClientIds,
         scheduled_at: f.get("date")
           ? new Date(String(f.get("date"))).toISOString()
           : null,
@@ -347,6 +360,25 @@ function CampaignModal({
             consentements.
           </small>
         </label>
+        <section className="grid gap-2 rounded-md border border-[#e1e5e8] p-3">
+          <div>
+            <p className="text-[12px] font-medium text-[#273038]">Ajouter des clients précis (facultatif)</p>
+            <p className="mt-1 text-[11px] text-[#727b84]">La campagne ciblera les clients du groupe choisi et ceux sélectionnés ici. Sans groupe, seuls les clients choisis seront ciblés.</p>
+          </div>
+          <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder="Rechercher un client par nom, téléphone…" aria-label="Rechercher un client destinataire" />
+          <div className="max-h-44 overflow-y-auto rounded border border-[#edf0f2]">
+            {clientOptions.length ? clientOptions.map((client) => {
+              const id = String(client.id);
+              const selected = selectedClientIds.includes(id);
+              return <label key={id} className="flex cursor-pointer items-center gap-2 border-b border-[#edf0f2] px-3 py-2 text-[12px] last:border-0 hover:bg-[#f8faf9]">
+                <input type="checkbox" checked={selected} onChange={() => setSelectedClientIds((current) => selected ? current.filter((value) => value !== id) : [...current, id])} />
+                <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || "Client"}</span>
+                <span className="shrink-0 text-[#77818a]">{client.phone || client.email || "Contact manquant"}</span>
+              </label>;
+            }) : <p className="px-3 py-3 text-[12px] text-[#77818a]">Aucun client trouvé. Vérifiez qu’il appartient à cette agence.</p>}
+          </div>
+          <p className="text-[11px] text-[#5f6873]">{selectedClientIds.length} client{selectedClientIds.length === 1 ? " sélectionné" : "s sélectionnés"}</p>
+        </section>
         <label className="grid gap-1 text-[12px] font-medium">
           Message envoyé au nom de l’agence
           <textarea

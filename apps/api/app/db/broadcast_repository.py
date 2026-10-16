@@ -16,7 +16,7 @@ def dashboard(o,q=None,status=None,channel=None,page=1,page_size=40):
 def create_campaign(o,a,d):
  ref=f"CAM-{__import__('datetime').datetime.now():%Y}-{uuid4().hex[:8].upper()}"
  with engine.begin() as c:
-  row=c.execute(text("""insert into broadcasts(org_id,workspace_id,reference,title,message,broadcast_type,target_type,objective,channels,audience_id,template_id,language_versions,media,variable_defaults,scheduled_at,timezone_mode,created_by,status) values(:o,cast(:workspace_id as uuid),:ref,:title,:message,:campaign_type,'DYNAMIC',:objective,:channels,cast(:audience_id as uuid),cast(:template_id as uuid),cast(:language_versions as jsonb),cast(:media as jsonb),cast(:defaults as jsonb),:scheduled_at,:timezone_mode,:a,:status) returning *"""),{'o':o,'a':a,'ref':ref,'status':'SCHEDULED' if d.get('scheduled_at') else 'DRAFT','language_versions':json.dumps(d.get('language_versions') or {}),'media':json.dumps(d.get('media') or []),'defaults':json.dumps(d.get('variable_defaults') or {}),**d}).mappings().one();event(c,o,row['id'],'CAMPAIGN_CREATED',a,dict(row));return dict(row)
+  row=c.execute(text("""insert into broadcasts(org_id,workspace_id,reference,title,message,broadcast_type,target_type,objective,channels,audience_id,selected_client_ids,template_id,language_versions,media,variable_defaults,scheduled_at,timezone_mode,created_by,status) values(:o,cast(:workspace_id as uuid),:ref,:title,:message,:campaign_type,'DYNAMIC',:objective,:channels,cast(:audience_id as uuid),cast(:selected_client_ids as jsonb),cast(:template_id as uuid),cast(:language_versions as jsonb),cast(:media as jsonb),cast(:defaults as jsonb),:scheduled_at,:timezone_mode,:a,:status) returning *"""),{'o':o,'a':a,'ref':ref,'status':'SCHEDULED' if d.get('scheduled_at') else 'DRAFT','language_versions':json.dumps(d.get('language_versions') or {}),'media':json.dumps(d.get('media') or []),'defaults':json.dumps(d.get('variable_defaults') or {}),**d,'selected_client_ids':json.dumps(d.get('selected_client_ids') or [])}).mappings().one();event(c,o,row['id'],'CAMPAIGN_CREATED',a,dict(row));return dict(row)
 def detail(o,b):
  with engine.connect() as c:
   x=c.execute(text('select * from broadcasts where org_id=:o and id=:b'),{'o':o,'b':b}).mappings().first()
@@ -28,14 +28,21 @@ def resources(o):
  with engine.connect() as c:return {'audiences':rows(c.execute(text('select * from broadcast_audiences where org_id=:o order by name'),{'o':o})),'templates':rows(c.execute(text('select * from broadcast_templates where org_id=:o order by name'),{'o':o})),'suppressions':rows(c.execute(text('select * from broadcast_suppressions where org_id=:o order by created_at desc limit 500'),{'o':o})),'consents':rows(c.execute(text('select * from broadcast_consents where org_id=:o order by recorded_at desc limit 500'),{'o':o})),'settings':dict(c.execute(text('select * from broadcast_settings where org_id=:o'),{'o':o}).mappings().first() or {})}
 def snapshot(o,b,a):
  with engine.begin() as c:
-  campaign=c.execute(text('select b.*,a.filter_config from broadcasts b left join broadcast_audiences a on a.id=b.audience_id where b.org_id=:o and b.id=:b for update of b'),{'o':o,'b':b}).mappings().first()
+  campaign=c.execute(text('select b.*,a.filter_config from broadcasts b left join broadcast_audiences a on a.org_id=b.org_id and a.id=b.audience_id where b.org_id=:o and b.id=:b for update of b'),{'o':o,'b':b}).mappings().first()
   if not campaign:return None
-  filters=campaign.get('filter_config') or {};where=['c.org_id=:o','c.deleted_at is null'];p={'o':o}
+  filters=campaign.get('filter_config') or {};where=['c.org_id=:o','c.deleted_at is null'];p={'o':o};group_filters=[]
   for key,col in [('country','c.country'),('language','c.preferred_language'),('status','c.lifecycle_status')]:
-   if filters.get(key):where.append(f'lower({col})=lower(:{key})');p[key]=filters[key]
+   if filters.get(key):group_filters.append(f'lower({col})=lower(:{key})');p[key]=filters[key]
   selected_client_ids=[str(value) for value in (filters.get('client_ids') or []) if value]
   if selected_client_ids:
-   where.append('c.id=any(cast(:client_ids as uuid[]))');p['client_ids']=selected_client_ids
+   group_filters.append('c.id=any(cast(:group_client_ids as uuid[]))');p['group_client_ids']=selected_client_ids
+  manual_client_ids=[str(value) for value in (campaign.get('selected_client_ids') or []) if value]
+  if manual_client_ids:
+   p['manual_client_ids']=manual_client_ids
+   manual_filter='c.id=any(cast(:manual_client_ids as uuid[]))'
+   where.append(f"(({ ' and '.join(group_filters) }) or {manual_filter})" if group_filters else manual_filter)
+  else:
+   where.extend(group_filters)
   clients=rows(c.execute(text('select c.id,c.phone,c.email,c.name,c.preferred_language from clients c where '+' and '.join(where)),p));channels=campaign['channels'] or ['WHATSAPP'];created=excluded=0
   for client in clients:
    for channel in channels:

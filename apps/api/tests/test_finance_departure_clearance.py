@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from app.finance.clearance import departure_clearance
+from app.finance.clearance import delivery_clearance, departure_clearance
 
 
 def result(value):
@@ -76,3 +76,37 @@ def test_currency_mismatch_blocks_without_reading_payments(monkeypatch):
     decision = departure_clearance(c, 'org', package())
     assert decision['code'] == 'FINANCE_POLICY_CURRENCY_MISMATCH'
     assert c.execute.call_count == 2
+
+
+def test_delivery_without_financial_policy_does_not_add_a_global_payment_gate():
+    c = conn(None, [None, None])
+    decision = delivery_clearance(c, 'org', package())
+    assert decision['allowed'] is True
+    assert decision['policy_configured'] is False
+    assert c.execute.call_count == 2
+
+
+def test_delivery_policy_blocks_release_with_explainable_balance():
+    c = conn(None, [
+        {'id': 'invoice', 'total': Decimal('200.00'), 'currency': 'USD'},
+        {'name': 'Paiement avant remise', 'rule_type': 'PERCENTAGE',
+         'percentage': Decimal('100'), 'currency': 'USD'},
+        Decimal('120.00'),
+    ])
+    decision = delivery_clearance(c, 'org', package())
+    assert decision['allowed'] is False
+    assert decision['code'] == 'PAYMENT_CLEARANCE_REQUIRED'
+    assert decision['remaining'] == '80.00'
+    assert '80.00 USD' in decision['message']
+
+
+def test_delivery_policy_allows_release_when_amount_is_confirmed():
+    c = conn(None, [
+        {'id': 'invoice', 'total': Decimal('200.00'), 'currency': 'USD'},
+        {'name': 'Paiement avant remise', 'rule_type': 'PERCENTAGE',
+         'percentage': Decimal('100'), 'currency': 'USD'},
+        Decimal('200.00'),
+    ])
+    decision = delivery_clearance(c, 'org', package())
+    assert decision['allowed'] is True
+    assert decision['remaining'] == '0.00'

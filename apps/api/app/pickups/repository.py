@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from app.core.config import settings
 from app.db.database import engine
+from app.finance.clearance import delivery_clearance
 
 def _rows(r):return [dict(x) for x in r.mappings().all()]
 def _ref():return f"RET-{datetime.now(timezone.utc):%Y%m%d}-{uuid4().hex[:7].upper()}"
@@ -172,11 +173,23 @@ def mark_verified(org_id,pickup_id,actor,actor_name,version):
 
 def release(org_id,pickup_id,actor,actor_name,payload,override=False):
  cfg=settings_for(org_id)
+ if override and not str(payload.get("override_reason") or "").strip():
+  raise HTTPException(422,"pickup_override_reason_required")
  if cfg["require_signature"] and not payload.get("signature_text") and not override:raise HTTPException(422,"pickup_signature_required")
  with engine.begin() as c:
   order=c.execute(text("select * from pickup_orders where id=:p and org_id=:o for update"),{"p":pickup_id,"o":org_id}).mappings().first()
   if not order:raise HTTPException(404,"pickup_not_found")
   if order["row_version"]!=payload["expected_version"] or (order["status"]!='VERIFIED' and not override):raise HTTPException(409,"pickup_not_verified_or_version_conflict")
+  items=_rows(c.execute(text("""select cp.id::text id,cp.package_reference,cp.shipping_service_id::text shipping_service_id
+    from pickup_order_items i join cargo_packages cp on cp.id=i.package_id and cp.org_id=i.org_id
+    where i.pickup_id=:p and i.org_id=:o and i.released_at is null and cp.deleted_at is null
+    order by cp.id for update of cp"""),{"p":pickup_id,"o":org_id}))
+  if not items:raise HTTPException(409,"pickup_has_no_releasable_packages")
+  if not override:
+   blocked=[decision for item in items if not (decision:=delivery_clearance(c,org_id,item))["allowed"]]
+   if blocked:
+    first=blocked[0]
+    raise HTTPException(409,{"code":first["code"],"message":first["message"],"packages":blocked})
   if override:c.execute(text("insert into pickup_verifications(org_id,pickup_id,verification_type,verification_status,reason,verified_by,verified_by_name) values(:o,:p,'RELEASE','OVERRIDDEN',:r,:u,:un)"),{"o":org_id,"p":pickup_id,"r":payload.get("override_reason"),"u":actor,"un":actor_name})
   c.execute(text("insert into pickup_proofs(org_id,pickup_id,signed_by,signature_text,identity_type,identity_reference_masked,captured_by,captured_by_name) values(:o,:p,:signed,:signature,:identity,:masked,:u,:un)"),{"o":org_id,"p":pickup_id,"signed":payload["signed_by"],"signature":payload.get("signature_text"),"identity":order["identity_type"],"masked":order["identity_reference_masked"],"u":actor,"un":actor_name})
   receipt=f"REC-{datetime.now(timezone.utc):%Y%m%d}-{secrets.token_hex(3).upper()}";c.execute(text("update pickup_order_items set released_at=now() where pickup_id=:p and org_id=:o"),{"p":pickup_id,"o":org_id});c.execute(text("""update cargo_packages cp set status='DELIVERED',inventory_status='RELEASED',delivered_at=now(),updated_at=now(),row_version=row_version+1 from pickup_order_items i where i.pickup_id=:p and i.package_id=cp.id and cp.org_id=:o"""),{"p":pickup_id,"o":org_id});row=c.execute(text("update pickup_orders set status='RELEASED',released_at=now(),receipt_number=:r,release_blocked_reason=null,row_version=row_version+1,updated_at=now() where id=:p returning *"),{"p":pickup_id,"r":receipt}).mappings().one();_event(c,org_id,pickup_id,"PACKAGES_RELEASED",actor,actor_name,{"override":override,"receipt":receipt});return dict(row)

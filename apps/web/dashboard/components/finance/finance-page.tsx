@@ -1,7 +1,6 @@
 "use client";
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { RecordPaymentForm } from "./record-payment-form";
-import { SasPayCheckout } from "./saspay-checkout";
 import { FinanceOfficeAssignment } from "./finance-office-assignment";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
@@ -456,7 +455,7 @@ function Detail({
               </PermissionGuard>
             )}
         </div>
-        {paymentOpen && <PermissionGuard permission="finance.payments"><div className="space-y-3"><RecordPaymentForm document={item} onCancel={() => setPaymentOpen(false)} onRecorded={async () => { await reload(); setPaymentOpen(false); }} /><SasPayCheckout document={item} onConfirmed={async () => { await reload(); setPaymentOpen(false); }} /></div></PermissionGuard>}
+        {paymentOpen && <PermissionGuard permission="finance.payments"><RecordPaymentForm document={item} onCancel={() => setPaymentOpen(false)} onRecorded={async () => { await reload(); setPaymentOpen(false); }} /></PermissionGuard>}
         {item.payments?.length ? (
           <section className="rounded bg-white p-4">
             <h3 className="mb-2 font-semibold">Paiements et reçus</h3>

@@ -10,6 +10,8 @@ def test_release_is_locked_tenant_scoped_and_audited():
  assert "row_version" in source
  assert "PACKAGES_RELEASED" in source
  assert "inventory_status='RELEASED'" in source
+ assert "delivery_clearance(c,org_id,item)" in source
+ assert "pickup_override_reason_required" in source
 def test_otp_is_hmac_hashed_and_rate_limited():
  source=(ROOT/"app/pickups/repository.py").read_text(encoding="utf-8")
  assert "hmac.new" in source and "compare_digest" in source

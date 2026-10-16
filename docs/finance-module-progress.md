@@ -215,6 +215,14 @@ traitement manuel des créations ambiguës sans ID, suivi automatique des échec
 webhook, recette PostgreSQL et sandbox autorisée. Les payouts, retraits et
 transferts de wallet sont hors périmètre.
 
+## Contrôle financier avant remise et paiement manuel V1
+
+- La remise physique depuis Retraits consulte maintenant la politique Finance `DELIVERY` pour chaque colis du retrait, sous verrou transactionnel et dans le tenant courant.
+- Une règle de service prévaut sur la règle générale. Une facture absente, une devise incompatible ou un solde exigible bloque la remise avec une explication par colis. Sans règle `DELIVERY`, aucune nouvelle barrière financière globale n’est ajoutée.
+- Le contournement existant demande désormais un motif explicite et conserve l’événement de vérification d’exception.
+- L’action de paiement dans Finance n’affiche que l’enregistrement manuel. Le code de checkout SasPay reste présent pour une phase future, mais le parcours V1 ne le propose pas.
+- Tests ciblés : règles de remise (absence de règle, solde insuffisant, paiement complet), contrat Retraits et politiques Finance.
+
 ## Communication
 
 Les restes sont conservés dans `docs/communication-module-progress.md`. Leur report

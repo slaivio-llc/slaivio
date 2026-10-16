@@ -11,6 +11,20 @@ from app.organizations.repositories.invitation_repository import (
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
 
 
+class InvitationProviderError(Exception):
+    def __init__(self, detail: str, status_code: int = 502):
+        super().__init__(detail)
+        self.detail = detail
+        self.status_code = status_code
+
+
+def _post_invitation(*args, **kwargs):
+    try:
+        return requests.post(*args, **kwargs)
+    except requests.RequestException as exc:
+        raise InvitationProviderError("invitation_provider_unavailable") from exc
+
+
 def invite_user_to_org(
     org_id: str,
     clerk_org_id: str,
@@ -25,7 +39,7 @@ def invite_user_to_org(
     clerk_invitation_id = None
 
     if CLERK_SECRET_KEY and clerk_org_id:
-        response = requests.post(
+        response = _post_invitation(
             f"https://api.clerk.com/v1/organizations/{clerk_org_id}/invitations",
             headers={
                 "Authorization": f"Bearer {CLERK_SECRET_KEY}",
@@ -37,10 +51,21 @@ def invite_user_to_org(
             },
             timeout=30,
         )
-        clerk_data = response.json()
+        try:
+            clerk_data = response.json()
+        except ValueError as exc:
+            raise InvitationProviderError("invitation_provider_invalid_response") from exc
 
         if not response.ok:
-            raise ValueError(clerk_data)
+            clerk_errors = clerk_data.get("errors", []) if isinstance(clerk_data, dict) else []
+            error_codes = {
+                error.get("code")
+                for error in clerk_errors
+                if isinstance(error, dict)
+            }
+            if "organization_not_enabled_in_instance" in error_codes:
+                raise InvitationProviderError("clerk_organizations_not_enabled", 503)
+            raise InvitationProviderError("invitation_delivery_failed")
 
         clerk_invitation_id = clerk_data.get("id")
 
@@ -63,4 +88,3 @@ def get_org_invitations(
     org_id: str,
 ):
     return list_invitations(org_id)
-

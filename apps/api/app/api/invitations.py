@@ -6,6 +6,7 @@ from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.organizations.repositories.organization_repository import get_organization
 from app.organizations.services.invitation_service import (
+    InvitationProviderError,
     get_org_invitations,
     invite_user_to_org,
 )
@@ -43,17 +44,19 @@ def invite_user(
             detail="missing_clerk_organization_id",
         )
 
-    return {
-        "status": "ok",
-        **invite_user_to_org(
+    try:
+        invitation = invite_user_to_org(
             org_id=tenant["org_id"],
             clerk_org_id=clerk_org_id,
             email=body.email,
             role_code=body.role_code,
             invited_by_id=manager.get("user_id") or manager.get("id"),
             invited_by_name=manager.get("name") or manager.get("email"),
-        ),
-    }
+        )
+    except InvitationProviderError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+
+    return {"status": "ok", **invitation}
 
 
 @router.get(
@@ -71,4 +74,3 @@ def invitations(
             org_id=tenant["org_id"],
         ),
     }
-

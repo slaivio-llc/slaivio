@@ -75,6 +75,58 @@ def get_organization_by_clerk_org_id(
         return dict(row._mapping) if row else None
 
 
+def link_clerk_organization(
+    org_id: str,
+    clerk_org_id: str,
+):
+    with engine.begin() as conn:
+        linked = conn.execute(
+            text("""
+                select id
+                from organizations
+                where clerk_org_id = :clerk_org_id
+                limit 1
+            """),
+            {"clerk_org_id": clerk_org_id},
+        ).scalar_one_or_none()
+        if linked and str(linked) != org_id:
+            raise ValueError("clerk_organization_already_linked")
+
+        organization = conn.execute(
+            text("""
+                update organizations
+                set clerk_org_id = :clerk_org_id,
+                    external_source = 'CLERK',
+                    updated_at = now()
+                where id = :org_id
+                returning *
+            """),
+            {"org_id": org_id, "clerk_org_id": clerk_org_id},
+        ).fetchone()
+        if not organization:
+            return None
+
+        conn.execute(
+            text("""
+                update organization_memberships
+                set clerk_org_id = :clerk_org_id,
+                    updated_at = now()
+                where org_id = :org_id
+            """),
+            {"org_id": org_id, "clerk_org_id": clerk_org_id},
+        )
+        conn.execute(
+            text("""
+                update tenant_sessions
+                set clerk_org_id = :clerk_org_id
+                where org_id = :org_id
+            """),
+            {"org_id": org_id, "clerk_org_id": clerk_org_id},
+        )
+
+        return dict(organization._mapping)
+
+
 def get_organization(
     org_id: str,
 ):
@@ -92,4 +144,3 @@ def get_organization(
         ).fetchone()
 
         return dict(row._mapping) if row else None
-

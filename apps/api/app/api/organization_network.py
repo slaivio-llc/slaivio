@@ -8,7 +8,10 @@ from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.organization_network import repository as repo
 from app.organizations.repositories.organization_repository import get_organization
-from app.organizations.services.invitation_service import invite_user_to_org
+from app.organizations.services.invitation_service import (
+    InvitationProviderError,
+    invite_user_to_org,
+)
 
 
 router = APIRouter(prefix="/organization/network", tags=["organization-network"])
@@ -88,12 +91,15 @@ def invite_network_member(
     clerk_org_id = tenant.get("clerk_org_id") or (organization or {}).get("clerk_org_id")
     if not clerk_org_id:
         raise HTTPException(400, "missing_clerk_organization_id")
-    result = invite_user_to_org(
-        org_id=tenant["org_id"], clerk_org_id=clerk_org_id,
-        email=body.email.strip().lower(), role_code=body.role_code,
-        invited_by_id=actor_id(manager),
-        invited_by_name=manager.get("full_name") or manager.get("name") or manager.get("email"),
-    )
+    try:
+        result = invite_user_to_org(
+            org_id=tenant["org_id"], clerk_org_id=clerk_org_id,
+            email=body.email.strip().lower(), role_code=body.role_code,
+            invited_by_id=actor_id(manager),
+            invited_by_name=manager.get("full_name") or manager.get("name") or manager.get("email"),
+        )
+    except InvitationProviderError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     invitation = result.get("invitation") or {}
     if not invitation.get("id"):
         raise HTTPException(500, "network_invitation_record_not_created")

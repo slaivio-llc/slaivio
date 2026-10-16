@@ -133,6 +133,10 @@ export function OrganizationAdminPage() {
       setError(
         detail === "organization_requires_an_active_owner"
           ? "Une organisation doit toujours conserver au moins un propriétaire actif."
+          : detail === "clerk_organizations_not_enabled"
+            ? "Impossible d’envoyer l’invitation : activez Organizations dans le Clerk Dashboard de l’instance utilisée par l’API, puis réessayez."
+            : detail === "invitation_provider_unavailable"
+              ? "Le service d’invitation est temporairement injoignable. Réessayez plus tard."
           : detail || "L’opération n’a pas abouti.",
       );
     }

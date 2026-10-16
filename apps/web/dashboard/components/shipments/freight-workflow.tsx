@@ -19,6 +19,7 @@ function failure(cause:unknown){
   const detail=cause.response.data?.detail;
   const code=typeof detail==="string"?detail:detail?.code;
   const financeMessage=typeof detail==="object"&&detail?.finance?.message;
+  if(code==="FINANCE_POLICY_MISSING"&&financeMessage)return financeMessage;
   if(code==="package_not_eligible")return `Colis ${detail.reference||"incompatible"} : ${(detail.reasons as string[]).map(key=>reasons[key]||key).join(", ")}. Aucune modification effectuée.`;
   if(code==="PAYMENT_CLEARANCE_REQUIRED"){
     const finance=detail.finance||{};

@@ -2,6 +2,7 @@
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { RecordPaymentForm } from "./record-payment-form";
 import { FinanceOfficeAssignment } from "./finance-office-assignment";
+import { FinanceDuePolicySettings } from "./finance-due-policy-settings";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -69,6 +70,7 @@ export function FinancePage() {
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [create, setCreate] = useState(false),
+    [policySettings, setPolicySettings] = useState(false),
     [selected, setSelected] = useState<FinanceDocument | null>(null);
   const closeResourceLink = useResourceLink(getFinance, setSelected, setError);
   const load = useCallback(async () => {
@@ -118,6 +120,9 @@ export function FinancePage() {
         description="Suivez les montants à payer, les paiements reçus, les soldes clients, les factures et les reçus."
         actions={
           <>
+            <PermissionGuard permission="finance.settings">
+              <button className={button} onClick={() => setPolicySettings(true)}>Conditions de paiement</button>
+            </PermissionGuard>
             <PermissionGuard permission="finance.export">
               <button className={button} onClick={download}>
                 <Download size={15} />
@@ -220,6 +225,7 @@ export function FinancePage() {
           }}
         />
       )}
+      <FinanceDuePolicySettings open={policySettings} close={() => setPolicySettings(false)} />
       {selected && (
         <Detail
           key={selected.id}

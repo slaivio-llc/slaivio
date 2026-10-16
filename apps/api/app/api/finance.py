@@ -23,7 +23,7 @@ def require_finance_scope(request:Request,context=Depends(get_current_office_con
    raise HTTPException(403,'finance_organization_context_required')
   return
  # These list endpoints explicitly apply the office predicate in the repository.
- if request.method=='GET' and request.url.path.rstrip('/').endswith(('/finance','/finance/stats','/finance/export')):return
+ if request.method=='GET' and request.url.path.rstrip('/').endswith(('/finance','/finance/stats','/finance/export','/finance/payments','/finance/balances')):return
  raise HTTPException(403,'finance_organization_context_required')
 
 router=APIRouter(prefix="/finance",tags=["finance"],dependencies=[Depends(require_finance_scope)])
@@ -112,6 +112,13 @@ def saspay_open_attempt(document_id:UUID,tenant=Depends(get_current_tenant),_=De
  return saspay_repository.get_open_attempt(tenant['org_id'],str(document_id))
 @router.get("/stats")
 def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.stats(tenant['org_id'],office_ids=office_scope_ids(context))
+@router.get("/payments")
+def payments(q:str|None=None,currency:str|None=None,status:str|None=None,start_date:date|None=None,end_date:date|None=None,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):
+ if start_date and end_date and end_date<start_date:raise HTTPException(422,'invalid_date_range')
+ return repo.list_payments(tenant['org_id'],q,currency,status,start_date,end_date,page,page_size,office_ids=office_scope_ids(context))
+@router.get("/balances")
+def balances(q:str|None=None,currency:str|None=None,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):
+ return repo.client_balances(tenant['org_id'],q,currency,page,page_size,office_ids=office_scope_ids(context))
 @router.get("/settings")
 def settings(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.settings_for(tenant['org_id'])
 @router.put("/settings")

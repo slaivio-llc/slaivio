@@ -40,6 +40,32 @@ def stats(o,office_ids=None):
   counts=dict(c.execute(text("select count(*) filter(where document_type='INVOICE')::int invoices,count(*) filter(where status='DRAFT')::int drafts,count(*) filter(where document_type='INVOICE' and (status='OVERDUE' or (status in ('ISSUED','PARTIALLY_PAID') and due_date<current_date)))::int overdue from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[])))"),{"o":o,"unrestricted":office_ids is None,"offices":office_ids or []}).mappings().one())
   counts["by_currency"]=rows(c.execute(text("select currency,coalesce(sum(total),0) invoiced,coalesce(sum(amount_paid),0) collected,coalesce(sum(balance_due),0) outstanding from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[]))) and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID') group by currency order by currency"),{"o":o,"unrestricted":office_ids is None,"offices":office_ids or []}))
   return counts
+
+def list_payments(o, q=None, currency=None, status=None, start_date=None, end_date=None, page=1, page_size=50, office_ids=None):
+ f=["p.org_id=:o"];p={"o":o,"q":f"%{q or ''}%","limit":page_size,"offset":(page-1)*page_size}
+ if office_ids is not None:f.append("d.office_id=any(cast(:office_ids as uuid[]))");p['office_ids']=office_ids
+ if q:f.append("(p.receipt_number ilike :q or d.document_number ilike :q or coalesce(c.name,c.phone,c.email,'') ilike :q or coalesce(p.reference,'') ilike :q)")
+ if currency:f.append("p.currency=:currency");p['currency']=currency.upper()
+ if status:f.append("p.status=:status");p['status']=status
+ if start_date:f.append("p.paid_at >= cast(:start_date as date)");p['start_date']=start_date
+ if end_date:f.append("p.paid_at < cast(:end_date as date) + interval '1 day'");p['end_date']=end_date
+ where=' and '.join(f)
+ joins=" from finance_payments p join finance_documents d on d.org_id=p.org_id and d.id=p.document_id left join clients c on c.org_id=d.org_id and c.id=d.client_id "
+ with engine.connect() as c:
+  total=c.execute(text(f"select count(*){joins} where {where}"),p).scalar_one()
+  items=rows(c.execute(text(f"select p.id,p.receipt_number,p.document_id,d.document_number,d.client_id,coalesce(c.name,c.phone,c.email,'Client') client_name,p.amount,p.currency,p.method,p.reference,p.paid_at,p.status,p.recorded_by_name,d.office_id{joins} where {where} order by p.paid_at desc,p.id desc limit :limit offset :offset"),p))
+  return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":max(1,(total+page_size-1)//page_size)}}
+
+def client_balances(o, q=None, currency=None, page=1, page_size=50, office_ids=None):
+ f=["d.org_id=:o","d.document_type='INVOICE'","d.status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID')"];p={"o":o,"q":f"%{q or ''}%","limit":page_size,"offset":(page-1)*page_size}
+ if office_ids is not None:f.append("d.office_id=any(cast(:office_ids as uuid[]))");p['office_ids']=office_ids
+ if q:f.append("coalesce(c.name,c.phone,c.email,'') ilike :q")
+ if currency:f.append("d.currency=:currency");p['currency']=currency.upper()
+ where=' and '.join(f)
+ with engine.connect() as c:
+  total=c.execute(text(f"select count(*) from (select d.client_id,d.currency{ ' from finance_documents d left join clients c on c.org_id=d.org_id and c.id=d.client_id where '+where} group by d.client_id,d.currency) balances"),p).scalar_one()
+  items=rows(c.execute(text(f"select d.client_id,coalesce(c.name,c.phone,c.email,'Client') client_name,d.currency,count(*)::int invoice_count,coalesce(sum(d.total),0) invoiced,coalesce(sum(d.amount_paid),0) paid,coalesce(sum(d.balance_due),0) balance,coalesce(sum(d.balance_due) filter(where d.due_date is null or d.due_date<=current_date),0) due_now,min(d.due_date) filter(where d.balance_due>0 and d.due_date>current_date) next_due from finance_documents d left join clients c on c.org_id=d.org_id and c.id=d.client_id where {where} group by d.client_id,c.name,c.phone,c.email,d.currency order by balance desc,client_name limit :limit offset :offset"),p))
+  return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":max(1,(total+page_size-1)//page_size)}}
 def create(o,a,n,payload):
  with engine.begin() as c:
   return create_in_transaction(c,o,a,n,payload)

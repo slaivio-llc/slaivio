@@ -19,10 +19,14 @@ import {
   getFinance,
   issueFinance,
   listFinance,
+  listFinancePayments,
+  listFinanceBalances,
   paymentReceipt,
   voidFinance,
   type FinanceDocument,
   type FinanceStats,
+  type FinancePaymentRow,
+  type FinanceBalanceRow,
 } from "@/services/finance";
 const button =
     "inline-flex h-9 items-center justify-center gap-2 rounded-[5px] border border-[#d9dcdf] bg-white px-3 text-[13px] font-medium hover:bg-[#f5f6f6] disabled:opacity-50",
@@ -71,28 +75,39 @@ export function FinancePage() {
     [error, setError] = useState(""),
     [create, setCreate] = useState(false),
     [policySettings, setPolicySettings] = useState(false),
+    [section, setSection] = useState<"overview" | "invoices" | "payments" | "balances">("overview"),
+    [paymentRows, setPaymentRows] = useState<FinancePaymentRow[]>([]),
+    [balanceRows, setBalanceRows] = useState<FinanceBalanceRow[]>([]),
+    [currency, setCurrency] = useState(""),
+    [startDate, setStartDate] = useState(""),
+    [endDate, setEndDate] = useState(""),
     [selected, setSelected] = useState<FinanceDocument | null>(null);
   const closeResourceLink = useResourceLink(getFinance, setSelected, setError);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [a, b] = await Promise.all([
-        listFinance({
+      const [a, b, payments, balances] = await Promise.all([
+        section === "overview" || section === "invoices" ? listFinance({
           q: q || undefined,
           status: status || undefined,
-          document_type: kind || undefined,
-        }),
+          document_type: section === "invoices" ? "INVOICE" : kind || undefined,
+          page_size: 100,
+        }) : Promise.resolve({items:[] as FinanceDocument[],pagination:{total:0}}),
         financeStats(),
+        section === "payments" ? listFinancePayments({q:q||undefined,currency:currency||undefined,status:status||undefined,start_date:startDate||undefined,end_date:endDate||undefined,page_size:100}) : Promise.resolve({items:[] as FinancePaymentRow[]}),
+        section === "balances" ? listFinanceBalances({q:q||undefined,currency:currency||undefined,page_size:100}) : Promise.resolve({items:[] as FinanceBalanceRow[]}),
       ]);
       setItems(a.items);
       setStats(b);
+      setPaymentRows(payments.items);
+      setBalanceRows(balances.items);
     } catch (e) {
       setError(err(e));
     } finally {
       setLoading(false);
     }
-  }, [q, status, kind]);
+  }, [q, status, kind, section, currency, startDate, endDate]);
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
@@ -139,7 +154,11 @@ export function FinancePage() {
         }
       />
       <main>
-        <OperationMetrics>
+        <nav aria-label="Sections Finance" className="flex gap-1 overflow-x-auto border-b border-[#e6e8e9] px-6">
+          {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>{setSection(key);setStatus("");setKind("");setActiveMetric("");}} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section===key?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>{label}</button>)}
+          <PermissionGuard permission="finance.settings"><button type="button" onClick={()=>setPolicySettings(true)} className="shrink-0 border-b-2 border-transparent px-3 py-3 text-[13px] text-[#68717d] hover:text-[#17212b]">Paramètres</button></PermissionGuard>
+        </nav>
+        {(section === "overview" || section === "invoices") && <OperationMetrics>
         <OperationMetricGrid>
           {[
             ["Factures", stats.invoices],
@@ -150,14 +169,18 @@ export function FinancePage() {
             <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { setActiveMetric(String(l)); if (l === "Factures") { setKind("INVOICE"); setStatus(""); } else if (l === "En retard") { setKind(""); setStatus("OVERDUE"); } else { setKind(""); setStatus(""); } }} />
           ))}
         </OperationMetricGrid>
-        </OperationMetrics>
+        </OperationMetrics>}
+        {(section === "payments" || section === "balances") && <div className="flex flex-wrap items-end gap-3 px-6 pt-4">
+          <label className="grid gap-1 text-[11px] text-[#68717d]">Devise<select className={input} value={currency} onChange={event=>setCurrency(event.target.value)}><option value="">Toutes les devises</option>{stats.by_currency.map(row=><option key={row.currency} value={row.currency}>{row.currency}</option>)}</select></label>
+          {section === "payments" && <><label className="grid gap-1 text-[11px] text-[#68717d]">Du<input className={input} type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">Au<input className={input} type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">État<select className={input} value={status} onChange={event=>setStatus(event.target.value)}><option value="">Tous</option><option value="CONFIRMED">Confirmés</option><option value="REVERSED">Annulés</option></select></label></>}
+        </div>}
         <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Numéro, client, téléphone…" />} filters={<><OperationFilterPopover activeCount={(status ? 1 : 0) + (kind ? 1 : 0)} onReset={() => { setKind(""); setStatus(""); setActiveMetric(""); }} title="Filtrer la finance"><OperationField label="Type de document"><select className={`${input} w-full`} value={kind} onChange={(event) => { setKind(event.target.value); setActiveMetric(""); }}><option value="">Tous les documents</option><option value="QUOTE">Devis</option><option value="INVOICE">Factures</option><option value="CREDIT_NOTE">Avoirs</option></select></OperationField><OperationField label="État du document"><select className={`${input} w-full`} value={status} onChange={(e) => { setStatus(e.target.value); setActiveMetric(""); }}><option value="">Tous les états</option>{["DRAFT","ISSUED","PARTIALLY_PAID","PAID","OVERDUE","VOID"].map((x) => <option key={x} value={x}>{labels[x]}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0">
               <RefreshCcw size={14} />
             </OperationButton></>} />
         <OperationContent className="pt-4">
           {error && <ErrorState title="Facturation indisponible" description={error} retry={load} />}
         <OperationTable>
-          {loading ? (
+          {section === "payments" ? (paymentRows.length ? <table className="w-full min-w-[900px] text-left text-[13px]"><thead className="bg-[#f6f7f7] text-[#5f6976]"><tr>{["Reçu","Date","Client","Facture","Moyen","Référence","Montant","État"].map(label=><th key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{paymentRows.map(payment=><tr key={payment.id} className="border-t"><td className="px-4 py-3 font-semibold">{payment.receipt_number}</td><td>{new Date(payment.paid_at).toLocaleDateString("fr-FR")}</td><td>{payment.client_name}</td><td>{payment.document_number}</td><td>{payment.method}</td><td>{payment.reference||"—"}</td><td className="font-semibold">{cash(payment.amount,payment.currency)}</td><td>{payment.status === "CONFIRMED" ? "Confirmé" : "Annulé"}</td></tr>)}</tbody></table> : <EmptyState title="Aucun paiement" description="Les paiements confirmés ou annulés selon les filtres apparaîtront ici." />) : section === "balances" ? (balanceRows.length ? <table className="w-full min-w-[800px] text-left text-[13px]"><thead className="bg-[#f6f7f7] text-[#5f6976]"><tr>{["Client","Devise","Factures","Facturé","Payé","Solde","Exigible","Prochaine échéance"].map(label=><th key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{balanceRows.map((balance,index)=><tr key={`${balance.client_id}-${balance.currency}-${index}`} className="border-t"><td className="px-4 py-3 font-semibold">{balance.client_name}</td><td>{balance.currency}</td><td>{balance.invoice_count}</td><td>{cash(balance.invoiced,balance.currency)}</td><td>{cash(balance.paid,balance.currency)}</td><td className="font-semibold">{cash(balance.balance,balance.currency)}</td><td>{cash(balance.due_now,balance.currency)}</td><td>{balance.next_due||"—"}</td></tr>)}</tbody></table> : <EmptyState title="Aucun solde client" description="Aucune facture émise ne correspond aux filtres." />) : loading ? (
             <TableSkeleton rows={7} columns={9} label="Chargement de la facturation…" />
           ) : items.length ? (
             <table className="w-full min-w-[900px] text-left text-[13px]">

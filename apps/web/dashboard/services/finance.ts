@@ -9,6 +9,10 @@ export async function createPackageInvoice(packageId:string,expected_version:num
 export type FinanceStats={invoices:number;drafts:number;overdue:number;by_currency:{currency:string;invoiced:number;collected:number;outstanding:number}[]};
 export async function listFinance(params:Record<string,unknown>={}){return (await api.get<{items:FinanceDocument[];pagination:{total:number}}>("/finance",{params})).data}
 export async function financeStats(){return (await api.get<FinanceStats>("/finance/stats")).data}
+export type FinancePaymentRow={id:string;receipt_number:string;document_id:string;document_number:string;client_id:string;client_name:string;amount:number;currency:string;method:string;reference:string|null;paid_at:string;status:"CONFIRMED"|"REVERSED";recorded_by_name:string|null;office_id:string|null};
+export type FinanceBalanceRow={client_id:string;client_name:string;currency:string;invoice_count:number;invoiced:number;paid:number;balance:number;due_now:number;next_due:string|null};
+export async function listFinancePayments(params:Record<string,unknown>={}){return (await api.get<{items:FinancePaymentRow[];pagination:{page:number;page_size:number;total:number;total_pages:number}}>("/finance/payments",{params})).data}
+export async function listFinanceBalances(params:Record<string,unknown>={}){return (await api.get<{items:FinanceBalanceRow[];pagination:{page:number;page_size:number;total:number;total_pages:number}}>("/finance/balances",{params})).data}
 export async function createFinance(payload:{document_type:string;client_id:string;currency:string;due_date?:string|null;notes?:string|null;terms?:string|null;lines:FinanceLine[]}){return (await api.post<FinanceDocument>("/finance",payload)).data}
 export async function getFinance(id:string){return (await api.get<FinanceDocument>(`/finance/${id}`)).data}
 export async function issueFinance(id:string,expected_version:number){return (await api.post<FinanceDocument>(`/finance/${id}/issue`,{expected_version})).data}

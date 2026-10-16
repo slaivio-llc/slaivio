@@ -5,7 +5,10 @@ import { RecordPaymentForm } from "./record-payment-form";
 
 vi.mock("@/services/finance", () => ({ payFinance: vi.fn() }));
 const document = { id: "invoice", client_name: "Jean", document_number: "FAC-1", balance_due: 60, currency: "USD" } as FinanceDocument;
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  sessionStorage.clear();
+  vi.resetAllMocks();
+});
 
 it("retries exactly the same request after an ambiguous failure", async () => {
   vi.mocked(payFinance).mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce({} as never);

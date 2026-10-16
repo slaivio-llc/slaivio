@@ -1455,7 +1455,7 @@ function PackageDetails({
             {activeTab === "shipment" && (
               <ShipmentTab item={item} onUpdated={refreshPackage} />
             )}
-            {activeTab === "payment" && <PaymentTab item={item} />}
+            {activeTab === "payment" && <PaymentTab item={item} onUpdated={refreshPackage} />}
             {activeTab === "anomalies" && (
               <AnomaliesTab item={item} onUpdated={refreshPackage} />
             )}
@@ -2122,8 +2122,8 @@ function ShipmentTab({
   );
 }
 
-function PaymentTab({ item }: { item: PackageRecord }) {
-  return <PermissionGuard permission="finance.read"><PackageFinance key={item.id} packageId={item.id} version={item.row_version} /></PermissionGuard>;
+function PaymentTab({ item, onUpdated }: { item: PackageRecord; onUpdated: (item: PackageRecord) => void }) {
+  return <PermissionGuard permission="finance.read"><PackageFinance key={item.id} item={item} onUpdated={onUpdated} /></PermissionGuard>;
 }
 function AnomaliesTab({
   item,

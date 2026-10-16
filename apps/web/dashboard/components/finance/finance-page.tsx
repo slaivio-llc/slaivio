@@ -13,7 +13,7 @@ import { OperationContent, OperationMetrics, OperationSearch, OperationTable, Op
 import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients, type ClientRecord } from "@/services/clients";
-import { listPackages, type PackageRecord } from "@/services/packages";
+import { listPackages, pricePackage, type PackageRecord } from "@/services/packages";
 import {
   createPackageInvoice,
   createFinance,
@@ -75,8 +75,17 @@ function err(e: unknown) {
   );
 }
 function packageInvoiceError(e: unknown) {
-  const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+  const detail = (e as { response?: { data?: { detail?: string | { code?: string; field?: string } } } })?.response?.data?.detail;
+  const code = typeof detail === "string" ? detail : detail?.code;
   const messages: Record<string, string> = {
+    pricing_input_required: "Une mesure requise par la grille tarifaire manque sur le colis (poids, volume ou valeur déclarée).",
+    package_route_required_for_pricing: "Aucun trajet n’est associé au colis. Rattachez-le d’abord à un trajet configuré.",
+    no_active_pricing_grid: "Aucune grille tarifaire active ne couvre ce service et ce trajet. Vérifiez Gestion > Tarification.",
+    package_weight_required: "Le poids ou le volume nécessaire au calcul du tarif manque dans la fiche du colis.",
+    route_service_mismatch: "Le service sélectionné n’est pas proposé sur le trajet de ce colis.",
+    no_matching_pricing_rule: "Aucune règle tarifaire ne correspond au type de marchandise ou de colis. Vérifiez la configuration du service.",
+    pricing_grid_has_no_price_rules: "La grille tarifaire de ce service ne contient pas encore de règle de prix.",
+    manual_quote_required: "Ce colis nécessite un devis manuel avant facturation.",
     package_not_found: "Ce colis n’est plus disponible dans votre agence. Actualisez la liste et réessayez.",
     package_pricing_required: "Calculez d’abord le tarif du colis dans sa fiche avant de le facturer.",
     package_pricing_inconsistent: "Le tarif enregistré du colis est incohérent. Faites-le vérifier avant facturation.",
@@ -86,7 +95,7 @@ function packageInvoiceError(e: unknown) {
     package_version_conflict: "Le colis a changé depuis son chargement. Recherchez-le à nouveau puis réessayez.",
     finance_office_scope_not_supported: "Votre contexte de bureau n’autorise pas encore cette opération financière."
   };
-  return (detail && messages[detail]) || err(e);
+  return (code && messages[code]) || err(e);
 }
 export function FinancePage() {
   const [items, setItems] = useState<FinanceDocument[]>([]),
@@ -321,6 +330,7 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
     [packageQuery, setPackageQuery] = useState(""),
     [packageId, setPackageId] = useState(""),
     [packagesLoading, setPackagesLoading] = useState(false),
+    [pricingBusy, setPricingBusy] = useState(false),
     [currency, setCurrency] = useState("USD"),
     [lines, setLines] = useState([
       {
@@ -333,6 +343,8 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
     ]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const selectedPackageForInvoice = packages.find((item) => item.id === packageId);
+  const selectedPackageIsPriced = Boolean(selectedPackageForInvoice?.fees_total != null && selectedPackageForInvoice.pricing_snapshot && Object.keys(selectedPackageForInvoice.pricing_snapshot).length);
   useEffect(() => {
     listClients({ page_size: 100 }).then((r) => setClients(r.items)).catch(()=>setError("Chargement des clients impossible. Rouvrez le formulaire pour réessayer."));
   }, []);
@@ -348,6 +360,20 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
     }, 200);
     return () => { active = false; clearTimeout(timer); };
   }, [mode, packageQuery]);
+  async function calculateSelectedPackagePrice() {
+    const selectedPackage = packages.find((item) => item.id === packageId);
+    if (!selectedPackage?.shipping_service_id || pricingBusy) return;
+    setPricingBusy(true);
+    setError("");
+    try {
+      const updated = await pricePackage(selectedPackage.id, selectedPackage.shipping_service_id);
+      setPackages(current => current.map(item => item.id === updated.id ? updated : item));
+    } catch (cause) {
+      setError(packageInvoiceError(cause));
+    } finally {
+      setPricingBusy(false);
+    }
+  }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -402,6 +428,7 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
             <option value="">{packagesLoading ? "Recherche des colis…" : "Sélectionner un colis"}</option>
             {packages.map((item) => <option key={item.id} value={item.id}>{item.package_reference || item.tracking_id || item.id} · {item.client_name || "Client non renseigné"}{item.fees_total == null ? " · Tarif à calculer" : ` · ${cash(item.fees_total, item.currency || "USD")}`}</option>)}
           </select></label>
+          {(() => { const item = packages.find((candidate) => candidate.id === packageId); const priced = Boolean(item?.fees_total != null && item.pricing_snapshot && Object.keys(item.pricing_snapshot).length); return item && !priced && item.shipping_service_id ? <PermissionGuard permission="packages.pricing"><button type="button" disabled={pricingBusy || item.row_version == null} onClick={calculateSelectedPackagePrice} className={button}>{pricingBusy ? "Calcul du tarif…" : "Calculer le tarif du colis"}</button></PermissionGuard> : null; })()}
           {!packagesLoading && !packages.length && <p className="text-xs text-slate-500">Aucun colis trouvé dans votre périmètre. Vérifiez la référence ou vos droits d’accès aux colis.</p>}
           {(() => { const item = packages.find((candidate) => candidate.id === packageId); if (!item) return null; const priced = item.fees_total != null && Boolean(item.pricing_snapshot); return <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-700"><p><strong>Client :</strong> {item.client_name || "Non renseigné"}</p><p><strong>Tarif :</strong> {priced ? cash(item.fees_total!, item.currency || "USD") : "À calculer dans le module Colis avant facturation"}</p>{!item.client_id && <p className="mt-2 text-amber-700">Ce colis n’a pas de client associé ; sa facture ne peut pas être préparée.</p>}{priced && <p className="mt-2">Le brouillon sera ouvert après sa création. Émettez-le depuis sa fiche pour qu’il soit pris en compte au départ.</p>}</div>; })()}
         </section> : <>
@@ -469,7 +496,8 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
         />
         </>}
         {error && <p className="text-[13px] text-red-600">{error}</p>}
-        <button disabled={busy || (mode === "package" && (packagesLoading || !packageId))} className={`${primary} w-full`}>
+        {mode === "package" && !selectedPackageIsPriced ? <p className="text-xs text-slate-500">Calculez d’abord le tarif enregistré du colis. Le bouton de facturation sera activé ensuite.</p> : null}
+        <button disabled={busy || (mode === "package" && (packagesLoading || !packageId || !selectedPackageIsPriced))} className={`${primary} w-full`}>
           {busy ? "Création…" : mode === "package" ? "Préparer la facture du colis" : "Créer le brouillon"}
         </button>
       </form>

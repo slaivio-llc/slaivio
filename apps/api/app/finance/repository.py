@@ -94,6 +94,7 @@ def create(o,a,n,payload):
 
 def create_in_transaction(c,o,a,n,payload):
  payload=dict(payload)
+ payload.setdefault('office_id',None)
  lines,sub,disc,tax,total=calculate(payload.pop('lines'))
  if not c.execute(text("select 1 from clients where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['client_id'],"o":o}).first():raise HTTPException(422,'finance_client_not_found')
  if payload.get('dossier_id') and not c.execute(text("select 1 from dossiers where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['dossier_id'],"o":o}).first():raise HTTPException(422,'finance_dossier_not_found')

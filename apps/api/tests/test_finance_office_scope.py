@@ -7,6 +7,23 @@ from app.finance import office_scope, repository
 
 DOC='00000000-0000-0000-0000-000000000001'
 
+def test_finance_document_creation_binds_nullable_office_id(monkeypatch):
+    conn=MagicMock()
+    client=MagicMock(); client.first.return_value={'id':'client'}
+    generated_id=MagicMock(); generated_id.scalar_one.return_value=DOC
+    inserted=MagicMock(); inserted.mappings.return_value.one.return_value={'id':DOC}
+    conn.execute.side_effect=[client,generated_id,inserted,MagicMock()]
+    monkeypatch.setattr(repository,'number',lambda *args:'FAC-2026-000001')
+    monkeypatch.setattr(repository,'event',MagicMock())
+    payload={'document_type':'INVOICE','client_id':'client','dossier_id':None,
+        'source_document_id':None,'currency':'USD','due_date':None,'notes':None,
+        'terms':None,'lines':[{'description':'Transport','quantity':1,'unit_price':10}]}
+
+    repository.create_in_transaction(conn,'agency','actor','Agent',payload)
+
+    insert_params=conn.execute.call_args_list[2].args[1]
+    assert insert_params['office_id'] is None
+
 def request(path, method='GET', document=False):
     return Request({'type':'http','method':method,'path':path,'headers':[],
                     'path_params':{'document_id':DOC} if document else {}})

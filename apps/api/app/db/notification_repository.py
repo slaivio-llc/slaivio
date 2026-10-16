@@ -94,6 +94,17 @@ def list_pending_notifications(
         return [dict(row._mapping) for row in result.fetchall()]
 
 
+def list_global_pending_notification_dispatches(limit: int = 100):
+    """Internal worker scan; the atomic org-scoped claim remains the send authority."""
+    with engine.connect() as conn:
+        rows = conn.execute(text("""select org_id,id::text notification_id
+            from notification_outbox
+            where status='PENDING' and dispatch_state='IDLE'
+            order by created_at,id
+            limit :limit"""), {"limit": max(1, min(limit, 500))}).mappings()
+        return [dict(row) for row in rows]
+
+
 def get_notification_by_id(
     org_id: str,
     notification_id: str,

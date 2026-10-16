@@ -30,6 +30,8 @@ Date : 2026-10-16
 - Les relances de paiement exigent une facture avec solde et échéance passée ; les relances de retrait exigent toujours un ordre `READY` ou `NOTIFIED`.
 - Les états fournisseur des relances sont projetés vers l'historique d'envoi en tenant compte de l'organisation.
 - Les lots de relances pilot restent en cours tant qu'un dispatch est ambigu/en attente et passent en échec partiel si une tentative échoue ou est annulée sans tentative encore active.
+- Le traitement des tâches de relance et des campagnes ne livrait jusque-là que dans l'outbox, sans appeler le sender. Un job durable de dispatch des notifications `PENDING/IDLE` est maintenant raccordé aux jobs Communication ; `CLAIMED/UNKNOWN` restent exclus de toute reprise automatique.
+- Le `Procfile` ne déclare que le serveur web et aucun ordonnanceur n'est versionné dans le dépôt. En production, planifier l'exécution périodique de `python -m app.jobs.followup_recovery` (et, pour les campagnes, `python -m app.jobs.broadcast_campaigns`) dans le service Cron de l'hébergeur ; sans ce déclencheur externe, les relances restent en attente dans l'outbox.
 
 ## Écarts à traiter dans les prochains lots
 

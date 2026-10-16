@@ -5,5 +5,9 @@ import os
 os.environ["APP_RUNTIME"] = "cron"
 
 from app.db.followup_repository import process_attempt_queue,advance_sequences,detect_all_organizations,queue_due_tasks
-def main():print({'detected':detect_all_organizations(),'advanced':advance_sequences(),'queued':queue_due_tasks(200),'processed':process_attempt_queue(100)})
+from app.jobs.communication_dispatch import main as dispatch_pending_notifications
+def main():
+ result={'detected':detect_all_organizations(),'advanced':advance_sequences(),'queued':queue_due_tasks(200),'processed':process_attempt_queue(100)}
+ result['dispatch']=dispatch_pending_notifications(100)
+ print(result)
 if __name__=='__main__':main()

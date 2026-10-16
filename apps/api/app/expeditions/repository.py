@@ -1014,7 +1014,7 @@ def _sync_customer_package_milestone(conn, org_id: str, expedition_id: str, user
     queued = []
     for package in packages:
         conn.execute(text("""
-            update cargo_packages set status=:status,current_status=:status,
+            update cargo_packages set status=:status,
               dispatched_at=case when :status='SHIPPED' then coalesce(dispatched_at,now()) else dispatched_at end,
               delivered_at=case when :status='DELIVERED' then coalesce(delivered_at,now()) else delivered_at end,
               row_version=row_version+1,updated_at=now(),updated_by=:user_id

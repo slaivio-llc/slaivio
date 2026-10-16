@@ -313,7 +313,7 @@ export function FinancePage() {
           key={selected.id}
           item={selected}
           startPayment={openPaymentOnDetail}
-          close={() => { setSelected(null); closeResourceLink(); }}
+          close={() => { setSelected(null); setOpenPaymentOnDetail(false); closeResourceLink(); }}
           reload={async () => {
             setSelected(await getFinance(selected.id));
             load();
@@ -541,9 +541,9 @@ function Detail({
         {!(item as FinanceDocument & {office_id?:string|null}).office_id && <PermissionGuard permission="finance.settings"><FinanceOfficeAssignment documentId={item.id} version={item.row_version} onSaved={reload} /></PermissionGuard>}
         <section className="grid grid-cols-3 gap-3">
           {[
-            ["Total", cash(item.total, item.currency)],
+            ["Montant facturé", cash(item.total, item.currency)],
             ["Payé", cash(item.amount_paid, item.currency)],
-            ["Solde", cash(item.balance_due, item.currency)],
+            ["Solde restant", cash(item.balance_due, item.currency)],
           ].map(([l, v]) => (
             <div key={l} className="rounded bg-white p-4">
               <small>{l}</small>
@@ -553,14 +553,14 @@ function Detail({
         </section>
         <section className="rounded bg-white p-4">
           <h3 className="mb-3 font-semibold">Détail</h3>
+          {item.document_type === "INVOICE" && item.status === "DRAFT" && <p className="mb-3 rounded-[5px] bg-slate-50 p-3 text-[12px] text-slate-600">Le tarif facturé est déjà fixé dans ce brouillon. L’émission rend la facture officielle; elle n’enregistre pas un paiement. Enregistrez séparément l’argent réellement reçu.</p>}
           {item.lines?.map((l, i) => (
             <div
               key={i}
               className="flex justify-between border-t py-3 text-[13px]"
             >
               <span>
-                {l.description} · {l.quantity} ×{" "}
-                {cash(l.unit_price, item.currency)}
+                {l.description}{l.quantity !== 1 ? ` · ${l.quantity} × ${cash(l.unit_price, item.currency)}` : ""}
               </span>
               <b>{cash(l.line_total || 0, item.currency)}</b>
             </div>

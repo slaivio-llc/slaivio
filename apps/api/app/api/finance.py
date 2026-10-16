@@ -99,6 +99,9 @@ def index(q:str|None=None,status:str|None=None,document_type:str|None=None,page:
 def due_policies(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.list_due_policies(tenant['org_id'])
 @router.post("/due-policies")
 def due_policies_save(body:DuePolicy,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):return repo.upsert_due_policy(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
+@router.delete("/due-policies/{policy_id}")
+def due_policy_deactivate(policy_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):
+ return repo.deactivate_due_policy(tenant['org_id'],str(policy_id),actor(tenant),name(tenant))
 @router.get("/saspay/connection")
 def saspay_connection(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):
  return saspay_repository.connection_status(tenant['org_id'])

@@ -77,7 +77,7 @@ def mark_ready(org_id, package_id, actor, expected_version):
         check_version(row, expected_version)
         if row["status"] not in {"ARRIVED", "ARRIVED_DESTINATION", "CLEARED"}:
             raise HTTPException(409, "parcel_not_arrived")
-        conn.execute(text("""update cargo_packages set status='READY_FOR_PICKUP',current_status='READY_FOR_PICKUP',
+        conn.execute(text("""update cargo_packages set status='READY_FOR_PICKUP',
             row_version=row_version+1,updated_by=:actor,updated_at=now()
             where id=cast(:id as uuid) and org_id=:owner"""), {"actor": actor, "id": package_id, "owner": row["org_id"]})
         _insert_package_event(conn, org_id=row["org_id"], package_id=package_id, event_type="PARCEL_READY_FOR_PICKUP",

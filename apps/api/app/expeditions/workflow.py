@@ -154,7 +154,7 @@ def milestone(org_id,shipment_id,actor,expected,action):
         new_status='SHIPPED' if action=='depart' else 'ARRIVED_DESTINATION';notifications=[]
         for row in rows:
             p=dict(row)
-            conn.execute(text("""update cargo_packages set status=:status,current_status=:status,
+            conn.execute(text("""update cargo_packages set status=:status,
               dispatched_at=case when :status='SHIPPED' then now() else dispatched_at end,
               row_version=row_version+1,updated_by=:actor,updated_at=now() where org_id=:org_id and id=:package"""),
               {**params,'package':p['id'],'status':new_status})

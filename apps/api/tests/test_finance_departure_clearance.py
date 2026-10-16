@@ -27,16 +27,18 @@ def test_arrival_policy_does_not_block_departure(monkeypatch):
     c = conn(monkeypatch, [
         {'id': 'invoice', 'total': 200, 'currency': 'USD'},
         None,
+        None,
     ])
     # A DEPARTURE policy is required; an ARRIVAL policy is intentionally not used.
     decision = departure_clearance(c, 'org', package())
     assert decision['code'] == 'FINANCE_POLICY_MISSING'
-    assert c.execute.call_count == 2
+    assert c.execute.call_count == 3
 
 
 def test_deposit_allows_departure_when_paid(monkeypatch):
     c = conn(monkeypatch, [
         {'id': 'invoice', 'total': Decimal('200.00'), 'currency': 'USD'},
+        None,
         {'name': 'Acompte 50 %', 'rule_type': 'PERCENTAGE', 'percentage': Decimal('50'), 'currency': 'USD'},
         Decimal('100.00'),
     ])
@@ -46,9 +48,24 @@ def test_deposit_allows_departure_when_paid(monkeypatch):
     assert decision['remaining'] == '0.00'
 
 
+def test_departure_uses_invoice_policy_snapshot_after_rule_changes():
+    c = conn(None, [
+        {'id': 'invoice', 'total': Decimal('200.00'), 'currency': 'USD'},
+        {'amount': Decimal('100.00'), 'currency': 'USD', 'name': 'Acompte 50 %'},
+        Decimal('50.00'),
+    ])
+    decision = departure_clearance(c, 'org', package())
+    assert decision['allowed'] is False
+    assert decision['required'] == '100.00'
+    assert decision['policy'] == 'Acompte 50 %'
+    assert decision['remaining'] == '50.00'
+    assert c.execute.call_count == 3
+
+
 def test_full_payment_policy_returns_explainable_block(monkeypatch):
     c = conn(monkeypatch, [
         {'id': 'invoice', 'total': Decimal('200.00'), 'currency': 'USD'},
+        None,
         {'name': 'Paiement intégral avant départ', 'rule_type': 'PERCENTAGE', 'percentage': Decimal('100'), 'currency': 'USD'},
         Decimal('50.00'),
     ])
@@ -71,15 +88,16 @@ def test_missing_invoice_is_not_treated_as_zero(monkeypatch):
 def test_currency_mismatch_blocks_without_reading_payments(monkeypatch):
     c = conn(monkeypatch, [
         {'id': 'invoice', 'total': 200, 'currency': 'USD'},
+        None,
         {'name': 'Acompte', 'rule_type': 'PERCENTAGE', 'percentage': 50, 'currency': 'CDF'},
     ])
     decision = departure_clearance(c, 'org', package())
     assert decision['code'] == 'FINANCE_POLICY_CURRENCY_MISMATCH'
-    assert c.execute.call_count == 2
+    assert c.execute.call_count == 3
 
 
 def test_delivery_without_financial_policy_does_not_add_a_global_payment_gate():
-    c = conn(None, [None, None])
+    c = conn(None, [None, None, None])
     decision = delivery_clearance(c, 'org', package())
     assert decision['allowed'] is True
     assert decision['policy_configured'] is False
@@ -89,6 +107,7 @@ def test_delivery_without_financial_policy_does_not_add_a_global_payment_gate():
 def test_delivery_policy_blocks_release_with_explainable_balance():
     c = conn(None, [
         {'id': 'invoice', 'total': Decimal('200.00'), 'currency': 'USD'},
+        None,
         {'name': 'Paiement avant remise', 'rule_type': 'PERCENTAGE',
          'percentage': Decimal('100'), 'currency': 'USD'},
         Decimal('120.00'),
@@ -103,6 +122,7 @@ def test_delivery_policy_blocks_release_with_explainable_balance():
 def test_delivery_policy_allows_release_when_amount_is_confirmed():
     c = conn(None, [
         {'id': 'invoice', 'total': Decimal('200.00'), 'currency': 'USD'},
+        None,
         {'name': 'Paiement avant remise', 'rule_type': 'PERCENTAGE',
          'percentage': Decimal('100'), 'currency': 'USD'},
         Decimal('200.00'),

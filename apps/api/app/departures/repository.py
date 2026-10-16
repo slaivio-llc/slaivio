@@ -298,7 +298,7 @@ def _sync_operations(c,o,dep,a,n,status,reason,queued_notification_ids):
  for pkg in packages:
   c.execute(text("insert into expedition_packages(org_id,expedition_id,package_id,added_by) values(:o,:e,:p,:a) on conflict(org_id,expedition_id,package_id) where removed_at is null do nothing"),{'o':o,'e':exp['id'],'p':pkg['id'],'a':a})
   package_status={'CONFIRMED':'READY_FOR_DISPATCH','DELAYED':'READY_FOR_DISPATCH','DEPARTED':'IN_TRANSIT','ARRIVED':'ARRIVED_DESTINATION','CANCELLED':'READY_FOR_DISPATCH'}[status]
-  c.execute(text('update cargo_packages set shipment_id=:e,status=:s,current_status=:s,updated_at=now() where org_id=:o and id=:p'),{'e':exp['id'] if status!='CANCELLED' else None,'s':package_status,'o':o,'p':pkg['id']})
+  c.execute(text('update cargo_packages set shipment_id=:e,status=:s,updated_at=now() where org_id=:o and id=:p'),{'e':exp['id'] if status!='CANCELLED' else None,'s':package_status,'o':o,'p':pkg['id']})
   c.execute(text("insert into package_events(org_id,package_id,event_type,title,description,new_status,metadata,actor_id) values(:o,:p,:event,:title,:description,:status,cast(:meta as jsonb),:a)"),{'o':o,'p':pkg['id'],'event':f'DEPARTURE_{status}','title':f'Départ {status.lower()}','description':reason,'status':package_status,'meta':json.dumps({'departure_id':str(dep['id']),'expedition_id':exp['id']}),'a':a})
   if milestones_enabled is not False and status in {'DELAYED','DEPARTED','ARRIVED','CANCELLED'} and pkg.get('client_id') and (pkg.get('client_phone') or pkg.get('client_whatsapp_phone')):
    when=dep.get('scheduled_at')

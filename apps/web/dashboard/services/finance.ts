@@ -30,6 +30,7 @@ export async function getFinanceSettings(){return (await api.get<FinanceSettings
 export async function saveFinanceSettings(p:FinanceSettings){return (await api.put<FinanceSettings>("/finance/settings",p)).data}
 export async function listFinanceDuePolicies(){return (await api.get<FinanceDuePolicy[]>("/finance/due-policies")).data}
 export async function saveFinanceDuePolicy(policy:FinanceDuePolicy){return (await api.post<FinanceDuePolicy>("/finance/due-policies",policy)).data}
+export async function deactivateFinanceDuePolicy(policyId:string){return (await api.delete<{changed:boolean;id:string;is_active?:boolean}>(`/finance/due-policies/${policyId}`)).data}
 export async function getFinanceDueObligations(documentId:string){return (await api.get<Array<{id:string;amount:number;currency:string;trigger_event:string;status:string}>>(`/finance/${documentId}/due-obligations`)).data}
 export async function refreshFinanceDueObligations(documentId:string,trigger_event?:string){return (await api.post<Array<{id:string;amount:number;currency:string;trigger_event:string;status:string}>>(`/finance/${documentId}/due-obligations`,trigger_event?{trigger_event}:{})).data}
 export async function decideQuote(id:string,expected_version:number,accepted:boolean,reason?:string|null){return (await api.post(`/finance/${id}/decision`,{expected_version,accepted,reason})).data}

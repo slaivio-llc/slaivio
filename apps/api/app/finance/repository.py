@@ -116,9 +116,15 @@ def detail(o,d):
   x=dict(doc);x['lines']=rows(c.execute(text("select * from finance_document_lines where org_id=:o and document_id=:d order by position"),{"o":o,"d":d}));x['payments']=rows(c.execute(text("select * from finance_payments where org_id=:o and document_id=:d order by paid_at desc"),{"o":o,"d":d}));x['events']=rows(c.execute(text("select * from finance_events where org_id=:o and document_id=:d order by created_at desc"),{"o":o,"d":d}));return x
 def issue(o,d,a,n,version):
  with engine.begin() as c:
-  row=c.execute(text("update finance_documents set status='ISSUED',issue_date=current_date,issued_at=now(),issued_by=:a,row_version=row_version+1,updated_at=now() where org_id=:o and id=:d and status='DRAFT' and row_version=:v returning *"),{"o":o,"d":d,"a":a,"v":version}).mappings().first()
+  row=c.execute(text("""update finance_documents set status='ISSUED',issue_date=current_date,issued_at=now(),
+      due_policy_snapshot_at=case when document_type='INVOICE' then now() else due_policy_snapshot_at end,
+      issued_by=:a,row_version=row_version+1,updated_at=now()
+      where org_id=:o and id=:d and status='DRAFT' and row_version=:v returning *"""),{"o":o,"d":d,"a":a,"v":version}).mappings().first()
   if not row:raise HTTPException(409,'finance_document_state_conflict')
-  event(c,o,d,'ISSUED',a,n);return dict(row)
+  event(c,o,d,'ISSUED',a,n)
+  if row['document_type'] == 'INVOICE':
+   _snapshot_due_obligations(c,o,d,row,a,n)
+  return dict(row)
 def payment_amount(value):
  try:
   amount = D(str(value))
@@ -249,26 +255,64 @@ def upsert_due_policy(o,a,n,payload):
   if fixed_amount < 0:
    raise HTTPException(422, 'invalid_due_policy_amount')
   percentage = None
+ service_id = str(payload['shipping_service_id']) if payload.get('shipping_service_id') else None
  with engine.begin() as c:
-  row = c.execute(text("""insert into finance_due_policies(org_id,name,shipping_service_id,trigger_event,rule_type,percentage,fixed_amount,currency,is_active,created_by,created_by_name)
-      values(:o,:name,cast(:shipping_service_id as uuid),:trigger_event,:rule_type,:percentage,:fixed_amount,:currency,:is_active,:a,:n)
-      on conflict(org_id,name) do update set
-        trigger_event=excluded.trigger_event,
-        rule_type=excluded.rule_type,
-        percentage=excluded.percentage,
-        fixed_amount=excluded.fixed_amount,
-        currency=excluded.currency,
-        is_active=excluded.is_active,
-        row_version=finance_due_policies.row_version + 1,
-        updated_at=now(),
-        created_by=excluded.created_by,
-        created_by_name=excluded.created_by_name
-      returning *"""),{
-       'o':o,'name':name,'shipping_service_id':payload.get('shipping_service_id'),'trigger_event':trigger,'rule_type':rule_type,'percentage':percentage,
-       'fixed_amount':fixed_amount,'currency':currency,'is_active':payload.get('is_active',True),
-       'a':a,'n':n}).mappings().one()
-  event(c,o,None,'DUE_POLICY_SAVED',a,n,{"policy_id":str(row['id']),"name":name,"trigger_event":trigger,"row_version":row['row_version']})
+  # Serialize changes to this exact scope; a service rule never replaces the agency default.
+  scope_key = f"{o}:{trigger}:{service_id or 'default'}"
+  c.execute(text("select pg_advisory_xact_lock(hashtextextended(:scope,0))"), {'scope': scope_key})
+  named = c.execute(text("select id::text,shipping_service_id::text,trigger_event from finance_due_policies where org_id=:o and name=:name"), {'o':o,'name':name}).mappings().first()
+  if named and (named['trigger_event'] != trigger or named['shipping_service_id'] != service_id):
+   raise HTTPException(409, 'due_policy_name_exists_in_another_scope')
+  current = c.execute(text("""select * from finance_due_policies where org_id=:o and trigger_event=:event
+      and shipping_service_id is not distinct from cast(:service as uuid) and is_active=true
+      order by row_version desc,updated_at desc,created_at desc,id limit 1 for update"""),
+      {'o':o,'event':trigger,'service':service_id}).mappings().first()
+  # Keep only the newest active rule in this scope, including legacy duplicates.
+  c.execute(text("""update finance_due_policies set is_active=false,row_version=row_version+1,updated_at=now()
+      where org_id=:o and trigger_event=:event and shipping_service_id is not distinct from cast(:service as uuid)
+      and is_active=true and (:keep_id is null or id<>cast(:keep_id as uuid))"""),
+      {'o':o,'event':trigger,'service':service_id,'keep_id':current['id'] if current else None})
+  if current and named and named['id'] != current['id']:
+   raise HTTPException(409, 'due_policy_name_already_used')
+  previous = dict(current) if current else None
+  if current:
+   row = c.execute(text("""update finance_due_policies set name=:name,rule_type=:rule_type,percentage=:percentage,
+       fixed_amount=:fixed_amount,currency=:currency,is_active=:active,row_version=row_version+1,updated_at=now(),
+       created_by=:actor,created_by_name=:actor_name where org_id=:o and id=:id returning *"""),
+       {'name':name,'rule_type':rule_type,'percentage':percentage,'fixed_amount':fixed_amount,'currency':currency,
+        'active':payload.get('is_active',True),'actor':a,'actor_name':n,'o':o,'id':current['id']}).mappings().one()
+  elif named:
+   row = c.execute(text("""update finance_due_policies set rule_type=:rule_type,percentage=:percentage,fixed_amount=:fixed_amount,
+       currency=:currency,is_active=:active,row_version=row_version+1,updated_at=now(),created_by=:actor,created_by_name=:actor_name
+       where org_id=:o and id=:id returning *"""),
+       {'rule_type':rule_type,'percentage':percentage,'fixed_amount':fixed_amount,'currency':currency,
+        'active':payload.get('is_active',True),'actor':a,'actor_name':n,'o':o,'id':named['id']}).mappings().one()
+  else:
+   row = c.execute(text("""insert into finance_due_policies(org_id,name,shipping_service_id,trigger_event,rule_type,percentage,fixed_amount,currency,is_active,created_by,created_by_name)
+       values(:o,:name,cast(:service as uuid),:event,:rule_type,:percentage,:fixed_amount,:currency,:active,:actor,:actor_name) returning *"""),
+       {'o':o,'name':name,'service':service_id,'event':trigger,'rule_type':rule_type,'percentage':percentage,
+        'fixed_amount':fixed_amount,'currency':currency,'active':payload.get('is_active',True),'actor':a,'actor_name':n}).mappings().one()
+  event(c,o,None,'DUE_POLICY_SAVED',a,n,{"policy_id":str(row['id']),"name":name,"trigger_event":trigger,
+       "shipping_service_id":service_id,"row_version":row['row_version'],
+       "previous_rule":({"name":previous.get('name'),"rule_type":previous.get('rule_type'),
+          "percentage":str(previous.get('percentage')) if previous.get('percentage') is not None else None,
+          "fixed_amount":str(previous.get('fixed_amount')) if previous.get('fixed_amount') is not None else None,
+          "currency":previous.get('currency')} if previous else None),
+       "new_rule":{"name":name,"rule_type":rule_type,"percentage":str(percentage) if percentage is not None else None,
+          "fixed_amount":str(fixed_amount) if fixed_amount is not None else None,"currency":currency}})
   return dict(row)
+
+def deactivate_due_policy(o, policy_id, a, n):
+ with engine.begin() as c:
+  row=c.execute(text("""update finance_due_policies set is_active=false,row_version=row_version+1,updated_at=now(),created_by=:actor,created_by_name=:actor_name
+      where org_id=:o and id=cast(:id as uuid) and is_active=true returning *"""),
+      {'o':o,'id':policy_id,'actor':a,'actor_name':n}).mappings().first()
+  if not row:
+   exists=c.execute(text("select 1 from finance_due_policies where org_id=:o and id=cast(:id as uuid)"),{'o':o,'id':policy_id}).first()
+   if not exists: raise HTTPException(404,'due_policy_not_found')
+   return {'changed':False,'id':policy_id}
+  event(c,o,None,'DUE_POLICY_DEACTIVATED',a,n,{'policy_id':str(policy_id),'row_version':row['row_version']})
+  return {'changed':True,'id':policy_id,'is_active':False,'row_version':row['row_version']}
 
 def get_due_obligations(o,d):
  with engine.connect() as c:
@@ -284,20 +328,33 @@ def evaluate_due_obligations(o,d,trigger_event=None,a='system',n='System'):
   obligations=[]
   for policy in policies:
    amount = calculate_due_amount(doc['total'], policy)
-   row = c.execute(text("""insert into finance_due_obligations(org_id,document_id,policy_id,policy_row_version,trigger_event,amount,currency,status)
-       values(:o,:d,:policy,:row_version,:trigger_event,:amount,:currency,'OPEN')
+   row = c.execute(text("""insert into finance_due_obligations(org_id,document_id,policy_id,policy_row_version,policy_name_snapshot,trigger_event,amount,currency,status)
+       values(:o,:d,:policy,:row_version,:policy_name,:trigger_event,:amount,:currency,'OPEN')
        on conflict(org_id,document_id,policy_id,trigger_event) do update set
          amount=excluded.amount,
          currency=excluded.currency,
          policy_row_version=excluded.policy_row_version,
+         policy_name_snapshot=excluded.policy_name_snapshot,
          updated_at=now()
        returning *"""),{
-       'o':o,'d':d,'policy':policy['id'],'row_version':policy['row_version'],'trigger_event':policy['trigger_event'],'amount':amount,'currency':doc['currency']}).mappings().first()
+       'o':o,'d':d,'policy':policy['id'],'row_version':policy['row_version'],'policy_name':policy['name'],'trigger_event':policy['trigger_event'],'amount':amount,'currency':doc['currency']}).mappings().first()
    if not row:
     row = c.execute(text("select * from finance_due_obligations where org_id=:o and document_id=:d and policy_id=:policy and trigger_event=:trigger_event"),{'o':o,'d':d,'policy':policy['id'],'trigger_event':policy['trigger_event']}).mappings().first()
    obligations.append(dict(row))
    event(c,o,d,'DUE_OBLIGATION_POSTED',a,n,{"policy_id":str(policy['id']),"trigger_event":policy['trigger_event'],"amount":str(amount),"row_version":policy['row_version']})
   return obligations
+
+def _snapshot_due_obligations(c,o,d,doc,a,n):
+ policies=c.execute(text("select * from finance_due_policies where org_id=:o and is_active=true order by row_version desc,created_at desc"),{'o':o}).mappings().all()
+ for policy in policies:
+  amount=calculate_due_amount(doc['total'],policy)
+  saved=c.execute(text("""insert into finance_due_obligations(org_id,document_id,policy_id,policy_row_version,policy_name_snapshot,trigger_event,amount,currency,status)
+      values(:o,:d,:policy,:version,:name,:event,:amount,:currency,'OPEN') on conflict(org_id,document_id,policy_id,trigger_event) do nothing
+      returning id"""),{'o':o,'d':d,'policy':policy['id'],'version':policy['row_version'],'name':policy['name'],
+        'event':policy['trigger_event'],'amount':amount,'currency':doc['currency']}).first()
+  if saved:
+   event(c,o,d,'DUE_OBLIGATION_POSTED',a,n,{'policy_id':str(policy['id']),'policy_name':policy['name'],
+        'trigger_event':policy['trigger_event'],'amount':str(amount),'row_version':policy['row_version'],'snapshot':'INVOICE_ISSUED'})
 
 def quote_decision(o,d,a,n,version,accepted,reason=None):
  status='ACCEPTED' if accepted else 'REJECTED'

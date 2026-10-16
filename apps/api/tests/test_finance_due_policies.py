@@ -17,10 +17,11 @@ def test_due_policy_amounts_are_calculated_without_default_policy():
 def test_due_policy_upsert_is_versioned(monkeypatch):
     engine = MagicMock()
     conn = engine.begin.return_value.__enter__.return_value
-    conn.execute.return_value.mappings.return_value.one.return_value = {
+    current = {
         'id': 'policy-1',
         'org_id': 'agency',
         'name': 'Reception 50%',
+        'shipping_service_id': None,
         'trigger_event': 'RECEPTION',
         'rule_type': 'PERCENTAGE',
         'percentage': 50,
@@ -29,7 +30,14 @@ def test_due_policy_upsert_is_versioned(monkeypatch):
         'is_active': True,
         'row_version': 1,
     }
+    def result(row=None):
+        value = MagicMock()
+        value.mappings.return_value.first.return_value = row
+        value.mappings.return_value.one.return_value = row
+        return value
+    conn.execute.side_effect = [MagicMock(), result(None), result(current), MagicMock(), result({**current, 'row_version': 2})]
     monkeypatch.setattr(repository, 'engine', engine)
+    monkeypatch.setattr(repository, 'event', MagicMock())
     result = repository.upsert_due_policy('agency', 'actor', 'Agent', {
         'name': 'Reception 50%',
         'trigger_event': 'RECEPTION',
@@ -38,8 +46,11 @@ def test_due_policy_upsert_is_versioned(monkeypatch):
         'currency': 'USD',
         'is_active': True,
     })
-    assert result['row_version'] == 1
-    assert 'finance_due_policies' in str(conn.execute.call_args_list[0].args[0])
+    assert result['row_version'] == 2
+    sql = [str(call.args[0]) for call in conn.execute.call_args_list]
+    assert any('pg_advisory_xact_lock' in statement for statement in sql)
+    assert any('is_active=false' in statement for statement in sql)
+    assert any('row_version=row_version+1' in statement for statement in sql)
 
 
 def test_due_obligations_are_replayed_idempotently(monkeypatch):

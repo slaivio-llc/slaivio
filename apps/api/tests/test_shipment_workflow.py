@@ -33,6 +33,7 @@ def database(monkeypatch, row=None, parcels=None, assigned=None, payment=True):
     monkeypatch.setattr(workflow, '_insert_event', events)
     monkeypatch.setattr(workflow, '_insert_package_event', package_events)
     monkeypatch.setattr(workflow, '_queue_customer_status_notification', queue)
+    monkeypatch.setattr(workflow, 'departure_clearance', lambda *_args, **_kwargs: {'allowed': True})
     statements = []
     def execute(statement, params):
         sql = str(statement)
@@ -98,12 +99,14 @@ def test_departure_snapshot_and_notifications_share_transaction(monkeypatch):
     assert result=={'changed':True,'notification_ids':['notification']}
     assert any('insert into expedition_departure_manifests' in sql for sql,_ in statements)
     assert any(params.get('status')=='SHIPPED' for sql,params in statements)
+    package_update = next(sql for sql,_ in statements if sql.startswith('update cargo_packages'))
+    assert 'current_status' not in package_update
     assert queue.call_args.args[2]=='SHIPPED'
     assert events.call_args.kwargs['event_type']=='SHIPMENT_DEPARTED'
     assert pe.call_args.kwargs['previous_status']=='RECEIVED'
 
 
-@pytest.mark.parametrize('changes', [{'fees_total':None},{'fees_paid':None},{'fees_paid':20},{'payment_status':'UNKNOWN'},{'status':'DELIVERED'},{'deleted_at':'date'}])
+@pytest.mark.parametrize('changes', [{'status':'DELIVERED'},{'deleted_at':'date'}])
 def test_departure_fails_closed_without_writes(monkeypatch,changes):
     _, statements, events, _, queue=database(monkeypatch,parcels=[parcel(**changes)])
     with pytest.raises(HTTPException): workflow.milestone('office','shipment','actor',3,'depart')

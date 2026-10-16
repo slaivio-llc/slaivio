@@ -3,6 +3,7 @@ import { useResourceLink } from "@/components/ui/use-resource-link";
 import { RecordPaymentForm } from "./record-payment-form";
 import { FinanceOfficeAssignment } from "./finance-office-assignment";
 import { FinanceDuePolicySettings } from "./finance-due-policy-settings";
+import { PaymentReverseButton } from "./finance-completion-actions";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -40,8 +41,15 @@ const empty: FinanceStats = {
   invoices: 0,
   drafts: 0,
   overdue: 0,
+  unpaid_invoice_count: 0,
+  partially_paid_invoice_count: 0,
   by_currency: [],
+  period: { start_date: "", end_date: "", by_currency: [] },
 };
+function dateInputValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
 const labels: Record<string, string> = {
   QUOTE: "Devis",
   INVOICE: "Facture",
@@ -95,8 +103,9 @@ export function FinancePage() {
     [paymentRows, setPaymentRows] = useState<FinancePaymentRow[]>([]),
     [balanceRows, setBalanceRows] = useState<FinanceBalanceRow[]>([]),
     [currency, setCurrency] = useState(""),
-    [startDate, setStartDate] = useState(""),
-    [endDate, setEndDate] = useState(""),
+    [startDate, setStartDate] = useState(() => dateInputValue(new Date(new Date().getFullYear(), new Date().getMonth(), 1))),
+    [endDate, setEndDate] = useState(() => dateInputValue(new Date())),
+    [openPaymentOnDetail, setOpenPaymentOnDetail] = useState(false),
     [selected, setSelected] = useState<FinanceDocument | null>(null);
   const closeResourceLink = useResourceLink(getFinance, setSelected, setError);
   const load = useCallback(async () => {
@@ -110,7 +119,7 @@ export function FinancePage() {
           document_type: section === "invoices" ? "INVOICE" : kind || undefined,
           page_size: 100,
         }) : Promise.resolve({items:[] as FinanceDocument[],pagination:{total:0}}),
-        financeStats(),
+        financeStats({start_date:startDate||undefined,end_date:endDate||undefined}),
         section === "payments" ? listFinancePayments({q:q||undefined,currency:currency||undefined,status:status||undefined,start_date:startDate||undefined,end_date:endDate||undefined,page_size:100}) : Promise.resolve({items:[] as FinancePaymentRow[]}),
         section === "balances" ? listFinanceBalances({q:q||undefined,currency:currency||undefined,page_size:100}) : Promise.resolve({items:[] as FinanceBalanceRow[]}),
       ]);
@@ -128,12 +137,30 @@ export function FinancePage() {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
   }, [load]);
-  async function open(id: string) {
+  async function open(id: string, showPayment = false) {
     try {
-      setSelected(await getFinance(id));
+      const document = await getFinance(id);
+      setOpenPaymentOnDetail(showPayment && document.document_type === "INVOICE" && ["ISSUED", "PARTIALLY_PAID", "OVERDUE"].includes(document.status) && document.balance_due > 0);
+      setSelected(document);
     } catch (e) {
       setError(err(e));
     }
+  }
+  async function runPaymentAction(fn: () => Promise<unknown>) {
+    setError("");
+    try { await fn(); await load(); }
+    catch (cause) { setError(err(cause)); }
+  }
+  async function downloadPaymentReceipt(payment: FinancePaymentRow) {
+    await runPaymentAction(async () => {
+      const blob = await paymentReceipt(payment.document_id, payment.id);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${payment.receipt_number}.html`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
   }
   async function download() {
     const b = await exportFinance(),
@@ -174,18 +201,24 @@ export function FinancePage() {
           {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>{setSection(key);setStatus("");setKind("");setActiveMetric("");}} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section===key?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>{label}</button>)}
           <PermissionGuard permission="finance.settings"><button type="button" onClick={()=>setPolicySettings(true)} className="shrink-0 border-b-2 border-transparent px-3 py-3 text-[13px] text-[#68717d] hover:text-[#17212b]">Paramètres</button></PermissionGuard>
         </nav>
-        {(section === "overview" || section === "invoices") && <OperationMetrics>
+        {section === "overview" && <OperationMetrics>
         <OperationMetricGrid>
           {[
-            ["Factures", stats.invoices],
-            ["Paiements reçus", stats.by_currency.map(row => cash(row.collected, row.currency)).join(" · ") || "—"],
-            ["À encaisser", stats.by_currency.map(row => cash(row.outstanding, row.currency)).join(" · ") || "—"],
-            ["En retard", stats.overdue],
+            ["Facturé sur la période", stats.period.by_currency.map(row => cash(row.invoiced, row.currency)).join(" · ") || "—"],
+            ["Encaissé sur la période", stats.period.by_currency.map(row => cash(row.collected, row.currency)).join(" · ") || "—"],
+            ["Solde restant dû", stats.by_currency.map(row => cash(row.outstanding, row.currency)).join(" · ") || "—"],
+            ["Exigible aujourd’hui", stats.by_currency.map(row => cash(row.due_now, row.currency)).join(" · ") || "—"],
+            ["Factures impayées", stats.unpaid_invoice_count],
+            ["Factures partiellement payées", stats.partially_paid_invoice_count],
           ].map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { setActiveMetric(String(l)); if (l === "Factures") { setKind("INVOICE"); setStatus(""); } else if (l === "En retard") { setKind(""); setStatus("OVERDUE"); } else { setKind(""); setStatus(""); } }} />
+            <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { setActiveMetric(String(l)); setSection("invoices"); setKind("INVOICE"); setStatus(String(l).includes("partiellement") ? "PARTIALLY_PAID" : ""); }} />
           ))}
         </OperationMetricGrid>
         </OperationMetrics>}
+        {section === "overview" && <div className="flex flex-wrap items-end gap-3 px-6 pt-4">
+          <label className="grid gap-1 text-[11px] text-[#68717d]">Période — du<input aria-label="Début de la période" className={input} type="date" value={startDate} max={endDate || undefined} onChange={event=>setStartDate(event.target.value)} /></label>
+          <label className="grid gap-1 text-[11px] text-[#68717d]">Au<input aria-label="Fin de la période" className={input} type="date" value={endDate} min={startDate || undefined} onChange={event=>setEndDate(event.target.value)} /></label>
+        </div>}
         {(section === "payments" || section === "balances") && <div className="flex flex-wrap items-end gap-3 px-6 pt-4">
           <label className="grid gap-1 text-[11px] text-[#68717d]">Devise<select className={input} value={currency} onChange={event=>setCurrency(event.target.value)}><option value="">Toutes les devises</option>{stats.by_currency.map(row=><option key={row.currency} value={row.currency}>{row.currency}</option>)}</select></label>
           {section === "payments" && <><label className="grid gap-1 text-[11px] text-[#68717d]">Du<input className={input} type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">Au<input className={input} type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">État<select className={input} value={status} onChange={event=>setStatus(event.target.value)}><option value="">Tous</option><option value="CONFIRMED">Confirmés</option><option value="REVERSED">Annulés</option></select></label></>}
@@ -196,7 +229,7 @@ export function FinancePage() {
         <OperationContent className="pt-4">
           {error && <ErrorState title="Facturation indisponible" description={error} retry={load} />}
         <OperationTable>
-          {section === "payments" ? (paymentRows.length ? <table className="w-full min-w-[900px] text-left text-[13px]"><thead className="bg-[#f6f7f7] text-[#5f6976]"><tr>{["Reçu","Date","Client","Facture","Moyen","Référence","Montant","État"].map(label=><th key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{paymentRows.map(payment=><tr key={payment.id} className="border-t"><td className="px-4 py-3 font-semibold">{payment.receipt_number}</td><td>{new Date(payment.paid_at).toLocaleDateString("fr-FR")}</td><td>{payment.client_name}</td><td>{payment.document_number}</td><td>{payment.method}</td><td>{payment.reference||"—"}</td><td className="font-semibold">{cash(payment.amount,payment.currency)}</td><td>{payment.status === "CONFIRMED" ? "Confirmé" : "Annulé"}</td></tr>)}</tbody></table> : <EmptyState title="Aucun paiement" description="Les paiements confirmés ou annulés selon les filtres apparaîtront ici." />) : section === "balances" ? (balanceRows.length ? <table className="w-full min-w-[800px] text-left text-[13px]"><thead className="bg-[#f6f7f7] text-[#5f6976]"><tr>{["Client","Devise","Factures","Facturé","Payé","Solde","Exigible","Prochaine échéance"].map(label=><th key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{balanceRows.map((balance,index)=><tr key={`${balance.client_id}-${balance.currency}-${index}`} className="border-t"><td className="px-4 py-3 font-semibold">{balance.client_name}</td><td>{balance.currency}</td><td>{balance.invoice_count}</td><td>{cash(balance.invoiced,balance.currency)}</td><td>{cash(balance.paid,balance.currency)}</td><td className="font-semibold">{cash(balance.balance,balance.currency)}</td><td>{cash(balance.due_now,balance.currency)}</td><td>{balance.next_due||"—"}</td></tr>)}</tbody></table> : <EmptyState title="Aucun solde client" description="Aucune facture émise ne correspond aux filtres." />) : loading ? (
+          {section === "payments" ? (paymentRows.length ? <table className="w-full min-w-[1120px] text-left text-[13px]"><thead className="bg-[#f6f7f7] text-[#5f6976]"><tr>{["Reçu","Date","Client","Facture","Moyen","Référence","Montant","État","Actions"].map(label=><th key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{paymentRows.map(payment=><tr key={payment.id} className="border-t"><td className="px-4 py-3 font-semibold">{payment.receipt_number}</td><td>{new Date(payment.paid_at).toLocaleDateString("fr-FR")}</td><td>{payment.client_name}</td><td>{payment.document_number}</td><td>{payment.method}</td><td>{payment.reference||"—"}</td><td className="font-semibold">{cash(payment.amount,payment.currency)}</td><td>{payment.status === "CONFIRMED" ? "Confirmé" : "Annulé"}</td><td><div className="flex items-center gap-2 px-2"><button type="button" className="text-xs font-medium text-emerald-700 hover:underline" onClick={()=>open(payment.document_id,true)}>Facture / paiement</button>{payment.status === "CONFIRMED" && <>{payment.receipt_available ? <button type="button" className="text-xs text-slate-600 hover:underline" onClick={()=>downloadPaymentReceipt(payment)}>Reçu</button> : <span className="text-xs text-slate-400">Reçu indisponible</span>}<PaymentReverseButton documentId={payment.document_id} paymentId={payment.id} onRun={(fn)=>{void runPaymentAction(fn);}} /></>}</div></td></tr>)}</tbody></table> : <EmptyState title="Aucun paiement" description="Les paiements confirmés ou annulés selon les filtres apparaîtront ici." />) : section === "balances" ? (balanceRows.length ? <table className="w-full min-w-[800px] text-left text-[13px]"><thead className="bg-[#f6f7f7] text-[#5f6976]"><tr>{["Client","Devise","Factures","Facturé","Payé","Solde","Exigible","Prochaine échéance"].map(label=><th key={label} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{balanceRows.map((balance,index)=><tr key={`${balance.client_id}-${balance.currency}-${index}`} className="border-t"><td className="px-4 py-3 font-semibold">{balance.client_name}</td><td>{balance.currency}</td><td>{balance.invoice_count}</td><td>{cash(balance.invoiced,balance.currency)}</td><td>{cash(balance.paid,balance.currency)}</td><td className="font-semibold">{cash(balance.balance,balance.currency)}</td><td>{cash(balance.due_now,balance.currency)}</td><td>{balance.next_due||"—"}</td></tr>)}</tbody></table> : <EmptyState title="Aucun solde client" description="Aucune facture émise ne correspond aux filtres." />) : loading ? (
             <TableSkeleton rows={7} columns={9} label="Chargement de la facturation…" />
           ) : items.length ? (
             <table className="w-full min-w-[900px] text-left text-[13px]">
@@ -270,6 +303,7 @@ export function FinancePage() {
         <Detail
           key={selected.id}
           item={selected}
+          startPayment={openPaymentOnDetail}
           close={() => { setSelected(null); closeResourceLink(); }}
           reload={async () => {
             setSelected(await getFinance(selected.id));
@@ -446,12 +480,14 @@ function Detail({
   item,
   close,
   reload,
+  startPayment = false,
 }: {
   item: FinanceDocument;
   close: () => void;
   reload: () => void | Promise<void>;
+  startPayment?: boolean;
 }) {
-  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(startPayment);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function run(fn: () => Promise<unknown>) {

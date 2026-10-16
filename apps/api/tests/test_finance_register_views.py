@@ -1,4 +1,8 @@
+from datetime import date
 from unittest.mock import MagicMock
+
+import pytest
+from fastapi import HTTPException
 
 from app.finance import repository
 
@@ -16,7 +20,7 @@ def fake_engine(monkeypatch, rows):
 
 
 def test_payment_register_is_tenant_office_scoped_and_filters_paid_date(monkeypatch):
-    conn = fake_engine(monkeypatch, [{"receipt_number": "REC-1"}])
+    conn = fake_engine(monkeypatch, [{"receipt_number": "REC-1", "receipt_available": True}])
     result = repository.list_payments(
         "org-a", q="client", currency="usd", status="CONFIRMED",
         start_date="2026-10-01", end_date="2026-10-31", page=2,
@@ -29,10 +33,20 @@ def test_payment_register_is_tenant_office_scoped_and_filters_paid_date(monkeypa
     assert "d.office_id=any(cast(:office_ids as uuid[]))" in str(data_sql)
     assert "p.paid_at >= cast(:start_date as date)" in str(data_sql)
     assert "p.paid_at < cast(:end_date as date) + interval '1 day'" in str(data_sql)
+    assert "p.receipt_snapshot is not null" in str(data_sql)
     assert count_params == data_params
     assert data_params["o"] == "org-a"
     assert data_params["office_ids"] == ["office-a"]
-    assert result["items"] == [{"receipt_number": "REC-1"}]
+    assert result["items"] == [{"receipt_number": "REC-1", "receipt_available": True}]
+
+
+def test_finance_stats_rejects_inverted_period_without_querying(monkeypatch):
+    engine = MagicMock()
+    monkeypatch.setattr(repository, "engine", engine)
+    with pytest.raises(HTTPException) as error:
+        repository.stats("org-a", start_date=date(2026, 10, 31), end_date=date(2026, 10, 1))
+    assert error.value.status_code == 422
+    engine.connect.assert_not_called()
 
 
 def test_client_balances_remain_separated_by_currency_and_respect_office_scope(monkeypatch):

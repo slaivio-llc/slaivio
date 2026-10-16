@@ -35,10 +35,32 @@ def list_documents(o,q=None,status=None,kind=None,page=1,page_size=50,office_ids
   total=c.execute(text(f"select count(*) from finance_documents d left join clients c on c.id=d.client_id and c.org_id=d.org_id where {w}"),p).scalar_one()
   items=rows(c.execute(text(f"select d.*,coalesce(c.name,c.phone,c.email,'Client') client_name,ds.dossier_reference from finance_documents d left join clients c on c.id=d.client_id and c.org_id=d.org_id left join dossiers ds on ds.id=d.dossier_id and ds.org_id=d.org_id where {w} order by d.created_at desc limit :limit offset :offset"),p))
   return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":max(1,(total+page_size-1)//page_size)}}
-def stats(o,office_ids=None):
+def stats(o,office_ids=None,start_date=None,end_date=None):
+ if start_date and end_date and end_date < start_date:raise HTTPException(422,'invalid_date_range')
+ period_start=start_date or date(date.today().year,date.today().month,1)
+ period_end=end_date or date.today()
  with engine.connect() as c:
-  counts=dict(c.execute(text("select count(*) filter(where document_type='INVOICE')::int invoices,count(*) filter(where status='DRAFT')::int drafts,count(*) filter(where document_type='INVOICE' and (status='OVERDUE' or (status in ('ISSUED','PARTIALLY_PAID') and due_date<current_date)))::int overdue from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[])))"),{"o":o,"unrestricted":office_ids is None,"offices":office_ids or []}).mappings().one())
-  counts["by_currency"]=rows(c.execute(text("select currency,coalesce(sum(total),0) invoiced,coalesce(sum(amount_paid),0) collected,coalesce(sum(balance_due),0) outstanding from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[]))) and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID') group by currency order by currency"),{"o":o,"unrestricted":office_ids is None,"offices":office_ids or []}))
+  scope={"o":o,"unrestricted":office_ids is None,"offices":office_ids or [],"period_start":period_start,"period_end":period_end}
+  counts=dict(c.execute(text("""select
+   count(*) filter(where document_type='INVOICE')::int invoices,
+   count(*) filter(where status='DRAFT')::int drafts,
+   count(*) filter(where document_type='INVOICE' and (status='OVERDUE' or (status in ('ISSUED','PARTIALLY_PAID') and due_date<current_date)))::int overdue,
+   count(*) filter(where document_type='INVOICE' and status in ('ISSUED','OVERDUE') and balance_due>0)::int unpaid_invoice_count,
+   count(*) filter(where document_type='INVOICE' and status='PARTIALLY_PAID' and balance_due>0)::int partially_paid_invoice_count
+   from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[])))"""),scope).mappings().one())
+  counts["by_currency"]=rows(c.execute(text("select currency,coalesce(sum(total),0) invoiced,coalesce(sum(amount_paid),0) collected,coalesce(sum(balance_due),0) outstanding,coalesce(sum(balance_due) filter(where due_date is null or due_date<=current_date),0) due_now from finance_documents where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[]))) and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID') group by currency order by currency"),{"o":o,"unrestricted":office_ids is None,"offices":office_ids or []}))
+  period_invoices=rows(c.execute(text("""select currency,coalesce(sum(total),0) amount from finance_documents
+   where org_id=:o and (:unrestricted or office_id=any(cast(:offices as uuid[])))
+   and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID')
+   and coalesce(issue_date,issued_at::date) between :period_start and :period_end group by currency"""),scope))
+  period_payments=rows(c.execute(text("""select p.currency,coalesce(sum(p.amount),0) amount from finance_payments p
+   join finance_documents d on d.org_id=p.org_id and d.id=p.document_id
+   where p.org_id=:o and p.status='CONFIRMED' and (:unrestricted or d.office_id=any(cast(:offices as uuid[])))
+   and p.paid_at >= :period_start and p.paid_at < :period_end + interval '1 day' group by p.currency"""),scope))
+  invoiced={row['currency']:row['amount'] for row in period_invoices}
+  collected={row['currency']:row['amount'] for row in period_payments}
+  currencies=sorted(set(invoiced)|set(collected))
+  counts['period']={'start_date':str(period_start),'end_date':str(period_end),'by_currency':[{'currency':code,'invoiced':invoiced.get(code,0),'collected':collected.get(code,0)} for code in currencies]}
   return counts
 
 def list_payments(o, q=None, currency=None, status=None, start_date=None, end_date=None, page=1, page_size=50, office_ids=None):
@@ -53,7 +75,7 @@ def list_payments(o, q=None, currency=None, status=None, start_date=None, end_da
  joins=" from finance_payments p join finance_documents d on d.org_id=p.org_id and d.id=p.document_id left join clients c on c.org_id=d.org_id and c.id=d.client_id "
  with engine.connect() as c:
   total=c.execute(text(f"select count(*){joins} where {where}"),p).scalar_one()
-  items=rows(c.execute(text(f"select p.id,p.receipt_number,p.document_id,d.document_number,d.client_id,coalesce(c.name,c.phone,c.email,'Client') client_name,p.amount,p.currency,p.method,p.reference,p.paid_at,p.status,p.recorded_by_name,d.office_id{joins} where {where} order by p.paid_at desc,p.id desc limit :limit offset :offset"),p))
+  items=rows(c.execute(text(f"select p.id,p.receipt_number,p.document_id,d.document_number,d.client_id,coalesce(c.name,c.phone,c.email,'Client') client_name,p.amount,p.currency,p.method,p.reference,p.paid_at,p.status,p.recorded_by_name,d.office_id,(p.receipt_snapshot is not null) receipt_available{joins} where {where} order by p.paid_at desc,p.id desc limit :limit offset :offset"),p))
   return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":max(1,(total+page_size-1)//page_size)}}
 
 def client_balances(o, q=None, currency=None, page=1, page_size=50, office_ids=None):

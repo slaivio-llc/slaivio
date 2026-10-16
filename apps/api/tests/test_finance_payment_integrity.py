@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock
 
@@ -127,12 +128,19 @@ def test_invoice_with_open_saspay_attempt_cannot_be_voided(monkeypatch):
 def test_stats_keep_currencies_separate(monkeypatch):
     amounts = MagicMock()
     amounts.mappings.return_value.all.return_value = [
-        {'currency': 'CDF', 'outstanding': 120000},
-        {'currency': 'USD', 'outstanding': 60},
+        {'currency': 'CDF', 'invoiced': 120000, 'collected': 0, 'outstanding': 120000, 'due_now': 120000},
+        {'currency': 'USD', 'invoiced': 100, 'collected': 40, 'outstanding': 60, 'due_now': 60},
     ]
-    conn = connection(monkeypatch, [row({'invoices': 2, 'drafts': 0, 'overdue': 0}), amounts])
-    result = repo.stats('agency')
+    period_invoices = MagicMock()
+    period_invoices.mappings.return_value.all.return_value = [{'currency': 'USD', 'amount': 100}]
+    period_payments = MagicMock()
+    period_payments.mappings.return_value.all.return_value = [{'currency': 'USD', 'amount': 40}]
+    conn = connection(monkeypatch, [row({'invoices': 2, 'drafts': 0, 'overdue': 0, 'unpaid_invoice_count': 1, 'partially_paid_invoice_count': 1}), amounts, period_invoices, period_payments])
+    result = repo.stats('agency', start_date=date(2026, 1, 1), end_date=date(2026, 1, 31))
     assert len(result['by_currency']) == 2
     assert 'outstanding' not in result
-    assert 'group by currency' in str(conn.execute.call_args.args[0])
-    assert conn.execute.call_args.args[1] == {'o': 'agency', 'offices': [], 'unrestricted': True}
+    assert result['period']['by_currency'] == [{'currency': 'USD', 'invoiced': 100, 'collected': 40}]
+    assert 'group by currency' in str(conn.execute.call_args_list[1].args[0])
+    assert 'period_start' in str(conn.execute.call_args_list[2].args[0])
+    assert 'paid_at' in str(conn.execute.call_args_list[3].args[0])
+    assert conn.execute.call_args_list[1].args[1] == {'o': 'agency', 'offices': [], 'unrestricted': True}

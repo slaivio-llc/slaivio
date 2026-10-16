@@ -5,7 +5,7 @@ import Link from "next/link";
 import axios from "axios";
 import { ChevronLeft, ChevronRight, Plus, RefreshCw, Search, SquarePen, PackageCheck } from "lucide-react";
 import { api } from "@/services/api";
-import { createPackage } from "@/services/packages";
+import { createPackage, getPackage, type PackageRecord } from "@/services/packages";
 import { getParcelOverview, type ParcelEntry, type ParcelOverview, type ParcelHistoryResult, type RegisterResult } from "@/services/parcel-register";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -16,6 +16,7 @@ import { TableSkeleton } from "@/components/ui/page-state";
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { ParcelPackageCreateDrawer } from "./parcel-receipt-drawer";
 import { ParcelEditForm, ParcelPhotos, parcelError } from "./parcel-operations";
+import { PackageFinance } from "@/components/finance/package-finance";
 
 const stages = [["received", "Reçus"], ["shipped", "Expédiés"], ["arrived", "Arrivés"], ["ready", "À retirer"], ["delivered", "Livrés"], ["other", "Autres états"]];
 const linkClass = "font-medium text-emerald-800 hover:underline focus-visible:outline-emerald-600";
@@ -149,6 +150,10 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
     finally{pending.current=false;setBusy(false);}
   }
   const [tab, setTab] = useState("overview");
+  const [financePackage, setFinancePackage] = useState<PackageRecord | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [financeError, setFinanceError] = useState(false);
+  const [financeRetry, setFinanceRetry] = useState(0);
   const [history, setHistory] = useState<ParcelHistoryResult | null>(null);
   const [page, setPage] = useState(1);
   const [retry, setRetry] = useState(0);
@@ -161,8 +166,18 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, [tab, item.id, item.row_version, page, retry]);
+  useEffect(() => {
+    if (tab !== "finance") return;
+    let active = true;
+    setFinanceLoading(true); setFinanceError(false);
+    getPackage(item.id)
+      .then(value => { if (active) setFinancePackage(value); })
+      .catch(() => { if (active) setFinanceError(true); })
+      .finally(() => { if (active) setFinanceLoading(false); });
+    return () => { active = false; };
+  }, [tab, item.id, financeRetry]);
   return <OperationDrawer open close={()=>{if(!busy)close();}} placement="right" width="max-w-2xl" title={item.reference || "Colis"} headerMeta={<Status item={item} />} headerActions={!editing&&item.stage!=="delivered"&&!["CANCELLED","RETURNED"].includes(item.status)?<PermissionGuard permission="packages.update"><OperationButton className="w-9 px-0" aria-label="Modifier le colis" title="Modifier" disabled={busy} onClick={()=>{setEditing(true);setConfirmReady(false);setMutationError("");}}><SquarePen size={15}/></OperationButton></PermissionGuard>:undefined}
-    tabs={<div className="flex gap-5">{[["overview", "Vue d’ensemble"], ["history", "Historique"]].map(([key, label]) => <button type="button" key={key} aria-pressed={tab === key} disabled={busy||editing} onClick={() => setTab(key)} className={`border-b-2 py-3 text-sm font-medium ${tab === key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-500"}`}>{label}</button>)}</div>}>
+    tabs={<div className="flex gap-5">{[["overview", "Vue d’ensemble"], ["finance", "Finance"], ["history", "Historique"]].map(([key, label]) => <button type="button" key={key} aria-pressed={tab === key} disabled={busy||editing} onClick={() => setTab(key)} className={`border-b-2 py-3 text-sm font-medium ${tab === key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-500"}`}>{label}</button>)}</div>}>
     {notice&&<p role="status" className="mb-4 text-sm text-emerald-800">{notice}</p>}
     {editing?<ParcelEditForm item={item} saving={busy} error={mutationError} cancel={()=>setEditing(false)} save={(changes,reason)=>void command("edit",changes,reason)}/>:
     tab === "overview" ? <div className="grid gap-8"><section><h3 className="mb-4 text-sm font-semibold">Colis et client</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Client"><ClientLink item={item} /></Fact><Fact label="Référence fournisseur">{item.supplier_tracking || item.external_reference}</Fact><Fact label="Poids">{item.weight_kg == null ? "Non pesé" : `${new Intl.NumberFormat("fr").format(item.weight_kg)} kg`}</Fact><Fact label="Description">{item.description}</Fact></dl></section>
@@ -174,6 +189,7 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
       </section></PermissionGuard>}
       <ParcelPhotos item={item} changed={refresh} busyChanged={setBusy} disabled={busy}/>
       </div>
+      : tab === "finance" ? financeLoading ? <TableSkeleton rows={3} columns={2} label="Chargement de Finance" /> : financeError || !financePackage ? <p role="alert" className="text-sm">Impossible de charger Finance pour ce colis. <button type="button" className="underline" onClick={() => setFinanceRetry(value => value + 1)}>Réessayer</button></p> : <PermissionGuard permission="finance.read" fallback={<p role="status" className="text-sm text-slate-600">Vous n’avez pas l’autorisation de consulter Finance pour ce colis. Demandez au responsable de l’agence l’accès « finance.read ».</p>}><PackageFinance item={financePackage} onUpdated={updated => { setFinancePackage(updated); void refresh(); }} /></PermissionGuard>
       : error ? <p role="alert" className="text-sm">Historique indisponible. <button type="button" className="underline" onClick={() => setRetry(value => value+1)}>Réessayer</button></p>
       : !history ? <TableSkeleton rows={4} columns={1} label="Chargement de l’historique" />
       : <><ol className="space-y-6">{history.items.map(event => <li key={event.id} className="border-l-2 border-slate-200 pl-4"><p className="text-sm font-medium">{event.title}</p><time className="mt-1 block text-xs text-slate-500" dateTime={event.created_at}>{formatDate(event.created_at)}</time>{event.description && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{event.description}</p>}</li>)}</ol>{!history.items.length && <p className="text-sm text-slate-500">Aucun événement enregistré.</p>}<div className="mt-6 flex justify-end gap-2"><OperationButton disabled={page === 1} onClick={() => setPage(value => value-1)}>Précédent</OperationButton><OperationButton disabled={page >= history.total_pages} onClick={() => setPage(value => value+1)}>Suivant</OperationButton></div></>}

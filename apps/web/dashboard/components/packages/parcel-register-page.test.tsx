@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { api } from "@/services/api";
 import { getParcelOverview } from "@/services/parcel-register";
+import { getPackage, type PackageRecord } from "@/services/packages";
+import { getPackageInvoice } from "@/services/finance";
 import { ParcelRegisterPage } from "./parcel-register-page";
 
 vi.mock("@/services/api", () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
-vi.mock("@/services/packages", () => ({ createPackage: vi.fn() }));
+vi.mock("@/services/packages", () => ({ createPackage: vi.fn(), getPackage: vi.fn(), pricePackage: vi.fn() }));
+vi.mock("@/services/finance", () => ({ getPackageInvoice: vi.fn(), createPackageInvoice: vi.fn() }));
 vi.mock("@/services/parcel-register", () => ({ getParcelOverview: vi.fn() }));
 vi.mock("@/services/tenant", () => ({ getTenantContext: () => Promise.resolve({ active_tenant: { organization_type: "PARCEL_FREIGHT" } }) }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/app/packages" }));
@@ -17,6 +20,8 @@ vi.mock("./parcel-receipt-drawer", () => ({ ParcelPackageCreateDrawer: () => <di
 const item = { id: "parcel", org_id: "office", reference: "COL-0042", client_id: "client", client_name: "Marie", local_client: true, status: "RECEIVED_AT_ORIGIN", stage: "received", status_label: "Reçu", service_name: "Cargo aérien", office_name: "Guangzhou" };
 const response = { items: [item], total: 1, page: 1, total_pages: 1 };
 beforeEach(() => {
+  vi.mocked(getPackage).mockReset();
+  vi.mocked(getPackageInvoice).mockReset().mockResolvedValue(null);
   vi.mocked(api.post).mockReset();
   vi.mocked(api.patch).mockReset();
   vi.mocked(api.get).mockReset();
@@ -66,7 +71,7 @@ describe("Registre fret", () => {
     expect(screen.getByText("Formulaire de réception")).toBeInTheDocument();
   });
 
-  it("ouvre seulement la vue d’ensemble et l’historique sans inventer un poids", async () => {
+  it("affiche Finance dans la fiche colis, en plus de la vue d’ensemble et de l’historique", async () => {
     vi.mocked(api.get).mockImplementation(async url => ({ data: String(url).endsWith("/history") ? { items: [{ id: "event", title: "Colis reçu", description: null, created_at: "2026-10-11T10:00:00Z" }], page: 1, total_pages: 1 } : response }));
     render(<ParcelRegisterPage />);
     fireEvent.click(await screen.findByRole("button", { name: "COL-0042" }));
@@ -75,9 +80,21 @@ describe("Registre fret", () => {
     expect(within(drawer).getByText("EXT-42")).toBeInTheDocument();
     expect(within(drawer).getByText("Pas encore affecté")).toBeInTheDocument();
     expect(within(drawer).queryByText("Paramètres")).not.toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Finance" })).toBeInTheDocument();
     fireEvent.click(within(drawer).getByRole("button", { name: "Historique" }));
     expect(await within(drawer).findByText("Colis reçu")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("/packages/register/parcel/history", expect.objectContaining({ params: { page: 1 } }));
+  });
+
+  it("charge le tarif et la situation Finance du colis à la demande", async () => {
+    vi.mocked(getPackage).mockResolvedValue({ ...item, row_version: 2, route_id: "route", shipping_service_id: "service", fees_total: null, pricing_snapshot: {} } as unknown as PackageRecord);
+    render(<ParcelRegisterPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "COL-0042" }));
+    const drawer = await screen.findByRole("dialog", { name: "COL-0042" });
+    fireEvent.click(within(drawer).getByRole("button", { name: "Finance" }));
+    expect(await within(drawer).findByText("Finance du colis")).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Calculer le tarif du colis" })).toBeInTheDocument();
+    expect(getPackage).toHaveBeenCalledWith("parcel");
   });
 
   it("applique la recherche automatiquement et annule la requête précédente", async () => {

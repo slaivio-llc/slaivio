@@ -17,6 +17,15 @@ Date : 2026-10-16
 - Les anciennes routes `/app/broadcasts` et `/app/followups` restent disponibles pour compatibilité.
 - Aucune migration, aucun envoi réel et aucune nouvelle infrastructure d'envoi n'ont été ajoutés.
 
+## Corrections de fiabilité réalisées ensuite
+
+- Une campagne destinataire passe maintenant à `DISPATCHING` quand son message entre dans l'outbox, et non à `SENT` avant l'envoi effectif.
+- L'état `DISPATCHING` empêche la campagne de se déclarer terminée prématurément.
+- L'acceptation/refus explicite du fournisseur met à jour le destinataire lié à l'outbox ; les callbacks de livraison/lecture le mettent ensuite à jour dans le périmètre de l'organisation.
+- Les callbacks de livraison ne régressent pas un état `READ` vers `DELIVERED`, ni un état terminal vers un état antérieur.
+- Le démarrage d'une campagne utilisait `null` comme valeur Python, ce qui faisait échouer la validation ; la comparaison est corrigée et couverte par test.
+- Aucun envoi réel n'a été effectué.
+
 ## Écarts à traiter dans les prochains lots
 
 1. Vérifier que le statut d'un destinataire distingue clairement la mise en file, l'acceptation fournisseur, la remise et l'échec ; l'ajout à l'outbox ne prouve pas une remise.

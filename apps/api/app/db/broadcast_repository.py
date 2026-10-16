@@ -52,7 +52,7 @@ def action(o,b,a,act,version):
   if act=='START':
    campaign=c.execute(text('select b.*,t.provider_status from broadcasts b left join broadcast_templates t on t.id=b.template_id where b.org_id=:o and b.id=:b'),{'o':o,'b':b}).mappings().first()
    bad=c.execute(text("select count(*) from broadcast_recipients where broadcast_id=:b and exclusion_reason is null and (rendered_message is null or rendered_message like '%{{%')"),{'b':b}).scalar_one()
-   if not campaign or campaign['approved_at'] is null or (campaign['scheduled_at'] and campaign['scheduled_at']>__import__('datetime').datetime.now(__import__('datetime').timezone.utc)):return 'approval_or_schedule'
+   if not campaign or campaign['approved_at'] is None or (campaign['scheduled_at'] and campaign['scheduled_at']>__import__('datetime').datetime.now(__import__('datetime').timezone.utc)):return 'approval_or_schedule'
    if 'WHATSAPP' in (campaign['channels'] or []) and campaign.get('template_id') and campaign.get('provider_status')!='APPROVED':return 'template_not_approved'
    if not c.execute(text('select 1 from broadcast_recipients where broadcast_id=:b and exclusion_reason is null'),{'b':b}).first():return 'audience_empty'
    if bad:return 'precheck_failed'
@@ -66,9 +66,9 @@ def process_queue(limit=200):
   candidates=rows(c.execute(text("select r.*,b.broadcast_type from broadcast_recipients r join broadcasts b on b.id=r.broadcast_id where r.status='QUEUED' and b.status in('QUEUED','SENDING') order by r.queued_at for update of r skip locked limit :l"),{'l':limit}))
   for r in candidates:
    try:
-    contact=r.get('recipient_phone') if r['channel']=='WHATSAPP' else r.get('recipient_email');n=create_notification_outbox(org_id=r['org_id'],client_id=r.get('client_id'),dossier_id=r.get('dossier_id'),recipient_phone=contact,notification_type=f"BROADCAST:{r['broadcast_type']}",message=r['rendered_message'],channel=r['channel'].lower());c.execute(text("update broadcast_recipients set status='SENT',notification_id=:n,sent_at=now() where id=:id"),{'n':n['id'],'id':r['id']});c.execute(text("update broadcasts set status='SENDING',started_at=coalesce(started_at,now()),updated_at=now() where id=:b"),{'b':r['broadcast_id']});done+=1
+    contact=r.get('recipient_phone') if r['channel']=='WHATSAPP' else r.get('recipient_email');n=create_notification_outbox(org_id=r['org_id'],client_id=r.get('client_id'),dossier_id=r.get('dossier_id'),recipient_phone=contact,notification_type=f"BROADCAST:{r['broadcast_type']}",message=r['rendered_message'],channel=r['channel'].lower());c.execute(text("update broadcast_recipients set status='DISPATCHING',notification_id=:n where org_id=:o and id=:id and status='QUEUED'"),{'n':n['id'],'o':r['org_id'],'id':r['id']});c.execute(text("update broadcasts set status='SENDING',started_at=coalesce(started_at,now()),updated_at=now() where org_id=:o and id=:b"),{'o':r['org_id'],'b':r['broadcast_id']});done+=1
    except Exception as exc:c.execute(text("update broadcast_recipients set retry_count=retry_count+1,status=case when retry_count+1>=3 then 'FAILED' else 'QUEUED' end,error_message=:e where id=:id"),{'e':type(exc).__name__,'id':r['id']})
-  c.execute(text("update broadcasts b set status='COMPLETED',completed_at=now(),updated_at=now() where b.status='SENDING' and not exists(select 1 from broadcast_recipients r where r.broadcast_id=b.id and r.status in('SNAPSHOT','QUEUED'))"));return done
+  c.execute(text("update broadcasts b set status='COMPLETED',completed_at=now(),updated_at=now() where b.status='SENDING' and not exists(select 1 from broadcast_recipients r where r.org_id=b.org_id and r.broadcast_id=b.id and r.status in('SNAPSHOT','QUEUED','DISPATCHING'))"));return done
 def analytics(o):
  with engine.connect() as c:return {'summary':dict(c.execute(text("select count(*)::int campaigns,coalesce(sum(actual_cost),0) cost,coalesce(sum(attributed_revenue),0) revenue from broadcasts where org_id=:o and archived_at is null"),{'o':o}).mappings().one()),'campaigns':rows(c.execute(text("select reference,title,status,(select count(*) from broadcast_recipients r where r.broadcast_id=b.id and exclusion_reason is null)::int recipients,(select count(*) from broadcast_recipients r where r.broadcast_id=b.id and status in('DELIVERED','READ','REPLIED','CLICKED','CONVERTED'))::int delivered,(select count(*) from broadcast_recipients r where r.broadcast_id=b.id and status in('READ','REPLIED','CLICKED','CONVERTED'))::int reads,(select count(*) from broadcast_recipients r where r.broadcast_id=b.id and status='REPLIED')::int replies,(select count(*) from broadcast_recipients r where r.broadcast_id=b.id and status='CONVERTED')::int conversions from broadcasts b where org_id=:o order by created_at desc limit 100"),{'o':o}))}
 
@@ -96,6 +96,21 @@ def export_recipients(o,b):
 def sync_delivery(provider_message_id,status):
  with engine.begin() as c:
   normalized=status.upper();row=c.execute(text("update broadcast_recipients set status=case when :s='DELIVERED' then 'DELIVERED' when :s='READ' then 'READ' when :s in('FAILED','UNDELIVERED') then 'FAILED' else status end,delivered_at=case when :s='DELIVERED' then now() else delivered_at end,read_at=case when :s='READ' then now() else read_at end where provider_message_id=:p returning *"),{'s':normalized,'p':provider_message_id}).mappings().first();return dict(row) if row else None
+
+def sync_notification_status(org_id, notification_id, status, provider_message_id=None, error=None):
+ """Project provider acceptance/rejection onto the campaign recipient, tenant-scoped."""
+ normalized=status.upper()
+ if normalized not in ('SENT','FAILED'):
+  return None
+ with engine.begin() as c:
+  return c.execute(text("""update broadcast_recipients set
+      status=:status,
+      provider_message_id=coalesce(:provider_message_id,provider_message_id),
+      sent_at=case when :status='SENT' then coalesce(sent_at,now()) else sent_at end,
+      error_message=case when :status='FAILED' then :error else error_message end
+    where org_id=:org_id and notification_id=cast(:notification_id as uuid)
+    returning id,broadcast_id,status"""),{'org_id':org_id,'notification_id':notification_id,
+        'status':normalized,'provider_message_id':provider_message_id,'error':error}).mappings().first()
 def link_reply(o,client_id,message):
  value=(message or '').lower();intent='UNSUBSCRIBE' if 'stop' in value else 'INTERESTED' if any(x in value for x in ('intéressé','interesse','prix','devis')) else 'QUESTION'
  with engine.begin() as c:

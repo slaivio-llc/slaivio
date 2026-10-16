@@ -133,6 +133,7 @@ async def meta_whatsapp_webhook(request: Request, background_tasks: BackgroundTa
             )
 
             update_notification_delivery_status(
+                org_id=org_id,
                 provider_message_id=item["provider_message_id"],
                 status=item["status"],
                 error_code=item.get("error_code"),

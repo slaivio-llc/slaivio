@@ -6,6 +6,7 @@ from app.db.notification_repository import (
     claim_notification_dispatch, finish_notification_dispatch,
     mark_notification_sent, mark_notification_failed, sync_package_notification_status,
 )
+from app.db.broadcast_repository import sync_notification_status as sync_broadcast_notification_status
 from app.services.manager_event_service import emit_notification_event
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,14 @@ def _project_result(notification: dict, status: str, result: dict):
         )
     except Exception:
         logger.warning('notification_projection_failed')
+    try:
+        sync_broadcast_notification_status(
+            notification['org_id'], str(notification['id']), status,
+            result.get('provider_message_id'),
+            'provider_rejected_message' if status == 'FAILED' else None,
+        )
+    except Exception:
+        logger.warning('broadcast_notification_projection_failed')
     try:
         emit_notification_event(
             org_id=notification['org_id'], notification_id=str(notification['id']),

@@ -27,6 +27,25 @@ describe("Commandes du mouvement fret",()=>{
     expect(await screen.findByRole("alert")).toHaveTextContent("Paiement à vérifier");
     expect(saved).not.toHaveBeenCalled();
   });
+  it("explique une exigibilité Finance renvoyée par le backend au lieu du message réseau générique",async()=>{
+    const saved=vi.fn();vi.mocked(api.post).mockRejectedValue({isAxiosError:true,response:{status:409,data:{detail:{code:"PAYMENT_CLEARANCE_REQUIRED",reference:"COL-2026-000001",finance:{message:"Condition : Acompte 50 %. Montant requis : 100.00 USD. Montant confirmé : 50.00 USD. Reste avant départ : 50.00 USD."}}}}});
+    render(<FreightWorkflow item={item} saved={saved}/>);
+    fireEvent.click(screen.getByRole("button",{name:"Confirmer le départ"}));
+    fireEvent.click(screen.getByRole("button",{name:"Confirmer"}));
+    const alert=await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("COL-2026-000001");
+    expect(alert).toHaveTextContent("Reste avant départ : 50.00 USD");
+    expect(alert).not.toHaveTextContent("Confirmation non reçue");
+    expect(saved).not.toHaveBeenCalled();
+  });
+  it("indique quand la condition financière avant départ manque",async()=>{
+    const saved=vi.fn();vi.mocked(api.post).mockRejectedValue({isAxiosError:true,response:{status:409,data:{detail:{code:"FINANCE_POLICY_MISSING",reference:"COL-1",finance:{message:"Aucune condition financière avant départ n’est configurée."}}}}});
+    render(<FreightWorkflow item={item} saved={saved}/>);
+    fireEvent.click(screen.getByRole("button",{name:"Confirmer le départ"}));
+    fireEvent.click(screen.getByRole("button",{name:"Confirmer"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Aucune condition financière avant départ");
+    expect(saved).not.toHaveBeenCalled();
+  });
   it("affecte uniquement la sélection compatible, pas tous les résultats",async()=>{
     vi.mocked(api.get).mockResolvedValue({data:{items:[{id:"a",reference:"COL-A",client_name:"Client A",blockers:[]},{id:"b",reference:"COL-B",client_name:"Client B",blockers:["already_assigned"]}],page:1,total_pages:1}});
     const saved=vi.fn();vi.mocked(api.post).mockResolvedValue({data:{changed:1}});

@@ -13,12 +13,23 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 type Shipment = {id:string;reference:string;version:number;workflow_version?:number;stage:string;packages_count:number;is_delayed?:boolean};
 type Candidate = {id:string;reference:string;client_name:string|null;blockers:string[]};
 type Candidates = {items:Candidate[];page:number;total_pages:number};
-const reasons:Record<string,string>={parcel_not_received:"Réception physique requise",client_missing:"Client manquant",route_mismatch:"Route incompatible",destination_mismatch:"Destination incompatible",already_assigned:"Déjà affecté",payment_clearance_required:"Paiement à vérifier avant le départ",package_state_conflict:"État du colis incompatible",shipment_empty:"Aucun colis affecté",shipment_loading_closed:"Le chargement est clôturé",stale_shipment_version:"La fiche a changé. Fermez le panneau et actualisez avant de reprendre.",legacy_shipment_requires_review:"Cette ancienne expédition nécessite une reprise contrôlée."};
+const reasons:Record<string,string>={parcel_not_received:"Réception physique requise",client_missing:"Client manquant",route_mismatch:"Route incompatible",destination_mismatch:"Destination incompatible",already_assigned:"Déjà affecté",payment_clearance_required:"Paiement à vérifier avant le départ",PAYMENT_CLEARANCE_REQUIRED:"Paiement à vérifier avant le départ",FINANCE_POLICY_MISSING:"Aucune condition financière avant départ n’est configurée. Ajoutez une règle dans Finance > Paramètres.",FINANCE_INVOICE_MISSING:"Ce colis n’a pas de facture Finance émise. Créez ou émettez sa facture avant de confirmer le départ.",FINANCE_POLICY_CURRENCY_MISMATCH:"La devise de la condition de paiement ne correspond pas à celle de la facture.",package_state_conflict:"État du colis incompatible",shipment_empty:"Aucun colis affecté",shipment_loading_closed:"Le chargement est clôturé",stale_shipment_version:"La fiche a changé. Fermez le panneau et actualisez avant de reprendre.",legacy_shipment_requires_review:"Cette ancienne expédition nécessite une reprise contrôlée."};
 function failure(cause:unknown){
-  const detail=axios.isAxiosError(cause)?cause.response?.data?.detail:null;
+  if(!axios.isAxiosError(cause)||!cause.response)return "Le serveur n’a pas confirmé le départ. Actualisez la fiche pour vérifier son état avant toute nouvelle tentative.";
+  const detail=cause.response.data?.detail;
   const code=typeof detail==="string"?detail:detail?.code;
+  const financeMessage=typeof detail==="object"&&detail?.finance?.message;
   if(code==="package_not_eligible")return `Colis ${detail.reference||"incompatible"} : ${(detail.reasons as string[]).map(key=>reasons[key]||key).join(", ")}. Aucune modification effectuée.`;
-  return reasons[code]?`${reasons[code]}${detail?.reference?` · ${detail.reference}`:""}`:"Confirmation non reçue. Fermez le panneau et actualisez la fiche pour vérifier le résultat avant de réessayer.";
+  if(code==="PAYMENT_CLEARANCE_REQUIRED"){
+    const finance=detail.finance||{};
+    return `Départ bloqué pour ${detail.reference||finance.reference||"un colis"}. ${finance.message||"Le montant exigible avant départ n’est pas couvert par les paiements confirmés."}`;
+  }
+  if(financeMessage)return `${reasons[code]||"Départ bloqué"}${detail.reference?` · ${detail.reference}`:""}. ${financeMessage}`;
+  if(typeof detail==="string"&&reasons[detail])return reasons[detail];
+  if(typeof code==="string"&&reasons[code])return `${reasons[code]}${detail?.reference?` · ${detail.reference}`:""}`;
+  if(typeof detail==="object"&&typeof detail?.message==="string")return detail.message;
+  if(cause.response.status===409)return "Le départ est en conflit avec l’état actuel de l’expédition. Actualisez la fiche, puis corrigez le motif indiqué par le serveur.";
+  return `Le départ a été refusé par le serveur (${cause.response.status}). Vérifiez la fiche et réessayez si le motif a été corrigé.`;
 }
 
 reasons.quality_review_required="Contrôle qualité bloquant à résoudre";

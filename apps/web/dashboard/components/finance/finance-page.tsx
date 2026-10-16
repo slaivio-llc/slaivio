@@ -12,7 +12,9 @@ import { OperationContent, OperationMetrics, OperationSearch, OperationTable, Op
 import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients, type ClientRecord } from "@/services/clients";
+import { listPackages, type PackageRecord } from "@/services/packages";
 import {
+  createPackageInvoice,
   createFinance,
   exportFinance,
   financeStats,
@@ -63,6 +65,20 @@ function err(e: unknown) {
     (e as { response?: { data?: { detail?: string } } })?.response?.data
       ?.detail || "Une erreur est survenue."
   );
+}
+function packageInvoiceError(e: unknown) {
+  const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+  const messages: Record<string, string> = {
+    package_not_found: "Ce colis n’est plus disponible dans votre agence. Actualisez la liste et réessayez.",
+    package_pricing_required: "Calculez d’abord le tarif du colis dans sa fiche avant de le facturer.",
+    package_pricing_inconsistent: "Le tarif enregistré du colis est incohérent. Faites-le vérifier avant facturation.",
+    package_pricing_currency_mismatch: "La devise du tarif ne correspond plus à celle du colis. Vérifiez sa tarification.",
+    package_legacy_payments_require_reconciliation: "Ce colis contient des paiements historiques à rapprocher avant la création de la facture.",
+    package_client_required: "Associez d’abord un client à ce colis.",
+    package_version_conflict: "Le colis a changé depuis son chargement. Recherchez-le à nouveau puis réessayez.",
+    finance_office_scope_not_supported: "Votre contexte de bureau n’autorise pas encore cette opération financière."
+  };
+  return (detail && messages[detail]) || err(e);
 }
 export function FinancePage() {
   const [items, setItems] = useState<FinanceDocument[]>([]),
@@ -242,9 +258,10 @@ export function FinancePage() {
       {create && (
         <CreateModal
           close={() => setCreate(false)}
-          done={() => {
+          done={async (document) => {
             setCreate(false);
-            load();
+            await load();
+            if (document?.id) await open(document.id);
           }}
         />
       )}
@@ -263,8 +280,13 @@ export function FinancePage() {
     </div>
   );
 }
-function CreateModal({ close, done }: { close: () => void; done: () => void }) {
+function CreateModal({ close, done }: { close: () => void; done: (document?: FinanceDocument) => void | Promise<void> }) {
   const [clients, setClients] = useState<ClientRecord[]>([]),
+    [mode, setMode] = useState<"manual" | "package">("manual"),
+    [packages, setPackages] = useState<PackageRecord[]>([]),
+    [packageQuery, setPackageQuery] = useState(""),
+    [packageId, setPackageId] = useState(""),
+    [packagesLoading, setPackagesLoading] = useState(false),
     [currency, setCurrency] = useState("USD"),
     [lines, setLines] = useState([
       {
@@ -280,10 +302,36 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
   useEffect(() => {
     listClients({ page_size: 100 }).then((r) => setClients(r.items)).catch(()=>setError("Chargement des clients impossible. Rouvrez le formulaire pour réessayer."));
   }, []);
+  useEffect(() => {
+    if (mode !== "package") return;
+    let active = true;
+    const timer = setTimeout(() => {
+      setPackagesLoading(true);
+      listPackages({ q: packageQuery.trim() || undefined, page: 1, page_size: 50 })
+        .then((result) => { if (active) setPackages(result.items); })
+        .catch((cause) => { if (active) setError(err(cause)); })
+        .finally(() => { if (active) setPackagesLoading(false); });
+    }, 200);
+    return () => { active = false; clearTimeout(timer); };
+  }, [mode, packageQuery]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
     try {
+      if (mode === "package") {
+        const selectedPackage = packages.find((item) => item.id === packageId);
+        if (!selectedPackage || !selectedPackage.row_version) throw new Error("Sélectionnez un colis actualisé avant de préparer sa facture.");
+        let invoice: FinanceDocument;
+        try {
+          invoice = await createPackageInvoice(selectedPackage.id, selectedPackage.row_version);
+        } catch (cause) {
+          setError(packageInvoiceError(cause));
+          setBusy(false);
+          return;
+        }
+        await done(invoice);
+        return;
+      }
       const f = new FormData(e.currentTarget);
       await createFinance({
         document_type: String(f.get("document_type")),
@@ -294,7 +342,7 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
         terms: String(f.get("terms")) || null,
         lines,
       });
-      done();
+      await done();
     } catch (e) {
       setError(err(e));
       setBusy(false);
@@ -309,6 +357,20 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
       width="max-w-3xl"
     >
       <form onSubmit={submit} className="space-y-4">
+        <div className="flex gap-2 border-b pb-3" role="group" aria-label="Origine de la facture">
+          <button type="button" aria-pressed={mode === "manual"} onClick={() => { setMode("manual"); setError(""); }} className={mode === "manual" ? primary : button}>Facture libre</button>
+          <button type="button" aria-pressed={mode === "package"} onClick={() => { setMode("package"); setError(""); }} className={mode === "package" ? primary : button}>Depuis un colis</button>
+        </div>
+        {mode === "package" ? <section className="space-y-3 rounded-lg border border-slate-200 p-4">
+          <div><b className="text-[13px]">Facturer un colis enregistré</b><p className="mt-1 text-xs text-slate-600">La facture reprend le client, la devise et le tarif validé du colis. Aucun montant n’est saisi manuellement.</p></div>
+          <label className="grid gap-1 text-[13px]">Rechercher un colis<input className={input} type="search" value={packageQuery} onChange={(event) => { setPackageQuery(event.target.value); setPackageId(""); }} placeholder="Référence, suivi ou nom du client" /></label>
+          <label className="grid gap-1 text-[13px]">Colis<select required value={packageId} onChange={(event) => setPackageId(event.target.value)} className={input}>
+            <option value="">{packagesLoading ? "Recherche des colis…" : "Sélectionner un colis"}</option>
+            {packages.map((item) => <option key={item.id} value={item.id}>{item.package_reference || item.tracking_id || item.id} · {item.client_name || "Client non renseigné"}{item.fees_total == null ? " · Tarif à calculer" : ` · ${cash(item.fees_total, item.currency || "USD")}`}</option>)}
+          </select></label>
+          {!packagesLoading && !packages.length && <p className="text-xs text-slate-500">Aucun colis trouvé dans votre périmètre. Vérifiez la référence ou vos droits d’accès aux colis.</p>}
+          {(() => { const item = packages.find((candidate) => candidate.id === packageId); if (!item) return null; const priced = item.fees_total != null && Boolean(item.pricing_snapshot); return <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-700"><p><strong>Client :</strong> {item.client_name || "Non renseigné"}</p><p><strong>Tarif :</strong> {priced ? cash(item.fees_total!, item.currency || "USD") : "À calculer dans le module Colis avant facturation"}</p>{!item.client_id && <p className="mt-2 text-amber-700">Ce colis n’a pas de client associé ; sa facture ne peut pas être préparée.</p>}{priced && <p className="mt-2">Le brouillon sera ouvert après sa création. Émettez-le depuis sa fiche pour qu’il soit pris en compte au départ.</p>}</div>; })()}
+        </section> : <>
         <div className="grid gap-3 sm:grid-cols-2">
           <input type="hidden" name="document_type" value="INVOICE"/>
           <label className="grid gap-1 text-[13px]">Client<select required name="client_id" className={input}>
@@ -371,9 +433,10 @@ function CreateModal({ close, done }: { close: () => void; done: () => void }) {
           className="min-h-16 w-full rounded bg-slate-50 p-3 text-[13px] outline-none focus:ring-2 focus:ring-emerald-700"
           placeholder="Conditions de règlement"
         />
+        </>}
         {error && <p className="text-[13px] text-red-600">{error}</p>}
-        <button disabled={busy} className={`${primary} w-full`}>
-          {busy ? "Création…" : "Créer le brouillon"}
+        <button disabled={busy || (mode === "package" && (packagesLoading || !packageId))} className={`${primary} w-full`}>
+          {busy ? "Création…" : mode === "package" ? "Préparer la facture du colis" : "Créer le brouillon"}
         </button>
       </form>
     </OperationDrawer>

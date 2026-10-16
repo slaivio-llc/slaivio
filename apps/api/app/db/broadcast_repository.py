@@ -33,6 +33,9 @@ def snapshot(o,b,a):
   filters=campaign.get('filter_config') or {};where=['c.org_id=:o','c.deleted_at is null'];p={'o':o}
   for key,col in [('country','c.country'),('language','c.preferred_language'),('status','c.lifecycle_status')]:
    if filters.get(key):where.append(f'lower({col})=lower(:{key})');p[key]=filters[key]
+  selected_client_ids=[str(value) for value in (filters.get('client_ids') or []) if value]
+  if selected_client_ids:
+   where.append('c.id=any(cast(:client_ids as uuid[]))');p['client_ids']=selected_client_ids
   clients=rows(c.execute(text('select c.id,c.phone,c.email,c.name,c.preferred_language from clients c where '+' and '.join(where)),p));channels=campaign['channels'] or ['WHATSAPP'];created=excluded=0
   for client in clients:
    for channel in channels:

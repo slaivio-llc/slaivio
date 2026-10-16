@@ -6,7 +6,7 @@ import { OperationMetrics, OperationSearch, OperationTable, OperationToolbar } f
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationActionMenu, OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
-import { listClients } from "@/services/clients";
+import { listClients, type ClientRecord } from "@/services/clients";
 import {
   campaignAction,
   campaignResources,
@@ -380,10 +380,13 @@ function AudienceModal({
   done: () => void;
 }) {
   const [countries, setCountries] = useState<string[]>([]),
+    [clientSearch, setClientSearch] = useState(""),
+    [clientOptions, setClientOptions] = useState<ClientRecord[]>([]),
+    [selectedClientIds, setSelectedClientIds] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
-    listClients({ page_size: 500 })
+    listClients({ page_size: 100 })
       .then((data) =>
         setCountries(
           Array.from(
@@ -397,6 +400,15 @@ function AudienceModal({
       )
       .catch(() => setCountries([]));
   }, []);
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
+      listClients({ q: clientSearch.trim() || undefined, page: 1, page_size: 30, sort: "name_asc" })
+        .then((data) => { if (active) setClientOptions(data.items); })
+        .catch(() => { if (active) setClientOptions([]); });
+    }, 200);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [clientSearch]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -411,6 +423,7 @@ function AudienceModal({
           country: f.get("country") || undefined,
           language: f.get("language") || undefined,
           status: f.get("status") || undefined,
+          client_ids: selectedClientIds.length ? selectedClientIds : undefined,
         },
       });
       done();
@@ -438,6 +451,25 @@ function AudienceModal({
         </label>
         <label className="text-[12px] text-[#5f6873]">Langue préférée des clients<select name="language" className={`${field} mt-1 w-full`}><option value="">Toutes les langues</option><option value="FR">Français</option><option value="EN">Anglais</option></select></label>
         <label className="text-[12px] text-[#5f6873]">Relation actuelle avec l’agence<select name="status" className={`${field} mt-1 w-full`}><option value="">Tous les clients autorisés</option><option value="ACTIVE">Clients ayant une opération en cours</option><option value="LEAD">Nouveaux contacts à convertir</option></select></label>
+        <section className="grid gap-2 rounded-md border border-[#e1e5e8] p-3">
+          <div>
+            <p className="text-[12px] font-medium text-[#273038]">Sélectionner des clients précis (facultatif)</p>
+            <p className="mt-1 text-[11px] text-[#727b84]">Sans sélection, le groupe utilise les filtres ci-dessus. Avec une sélection, seuls ces clients correspondant aussi aux filtres seront inclus.</p>
+          </div>
+          <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder="Rechercher un client par nom, téléphone…" aria-label="Rechercher un client" />
+          <div className="max-h-48 overflow-y-auto rounded border border-[#edf0f2]">
+            {clientOptions.length ? clientOptions.map((client) => {
+              const id = String(client.id);
+              const selected = selectedClientIds.includes(id);
+              return <label key={id} className="flex cursor-pointer items-center gap-2 border-b border-[#edf0f2] px-3 py-2 text-[12px] last:border-0 hover:bg-[#f8faf9]">
+                <input type="checkbox" checked={selected} onChange={() => setSelectedClientIds((current) => selected ? current.filter((value) => value !== id) : [...current, id])} />
+                <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || "Client"}</span>
+                <span className="shrink-0 text-[#77818a]">{client.phone || client.email || "Contact manquant"}</span>
+              </label>;
+            }) : <p className="px-3 py-3 text-[12px] text-[#77818a]">Aucun client trouvé. Modifiez la recherche ou vérifiez que le client appartient à cette agence.</p>}
+          </div>
+          <p className="text-[11px] text-[#5f6873]">{selectedClientIds.length} client{selectedClientIds.length === 1 ? " sélectionné" : "s sélectionnés"}</p>
+        </section>
         {error && (
           <p className="rounded-md bg-red-50 p-3 text-[12px] text-red-700">
             {error}

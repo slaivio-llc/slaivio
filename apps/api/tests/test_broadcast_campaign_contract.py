@@ -73,3 +73,13 @@ def test_campaign_dispatch_states_follow_outbox_and_provider_acknowledgements():
 def test_campaign_start_uses_python_none_semantics():
     repo = read("apps/api/app/db/broadcast_repository.py")
     assert "campaign['approved_at'] is None" in repo
+
+
+def test_saved_audience_can_target_selected_existing_clients_tenant_safely():
+    repo = read("apps/api/app/db/broadcast_repository.py")
+    ui = read("apps/web/dashboard/components/broadcasts/broadcasts-page.tsx")
+    assert "selected_client_ids=[str(value)" in repo
+    assert "c.id=any(cast(:client_ids as uuid[]))" in repo
+    assert "c.org_id=:o" in repo
+    assert "Sélectionner des clients précis" in ui
+    assert "client_ids: selectedClientIds" in ui

@@ -184,7 +184,7 @@ def upsert_due_policy(o,a,n,payload):
  if not name:
   raise HTTPException(422, 'due_policy_name_required')
  trigger = str(payload.get('trigger_event') or 'MANUAL').upper()
- if trigger not in {'RECEPTION','ARRIVAL','DELIVERY','MANUAL'}:
+ if trigger not in {'DEPARTURE','RECEPTION','ARRIVAL','DELIVERY','MANUAL'}:
   raise HTTPException(422, 'invalid_due_policy_trigger')
  currency = str(payload.get('currency') or 'USD').upper()
  if len(currency) != 3 or not currency.isalpha():
@@ -201,8 +201,8 @@ def upsert_due_policy(o,a,n,payload):
    raise HTTPException(422, 'invalid_due_policy_amount')
   percentage = None
  with engine.begin() as c:
-  row = c.execute(text("""insert into finance_due_policies(org_id,name,trigger_event,rule_type,percentage,fixed_amount,currency,is_active,created_by,created_by_name)
-      values(:o,:name,:trigger_event,:rule_type,:percentage,:fixed_amount,:currency,:is_active,:a,:n)
+  row = c.execute(text("""insert into finance_due_policies(org_id,name,shipping_service_id,trigger_event,rule_type,percentage,fixed_amount,currency,is_active,created_by,created_by_name)
+      values(:o,:name,cast(:shipping_service_id as uuid),:trigger_event,:rule_type,:percentage,:fixed_amount,:currency,:is_active,:a,:n)
       on conflict(org_id,name) do update set
         trigger_event=excluded.trigger_event,
         rule_type=excluded.rule_type,
@@ -215,7 +215,7 @@ def upsert_due_policy(o,a,n,payload):
         created_by=excluded.created_by,
         created_by_name=excluded.created_by_name
       returning *"""),{
-       'o':o,'name':name,'trigger_event':trigger,'rule_type':rule_type,'percentage':percentage,
+       'o':o,'name':name,'shipping_service_id':payload.get('shipping_service_id'),'trigger_event':trigger,'rule_type':rule_type,'percentage':percentage,
        'fixed_amount':fixed_amount,'currency':currency,'is_active':payload.get('is_active',True),
        'a':a,'n':n}).mappings().one()
   event(c,o,None,'DUE_POLICY_SAVED',a,n,{"policy_id":str(row['id']),"name":name,"trigger_event":trigger,"row_version":row['row_version']})

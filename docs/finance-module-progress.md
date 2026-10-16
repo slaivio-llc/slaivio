@@ -98,6 +98,27 @@ contrat `/finance/stats` change, les anciens totaux sans devise sont supprimés.
 
 ## Lot 4 — attribution et accès financiers par bureau
 
+## Lot 5 — décision financière V1 avant départ
+
+- Les paiements en ligne et SasPay restent hors du parcours V1. Le statut utilisé
+  pour autoriser un départ provient exclusivement de `finance_payments` confirmés.
+- Une politique `DEPARTURE` peut être définie par agence ou par service ; la
+  politique service est prioritaire. Les politiques ARRIVAL/DELIVERY ne bloquent
+  pas un départ, ce qui évite l'ancien blocage universel.
+- La vérification charge la facture du colis, la politique, la devise et la somme
+  des paiements confirmés. Elle ne considère jamais un tarif absent comme zéro.
+- Les réponses de blocage contiennent code, colis, politique, montant requis,
+  montant confirmé, reste et explication lisible. Le workflow reste transactionnel
+  et ne crée aucune obligation ni paiement pendant la confirmation.
+- Migration `141_finance_departure_clearance.sql` après 139/140 : ajoute le type
+  DEPARTURE et l'index service. Migration non exécutée ici.
+- Le garde-fou historique `require_payment_clearance` n'est plus utilisé par les
+  deux contrôles de sélection/confirmation de départ ; la configuration explicite
+  Finance est requise. Une agence sans politique reçoit `FINANCE_POLICY_MISSING`.
+- Validation : 22 tests backend ciblés passent pour politiques, devises, factures
+  manquantes, acomptes et paiements intégraux. Tester encore les migrations et une
+  transaction concurrente PostgreSQL avant production.
+
 Migration `138_finance_office_scope.sql` avant l'API. Aucun backfill automatique :
 le bureau de destination du colis n'est pas nécessairement le bureau financier.
 Le champ référence `organization_locations`, comme les permissions et le sélecteur

@@ -61,7 +61,8 @@ class Reverse(BaseModel):reason:str=Field(min_length=4,max_length=500)
 class Settings(BaseModel):legal_name:str|None=None;tax_identifier:str|None=None;billing_address:str|None=None;default_currency:str=Field(min_length=3,max_length=3);default_tax_rate:float=Field(ge=0,le=100);default_payment_terms_days:int=Field(ge=0,le=365);document_footer:str|None=None
 class DuePolicy(BaseModel):
  name:str=Field(min_length=1,max_length=120)
- trigger_event:str=Field(pattern=r'^(RECEPTION|ARRIVAL|DELIVERY|MANUAL)$')
+ trigger_event:str=Field(pattern=r'^(DEPARTURE|RECEPTION|ARRIVAL|DELIVERY|MANUAL)$')
+ shipping_service_id:str|None=None
  rule_type:str=Field(pattern=r'^(PERCENTAGE|FIXED_AMOUNT)$')
  percentage:float|None=Field(default=None,ge=0,le=100)
  fixed_amount:Decimal|None=Field(default=None,gt=0,allow_inf_nan=False,max_digits=18,decimal_places=2)

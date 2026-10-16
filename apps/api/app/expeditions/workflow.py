@@ -5,6 +5,7 @@ from math import ceil
 
 from fastapi import HTTPException
 from sqlalchemy import text
+from app.finance.clearance import departure_clearance
 
 from app.db.database import engine
 from app.expeditions.detail import require_shipment, PACKAGES, SCOPE
@@ -128,7 +129,6 @@ def milestone(org_id,shipment_id,actor,expected,action):
           on ep.package_id=p.id and ep.org_id=p.org_id where ep.org_id=:org_id
           and ep.expedition_id=cast(:id as uuid) and ep.removed_at is null order by p.id for update of p"""),params).mappings().all()
         if not rows:raise HTTPException(409,'shipment_empty')
-        require_payment=conn.execute(text("select coalesce((select require_payment_clearance from parcel_operation_settings where org_id=:org_id),true)"),params).scalar_one()
         for row in rows:
             p=dict(row)
             valid=p['status'] in RECEIVED if action=='depart' else p['status'] in {'SHIPPED','IN_TRANSIT'}
@@ -136,9 +136,10 @@ def milestone(org_id,shipment_id,actor,expected,action):
             if action=='depart':
                 reasons=compatible(shipment,p)
                 if reasons:raise HTTPException(409,{'code':'package_not_eligible','package_id':str(p['id']),'reference':p.get('package_reference'),'reasons':reasons})
-                if require_payment and (p.get('fees_total') is None or p.get('fees_paid') is None or
-                    p.get('payment_status') not in {'PAID','CLEARED'} or Decimal(str(p['fees_paid']))<Decimal(str(p['fees_total']))):
-                    raise HTTPException(409,{'code':'payment_clearance_required','package_id':str(p['id']),'reference':p.get('package_reference')})
+                clearance=departure_clearance(conn,org_id,p)
+                if not clearance['allowed']:
+                    raise HTTPException(409,{'code':clearance['code'],'package_id':str(p['id']),
+                        'reference':p.get('package_reference'),'finance':clearance})
         if action=='depart':
             manifest_rows=conn.execute(text(f"""select p.id::text,p.package_reference as reference,c.name as client_name,
               p.supplier_tracking,p.weight_kg,p.destination_city,p.destination_country

@@ -17,7 +17,7 @@ create unique index if not exists idx_finance_saspay_one_org_per_merchant
 create unique index if not exists idx_finance_documents_org_document
   on finance_documents(org_id,id);
 
-create table if not exi
+create table if not exists finance_saspay_attempts (
   id uuid primary key,
   org_id text not null references organizations(id) on delete cascade,
   document_id uuid not null,

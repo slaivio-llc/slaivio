@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from app.core.config import settings
 from app.db.database import engine
+from app.finance.clearance import departure_clearance
 def rows(r):return [dict(x) for x in r.mappings().all()]
 def ev(c,o,d,t,a,n,p=None):c.execute(text("insert into departure_events(org_id,departure_id,event_type,actor_id,actor_name,payload) values(:o,:d,:t,:a,:n,cast(:p as jsonb))"),{"o":o,"d":d,"t":t,"a":a,"n":n,"p":json.dumps(p or {})})
 def listing(o,start=None,end=None,status=None):
@@ -71,8 +72,9 @@ def _package_eligibility(c,o,dep,pkg,current_departure_id=None,include_capacity=
  if pkg.get('warehouse_id') and dep.get('warehouse_id') and str(pkg['warehouse_id'])!=str(dep['warehouse_id']):block('WAREHOUSE_MISMATCH','Le colis ne se trouve pas dans l’entrepôt de départ.')
  if float(pkg.get('weight_kg') or 0)<=0:block('MISSING_WEIGHT','Le poids du colis doit être renseigné.')
  if str(dep.get('shipping_mode') or '').upper()=='SEA' and float(pkg.get('volume_cbm') or 0)<=0:block('MISSING_VOLUME','Le volume CBM est obligatoire pour un départ maritime.')
- require_payment=c.execute(text("select coalesce(require_payment_clearance,true) from parcel_operation_settings where org_id=:o"),{'o':o}).scalar()
- if require_payment is not False and str(pkg.get('payment_status') or 'UNKNOWN').upper() not in {'PAID','CLEARED'}:block('PAYMENT_NOT_CLEARED','Le paiement du colis n’est pas validé.')
+ clearance=departure_clearance(c,o,pkg)
+ if not clearance['allowed']:
+  block(clearance['code'],clearance['message'])
  goods=str(pkg.get('goods_classification') or pkg.get('category') or '')
  policies=[]
  if goods:

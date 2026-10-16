@@ -92,7 +92,10 @@ def test_new_campaign_selects_existing_clients_directly():
     migration = read("infra/sql/143_broadcast_campaign_selected_clients.sql")
     assert "selected_client_ids:list[str]" in api
     assert "selected_client_ids" in repo
-    assert "selected_client_ids: selectedClientIds" in ui
+    assert "selected_client_ids: audienceSelection === \"__all__\" ? [] : selectedClientIds" in ui
     assert "Ajouter des clients précis" in ui
     assert "selected_client_ids jsonb" in migration
     assert "a.org_id=b.org_id and a.id=b.audience_id" in repo
+    assert "Tous les clients éligibles" in ui
+    assert "Clients sélectionnés manuellement" in ui
+    assert "Sélectionner les {clientOptions.length} clients affichés" in ui

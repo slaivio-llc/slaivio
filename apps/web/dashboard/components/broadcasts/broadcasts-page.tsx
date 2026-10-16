@@ -277,6 +277,12 @@ function CampaignModal({
     setBusy(true);
     setError("");
     const f = new FormData(e.currentTarget);
+    const audienceSelection = String(f.get("audience") || "");
+    if (audienceSelection === "__manual__" && selectedClientIds.length === 0) {
+      setError("Sélectionnez au moins un client dans la liste.");
+      setBusy(false);
+      return;
+    }
     try {
       await createCampaign({
         title: f.get("title"),
@@ -284,8 +290,8 @@ function CampaignModal({
         campaign_type: f.get("type"),
         objective: f.get("objective"),
         channels: [f.get("channel")],
-        audience_id: f.get("audience") || null,
-        selected_client_ids: selectedClientIds,
+        audience_id: audienceSelection.startsWith("__") ? null : audienceSelection || null,
+        selected_client_ids: audienceSelection === "__all__" ? [] : selectedClientIds,
         scheduled_at: f.get("date")
           ? new Date(String(f.get("date"))).toISOString()
           : null,
@@ -344,9 +350,11 @@ function CampaignModal({
           </select>
         </label>
         <label className="grid gap-1 text-[12px] font-medium">
-          Clients destinataires
-          <select name="audience" className={field}>
-            <option value="">Choisir les clients concernés</option>
+          Audience principale
+          <select required name="audience" className={field}>
+            <option value="">Choisir une audience</option>
+            <option value="__all__">Tous les clients éligibles</option>
+            <option value="__manual__">Clients sélectionnés manuellement</option>
             {(
               (resources.audiences || []) as Array<Record<string, unknown>>
             ).map((x) => (
@@ -356,22 +364,35 @@ function CampaignModal({
             ))}
           </select>
           <small className="font-normal text-[#727b84]">
-            Le groupe applique automatiquement ses pays, statuts et
-            consentements.
+            Les groupes enregistrés appliquent leurs filtres. Les consentements et exclusions sont toujours vérifiés avant l’envoi.
           </small>
         </label>
         <section className="grid gap-2 rounded-md border border-[#e1e5e8] p-3">
           <div>
             <p className="text-[12px] font-medium text-[#273038]">Ajouter des clients précis (facultatif)</p>
-            <p className="mt-1 text-[11px] text-[#727b84]">La campagne ciblera les clients du groupe choisi et ceux sélectionnés ici. Sans groupe, seuls les clients choisis seront ciblés.</p>
+            <p className="mt-1 text-[11px] text-[#727b84]">Les clients cochés s’ajoutent au groupe choisi. Avec « Tous les clients éligibles », la sélection manuelle ne réduit pas l’audience.</p>
           </div>
           <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder="Rechercher un client par nom, téléphone…" aria-label="Rechercher un client destinataire" />
           <div className="max-h-44 overflow-y-auto rounded border border-[#edf0f2]">
+            <label className="sticky top-0 z-[1] flex cursor-pointer items-center gap-2 border-b border-[#e1e5e8] bg-[#fafbfb] px-3 py-2 text-[11px] font-medium text-[#45515b]">
+              <input
+                type="checkbox"
+                checked={clientOptions.length > 0 && clientOptions.every((client) => selectedClientIds.includes(String(client.id)))}
+                disabled={clientOptions.length === 0}
+                onChange={(event) => {
+                  const visibleIds = clientOptions.map((client) => String(client.id));
+                  setSelectedClientIds((current) => event.target.checked
+                    ? Array.from(new Set([...current, ...visibleIds])).slice(0, 500)
+                    : current.filter((id) => !visibleIds.includes(id)));
+                }}
+              />
+              Sélectionner les {clientOptions.length} clients affichés
+            </label>
             {clientOptions.length ? clientOptions.map((client) => {
               const id = String(client.id);
               const selected = selectedClientIds.includes(id);
               return <label key={id} className="flex cursor-pointer items-center gap-2 border-b border-[#edf0f2] px-3 py-2 text-[12px] last:border-0 hover:bg-[#f8faf9]">
-                <input type="checkbox" checked={selected} onChange={() => setSelectedClientIds((current) => selected ? current.filter((value) => value !== id) : [...current, id])} />
+                <input type="checkbox" checked={selected} disabled={!selected && selectedClientIds.length >= 500} onChange={() => setSelectedClientIds((current) => selected ? current.filter((value) => value !== id) : [...current, id])} />
                 <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || "Client"}</span>
                 <span className="shrink-0 text-[#77818a]">{client.phone || client.email || "Contact manquant"}</span>
               </label>;

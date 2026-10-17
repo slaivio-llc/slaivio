@@ -131,8 +131,8 @@ export const cargoAgencyNavigation: readonly AppNavigationGroup[] = [
   { label: "Opérations", icon: Package, collapsible: true, routes: [
     { label: "Colis", href: "/app/packages", icon: Package, keywords: ["colis", "poids", "destination", "statut"] },
     { label: "Expéditions", href: "/app/shipments", icon: Truck, permission: "shipments.read", keywords: ["expédition", "départ", "manifeste", "transport"] },
-    { label: "Tracking", href: "/app/tracking", icon: Radar, permission: "tracking.read", keywords: ["tracking", "suivi", "statut"] },
     { label: "Départs", href: "/app/departures", icon: Truck, permission: "departures.read", keywords: ["départ", "calendrier"] },
+    { label: "Tracking", href: "/app/tracking", icon: Radar, permission: "tracking.read", keywords: ["tracking", "suivi", "statut"] },
     { label: "Entrepôts", href: "/app/warehouses", icon: Warehouse, permission: "warehouses.read", keywords: ["entrepôt", "stock", "bureau"] },
   ] },
   { label: "Clients", icon: Users, collapsible: false, routes: [

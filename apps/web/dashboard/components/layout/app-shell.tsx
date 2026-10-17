@@ -90,7 +90,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [supportView, setSupportView] = useState<SupportView>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
-    pilot ? { Communication: true, Opérations: true, Finance: true } : { Clients: false, Opérations: true, "Offre commerciale": false, Communication: false, Pilotage: false },
+    pilot ? { Opérations: true } : { Clients: false, Opérations: true, "Offre commerciale": false, Communication: false, Pilotage: false },
   );
 
   useEffect(() => {
@@ -150,7 +150,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       try {
         const parsed = JSON.parse(savedGroups) as Record<string, boolean>;
         if (cargo) {
-          setOpenGroups((current) => Object.fromEntries(appNavigation.map((group) => [group.label, parsed[group.label] ?? current[group.label] ?? false])));
+          const selected = appNavigation.find((group) => parsed[group.label])?.label || appNavigation[0]?.label;
+          setOpenGroups(Object.fromEntries(appNavigation.map((group) => [group.label, group.label === selected])));
           return;
         }
         const selected = appNavigation.find((group) => parsed[group.label])?.label || "Opérations";
@@ -166,7 +167,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
     if (!activeGroup) return;
     setOpenGroups((current) => {
-      if (cargo) return current[activeGroup.label] === true ? current : { ...current, [activeGroup.label]: true };
       const next = Object.fromEntries(groupedRoutes.map((group) => [group.label, group.label === activeGroup.label]));
       return Object.keys(next).every((key) => current[key] === next[key]) ? current : next;
     });
@@ -216,11 +216,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   function toggleGroup(label: string) {
     setOpenGroups((current) => {
-      if (cargo) {
-        const next = { ...current, [label]: current[label] === false };
-        window.localStorage.setItem("slaivio.sidebar.groups", JSON.stringify(next));
-        return next;
-      }
       const willOpen = current[label] === false;
       const next = Object.fromEntries(groupedRoutes.map((group) => [group.label, willOpen && group.label === label]));
       window.localStorage.setItem("slaivio.sidebar.groups", JSON.stringify(next));

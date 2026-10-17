@@ -49,6 +49,12 @@ describe("product navigation", () => {
     const operations = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT)
       .find((group) => group.label === "Opérations");
     expect(operations?.routes.some((route) => route.href === "/app/tracking")).toBe(true);
+    expect(operations?.routes.map((route) => route.href)).toEqual([
+      "/app/packages",
+      "/app/shipments",
+      "/app/departures",
+      "/app/tracking",
+    ]);
   });
 
   it("keeps agency settings in the bottom utility rail, not the compact navigation", () => {

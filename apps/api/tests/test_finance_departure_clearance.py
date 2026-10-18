@@ -23,16 +23,30 @@ def package():
     return {'id': 'package', 'package_reference': 'COL-1', 'shipping_service_id': 'service'}
 
 
-def test_arrival_policy_does_not_block_departure(monkeypatch):
-    c = conn(monkeypatch, [
+def test_arrival_policy_allows_departure_without_prepayment():
+    c = conn(None, [
         {'id': 'invoice', 'total': 200, 'currency': 'USD'},
         None,
         None,
+        None,
+        {'name': 'Paiement à l’arrivée', 'trigger_event': 'ARRIVAL'},
     ])
-    # A DEPARTURE policy is required; an ARRIVAL policy is intentionally not used.
     decision = departure_clearance(c, 'org', package())
-    assert decision['code'] == 'FINANCE_POLICY_MISSING'
-    assert c.execute.call_count == 3
+    assert decision['allowed'] is True
+    assert decision['due_at'] == 'ARRIVAL'
+    assert decision['policy'] == 'Paiement à l’arrivée'
+    assert c.execute.call_count == 5
+
+
+def test_arrival_policy_allows_departure_even_before_invoice():
+    c = conn(None, [
+        None,
+        None,
+        {'name': 'Paiement à l’arrivée', 'trigger_event': 'ARRIVAL'},
+    ])
+    decision = departure_clearance(c, 'org', package())
+    assert decision['allowed'] is True
+    assert decision['due_at'] == 'ARRIVAL'
 
 
 def test_deposit_allows_departure_when_paid(monkeypatch):

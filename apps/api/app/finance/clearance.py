@@ -7,12 +7,7 @@ def _money(value):
     return Decimal(str(value or 0)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
 
 
-def _clearance(connection, org_id, package, trigger_event, *, missing_policy_allowed):
-    """Return an explainable manual-payment decision without changing data."""
-    invoice = connection.execute(text("""select id::text, total, currency,due_policy_snapshot_at
-        from finance_documents where org_id=:o and package_id=:p
-        and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','PAID','OVERDUE')
-        order by created_at desc limit 1"""), {'o': org_id, 'p': package['id']}).mappings().first()
+def _policy_for_event(connection, org_id, package, invoice, trigger_event):
     service_id = package.get('shipping_service_id')
     snapshot = connection.execute(text("""select o.amount,o.currency,
         coalesce(o.policy_name_snapshot,p.name) as name,o.policy_row_version
@@ -21,13 +16,37 @@ def _clearance(connection, org_id, package, trigger_event, *, missing_policy_all
         where o.org_id=:o and o.document_id=cast(:document as uuid) and o.trigger_event=:event
           and o.status<>'VOID' and (p.shipping_service_id is null or p.shipping_service_id=:service)
         order by (p.shipping_service_id is not null) desc,o.created_at desc limit 1"""),
-        {'o':org_id,'document':invoice['id'],'service':service_id,'event':trigger_event}).mappings().first() if invoice else None
-    policy = snapshot or (None if invoice and invoice.get('due_policy_snapshot_at') else connection.execute(text("""select * from finance_due_policies
+        {'o': org_id, 'document': invoice['id'], 'service': service_id, 'event': trigger_event}
+    ).mappings().first() if invoice else None
+    if snapshot:
+        return snapshot
+    if invoice and invoice.get('due_policy_snapshot_at'):
+        return None
+    return connection.execute(text("""select * from finance_due_policies
         where org_id=:o and is_active=true and trigger_event=:event
         and (shipping_service_id is null or shipping_service_id=:service)
         order by (shipping_service_id is not null) desc, row_version desc, created_at desc
-        limit 1"""), {'o': org_id, 'service': service_id, 'event': trigger_event}).mappings().first())
+        limit 1"""), {'o': org_id, 'service': service_id, 'event': trigger_event}
+    ).mappings().first()
+
+
+def _clearance(connection, org_id, package, trigger_event, *, missing_policy_allowed):
+    """Return an explainable manual-payment decision without changing data."""
+    invoice = connection.execute(text("""select id::text, total, currency,due_policy_snapshot_at
+        from finance_documents where org_id=:o and package_id=:p
+        and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','PAID','OVERDUE')
+        order by created_at desc limit 1"""), {'o': org_id, 'p': package['id']}).mappings().first()
+    snapshot = _policy_for_event(connection, org_id, package, invoice, trigger_event)
+    policy = snapshot
     if not policy:
+        # An explicit ARRIVAL policy means no amount is due before the shipment
+        # leaves. Respect the invoice's policy snapshot when one exists.
+        if trigger_event == 'DEPARTURE':
+            arrival_policy = _policy_for_event(connection, org_id, package, invoice, 'ARRIVAL')
+            if arrival_policy:
+                return {'allowed': True, 'code': None, 'reference': package.get('package_reference'),
+                        'policy': arrival_policy.get('name'), 'policy_configured': True,
+                        'due_at': 'ARRIVAL', 'message': None}
         if missing_policy_allowed:
             return {'allowed': True, 'code': None, 'reference': package.get('package_reference'),
                     'message': None, 'policy_configured': False}
@@ -37,7 +56,7 @@ def _clearance(connection, org_id, package, trigger_event, *, missing_policy_all
         return {'allowed': False, 'code': 'FINANCE_INVOICE_MISSING', 'reference': package.get('package_reference'),
                 'message': 'Le montant du colis n’est pas encore facturé ; la condition financière ne peut pas être évaluée.'}
     total = _money(invoice['total'])
-    if snapshot:
+    if snapshot and 'amount' in snapshot:
         required = _money(snapshot['amount'])
     elif str(policy['rule_type']).upper() == 'FIXED_AMOUNT':
         required = _money(policy['fixed_amount'])

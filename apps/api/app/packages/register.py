@@ -78,7 +78,7 @@ def parcel_overview(org_id: str, package_id: str):
         row = conn.execute(text(f"""select {SUMMARY}, p.supplier_tracking, p.external_reference,
             p.description,p.weight_kg,p.warehouse_location,p.warehouse_zone,p.warehouse_rack,
             p.origin_city,p.origin_country,p.destination_city,p.destination_country,
-            p.received_at,p.created_at,
+            p.received_at,p.dispatched_at,p.delivered_at,p.created_at,
             p.public_tracking_enabled,
             coalesce((select ep.expedition_id from expedition_packages ep
               where ep.org_id=p.org_id and ep.package_id=p.id and ep.removed_at is null
@@ -96,15 +96,15 @@ def parcel_overview(org_id: str, package_id: str):
 
 
 def parcel_photos(org_id, package_id, page=1):
-    params = {"org_id": org_id, "package_id": package_id, "offset": (page-1)*20}
+    params = {"org_id": org_id, "package_id": package_id, "offset": (page-1)*6}
     where = f"{SCOPE} and p.id=cast(:package_id as uuid) and m.org_id=p.org_id and m.media_type='IMAGE' and m.object_path is not null"
     with engine.connect() as conn:
         total = conn.execute(text(f"select count(*) from package_media m join cargo_packages p on p.id=m.package_id where {where}"), params).scalar_one()
         customer_visible_count = conn.execute(text(f"select count(*) from package_media m join cargo_packages p on p.id=m.package_id where {where} and m.customer_visible=true"), params).scalar_one()
         rows = conn.execute(text(f"""select m.id::text,m.file_name,m.caption,m.created_at,m.customer_visible
             from package_media m join cargo_packages p on p.id=m.package_id
-            where {where} order by m.created_at desc,m.id desc limit 20 offset :offset"""), params).mappings()
-        return {"items": [dict(row) for row in rows], "total": total, "customer_visible_count": customer_visible_count, "page": page, "total_pages": ceil(total/20)}
+            where {where} order by m.created_at desc,m.id desc limit 6 offset :offset"""), params).mappings()
+        return {"items": [dict(row) for row in rows], "total": total, "customer_visible_count": customer_visible_count, "page": page, "total_pages": ceil(total/6)}
 
 
 def parcel_history(org_id: str, package_id: str, page=1):

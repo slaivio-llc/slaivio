@@ -71,7 +71,7 @@ describe("Registre fret", () => {
     expect(screen.getByText("Formulaire de réception")).toBeInTheDocument();
   });
 
-  it("affiche Finance dans la fiche colis, en plus de la vue d’ensemble et de l’historique", async () => {
+  it("présente le colis sur une seule fiche avec suivi, photos, paiement et historique repliable", async () => {
     vi.mocked(api.get).mockImplementation(async url => ({ data: String(url).endsWith("/history") ? { items: [{ id: "event", title: "Colis reçu", description: null, created_at: "2026-10-11T10:00:00Z" }], page: 1, total_pages: 1 } : response }));
     render(<ParcelRegisterPage />);
     fireEvent.click(await screen.findByRole("button", { name: "COL-0042" }));
@@ -80,8 +80,12 @@ describe("Registre fret", () => {
     expect(within(drawer).getByText("EXT-42")).toBeInTheDocument();
     expect(within(drawer).getByText("Pas encore affecté")).toBeInTheDocument();
     expect(within(drawer).queryByText("Paramètres")).not.toBeInTheDocument();
-    expect(within(drawer).getByRole("button", { name: "Finance" })).toBeInTheDocument();
-    fireEvent.click(within(drawer).getByRole("button", { name: "Historique" }));
+    expect(within(drawer).getByText("Suivi du colis")).toBeInTheDocument();
+    expect(within(drawer).getByText("Photos du colis")).toBeInTheDocument();
+    expect(within(drawer).getByText("Paiement")).toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: "Finance" })).not.toBeInTheDocument();
+    expect(within(drawer).queryByRole("button", { name: "Historique" })).not.toBeInTheDocument();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Historique complet" }));
     expect(await within(drawer).findByText("Colis reçu")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("/packages/register/parcel/history", expect.objectContaining({ params: { page: 1 } }));
   });
@@ -91,8 +95,8 @@ describe("Registre fret", () => {
     render(<ParcelRegisterPage />);
     fireEvent.click(await screen.findByRole("button", { name: "COL-0042" }));
     const drawer = await screen.findByRole("dialog", { name: "COL-0042" });
-    fireEvent.click(within(drawer).getByRole("button", { name: "Finance" }));
-    expect(await within(drawer).findByText("Finance du colis")).toBeInTheDocument();
+    fireEvent.click(within(drawer).getByRole("button", { name: "Détails du paiement" }));
+    expect(await within(drawer).findByText("Détails Finance")).toBeInTheDocument();
     expect(within(drawer).getByRole("button", { name: "Calculer le tarif du colis" })).toBeInTheDocument();
     expect(getPackage).toHaveBeenCalledWith("parcel");
   });

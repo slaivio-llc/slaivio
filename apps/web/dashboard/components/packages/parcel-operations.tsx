@@ -62,11 +62,20 @@ export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: {
   const [busy,setBusy]=useState(false);const pending=useRef(false);
   const [revision,setRevision]=useState(0);const [page,setPage]=useState(1);
   const [preview,setPreview]=useState<{url:string;name:string}|null>(null);
+  const [photoUrls,setPhotoUrls]=useState<Record<string,string>>({});
   const input=useRef<HTMLInputElement>(null);
   useEffect(()=>{
-    const controller=new AbortController();setResult(null);setError("");
+    const controller=new AbortController();setResult(null);setError("");setPhotoUrls({});
     api.get<Photos>(`/packages/register/${item.id}/photos`,{params:{page},signal:controller.signal})
-      .then(response=>{if(!controller.signal.aborted)setResult(response.data);})
+      .then(async response=>{
+        if(controller.signal.aborted)return;
+        setResult(response.data);
+        const urls=await Promise.all(response.data.items.map(async photo=>{
+          try{return [photo.id,await getPackageMediaUrl(item.id,photo.id)] as const;}
+          catch{return [photo.id,""] as const;}
+        }));
+        if(!controller.signal.aborted)setPhotoUrls(Object.fromEntries(urls));
+      })
       .catch(()=>{if(!controller.signal.aborted)setError("Photos indisponibles. Réessayez.");});
     return()=>controller.abort();
   },[item.id,page,revision]);
@@ -117,18 +126,19 @@ export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: {
     }catch(cause){setError(parcelError(cause));}
     finally{pending.current=false;setBusy(false);busyChanged(false);}
   }
+  // These signed private media URLs must be rendered directly, not proxied by Next Image.
+  /* eslint-disable @next/next/no-img-element */
   return <section aria-label="Photos du colis" className="grid gap-3">
-    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Photos</h3><p className="mt-1 text-xs text-slate-500">Privées par défaut. Le partage client est explicite, photo par photo.</p></div>
+    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Photos du colis</h3><p className="mt-1 text-xs text-slate-500">Privées par défaut. Le partage client est explicite, photo par photo.</p></div>
       {item.local_client && <PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled} onClick={()=>input.current?.click()}><Upload size={14}/>Ajouter</OperationButton><input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" hidden aria-label="Ajouter des photos" onChange={event=>{const files=Array.from(event.target.files||[]);event.target.value="";void upload(files);}}/></PermissionGuard>}
     </div>
     {notice && <p role="status" className="text-xs text-slate-600">{notice}</p>}
     {result&&result.customer_visible_count>0&&<div className="flex flex-wrap items-center gap-2"><PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled||!item.public_tracking_enabled||!item.reference} onClick={()=>void sendTrackingLink()}>Envoyer le lien au client sur WhatsApp</OperationButton></PermissionGuard>{!item.public_tracking_enabled&&<span className="text-xs text-amber-700">Le suivi public est désactivé pour ce colis.</span>}</div>}
     {error && <div role="alert" className="text-sm text-red-700">{error} <OperationButton aria-label="Actualiser les photos" disabled={busy||disabled} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={14}/></OperationButton></div>}
-    {!result&&!error?<p className="text-sm text-slate-500">Chargement des photos…</p>:result?.items.length?<ul className="grid gap-2 sm:grid-cols-2">{result.items.map(photo=><li key={photo.id} className="rounded-xl border border-slate-200 p-3"><button type="button" disabled={busy||disabled} onClick={()=>void view(photo.id,photo.caption||photo.file_name)} className="flex w-full items-center gap-3 text-left disabled:opacity-50"><ImageIcon size={20} className="shrink-0 text-slate-400"/><span className="truncate text-xs">{photo.caption||photo.file_name}</span></button><PermissionGuard permission="packages.update"><button type="button" disabled={busy||disabled} aria-pressed={photo.customer_visible} onClick={()=>void toggleCustomerVisibility(photo)} className="mt-2 text-xs font-medium text-slate-600 underline underline-offset-2 disabled:opacity-50">{photo.customer_visible?"Retirer du suivi client":"Partager dans le suivi client"}</button></PermissionGuard></li>)}</ul>:result&&<p className="text-sm text-slate-500">Aucune photo ajoutée.</p>}
+    {!result&&!error?<p className="text-sm text-slate-500">Chargement des photos…</p>:result?.items.length?<ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">{result.items.map(photo=><li key={photo.id} className="min-w-0"><button type="button" disabled={busy||disabled||!photoUrls[photo.id]} onClick={()=>void view(photo.id,photo.caption||photo.file_name)} className="group block w-full overflow-hidden rounded-lg border border-slate-200 text-left disabled:opacity-60"><span className="grid h-28 place-items-center bg-slate-50">{photoUrls[photo.id]?<><img src={photoUrls[photo.id]} alt={photo.caption||photo.file_name} className="h-full w-full object-cover" referrerPolicy="no-referrer"/></>:<ImageIcon size={22} className="text-slate-400"/>}</span><span className="block truncate px-2 py-1.5 text-xs text-slate-600">{photo.caption||photo.file_name}</span></button><PermissionGuard permission="packages.update"><button type="button" disabled={busy||disabled} aria-pressed={photo.customer_visible} onClick={()=>void toggleCustomerVisibility(photo)} className="mt-1 text-[11px] font-medium text-slate-600 underline underline-offset-2 disabled:opacity-50">{photo.customer_visible?"Visible au client":"Partager au client"}</button></PermissionGuard></li>)}</ul>:result&&<p className="text-sm text-slate-500">Aucune photo ajoutée.</p>}
     {result&&result.total_pages>1&&<div className="flex justify-end gap-2"><OperationButton disabled={busy||disabled||page===1} onClick={()=>setPage(value=>value-1)}>Précédent</OperationButton><OperationButton disabled={busy||disabled||page>=result.total_pages} onClick={()=>setPage(value=>value+1)}>Suivant</OperationButton></div>}
     {preview&&<figure className="rounded-xl border border-slate-200 p-3">
       {/* Signed private URLs must not be forwarded to an image optimization proxy. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={preview.url} alt={preview.name} className="max-h-80 w-full rounded-lg object-contain" referrerPolicy="no-referrer" onError={()=>{setPreview(null);setError("L’aperçu a expiré ou est indisponible. Ouvrez à nouveau la photo.");}}/>
       <figcaption className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500"><span className="truncate">{preview.name}</span><OperationButton onClick={()=>setPreview(null)}>Fermer l’aperçu</OperationButton></figcaption>
     </figure>}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPackageInvoice, getPackageInvoice, type FinanceDocument } from "@/services/finance";
 import { pricePackage, type PackageRecord } from "@/services/packages";
@@ -34,6 +35,7 @@ export function PackageFinance({ item, onUpdated }: { item: PackageRecord; onUpd
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const hasVerifiedPrice = Boolean(pricedPackage.pricing_snapshot && Object.keys(pricedPackage.pricing_snapshot).length > 0);
 
   useEffect(() => setPricedPackage(item), [item]);
@@ -78,14 +80,34 @@ export function PackageFinance({ item, onUpdated }: { item: PackageRecord; onUpd
     }
   }
 
-  if (loading) return <p role="status" className="text-sm text-slate-500">Chargement de la situation financière…</p>;
+  const currency = invoice?.currency || pricedPackage.currency;
+  const money = (amount: number | string | null | undefined) => {
+    if (amount == null || !currency) return "—";
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(amount));
+  };
+  const total = invoice?.total ?? pricedPackage.fees_total;
+  const paid = invoice?.amount_paid ?? pricedPackage.fees_paid ?? 0;
+  const balance = invoice?.balance_due ?? (total == null ? null : Math.max(0, Number(total) - Number(paid || 0)));
   return <section className="space-y-4">
-    <h3 className="font-semibold">Finance du colis</h3>
+    <div className="flex items-center justify-between gap-3">
+      <h3 className="text-sm font-semibold">Paiement</h3>
+      <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+        {expanded ? "Masquer les détails" : "Détails du paiement"}<ChevronDown size={14} className={expanded ? "rotate-180 transition-transform" : "transition-transform"}/>
+      </button>
+    </div>
+    <dl className="grid grid-cols-3 gap-3">
+      <div><dt className="text-xs text-slate-500">Total</dt><dd className="mt-1 text-sm font-semibold">{total == null ? "Tarif à calculer" : money(total)}</dd></div>
+      <div><dt className="text-xs text-slate-500">Payé</dt><dd className="mt-1 text-sm font-semibold text-emerald-700">{money(paid)}</dd></div>
+      <div><dt className="text-xs text-slate-500">Reste</dt><dd className="mt-1 text-sm font-semibold text-red-700">{money(balance)}</dd></div>
+    </dl>
+    {!expanded && loading && <p role="status" className="text-xs text-slate-500">Actualisation de la facture…</p>}
+    {expanded && <div className="space-y-4 border-t border-slate-100 pt-4">
+    <h4 className="text-sm font-semibold">Détails Finance</h4>
     {error && <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3">
       <p className="text-sm text-red-800">{error}</p>
       <button className="mt-2 text-sm underline" onClick={() => setRetry(value => value + 1)}>Réessayer</button>
     </div>}
-    {invoice ? <>
+    {loading ? <p role="status" className="text-sm text-slate-500">Chargement de la situation financière…</p> : invoice ? <>
       <p className="text-sm">{invoice.document_number} {invoice.status === "DRAFT" ? "· Brouillon — aucun paiement demandé" : "· Facture"}</p>
       <dl className="grid gap-3 sm:grid-cols-3">{[
         ["Montant de la facture", invoice.total], ["Paiements reçus", invoice.amount_paid],
@@ -104,5 +126,6 @@ export function PackageFinance({ item, onUpdated }: { item: PackageRecord; onUpd
         </button>
       </PermissionGuard>}
     </>}
+    </div>}
   </section>;
 }

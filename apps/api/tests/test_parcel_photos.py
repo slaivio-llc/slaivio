@@ -52,14 +52,15 @@ def test_photos_are_scoped_and_paginated_without_exposing_storage_paths(monkeypa
     conn.execute.return_value.mappings.return_value.__iter__.return_value = iter([])
     monkeypatch.setattr(register, "engine", engine)
     result = register.parcel_photos("office", "parcel", page=2)
-    assert result["total_pages"] == 2
+    assert result["total_pages"] == 4
     for statement, params in [call.args for call in conn.execute.call_args_list]:
         sql = str(statement)
         assert "p.org_id=:org_id or p.destination_org_id=:org_id" in sql
         assert "m.org_id=p.org_id" in sql
         assert "deleted_at is null" in sql
         assert params["org_id"] == "office"
-        assert params["offset"] == 20
+        assert params["offset"] == 6
+    assert "limit 6 offset :offset" in str(conn.execute.call_args_list[-1].args[0]).lower()
     projection = str(conn.execute.call_args.args[0]).split("from package_media")[0]
     assert "object_path" not in projection
     assert "url" not in projection

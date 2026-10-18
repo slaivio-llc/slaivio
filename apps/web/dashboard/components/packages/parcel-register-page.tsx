@@ -149,49 +149,39 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
     } catch(cause) {setMutationError(committed?"Opération enregistrée. Actualisez la fiche.":parcelError(cause));}
     finally{pending.current=false;setBusy(false);}
   }
-  const [tab, setTab] = useState("overview");
-  const [financePackage, setFinancePackage] = useState<PackageRecord | null>(null);
-  const [financeLoading, setFinanceLoading] = useState(false);
-  const [financeError, setFinanceError] = useState(false);
-  const [financeRetry, setFinanceRetry] = useState(0);
   const [history, setHistory] = useState<ParcelHistoryResult | null>(null);
-  const [page, setPage] = useState(1);
-  const [retry, setRetry] = useState(0);
-  const [error, setError] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
   useEffect(() => {
-    if (tab !== "history") return;
-    const controller = new AbortController(); setHistory(null); setError(false);
-    api.get<ParcelHistoryResult>(`/packages/register/${item.id}/history`, { params: { page }, signal: controller.signal })
+    const controller = new AbortController(); setHistory(null); setHistoryError(false);
+    api.get<ParcelHistoryResult>(`/packages/register/${item.id}/history`, { params: { page: historyPage }, signal: controller.signal })
       .then(response => { if (!controller.signal.aborted) setHistory(response.data); })
-      .catch(() => { if (!controller.signal.aborted) setError(true); });
+      .catch(() => { if (!controller.signal.aborted) setHistoryError(true); });
     return () => controller.abort();
-  }, [tab, item.id, item.row_version, page, retry]);
-  useEffect(() => {
-    if (tab !== "finance") return;
-    let active = true;
-    setFinanceLoading(true); setFinanceError(false);
-    getPackage(item.id)
-      .then(value => { if (active) setFinancePackage(value); })
-      .catch(() => { if (active) setFinanceError(true); })
-      .finally(() => { if (active) setFinanceLoading(false); });
-    return () => { active = false; };
-  }, [tab, item.id, financeRetry]);
-  return <OperationDrawer open close={()=>{if(!busy)close();}} placement="right" width="max-w-2xl" title={item.reference || "Colis"} headerMeta={<Status item={item} />} headerActions={!editing&&item.stage!=="delivered"&&!["CANCELLED","RETURNED"].includes(item.status)?<PermissionGuard permission="packages.update"><OperationButton className="w-9 px-0" aria-label="Modifier le colis" title="Modifier" disabled={busy} onClick={()=>{setEditing(true);setConfirmReady(false);setMutationError("");}}><SquarePen size={15}/></OperationButton></PermissionGuard>:undefined}
-    tabs={<div className="flex gap-5">{[["overview", "Vue d’ensemble"], ["finance", "Finance"], ["history", "Historique"]].map(([key, label]) => <button type="button" key={key} aria-pressed={tab === key} disabled={busy||editing} onClick={() => setTab(key)} className={`border-b-2 py-3 text-sm font-medium ${tab === key ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-500"}`}>{label}</button>)}</div>}>
+  }, [item.id, item.row_version, historyPage]);
+  return <OperationDrawer open close={()=>{if(!busy)close();}} placement="right" width="max-w-2xl" title={item.reference || "Colis"} headerMeta={<Status item={item} />} headerActions={!editing&&item.stage!=="delivered"&&!["CANCELLED","RETURNED"].includes(item.status)?<PermissionGuard permission="packages.update"><OperationButton className="w-9 px-0" aria-label="Modifier le colis" title="Modifier" disabled={busy} onClick={()=>{setEditing(true);setConfirmReady(false);setMutationError("");}}><SquarePen size={15}/></OperationButton></PermissionGuard>:undefined}>
     {notice&&<p role="status" className="mb-4 text-sm text-emerald-800">{notice}</p>}
     {editing?<ParcelEditForm item={item} saving={busy} error={mutationError} cancel={()=>setEditing(false)} save={(changes,reason)=>void command("edit",changes,reason)}/>:
-    tab === "overview" ? <div className="grid gap-8"><section><h3 className="mb-4 text-sm font-semibold">Colis et client</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Client"><ClientLink item={item} /></Fact><Fact label="Référence fournisseur">{item.supplier_tracking || item.external_reference}</Fact><Fact label="Poids">{item.weight_kg == null ? "Non pesé" : `${new Intl.NumberFormat("fr").format(item.weight_kg)} kg`}</Fact><Fact label="Description">{item.description}</Fact></dl></section>
-      <section><h3 className="mb-4 text-sm font-semibold">Transport</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Service">{item.service_name}</Fact><Fact label="Route">{item.route_name}</Fact><Fact label="Destination">{[item.destination_city,item.destination_country].filter(Boolean).join(", ")}</Fact><Fact label="Expédition">{item.shipment_id ? <PermissionGuard permission="shipments.read" fallback={<span>{item.shipment_reference || "Affecté"}</span>}><Link className={linkClass} href={`/app/shipments/${encodeURIComponent(item.shipment_id)}`}>{item.shipment_reference || "Voir l’expédition"}</Link></PermissionGuard> : "Pas encore affecté"}</Fact></dl></section>
-      <section><h3 className="mb-4 text-sm font-semibold">Réception</h3><dl className="grid gap-5 sm:grid-cols-2"><Fact label="Bureau de réception">{item.office_name}</Fact><Fact label="Date de réception">{formatDate(item.received_at)}</Fact><Fact label="Emplacement">{[item.warehouse_zone,item.warehouse_rack,item.warehouse_location].filter(Boolean).join(" · ")}</Fact></dl></section>
-      {item.stage==="arrived"&&<PermissionGuard permission="packages.update"><section className="rounded-xl border border-slate-200 p-4">
-        {confirmReady?<><h3 className="text-sm font-semibold">Confirmer la disponibilité</h3><p className="mt-2 text-sm text-slate-600">Le colis est physiquement disponible au point de retrait. Le client sera averti si les notifications sont activées.</p><div className="mt-4 flex justify-end gap-2"><OperationButton disabled={busy} onClick={()=>setConfirmReady(false)}>Annuler</OperationButton><OperationButton variant="primary" disabled={busy} onClick={()=>void command("ready")}>{busy?"Confirmation…":"Confirmer"}</OperationButton></div></>:<OperationButton disabled={busy} onClick={()=>{setMutationError("");setConfirmReady(true);}}><PackageCheck size={15}/>Disponible pour retrait</OperationButton>}
-        {mutationError&&<p role="alert" className="mt-3 text-sm text-red-700">{mutationError}</p>}
-      </section></PermissionGuard>}
-      <ParcelPhotos item={item} changed={refresh} busyChanged={setBusy} disabled={busy}/>
-      </div>
-      : tab === "finance" ? financeLoading ? <TableSkeleton rows={3} columns={2} label="Chargement de Finance" /> : financeError || !financePackage ? <p role="alert" className="text-sm">Impossible de charger Finance pour ce colis. <button type="button" className="underline" onClick={() => setFinanceRetry(value => value + 1)}>Réessayer</button></p> : <PermissionGuard permission="finance.read" fallback={<p role="status" className="text-sm text-slate-600">Vous n’avez pas l’autorisation de consulter Finance pour ce colis. Demandez au responsable de l’agence l’accès « finance.read ».</p>}><PackageFinance item={financePackage} onUpdated={updated => { setFinancePackage(updated); void refresh(); }} /></PermissionGuard>
-      : error ? <p role="alert" className="text-sm">Historique indisponible. <button type="button" className="underline" onClick={() => setRetry(value => value+1)}>Réessayer</button></p>
-      : !history ? <TableSkeleton rows={4} columns={1} label="Chargement de l’historique" />
-      : <><ol className="space-y-6">{history.items.map(event => <li key={event.id} className="border-l-2 border-slate-200 pl-4"><p className="text-sm font-medium">{event.title}</p><time className="mt-1 block text-xs text-slate-500" dateTime={event.created_at}>{formatDate(event.created_at)}</time>{event.description && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{event.description}</p>}</li>)}</ol>{!history.items.length && <p className="text-sm text-slate-500">Aucun événement enregistré.</p>}<div className="mt-6 flex justify-end gap-2"><OperationButton disabled={page === 1} onClick={() => setPage(value => value-1)}>Précédent</OperationButton><OperationButton disabled={page >= history.total_pages} onClick={() => setPage(value => value+1)}>Suivant</OperationButton></div></>}
+      <div className="divide-y divide-slate-200">
+        <section className="pb-5"><p className="mb-3 text-[11px] text-slate-500">Opérations / Colis</p><h3 className="mb-3 text-sm font-semibold">Informations du colis</h3><dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2"><Fact label="Client"><ClientLink item={item}/></Fact><Fact label="Service">{item.service_name}</Fact><Fact label="Route">{item.route_name||[item.destination_city,item.destination_country].filter(Boolean).join(", ")}</Fact><Fact label="Poids">{item.weight_kg==null?"Non pesé":`${new Intl.NumberFormat("fr").format(item.weight_kg)} kg`}</Fact><Fact label="Référence fournisseur">{item.supplier_tracking||item.external_reference}</Fact><Fact label="Stockage">{[item.warehouse_zone,item.warehouse_rack,item.warehouse_location].filter(Boolean).join(" · ")||item.office_name}</Fact><Fact label="Expédition">{item.shipment_id?<PermissionGuard permission="shipments.read" fallback={<span>{item.shipment_reference||"Affecté"}</span>}><Link className={linkClass} href={`/app/shipments/${encodeURIComponent(item.shipment_id)}`}>{item.shipment_reference||"Voir l’expédition"}</Link></PermissionGuard>:"Pas encore affecté"}</Fact>{item.description&&<Fact label="Description">{item.description}</Fact>}</dl></section>
+        <section className="py-5"><div className="mb-4 flex items-center justify-between"><h3 className="text-sm font-semibold">Suivi du colis</h3><button type="button" className="text-xs font-medium text-slate-600 underline underline-offset-2" aria-expanded={historyOpen} onClick={()=>setHistoryOpen(value=>!value)}>{historyOpen?"Masquer l’historique":"Historique complet"}</button></div>{history?<ParcelMilestones item={item} history={history}/>:historyError?<p role="alert" className="text-sm text-amber-800">Événements de suivi indisponibles. Le statut courant reste affiché dans l’en-tête.</p>:<TableSkeleton rows={1} columns={4} label="Chargement du suivi"/>}{historyOpen&&<div className="mt-4 border-t border-slate-100 pt-3">{history?.items.length?<><ol className="space-y-3">{history.items.map(event=><li key={event.id} className="flex justify-between gap-3 text-xs"><span className="font-medium text-slate-700">{event.title}</span><time className="shrink-0 text-slate-500">{formatDate(event.created_at)}</time></li>)}</ol>{history.total_pages>1&&<div className="mt-3 flex items-center justify-end gap-2"><OperationButton disabled={historyPage<=1} onClick={()=>setHistoryPage(value=>value-1)}>Précédent</OperationButton><span className="text-xs text-slate-500">{history.page}/{history.total_pages}</span><OperationButton disabled={historyPage>=history.total_pages} onClick={()=>setHistoryPage(value=>value+1)}>Suivant</OperationButton></div>}</>:<p className="text-xs text-slate-500">{historyError?"Historique indisponible.":history?"Aucun événement enregistré.":"Chargement de l’historique…"}</p>}</div>}</section>
+        {item.stage==="arrived"&&<PermissionGuard permission="packages.update"><section className="py-4">{confirmReady?<><h3 className="text-sm font-semibold">Confirmer la disponibilité</h3><p className="mt-2 text-sm text-slate-600">Le colis est physiquement disponible au point de retrait. Le client sera averti si les notifications sont activées.</p><div className="mt-4 flex justify-end gap-2"><OperationButton disabled={busy} onClick={()=>setConfirmReady(false)}>Annuler</OperationButton><OperationButton variant="primary" disabled={busy} onClick={()=>void command("ready")}>{busy?"Confirmation…":"Confirmer"}</OperationButton></div></>:<OperationButton disabled={busy} onClick={()=>{setMutationError("");setConfirmReady(true);}}><PackageCheck size={15}/>Disponible pour retrait</OperationButton>}{mutationError&&<p role="alert" className="mt-3 text-sm text-red-700">{mutationError}</p>}</section></PermissionGuard>}
+        <section className="py-5"><ParcelPhotos item={item} changed={refresh} busyChanged={setBusy} disabled={busy}/></section>
+        <section className="py-5"><PermissionGuard permission="finance.read" fallback={<p role="status" className="text-sm text-slate-600">Vous n’avez pas l’autorisation de consulter Finance pour ce colis.</p>}><ParcelFinanceDetails item={item} changed={refresh}/></PermissionGuard></section>
+      </div>}
   </OperationDrawer>;
+}
+
+function ParcelMilestones({item,history}:{item:ParcelOverview;history:ParcelHistoryResult}) {
+  const states={received:["RECEIVED","RECEIVED_AT_ORIGIN","WAREHOUSED","WAREHOUSE_PROCESSING","READY_FOR_DISPATCH","READY_FOR_BATCH","BATCHED"],shipped:["SHIPPED","IN_TRANSIT","CUSTOMS"],arrived:["ARRIVED","ARRIVED_DESTINATION","CLEARED","READY_FOR_PICKUP"],delivered:["DELIVERED"]};
+  const current=item.stage==="ready"?"arrived":item.stage;
+  const steps=[{key:"received",label:"Reçu",date:item.received_at},{key:"shipped",label:"Expédié",date:item.dispatched_at},{key:"arrived",label:"Arrivé",date:history.items.find(event=>states.arrived.includes(event.new_status||""))?.created_at||null},{key:"delivered",label:"Livré",date:item.delivered_at}];
+  return <ol aria-label="Étapes du colis" className="grid grid-cols-4">{steps.map((step,index)=>{const event=history.items.find(row=>states[step.key as keyof typeof states].includes(row.new_status||""));const date=step.date||event?.created_at;const reached=Boolean(date)||steps.findIndex(row=>row.key===current)>index;const active=step.key===current;return <li key={step.key} className="relative flex min-w-0 flex-col items-center text-center">{index>0&&<span aria-hidden="true" className={`absolute right-1/2 top-2.5 h-px w-full ${reached?"bg-emerald-600":"bg-slate-200"}`}/>}<span className={`relative z-10 grid h-5 w-5 place-items-center rounded-full text-[10px] ${reached||active?"bg-emerald-700 text-white":"bg-slate-200 text-slate-500"}`}>{reached?"✓":"•"}</span><span className="mt-1.5 text-[10px] font-medium text-slate-700">{step.label}</span><span className="text-[9px] text-slate-500">{date?new Intl.DateTimeFormat("fr",{day:"numeric",month:"short"}).format(new Date(date)):active?"En cours":"—"}</span></li>;})}</ol>;
+}
+
+function ParcelFinanceDetails({item,changed}:{item:ParcelOverview;changed:()=>Promise<void>}) {
+  const [record,setRecord]=useState<PackageRecord|null>(null);const [error,setError]=useState(false);const [retry,setRetry]=useState(0);
+  useEffect(()=>{let active=true;getPackage(item.id).then(value=>{if(active)setRecord(value)}).catch(()=>{if(active)setError(true)});return()=>{active=false};},[item.id,retry]);
+  return <>{error?<p role="alert" className="text-sm">Situation de paiement indisponible. <button className="underline" onClick={()=>{setError(false);setRetry(value=>value+1)}}>Réessayer</button></p>:!record?<TableSkeleton rows={2} columns={3} label="Chargement du paiement"/>:<PackageFinance item={record} onUpdated={async updated=>{setRecord(updated);await changed();}}/>}</>;
 }

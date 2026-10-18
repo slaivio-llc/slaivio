@@ -1,45 +1,140 @@
 "use client";
 
-import { ArrowRight, CalendarDays, Package, Radar, Truck, Warehouse } from "lucide-react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { CalendarDays, Package, Radar, RefreshCw, Truck } from "lucide-react";
 
-import { getTenantContext } from "@/services/tenant";
-import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { OperationContent } from "@/components/ui/operation-primitives";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
+import { businessLabel } from "@/components/ui/business-labels";
 import { getPackageStats, type PackageStats } from "@/services/packages";
-import { getShipmentStats, type ExpeditionStats } from "@/services/shipments";
-import { getWarehouseStats, type WarehouseStats } from "@/services/warehouses";
+import { getShipmentDepartureCalendar, getShipmentStats, type ExpeditionStats, type ShipmentDepartureCalendarItem } from "@/services/shipments";
+import { listTracking, type TrackingItem } from "@/services/tracking";
 
-type Summary = {
+type HubData = {
   packages: PackageStats | null;
   shipments: ExpeditionStats | null;
-  warehouses: WarehouseStats | null;
+  upcoming: ShipmentDepartureCalendarItem[];
+  upcomingTruncated: boolean;
+  tracking: TrackingItem[];
+  failed: { packages: boolean; shipments: boolean; upcoming: boolean; tracking: boolean };
 };
 
-const emptySummary:Summary={packages:null,shipments:null,warehouses:null};
+const initialData: HubData = {
+  packages: null,
+  shipments: null,
+  upcoming: [],
+  upcomingTruncated: false,
+  tracking: [],
+  failed: { packages: false, shipments: false, upcoming: false, tracking: false },
+};
 
-export function ParcelOperationsHub(){
-  const [warehouse,setWarehouse]=useState(false);
-  useEffect(()=>{let active=true;getTenantContext().then(context=>{if(active)setWarehouse(context.active_tenant?.workspace_kind==="WAREHOUSE");}).catch(()=>undefined);return()=>{active=false;};},[]);
-  const [summary,setSummary]=useState<Summary>(emptySummary);
-  const [loading,setLoading]=useState(true);
-  useEffect(()=>{let active=true;Promise.allSettled([getPackageStats(),getShipmentStats(),getWarehouseStats()]).then(results=>{if(!active)return;setSummary({packages:results[0].status==="fulfilled"?results[0].value:null,shipments:results[1].status==="fulfilled"?results[1].value:null,warehouses:results[2].status==="fulfilled"?results[2].value:null});setLoading(false);});return()=>{active=false};},[]);
-  return <div className="min-h-full bg-white"><OperationPageHeader title="Opérations" description="Réceptionnez les colis, préparez les départs et suivez les expéditions depuis un seul espace."/><OperationContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-    <ModuleCard href="/app/packages" icon={<Package size={18}/>} title="Colis" value={summary.packages?.total} loading={loading} detail={`${summary.packages?.in_stock??0} en entrepôt · ${summary.packages?.issues??0} à vérifier`}/>
-    <ModuleCard href="/app/shipments" icon={<Truck size={18}/>} title="Expéditions" value={summary.shipments?.active} loading={loading} suffix="actives" detail="Chargement, départ, arrivée et manifeste"/>
-    <ModuleCard href="/app/departures" icon={<CalendarDays size={18}/>} title="Calendrier des départs" loading={false} detail="Consultez les départs prévus et confirmés."/>
-    <ModuleCard href="/app/tracking" icon={<Radar size={18}/>} title="Tracking" loading={false} detail="Suivez les événements et statuts réels des colis."/>
-    {warehouse&&<ModuleCard href="/app/warehouses" icon={<Warehouse size={18}/>} title="Stockage et emplacements" value={summary.warehouses?.warehouses} loading={loading} suffix="sites" detail={`${summary.warehouses?.packages??0} colis stockés · ${summary.warehouses?.anomalies??0} anomalies`}/>}
-  </OperationContent></div>;
+const dateOnly = (value: string) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(value));
+const routeName = (item: ShipmentDepartureCalendarItem) => item.route_label || `${item.origin_city || item.origin_country || "Origine"} → ${item.destination_city || item.destination_country || "Destination"}`;
+
+export function ParcelOperationsHub() {
+  const { permissions, loading: permissionsLoading, available } = usePermissions();
+  const canPackages = available && permissions.includes("packages.read");
+  const canShipments = available && permissions.includes("shipments.read");
+  const canTracking = available && permissions.includes("tracking.read");
+  const [data, setData] = useState(initialData);
+  const [loading, setLoading] = useState(true);
+  const [revision, setRevision] = useState(0);
+
+  useEffect(() => {
+    if (permissionsLoading) return;
+    let active = true;
+    setLoading(true);
+
+    const start = new Date();
+    const end = new Date(start);
+    end.setDate(end.getDate() + 31);
+
+    Promise.allSettled([
+      canPackages ? getPackageStats() : Promise.resolve(null),
+      canShipments ? getShipmentStats() : Promise.resolve(null),
+      canShipments ? getShipmentDepartureCalendar(start.toISOString(), end.toISOString()) : Promise.resolve(null),
+      canTracking ? listTracking({ page: 1, page_size: 30 }) : Promise.resolve(null),
+    ]).then(([packagesResult, shipmentsResult, upcomingResult, trackingResult]) => {
+      if (!active) return;
+      const packages = packagesResult.status === "fulfilled" ? packagesResult.value : null;
+      const shipments = shipmentsResult.status === "fulfilled" ? shipmentsResult.value : null;
+      const calendar = upcomingResult.status === "fulfilled" ? upcomingResult.value : null;
+      const trackingPage = trackingResult.status === "fulfilled" ? trackingResult.value : null;
+      const upcoming = (calendar?.items || []).filter(item => !item.departed_at && !["CANCELLED", "DELIVERED", "ARCHIVED"].includes(item.status));
+      setData({
+        packages,
+        shipments,
+        upcoming,
+        upcomingTruncated: Boolean(calendar?.truncated),
+        tracking: (trackingPage?.items || []).filter(item => !["DELIVERED", "CANCELLED", "ARCHIVED"].includes(item.status)).slice(0, 3),
+        failed: {
+          packages: canPackages && packagesResult.status === "rejected",
+          shipments: canShipments && shipmentsResult.status === "rejected",
+          upcoming: canShipments && upcomingResult.status === "rejected",
+          tracking: canTracking && trackingResult.status === "rejected",
+        },
+      });
+      setLoading(false);
+    });
+
+    return () => { active = false; };
+  }, [canPackages, canShipments, canTracking, permissionsLoading, revision]);
+
+  return <div className="min-h-full bg-white">
+    <OperationPageHeader title="Opérations" description="Vue d’ensemble de l’activité cargo" actions={<button type="button" onClick={() => setRevision(value => value + 1)} aria-label="Actualiser les opérations" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCw size={15}/></button>}/>
+    <main className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-8">
+      <nav aria-label="Sections Opérations" className="mb-4 flex flex-wrap gap-1 border-b border-slate-200 pb-2">
+        <span aria-current="page" className="rounded-md bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-900">Vue d’ensemble</span>
+        <SectionLink href="/app/packages" permission="packages.read" icon={<Package size={14}/>} label="Colis"/>
+        <SectionLink href="/app/shipments" permission="shipments.read" icon={<Truck size={14}/>} label="Expéditions"/>
+        <SectionLink href="/app/departures" permission="shipments.read" icon={<CalendarDays size={14}/>} label="Calendrier"/>
+        <SectionLink href="/app/tracking" permission="tracking.read" icon={<Radar size={14}/>} label="Tracking"/>
+      </nav>
+
+      <section aria-label="Indicateurs opérationnels" className="grid gap-2 sm:grid-cols-2">
+        <MetricCard href="/app/packages" permission="packages.read" icon={<Package size={15}/>} label="Colis reçus" value={data.packages?.received} loading={loading} error={data.failed.packages} detail="Enregistrés comme reçus"/>
+        <MetricCard href="/app/shipments" permission="shipments.read" icon={<Truck size={15}/>} label="Expéditions en cours" value={data.shipments?.active} loading={loading} error={data.failed.shipments} detail="Non clôturées ni annulées"/>
+        <MetricCard href="/app/departures" permission="shipments.read" icon={<CalendarDays size={15}/>} label="Départs à venir" value={data.upcomingTruncated ? "500+" : data.upcoming.length} loading={loading} error={data.failed.upcoming} detail="Sur les 30 prochains jours"/>
+        <MetricCard href="/app/packages" permission="packages.read" icon={<Package size={15}/>} label="Colis à livrer" value={data.packages?.ready_for_pickup} loading={loading} error={data.failed.packages} detail="Disponibles pour remise au client"/>
+      </section>
+
+      {canShipments && <section className="mt-6" aria-labelledby="upcoming-heading">
+        <div className="mb-2 flex items-center justify-between gap-3"><h2 id="upcoming-heading" className="text-sm font-semibold text-slate-900">Prochains départs</h2><Link href="/app/departures" className="text-xs text-slate-600 hover:text-emerald-800">Voir calendrier →</Link></div>
+        <div className="overflow-hidden rounded-lg border border-slate-200">
+          {data.failed.upcoming ? <ErrorMessage text="Les prochains départs n’ont pas pu être chargés."/> : loading ? <div role="status" className="p-4 text-xs text-slate-500">Chargement des départs…</div> : !data.upcoming.length ? <p className="p-4 text-xs text-slate-500">Aucun départ planifié dans les 30 prochains jours.</p> : <>
+            <div className="grid grid-cols-[88px_minmax(0,1fr)_72px] gap-2 bg-slate-50 px-3 py-2 text-[10px] font-medium text-slate-500 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><span>Date</span><span>Route</span><span className="text-right">Colis</span></div>
+            {data.upcoming.slice(0, 3).map(item => <Link key={item.id} href={`/app/shipments/${encodeURIComponent(item.id)}`} className="grid grid-cols-[88px_minmax(0,1fr)_72px] items-center gap-2 border-t border-slate-100 px-3 py-2.5 text-xs hover:bg-slate-50 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><time dateTime={item.calendar_at} className="text-slate-600">{dateOnly(item.calendar_at)}</time><span className="truncate font-medium text-slate-800">{routeName(item)}</span><span className="text-right text-slate-600">{item.packages_count}</span></Link>)}
+          </>}
+        </div>
+      </section>}
+
+      {canTracking && <section className="mt-6" aria-labelledby="tracking-heading">
+        <div className="mb-2 flex items-center justify-between gap-3"><h2 id="tracking-heading" className="text-sm font-semibold text-slate-900">Suivi des opérations</h2><Link href="/app/tracking" className="text-xs text-slate-600 hover:text-emerald-800">Voir tracking →</Link></div>
+        {data.failed.tracking ? <ErrorMessage text="Le suivi opérationnel n’a pas pu être chargé."/> : loading ? <div role="status" className="rounded-lg border border-slate-200 p-4 text-xs text-slate-500">Chargement du suivi…</div> : !data.tracking.length ? <p className="rounded-lg border border-slate-200 p-4 text-xs text-slate-500">Aucune expédition à suivre.</p> : <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-3">
+          {data.tracking.map(item => <li key={item.id}><Link href={`/app/tracking/${encodeURIComponent(item.id)}`} className="flex items-center justify-between gap-3 py-3"><span className="min-w-0"><span className="block truncate text-xs font-medium text-slate-900">{item.tracking_id}</span><span className="mt-1 block truncate text-[11px] text-slate-500">{item.route_label || `${item.origin_city || item.origin_country || "Origine"} → ${item.destination_city || item.destination_country || "Destination"}`}</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${item.is_delayed ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-700"}`}>{item.is_delayed ? "Retard signalé" : businessLabel(item.status)}</span></Link></li>)}
+        </ul>}
+      </section>}
+    </main>
+  </div>;
 }
 
-function ModuleCard({href,icon,title,value,suffix="au total",detail,loading}:{href:string;icon:ReactNode;title:string;value?:number|null;suffix?:string;detail:string;loading:boolean}){
-  const permission=({"/app/packages":"packages.read","/app/departures":"departures.read","/app/shipments":"shipments.read","/app/warehouses":"warehouses.read","/app/tracking":"tracking.read"} as Record<string,string>)[href];
-  return <PermissionGuard permission={permission}><Link href={href} className="group min-h-[144px] rounded-[9px] border border-[#dfe3e7] bg-white p-5 transition-colors hover:border-[#b9c6c0] hover:bg-[#fbfcfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ccdb8]">
-    <div className="flex items-center justify-between"><span className="grid h-9 w-9 place-items-center rounded-[8px] bg-[#eef6f2] text-[#16704b]">{icon}</span><ArrowRight size={16} className="text-[#9aa2a9] transition-transform group-hover:translate-x-0.5 group-hover:text-[#16704b]"/></div>
-    <div className="mt-4 flex items-baseline gap-2"><strong className="text-[21px] font-semibold text-[#25292e]">{loading?"—":value??"—"}</strong><span className="text-[11px] text-[#7a838b]">{suffix}</span></div>
-    <h2 className="mt-1 text-[14px] font-semibold text-[#30373d]">{title}</h2><p className="mt-1 text-[12px] leading-5 text-[#747e86]">{detail}</p>
-  </Link></PermissionGuard>;
+function SectionLink({ href, permission, icon, label }: { href: string; permission: string; icon: React.ReactNode; label: string }) {
+  const { permissions, available, loading } = usePermissions();
+  if (loading || !available || !permissions.includes(permission)) return null;
+  return <Link href={href} className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 hover:text-slate-900">{icon}{label}</Link>;
+}
+
+function MetricCard({ href, permission, icon, label, value, loading, error, detail }: { href: string; permission: string; icon: React.ReactNode; label: string; value?: number | string; loading: boolean; error: boolean; detail: string }) {
+  const { permissions, available, loading: permissionsLoading } = usePermissions();
+  if (permissionsLoading || !available || !permissions.includes(permission)) return null;
+  return <Link href={href} className="rounded-lg border border-slate-200 p-3 transition-colors hover:border-slate-300 hover:bg-slate-50/50">
+    <div className="flex items-start justify-between gap-2"><span className="text-[11px] text-slate-600">{label}</span><span className="text-slate-500">{icon}</span></div>
+    <strong className="mt-2 block text-xl font-semibold leading-none text-slate-900">{loading ? "—" : error ? "Indisponible" : value ?? "—"}</strong>
+    <span className="mt-2 block text-[10px] text-slate-500">{detail}</span>
+  </Link>;
+}
+
+function ErrorMessage({ text }: { text: string }) {
+  return <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">{text}</p>;
 }

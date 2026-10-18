@@ -404,7 +404,7 @@ def prepare_pilot_suggestion(
 ) -> dict:
     settings = get_pilot_ai_settings(org_id)
     mode = response_mode or effective_ai_mode(org_id, client_phone) or settings.get("pilot_response_mode") or "SUGGESTION_ONLY"
-    if mode == "PAUSED":
+    if mode == "PAUSED" or not settings.get("enabled", True):
         return {"status": "skipped", "reason": "ai_paused", "mode": mode}
 
     context = conversation_ai_context(org_id, client_phone)
@@ -671,7 +671,7 @@ def process_pilot_inbound_ai(
 def summarize_pilot_conversation(org_id: str, client_phone: str) -> dict:
     settings = get_pilot_ai_settings(org_id)
     mode = effective_ai_mode(org_id, client_phone) or settings.get("pilot_response_mode") or "SUGGESTION_ONLY"
-    if mode == "PAUSED":
+    if mode == "PAUSED" or not settings.get("enabled", True):
         return {"status": "skipped", "reason": "ai_paused"}
     context = conversation_ai_context(org_id, client_phone)
     if not context or not context.get("recent_messages"):

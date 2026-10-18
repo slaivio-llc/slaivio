@@ -28,6 +28,21 @@ def test_conversation_summary_respects_conversation_pause_override(monkeypatch):
     assert result == {'status': 'skipped', 'reason': 'ai_paused'}
 
 
+@pytest.mark.parametrize('action', ['draft', 'summary'])
+def test_manual_ai_actions_respect_agency_wide_disable(monkeypatch, action):
+    monkeypatch.setattr(service, 'get_pilot_ai_settings', lambda _: {'enabled': False, 'pilot_response_mode': 'CONTROLLED_AUTO'})
+    monkeypatch.setattr(service, 'effective_ai_mode', lambda *_: 'CONTROLLED_AUTO')
+    monkeypatch.setattr(service, 'conversation_ai_context', lambda *_: pytest.fail('Disabled AI must not read the conversation'))
+    monkeypatch.setattr(service, '_provider_response', lambda *args, **kwargs: pytest.fail('Disabled AI must not call provider'))
+
+    if action == 'draft':
+        result = service.prepare_pilot_suggestion(org_id='agency', client_phone='+123')
+        assert result == {'status': 'skipped', 'reason': 'ai_paused', 'mode': 'CONTROLLED_AUTO'}
+    else:
+        result = service.summarize_pilot_conversation('agency', '+123')
+        assert result == {'status': 'skipped', 'reason': 'ai_paused'}
+
+
 def test_contextual_router_receives_previous_route(monkeypatch):
     captured = {}
 

@@ -49,13 +49,18 @@ def test_network_count_and_rows_use_identical_scope(monkeypatch):
     engine = MagicMock()
     conn = engine.connect.return_value.__enter__.return_value
     conn.execute.return_value.scalar_one.return_value = 0
-    conn.execute.return_value.mappings.return_value = []
+    conn.execute.return_value.mappings.return_value = MagicMock()
+    conn.execute.return_value.mappings.return_value.__iter__.return_value = iter([])
+    conn.execute.return_value.mappings.return_value.one.return_value = {'total': 0, 'active': 0, 'due': 0}
     monkeypatch.setattr(repository, 'engine', engine)
     repository.directory('a', office_ids=['a', 'b'])
-    for call in conn.execute.call_args_list:
+    for call in conn.execute.call_args_list[:2]:
         sql, params = call.args
         assert 'c.org_id=any(cast(:office_ids as text[]))' in str(sql)
         assert params['office_ids'] == ['a', 'b']
+    summary_sql, summary_params = conn.execute.call_args_list[2].args
+    assert 'c.org_id=any(cast(:office_ids as text[]))' in str(summary_sql)
+    assert summary_params['office_ids'] == ['a', 'b']
 
 
 def test_export_cannot_bypass_other_office_export_permission(monkeypatch):

@@ -11,10 +11,12 @@ def test_directory_uses_tenant_scoped_minimal_projection(monkeypatch):
     monkeypatch.setattr(repo, 'engine', engine)
     conn = engine.connect.return_value.__enter__.return_value
     conn.execute.return_value.scalar_one.return_value = 51
-    conn.execute.return_value.mappings.return_value = []
+    conn.execute.return_value.mappings.return_value = MagicMock()
+    conn.execute.return_value.mappings.return_value.__iter__.return_value = iter([])
+    conn.execute.return_value.mappings.return_value.one.return_value = {'total': 51, 'active': 0, 'due': 0}
     result = repo.directory('office-a', q='CLI_%', customer_type='business', start=date(2026,1,1), end=date(2026,1,31),page=2)
     assert result['total_pages'] == 2
-    for call in conn.execute.call_args_list:
+    for call in conn.execute.call_args_list[:2]:
         sql, params = call.args
         assert 'c.org_id=:org_id' in str(sql)
         assert 'c.deleted_at is null' in str(sql)
@@ -24,6 +26,9 @@ def test_directory_uses_tenant_scoped_minimal_projection(monkeypatch):
         assert "at time zone 'UTC'" in str(sql)
         assert 'current_balance' not in str(sql)
         assert 'dossiers' not in str(sql)
+    summary_sql, summary_params = conn.execute.call_args_list[2].args
+    assert 'c.org_id=any(cast(:office_ids as text[]))' in str(summary_sql)
+    assert summary_params['office_ids'] == ['office-a']
 
 
 @pytest.mark.parametrize('kwargs', [{'sort':'name;drop table clients'}, {'customer_type':'VIP'}, {'start':date(2026,2,1),'end':date(2026,1,1)}])

@@ -44,14 +44,22 @@ MAX_CLIENT_EXPORT_ROWS = 50_000
 def client_directory(q: str = Query('', max_length=120), customer_type: str | None = None,
                      start: date | None = None, end: date | None = None,
                      page: int = Query(1,ge=1,le=100000), sort: str = 'name_asc',
+                     balance_status: str | None = None,
                      tenant=Depends(get_current_tenant), office_id: str | None = None):
     from app.clients.directory import directory, SORTS
-    if customer_type not in (None,'individual','business') or sort not in SORTS:
+    if customer_type not in (None,'individual','business') or sort not in SORTS or balance_status not in (None, 'due', 'current'):
         raise HTTPException(422,'invalid_directory_filter')
     if start and end and start>end:
         raise HTTPException(422,'invalid_date_range')
     scope = resolve_scope(tenant, office_id)
-    result = directory(tenant['org_id'],q,customer_type,start,end,page,sort, **({'office_ids':scope} if scope is not None else {}))
+    scoped_orgs = scope if scope is not None else [tenant['org_id']]
+    finance_visible = all('finance.read' in set(list_permissions_for_user(_user_id(tenant), org_id)) for org_id in scoped_orgs)
+    packages_visible = all('packages.read' in set(list_permissions_for_user(_user_id(tenant), org_id)) for org_id in scoped_orgs)
+    if balance_status and not finance_visible:
+        raise HTTPException(403, 'finance_permission_required')
+    result = directory(tenant['org_id'],q,customer_type,start,end,page,sort,
+                       include_finance=finance_visible, include_packages=packages_visible, balance_status=balance_status,
+                       **({'office_ids':scope} if scope is not None else {}))
     return {**result, 'active_org_id': tenant['org_id']}
 
 

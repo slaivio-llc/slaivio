@@ -601,7 +601,7 @@ export function ClientsPage() {
         />}
 
         {profileReady && parcelFreight && error && <p role="alert" className="mx-auto max-w-[1200px] px-8 text-sm text-red-700">{error}</p>}
-{!profileReady ? <div className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8">{error ? <p role="alert">{error}</p> : <TableSkeleton rows={6} columns={3} label="Chargement des clients"/>}</div> : parcelFreight ? <CargoDirectory canExport={permissionsAvailable && permissions.includes('clients.export')} canImport={permissionsAvailable && permissions.includes('clients.import')} revision={directoryRevision} create={openCreate} importClients={()=>setImportOpen(true)} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
+{!profileReady ? <div className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8">{error ? <p role="alert">{error}</p> : <TableSkeleton rows={6} columns={3} label="Chargement des clients"/>}</div> : parcelFreight ? <CargoDirectory revision={directoryRevision} create={openCreate} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-5">
             {statCards.map((card) => (
               <button

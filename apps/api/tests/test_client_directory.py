@@ -14,7 +14,7 @@ def test_directory_uses_tenant_scoped_minimal_projection(monkeypatch):
     conn.execute.return_value.mappings.return_value = MagicMock()
     conn.execute.return_value.mappings.return_value.__iter__.return_value = iter([])
     conn.execute.return_value.mappings.return_value.one.return_value = {'total': 51, 'active': 0, 'due': 0}
-    result = repo.directory('office-a', q='CLI_%', customer_type='business', start=date(2026,1,1), end=date(2026,1,31),page=2)
+    result = repo.directory('office-a', q='CLI_%', customer_type='business', start=date(2026,1,1), end=date(2026,1,31),page=2,include_finance=True)
     assert result['total_pages'] == 2
     for call in conn.execute.call_args_list[:2]:
         sql, params = call.args
@@ -29,6 +29,10 @@ def test_directory_uses_tenant_scoped_minimal_projection(monkeypatch):
     summary_sql, summary_params = conn.execute.call_args_list[2].args
     assert 'c.org_id=any(cast(:office_ids as text[]))' in str(summary_sql)
     assert summary_params['office_ids'] == ['office-a']
+    listing_sql = str(conn.execute.call_args_list[1].args[0])
+    assert 'coalesce(packages.package_count,0)::int package_count' in listing_sql
+    assert 'coalesce(finance.balance_due,0)' in listing_sql
+    assert '\n              , coalesce(packages.package_count' not in listing_sql
 
 
 @pytest.mark.parametrize('kwargs', [{'sort':'name;drop table clients'}, {'customer_type':'VIP'}, {'start':date(2026,2,1),'end':date(2026,1,1)}])

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Download, Search, UserRound } from "lucide-react";
+import { ChevronRight, Search, UserRound } from "lucide-react";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { TableSkeleton } from "@/components/ui/page-state";
 import { api } from "@/services/api";
@@ -35,13 +35,10 @@ function maskPhone(phone: string | null) {
   return `${phone.slice(0, Math.max(3, phone.length - 6))}${"*".repeat(3)}${phone.slice(-3)}`;
 }
 
-export function CargoDirectory({ open, revision, canExport = false, canImport = false, create = () => undefined, importClients }: {
+export function CargoDirectory({ open, revision, create = () => undefined }: {
   open: (id: string) => void;
   revision: number;
-  canExport?: boolean;
-  canImport?: boolean;
   create?: () => void;
-  importClients?: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>("all");
@@ -50,7 +47,6 @@ export function CargoDirectory({ open, revision, canExport = false, canImport = 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -71,22 +67,6 @@ export function CargoDirectory({ open, revision, canExport = false, canImport = 
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [query, page, view, retry, revision]);
 
-  async function exportDirectory() {
-    if (exporting) return;
-    setExporting(true);
-    try {
-      const response = await api.get<Blob>("/clients/directory/export", { params: { q: query, sort: "name_asc" }, responseType: "blob" });
-      const url = URL.createObjectURL(response.data);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "clients.csv";
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } finally {
-      setExporting(false);
-    }
-  }
-
   const summary = result?.summary;
   const tabs: { key: View; label: string }[] = [
     { key: "all", label: "Tous" },
@@ -100,11 +80,7 @@ export function CargoDirectory({ open, revision, canExport = false, canImport = 
           <h1 className="text-lg font-semibold text-slate-900">Clients</h1>
           <p className="mt-0.5 text-sm text-slate-500">Répertoire et suivi des clients</p>
         </div>
-        <div className="flex items-center gap-2">
-          {canImport && importClients && <OperationButton type="button" onClick={importClients}>Importer</OperationButton>}
-          {canExport && <OperationButton type="button" disabled={exporting} onClick={exportDirectory} aria-label="Exporter les clients" title="Exporter les clients" className="w-10 px-0"><Download size={15} /></OperationButton>}
-          <OperationButton type="button" variant="primary" onClick={create}><span className="text-lg leading-none">+</span>Nouveau client</OperationButton>
-        </div>
+        <OperationButton type="button" variant="primary" onClick={create}><span className="text-lg leading-none">+</span>Nouveau client</OperationButton>
       </header>
 
       <div className={`grid grid-cols-1 gap-3 px-5 py-5 sm:grid-cols-2 sm:px-7 ${summary?.finance_visible ? "lg:grid-cols-3" : ""}`}>

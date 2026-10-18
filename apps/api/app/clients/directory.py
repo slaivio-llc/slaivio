@@ -51,7 +51,7 @@ def directory(org_id, q='', customer_type=None, start=None, end=None, page=1, so
                 and status in ('ISSUED','PARTIALLY_PAID','OVERDUE') and balance_due>0
             ) finance on true
         """ if include_finance else ""
-        package_projection = ", coalesce(packages.package_count,0)::int package_count" if include_packages else ", null::int package_count"
+        package_projection = "coalesce(packages.package_count,0)::int package_count" if include_packages else "null::int package_count"
         package_join = """
             left join lateral (
               select count(*) package_count from cargo_packages p

@@ -670,7 +670,8 @@ def process_pilot_inbound_ai(
 
 def summarize_pilot_conversation(org_id: str, client_phone: str) -> dict:
     settings = get_pilot_ai_settings(org_id)
-    if settings.get("pilot_response_mode") == "PAUSED":
+    mode = effective_ai_mode(org_id, client_phone) or settings.get("pilot_response_mode") or "SUGGESTION_ONLY"
+    if mode == "PAUSED":
         return {"status": "skipped", "reason": "ai_paused"}
     context = conversation_ai_context(org_id, client_phone)
     if not context or not context.get("recent_messages"):

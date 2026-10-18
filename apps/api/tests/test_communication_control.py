@@ -17,6 +17,17 @@ def test_manual_draft_respects_conversation_pause_override(monkeypatch):
     assert result == {'status': 'skipped', 'reason': 'ai_paused', 'mode': 'PAUSED'}
 
 
+def test_conversation_summary_respects_conversation_pause_override(monkeypatch):
+    monkeypatch.setattr(service, 'get_pilot_ai_settings', lambda _: {'pilot_response_mode': 'CONTROLLED_AUTO'})
+    monkeypatch.setattr(service, 'effective_ai_mode', lambda *_: 'PAUSED')
+    monkeypatch.setattr(service, 'conversation_ai_context', lambda *_: pytest.fail('Paused conversation must not be read for summary'))
+    monkeypatch.setattr(service, '_provider_response', lambda *args, **kwargs: pytest.fail('Paused conversation must not call AI'))
+
+    result = service.summarize_pilot_conversation('agency', '+123')
+
+    assert result == {'status': 'skipped', 'reason': 'ai_paused'}
+
+
 def test_contextual_router_receives_previous_route(monkeypatch):
     captured = {}
 

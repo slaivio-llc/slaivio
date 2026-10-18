@@ -719,7 +719,7 @@ def expedition_stats(org_id: str) -> dict:
                 select
                     count(*) filter (where status not in ('DELIVERED','CANCELLED','ARCHIVED'))::int active,
                     count(*) filter (where created_at::date = current_date)::int today,
-                    count(*) filter (where status = 'IN_TRANSIT')::int in_transit,
+                    count(*) filter (where status in ('DISPATCHED','IN_TRANSIT') and departed_at is not null)::int in_transit,
                     count(*) filter (where arrived_at::date = current_date or
                         (arrived_at is null and eta_at::date = current_date
                          and status not in ('ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP',

@@ -138,3 +138,9 @@ def test_expedition_delivery_rate_excludes_drafts_and_cancelled_rows():
     assert "count(*) filter (where status = 'DELIVERED')" in stats
     assert "count(*) filter (where status not in ('DRAFT','CANCELLED','ARCHIVED'))" in stats
     assert "archived_at is null and deleted_at is null" in stats
+
+def test_expedition_in_transit_kpi_requires_confirmed_departure():
+    source=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
+    stats=source.split("def expedition_stats(",1)[1].split("def expedition_analytics(",1)[0]
+    assert "status in ('DISPATCHED','IN_TRANSIT') and departed_at is not null" in stats
+    assert "count(*) filter (where status = 'IN_TRANSIT')::int in_transit" not in stats

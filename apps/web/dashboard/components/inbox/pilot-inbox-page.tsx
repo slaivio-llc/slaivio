@@ -20,7 +20,7 @@ import { EmptyState, LoadingState } from "@/components/ui/page-state";
 import { dashboardLabel, useDashboardLocale } from "@/components/i18n/dashboard-language";
 import { searchDossierClients, type DossierClientSearchResult } from "@/services/dossiers";
 import {
-  claimInboxConversation, generateInboxAISuggestion, getInboxAISettings, getInboxConversation, listInboxAIDrafts,
+  claimInboxConversation, convertInboxProspect, generateInboxAISuggestion, getInboxAISettings, getInboxConversation, listInboxAIDrafts,
   listInboxConversations, markInboxConversationRead, sendInboxReply, summarizeInboxConversation,
   updateInboxAIMode, updateInboxContext, updateInboxConversationAIMode, updateInboxState,
   type InboxAIMode, type InboxAISettings, type InboxAISuggestion, type InboxConversation,
@@ -57,6 +57,7 @@ export function PilotInboxPage() {
   const [requestedMode, setRequestedMode] = useState<InboxAIMode | null>(null);
   const [modeBusy, setModeBusy] = useState(false);
   const [claimBusy, setClaimBusy] = useState(false);
+  const [prospectConversionBusy, setProspectConversionBusy] = useState(false);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [clientQuery, setClientQuery] = useState("");
@@ -180,6 +181,7 @@ export function PilotInboxPage() {
   async function askSummary() { if (!detail) return; if (!online) { setActionError("L’IA nécessite une connexion. La conversation reste consultable hors ligne."); return; } setAiLoading(true); try { setSummary((await summarizeInboxConversation(detail.phone)).summary); } catch (cause) { setActionError(apiError(cause)); } finally { setAiLoading(false); } }
   async function loadOlder() { if (!detail?.messages.length || olderLoading) return; setOlderLoading(true); const oldHeight = messagesScroll.current?.scrollHeight || 0; try { const older = await getInboxConversation(detail.phone, detail.messages[0].created_at); setDetail({ ...detail, messages: [...older.messages, ...detail.messages], has_older_messages: older.has_older_messages }); window.requestAnimationFrame(() => { if (messagesScroll.current) messagesScroll.current.scrollTop += messagesScroll.current.scrollHeight - oldHeight; }); } catch (cause) { setActionError(apiError(cause)); } finally { setOlderLoading(false); } }
   async function chooseClient(client: DossierClientSearchResult) { if (!detail) return; try { await updateInboxContext(detail.phone, { client_id: client.id, dossier_id: null, expected_version: detail.assignment?.row_version }); setChangingClient(false); setClientQuery(""); setDetail(await getInboxConversation(detail.phone)); await loadList(true); } catch (cause) { setActionError(apiError(cause)); } }
+  async function confirmProspectConversion() { if (!detail || prospectConversionBusy || !online) return; const phone=detail.phone; setProspectConversionBusy(true); setActionError(""); try { await convertInboxProspect(phone); const current=await getInboxConversation(phone); setDetail(current); await cache(`inbox:conversation:${phone}`,current); await loadList(true); } catch (cause) { const code=axios.isAxiosError(cause)?cause.response?.data?.detail:null; setActionError(code==="prospect_not_qualified_or_ambiguous"?"Ce prospect n’est pas encore qualifié ou son identité nécessite une vérification.":apiError(cause)); } finally { setProspectConversionBusy(false); } }
   async function chooseDossier(dossierId: string) { if (!detail?.client) return; try { await updateInboxContext(detail.phone, { client_id: detail.client.id, dossier_id: dossierId || null, expected_version: detail.assignment?.row_version }); setDetail(await getInboxConversation(detail.phone)); await loadList(true); } catch (cause) { setActionError(apiError(cause)); } }
   async function changeState(status: "OPEN" | "CLOSED", attention: boolean) { if (!detail) return; try { await updateInboxState(detail.phone, { status, requires_attention: attention }); setDetail(await getInboxConversation(detail.phone)); await loadList(true); setCloseRequested(false); } catch (cause) { setActionError(apiError(cause)); } }
 
@@ -192,6 +194,7 @@ export function PilotInboxPage() {
 
       <section className={`${selectedPhone ? "flex" : "hidden lg:flex"} min-h-0 flex-col bg-white`}>{!selectedPhone ? <EmptyConversation /> : detailLoading && !detail ? <LoadingState label="Ouverture de la conversation…" /> : detail ? <>
         <ConversationHeader detail={detail} agencyMode={aiSettings?.pilot_response_mode || "SUGGESTION_ONLY"} busy={modeBusy} aiLoading={aiLoading} menuOpen={menuOpen} setMenuOpen={setMenuOpen} changeMode={changeConversationMode} summarize={askSummary} back={() => { setSelectedPhone(null); setDetail(null); }} info={() => setContextOpen(true)} archive={() => setCloseRequested(true)} reopen={() => changeState("OPEN", false)} attention={() => changeState("OPEN", true)} />
+        {!detail.client && detail.prospect?.stage === "QUALIFIED" && detail.prospect.missing_fields.length === 0 && <PermissionGuard permission="clients.create"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e7ece9] bg-[#f5faf7] px-4 py-2.5"><p className="text-[12px] text-[#53645b]">Prospect qualifié · vérifiez la conversation avant de créer sa fiche client.</p><OperationButton variant="primary" disabled={prospectConversionBusy || !online} onClick={()=>void confirmProspectConversion()}>{prospectConversionBusy?"Création…":"Confirmer et créer la fiche client"}</OperationButton></div></PermissionGuard>}
         <div className="flex items-center justify-between gap-2 px-4 pb-2 text-xs text-slate-500">
           <span>{detail.assignment?.assigned_to ? detail.assignment.assigned_to === user?.id ? "Prise en charge par vous" : "Prise en charge par un autre agent" : "Conversation non attribuée"}</span>
           <PermissionGuard permission="inbox.manage">

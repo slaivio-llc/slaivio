@@ -4,6 +4,7 @@ import json
 import pytest
 
 from app.ai.services import pilot_inbox_ai_service as service
+from app.api import inbox as inbox_api
 from app.ai.repositories.parcel_customer_journey_repository import _missing
 
 
@@ -152,6 +153,23 @@ def test_qualified_whatsapp_prospect_can_be_created_when_agency_opted_in(monkeyp
     result = service._parcel_qualification({'auto_create_qualified_whatsapp_clients': True}, {'org_id': 'agency'}, '+123')
     assert result['client']['id'] == 'client'
     assert 'fiche client est créée' in result['reply']
+
+
+def test_agency_can_confirm_qualified_prospect_conversion(monkeypatch):
+    monkeypatch.setattr(inbox_api, 'convert_journey', lambda org, phone, actor: {
+        'id': 'client', 'client_reference': 'CLI-1',
+    })
+    result = inbox_api.convert_conversation_prospect('+243812345678', {
+        'org_id': 'agency', 'user_id': 'agent',
+    })
+    assert result['client']['id'] == 'client'
+
+
+def test_unqualified_prospect_conversion_returns_conflict(monkeypatch):
+    monkeypatch.setattr(inbox_api, 'convert_journey', lambda *args: None)
+    with pytest.raises(inbox_api.HTTPException) as error:
+        inbox_api.convert_conversation_prospect('+243812345678', {'org_id': 'agency', 'user_id': 'agent'})
+    assert error.value.status_code == 409
 
 
 def test_rejected_answer_cannot_be_promoted_by_qualification(monkeypatch):

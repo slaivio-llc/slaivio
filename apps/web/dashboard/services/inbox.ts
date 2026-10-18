@@ -121,6 +121,7 @@ export type InboxDetail = {
   last_sender_phone?: string | null;
   last_sender_name?: string | null;
   client?: InboxClient | null;
+  prospect?: { id: string; stage: string; full_name?: string | null; customer_type?: string | null; missing_fields: string[] } | null;
   assignment?: InboxAssignment | null;
   dossiers: InboxDossier[];
   messages: InboxMessage[];
@@ -133,6 +134,10 @@ export async function listInboxConversations(params: { view: InboxView; q?: stri
 
 export async function getInboxConversation(phone: string, before?: string) {
   return (await api.get<InboxDetail>(`/inbox/conversations/${encodeURIComponent(phone)}/messages`, { params: { before } })).data;
+}
+
+export async function convertInboxProspect(phone: string) {
+  return (await api.post<{ client: InboxClient }>(`/inbox/conversations/${encodeURIComponent(phone)}/convert-prospect`)).data.client;
 }
 
 export async function markInboxConversationRead(phone: string) {

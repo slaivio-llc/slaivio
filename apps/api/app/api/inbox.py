@@ -14,6 +14,7 @@ from app.db.pilot_inbox_repository import (
     update_ai_mode,
     claim_conversation,
 )
+from app.ai.repositories.parcel_customer_journey_repository import convert_journey
 
 
 router = APIRouter()
@@ -85,6 +86,17 @@ def get_conversation(
     if not detail["messages"]:
         raise HTTPException(status_code=404, detail="conversation_not_found")
     return {"status": "ok", **detail}
+
+
+@router.post("/inbox/conversations/{phone}/convert-prospect", dependencies=[Depends(require_permission("clients.create"))])
+def convert_conversation_prospect(phone: str, tenant=Depends(get_current_tenant)):
+    try:
+        client = convert_journey(tenant["org_id"], phone, _actor(tenant))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="prospect_conversion_conflict") from exc
+    if not client:
+        raise HTTPException(status_code=409, detail="prospect_not_qualified_or_ambiguous")
+    return {"status": "ok", "client": client}
 
 
 @router.patch("/inbox/conversations/{phone}/owner", dependencies=[Depends(require_permission("inbox.manage"))])

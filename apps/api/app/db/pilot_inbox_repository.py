@@ -225,6 +225,15 @@ def conversation_detail(org_id: str, phone: str, before=None, message_limit: int
           from conversation_assignments
           where org_id = :org_id and client_phone = :phone
         """), {"org_id": org_id, "phone": phone}).mappings().first()
+        prospect = None
+        if not conversation or not conversation["is_group"]:
+            prospect = conn.execute(text("""
+              select id::text,stage,full_name,customer_type,missing_fields
+              from parcel_customer_journeys
+              where org_id=:org_id and conversation_phone in (:phone,:sender_phone)
+              order by (stage='QUALIFIED') desc,updated_at desc
+              limit 1
+            """), {"org_id": org_id, "phone": phone, "sender_phone": sender_phone}).mappings().first()
         messages = _rows(conn.execute(text("""
           select * from (
             select id, direction, text_body, message_type, send_status, error_message,
@@ -274,6 +283,7 @@ def conversation_detail(org_id: str, phone: str, before=None, message_limit: int
         "last_sender_phone": conversation["last_sender_phone"] if conversation else None,
         "last_sender_name": conversation["last_sender_name"] if conversation else None,
         "client": dict(client) if client else None,
+        "prospect": dict(prospect) if prospect else None,
         "assignment": dict(assignment) if assignment else None,
         "dossiers": dossiers,
         "messages": messages,

@@ -21,6 +21,7 @@ vi.mock("@/services/shipments", () => ({
 vi.mock("@/services/tracking", () => ({ listTracking: mocks.tracking }));
 vi.mock("@/components/packages/packages-page", () => ({ PackagesPage: () => <div>Vue colis intégrée</div> }));
 vi.mock("@/components/shipments/shipments-page", () => ({ ShipmentsPage: () => <div>Vue expéditions intégrée</div> }));
+vi.mock("@/components/shipments/freight-detail", () => ({ FreightShipmentDetail: ({ shipmentId, onClose }: { shipmentId: string; onClose: () => void }) => <div role="dialog" aria-label={`Fiche ${shipmentId}`}><button onClick={onClose}>Fermer la fiche</button></div> }));
 vi.mock("@/components/departures/departure-calendar-page", () => ({ DepartureCalendarPage: () => <div>Vue calendrier intégrée</div> }));
 vi.mock("@/components/tracking/tracking-page", () => ({ TrackingPage: () => <div>Vue tracking intégrée</div> }));
 
@@ -47,7 +48,11 @@ describe("ParcelOperationsHub", () => {
     expect(screen.getByText("4")).toBeInTheDocument();
     expect(screen.getByText("7", { selector: "button span" })).toBeInTheDocument();
     expect(screen.getByText("Retard signalé")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Paris → Dakar/ })).toHaveAttribute("href", "/app/shipments/shipment-1");
+    const departure = screen.getByRole("button", { name: /Paris → Dakar/ });
+    fireEvent.click(departure);
+    expect(screen.getByRole("dialog", { name: "Fiche shipment-1" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Fermer la fiche" }));
+    expect(screen.queryByRole("dialog", { name: "Fiche shipment-1" })).not.toBeInTheDocument();
   });
 
   it("does not invent zero-valued metrics when an API fails", async () => {

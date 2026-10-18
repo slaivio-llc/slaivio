@@ -6,7 +6,7 @@ import { FreightShipmentDetail } from "./freight-detail";
 
 vi.mock("@/services/api",()=>({api:{get:vi.fn(),patch:vi.fn()}}));
 vi.mock("@/services/tenant",()=>({getTenantContext:()=>Promise.resolve({active_tenant:{organization_type:"PARCEL_FREIGHT"}})}));
-vi.mock("next/navigation",()=>({usePathname:()=>"/app/shipments/one"}));
+vi.mock("next/navigation",()=>({usePathname:()=>"/app/shipments/one",useRouter:()=>({replace:vi.fn()})}));
 vi.mock("@/components/permissions/permission-guard",()=>({PermissionGuard:({children}:{children:ReactNode})=>children}));
 const overview={id:"one",reference:"EXP-01",stage:"planned",status:"PREPARING",version:3,origin_city:"Guangzhou",origin_country:"CN",destination_city:"Kinshasa",destination_country:"CD",route_label:"Chine RDC",planned_departure_at:null,departed_at:null,arrived_at:null,packages_count:3,weighed_count:0,known_weight_kg:null,is_delayed:false,delay_reason:null};
 beforeEach(()=>{
@@ -24,8 +24,8 @@ describe("Fiche Expédition fret",()=>{
     expect(screen.getByRole("region",{name:"Manifeste"})).toBeInTheDocument();
     expect(screen.getByRole("heading",{name:"Historique"})).toBeInTheDocument();
     expect(screen.queryByText("Finance")).not.toBeInTheDocument();
-    expect(screen.getByRole("link",{name:"Opérations / Expéditions"})).toHaveAttribute("href","/app/operations?view=shipments");
-    expect(screen.getByRole("link",{name:"Retour aux expéditions"})).toHaveAttribute("href","/app/operations?view=shipments");
+    expect(screen.getByRole("dialog",{name:"EXP-01"})).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"Retour aux expéditions"})).toBeInTheDocument();
     expect(screen.queryByRole("button",{name:"Actions"})).not.toBeInTheDocument();
     expect(screen.getByRole("button",{name:"Ajouter des colis"})).toBeInTheDocument();
   });
@@ -66,7 +66,7 @@ describe("Fiche Expédition fret",()=>{
     fireEvent.click(await screen.findByRole("button",{name:"Modifier le départ prévu"}));
     fireEvent.change(screen.getByLabelText("Motif"),{target:{value:"Nouvelle estimation"}});
     fireEvent.click(screen.getByRole("button",{name:"Enregistrer"}));
-    await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(()=>expect(screen.queryByRole("heading",{name:"Modifier le départ prévu"})).not.toBeInTheDocument());
     await waitFor(()=>expect(vi.mocked(api.get).mock.calls.filter(call=>call[0]==="/shipments/workspace/one")).toHaveLength(2));
   });
 });

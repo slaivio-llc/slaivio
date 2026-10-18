@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import axios from "axios";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
-import { OperationBackLink, OperationButton } from "@/components/ui/operation-controls";
+import { OperationButton } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { operationInputClass as field } from "@/components/ui/operation-styles";
 import { TableSkeleton } from "@/components/ui/page-state";
@@ -28,7 +29,8 @@ function useResource<T>(url:string,revision:number){
 }
 function Pages({page,total,change}:{page:number;total:number;change:(page:number)=>void}){return <div className="mt-5 flex justify-end gap-2"><OperationButton className="w-9 px-0" aria-label="Page précédente" disabled={page===1} onClick={()=>change(page-1)}><ChevronLeft size={15}/></OperationButton><span className="self-center text-xs text-slate-500">{page} / {Math.max(1,total)}</span><OperationButton className="w-9 px-0" aria-label="Page suivante" disabled={page>=total} onClick={()=>change(page+1)}><ChevronRight size={15}/></OperationButton></div>;}
 
-export function FreightShipmentDetail({shipmentId}:{shipmentId:string}){
+export function FreightShipmentDetail({shipmentId,onClose}:{shipmentId:string;onClose?:()=>void}){
+  const router=useRouter();
   const [revision,setRevision]=useState(0);const [planning,setPlanning]=useState(false);const [cancelOpen,setCancelOpen]=useState(false);
   const {data:item,error}=useResource<Overview>(`/shipments/workspace/${encodeURIComponent(shipmentId)}`,revision);
   const refresh=()=>setRevision(value=>value+1);
@@ -36,10 +38,9 @@ export function FreightShipmentDetail({shipmentId}:{shipmentId:string}){
     if(document.querySelector('[data-freight-print="true"]'))window.print();
     else document.querySelector('[aria-label="Manifeste"]')?.scrollIntoView({behavior:"smooth",block:"center"});
   },[]);
-  return <div className="min-h-full w-full bg-slate-50/40 px-3 py-5 sm:px-6 lg:px-8">
-    <div className="mx-auto w-full max-w-screen-2xl">
-      {error?<p role="alert" className="rounded-xl border border-red-200 bg-white p-5 text-sm">Expédition indisponible ou accès non autorisé. <button className="underline" onClick={refresh}>Réessayer</button></p>:!item?<TableSkeleton rows={5} columns={2}/>:<article className="rounded-xl border border-slate-200 bg-white px-4 sm:px-5">
-        <header className="flex items-start justify-between gap-3 border-b border-slate-100 py-4"><div className="flex min-w-0 items-start gap-3"><OperationBackLink href="/app/operations?view=shipments" label="Retour aux expéditions"/><div className="min-w-0"><Link href="/app/operations?view=shipments" className="text-[11px] text-slate-500 hover:underline">Opérations / Expéditions</Link><h1 className="mt-1 truncate text-sm font-semibold text-slate-900">{item.reference}</h1><div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]"><ShipmentStatus item={item}/><span className="text-slate-500">Créée le {shortDate(item.created_at)}</span></div></div></div><OperationButton aria-label="Actualiser l’expédition" className="w-9 px-0" onClick={refresh}><RefreshCw size={14}/></OperationButton></header>
+  const close=()=>onClose?onClose():router.replace("/app/operations?view=shipments");
+  return <OperationDrawer open close={close} title={item?.reference||"Fiche expédition"} description="Opérations / Expéditions" placement="center" width="max-w-5xl" bodyClassName="!p-4 sm:!p-6" headerLeading={<OperationButton className="w-9 px-0" aria-label="Retour aux expéditions" title="Retour aux expéditions" onClick={close}><ChevronLeft size={16}/></OperationButton>} headerMeta={item&&<div className="flex items-center gap-2 text-xs"><ShipmentStatus item={item}/><span className="text-slate-500">Créée le {shortDate(item.created_at)}</span></div>} headerActions={<OperationButton aria-label="Actualiser l’expédition" className="w-9 px-0" onClick={refresh}><RefreshCw size={14}/></OperationButton>}>
+      {error?<p role="alert" className="rounded-xl border border-red-200 bg-white p-5 text-sm">Expédition indisponible ou accès non autorisé. <button className="underline" onClick={refresh}>Réessayer</button></p>:!item?<TableSkeleton rows={5} columns={2}/>:<div className="mx-auto w-full max-w-4xl divide-y divide-slate-100">
         <section aria-label="Actions de l’expédition" className="border-b border-slate-100 py-3"><h2 className="mb-2 text-xs font-semibold text-slate-700">Actions disponibles</h2><FreightWorkflow item={item} saved={refresh} onPlan={()=>setPlanning(true)} onCancel={()=>setCancelOpen(true)} onManifest={printManifest}/></section>
         <section className="border-b border-slate-100 py-4"><h2 className="mb-3 text-xs font-semibold">Informations de l’expédition</h2><dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs"><Fact label="Origine">{location(item.origin_city,item.origin_country)}</Fact><Fact label="Destination">{location(item.destination_city,item.destination_country)}</Fact><Fact label="Départ réel">{date(item.departed_at)}</Fact><Fact label="Arrivée réelle">{date(item.arrived_at)}</Fact><Fact label="Colis associés">{item.packages_count} colis</Fact><Fact label="Statut"><ShipmentStatus item={item}/></Fact></dl>{item.is_delayed&&item.delay_reason&&<p className="mt-3 text-xs text-amber-800">{item.delay_reason}</p>}</section>
         <section className="border-b border-slate-100 py-4"><h2 className="mb-4 text-xs font-semibold">Progression</h2><ShipmentProgress item={item}/></section>
@@ -49,9 +50,8 @@ export function FreightShipmentDetail({shipmentId}:{shipmentId:string}){
         <details className="border-t border-slate-100 py-3"><summary className="cursor-pointer text-xs font-semibold">Communications de l’expédition</summary><div className="pt-4"><Communications shipmentId={shipmentId} revision={revision}/></div></details>
         {planning&&<Planning item={item} close={()=>setPlanning(false)} saved={()=>{setPlanning(false);refresh();}}/>}
         {cancelOpen&&<CancelShipment item={item} close={()=>setCancelOpen(false)} saved={()=>{setCancelOpen(false);refresh();}}/>}
-      </article>}
-    </div>
-  </div>;
+      </div>}
+  </OperationDrawer>;
 }
 
 function Fact({label,children}:{label:string;children:ReactNode}){return <div className="min-w-0"><dt className="text-[10px] text-slate-500">{label}</dt><dd className="mt-1 break-words text-xs text-slate-800">{children}</dd></div>;}

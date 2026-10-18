@@ -14,6 +14,7 @@ import { PackagesPage } from "@/components/packages/packages-page";
 import { ShipmentsPage } from "@/components/shipments/shipments-page";
 import { DepartureCalendarPage } from "@/components/departures/departure-calendar-page";
 import { TrackingPage } from "@/components/tracking/tracking-page";
+import { FreightShipmentDetail } from "@/components/shipments/freight-detail";
 
 type OperationsView = "overview" | "packages" | "shipments" | "calendar" | "tracking";
 
@@ -48,6 +49,7 @@ export function ParcelOperationsHub() {
   const [revision, setRevision] = useState(0);
   const [view, setView] = useState<OperationsView>("overview");
   const [visited, setVisited] = useState<Set<OperationsView>>(() => new Set(["overview"]));
+  const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
 
   function selectView(next: OperationsView) {
     setView(next);
@@ -130,7 +132,7 @@ export function ParcelOperationsHub() {
         <div className="overflow-hidden rounded-lg border border-slate-200">
           {data.failed.upcoming ? <ErrorMessage text="Les prochains départs n’ont pas pu être chargés."/> : loading ? <div role="status" className="p-4 text-xs text-slate-500">Chargement des départs…</div> : !data.upcoming.length ? <p className="p-4 text-xs text-slate-500">Aucun départ planifié dans les 30 prochains jours.</p> : <>
             <div className="grid grid-cols-[88px_minmax(0,1fr)_72px] gap-2 bg-slate-50 px-3 py-2 text-[10px] font-medium text-slate-500 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><span>Date</span><span>Route</span><span className="text-right">Colis</span></div>
-            {data.upcoming.slice(0, 3).map(item => <Link key={item.id} href={`/app/shipments/${encodeURIComponent(item.id)}`} className="grid grid-cols-[88px_minmax(0,1fr)_72px] items-center gap-2 border-t border-slate-100 px-3 py-2.5 text-xs hover:bg-slate-50 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><time dateTime={item.calendar_at} className="text-slate-600">{dateOnly(item.calendar_at)}</time><span className="truncate font-medium text-slate-800">{routeName(item)}</span><span className="text-right text-slate-600">{item.packages_count}</span></Link>)}
+            {data.upcoming.slice(0, 3).map(item => <button key={item.id} type="button" onClick={() => setSelectedShipment(item.id)} className="grid w-full grid-cols-[88px_minmax(0,1fr)_72px] items-center gap-2 border-t border-slate-100 px-3 py-2.5 text-left text-xs hover:bg-slate-50 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><time dateTime={item.calendar_at} className="text-slate-600">{dateOnly(item.calendar_at)}</time><span className="truncate font-medium text-slate-800">{routeName(item)}</span><span className="text-right text-slate-600">{item.packages_count}</span></button>)}
           </>}
         </div>
       </section>}
@@ -147,6 +149,7 @@ export function ParcelOperationsHub() {
       {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage /></div>}
       {visited.has("tracking") && <div hidden={view !== "tracking"}><TrackingPage /></div>}
     </main>
+    {selectedShipment && <FreightShipmentDetail shipmentId={selectedShipment} onClose={() => setSelectedShipment(null)} />}
   </div>;
 }
 

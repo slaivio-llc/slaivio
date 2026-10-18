@@ -170,3 +170,7 @@ def test_archiving_tracking_revokes_and_hides_public_access():
     assert "archived_at is null" in public_view
     token_creation=source.split("def public_token(",1)[1].split("def public_view(",1)[0]
     assert "deleted_at is null and archived_at is null" in token_creation
+    expeditions=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
+    legacy_archive=expeditions.split("def archive_expedition(",1)[1].split("PACKAGE_ELIGIBILITY_LABELS",1)[0]
+    assert "public_tracking_enabled=false" in legacy_archive
+    assert "public_tracking_token=null" in legacy_archive

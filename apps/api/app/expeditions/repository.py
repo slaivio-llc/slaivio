@@ -1112,7 +1112,9 @@ def archive_expedition(org_id: str, expedition_id: str, user_id: str, expected_v
         managed = conn.execute(text("select workflow_version from cargo_expeditions where org_id=:org_id and id=:id for update"), {'org_id':org_id,'id':expedition_id}).scalar()
         if managed == 2:
             raise HTTPException(409, 'use_shipment_workspace_commands')
-        row = conn.execute(text("""update cargo_expeditions set archived_at=now(),status='ARCHIVED',shipment_row_version=shipment_row_version+1,updated_by=:user_id,updated_at=now()
+        row = conn.execute(text("""update cargo_expeditions set archived_at=now(),status='ARCHIVED',
+          public_tracking_enabled=false,public_tracking_token=null,public_tracking_expires_at=null,
+          shipment_row_version=shipment_row_version+1,updated_by=:user_id,updated_at=now()
           where org_id=:org_id and id=:id and archived_at is null and (:expected_version is null or shipment_row_version=:expected_version) returning id"""),{"org_id":org_id,"id":expedition_id,"user_id":user_id,"expected_version":expected_version}).fetchone()
         if not row:
             exists=conn.execute(text("select 1 from cargo_expeditions where org_id=:org_id and id=:id and archived_at is null"),{"org_id":org_id,"id":expedition_id}).fetchone()

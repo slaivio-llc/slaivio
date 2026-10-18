@@ -903,13 +903,17 @@ def _hydrate_expedition_references(conn, org_id: str, payload: dict) -> dict:
 
 def create_expedition(org_id: str, user_id: str, payload: dict) -> dict:
     _ensure_schema()
+    status = payload.get("status") or "PREPARING"
+    if status not in EXPEDITION_STATUSES:
+        raise ValueError("invalid_status")
+    if status not in {"DRAFT", "PREPARING"}:
+        raise ValueError("shipment_must_be_created_before_departure")
+    if any(payload.get(field) is not None for field in ("departed_at", "arrived_at", "delivered_at")):
+        raise ValueError("shipment_milestones_are_server_managed")
     with engine.begin() as conn:
         payload = _hydrate_expedition_references(conn, org_id, payload)
         reference = payload.get("expedition_reference") or generate_expedition_reference()
-        status = payload.get("status") or "PREPARING"
         mode = payload.get("mode") or "AIR"
-        if status not in EXPEDITION_STATUSES:
-            raise ValueError("invalid_status")
         if mode not in EXPEDITION_MODES:
             raise ValueError("invalid_mode")
         row = conn.execute(

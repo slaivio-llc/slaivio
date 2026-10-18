@@ -10,7 +10,7 @@ import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { operationInputClass as field } from "@/components/ui/operation-styles";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 
-type Shipment = {id:string;reference:string;version:number;workflow_version?:number;stage:string;packages_count:number;is_delayed?:boolean;route_label?:string|null};
+type Shipment = {id:string;reference:string;version:number;workflow_version?:number;stage:string;status?:string;packages_count:number;is_delayed?:boolean;route_label?:string|null};
 type Candidate = {id:string;reference:string;client_name:string|null;blockers:string[];weight_kg?:number|null};
 type Candidates = {items:Candidate[];page:number;total_pages:number};
 const reasons:Record<string,string>={parcel_not_received:"Réception physique requise",client_missing:"Client manquant",route_mismatch:"Route incompatible",service_mismatch:"Le service du colis ne correspond pas à celui de l’expédition.",destination_mismatch:"Destination incompatible",already_assigned:"Déjà affecté",payment_clearance_required:"Paiement à vérifier avant le départ",PAYMENT_CLEARANCE_REQUIRED:"Paiement à vérifier avant le départ",FINANCE_POLICY_MISSING:"Aucune condition financière avant départ n’est configurée. Ajoutez une règle dans Finance > Paramètres.",FINANCE_INVOICE_MISSING:"Ce colis n’a pas de facture Finance émise. Créez ou émettez sa facture avant de confirmer le départ.",FINANCE_POLICY_CURRENCY_MISMATCH:"La devise de la condition de paiement ne correspond pas à celle de la facture.",package_state_conflict:"État du colis incompatible",shipment_empty:"Aucun colis affecté",shipment_loading_closed:"Le chargement est clôturé",shipment_departure_not_confirmed:"L’expédition ne possède pas de départ réel confirmé.",stale_shipment_version:"La fiche a changé. Fermez le panneau et actualisez avant de reprendre.",legacy_shipment_requires_review:"Cette ancienne expédition nécessite une reprise contrôlée."};
@@ -40,6 +40,7 @@ export function FreightWorkflow({item,saved,onPlan=()=>undefined,onCancel=()=>un
   const [menuOpen,setMenuOpen]=useState(false);
   useEffect(()=>{registerAdd?.(()=>setAction("load"));},[registerAdd]);
   if(item.workflow_version!==2)return <p className="mb-5 text-xs text-amber-800">Expédition historique : consultation disponible. Sa reprise doit être vérifiée avant d’utiliser les nouvelles commandes.</p>;
+  if(item.stage==="other")return item.status==="CANCELLED"?<span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">Expédition annulée</span>:null;
   return <PermissionGuard permission="shipments.update"><div className="relative">
     <OperationButton aria-label="Actions" onClick={()=>setMenuOpen(value=>!value)}><Truck size={14}/>Actions</OperationButton>
     {menuOpen&&<div className="absolute right-0 top-10 z-20 w-60 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">

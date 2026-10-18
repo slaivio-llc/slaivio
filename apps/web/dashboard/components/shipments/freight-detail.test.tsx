@@ -26,6 +26,12 @@ describe("Fiche Expédition fret",()=>{
     expect(screen.queryByText("Finance")).not.toBeInTheDocument();
     expect(screen.getByRole("link",{name:"Opérations / Expéditions"})).toHaveAttribute("href","/app/shipments");
   });
+  it("garde le bouton Ajouter visible mais désactivé après l’arrivée",async()=>{
+    vi.mocked(api.get).mockImplementation(async url=>({data:String(url).endsWith("/one")?{...overview,stage:"arrived",status:"ARRIVED_DESTINATION",arrived_at:"2026-10-18T12:00:00Z"}:{items:[],page:1,total_pages:0,total:0}}));
+    render(<FreightShipmentDetail shipmentId="one"/>);
+    expect(await screen.findByRole("button",{name:"＋Ajouter"})).toBeDisabled();
+    expect(screen.getByText("L’ajout de colis est désactivé ici car cette expédition est déjà arrivée.")).toBeInTheDocument();
+  });
   it("ne présente pas la composition actuelle comme un manifeste figé après départ",async()=>{
     vi.mocked(api.get).mockImplementation(async url=>{if(String(url).endsWith('/manifest'))throw {isAxiosError:true,response:{status:409}};return {data:String(url).endsWith("/one")?{...overview,stage:"departed",departed_at:"2026-10-14T12:00:00Z"}:{items:[],page:1,total_pages:0}};});
     render(<FreightShipmentDetail shipmentId="one"/>);await screen.findByText("EXP-01");

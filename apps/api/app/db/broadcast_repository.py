@@ -59,8 +59,11 @@ def render(msg,client,defaults):
 def action(o,b,a,act,version):
  states={'APPROVE':'SCHEDULED','START':'QUEUED','PAUSE':'PAUSED','RESUME':'QUEUED','CANCEL':'CANCELLED','ARCHIVE':'ARCHIVED'};target=states[act]
  with engine.begin() as c:
-  if act=='START':
+  if act in('START','RESUME'):
    campaign=c.execute(text('select b.*,t.provider_status from broadcasts b left join broadcast_templates t on t.id=b.template_id where b.org_id=:o and b.id=:b'),{'o':o,'b':b}).mappings().first()
+   if not campaign:return 'approval_or_schedule'
+   if any(channel!='WHATSAPP' for channel in (campaign.get('channels') or [])):return 'channel_not_available'
+  if act=='START':
    bad=c.execute(text("select count(*) from broadcast_recipients where broadcast_id=:b and exclusion_reason is null and (rendered_message is null or rendered_message like '%{{%')"),{'b':b}).scalar_one()
    if not campaign or campaign['approved_at'] is None or (campaign['scheduled_at'] and campaign['scheduled_at']>__import__('datetime').datetime.now(__import__('datetime').timezone.utc)):return 'approval_or_schedule'
    if 'WHATSAPP' in (campaign['channels'] or []) and campaign.get('template_id') and campaign.get('provider_status')!='APPROVED':return 'template_not_approved'

@@ -53,6 +53,6 @@ def export(campaign_id:str,tenant=Depends(get_current_tenant)):return {'status':
 def mutate(campaign_id:str,body:Mutation,tenant=Depends(get_current_tenant)):
  x=repo.action(tenant['org_id'],campaign_id,actor(tenant),body.action,body.expected_version)
  if x=='precheck_failed':raise HTTPException(409,'campaign_precheck_failed')
- if x in ('approval_or_schedule','template_not_approved','audience_empty'):raise HTTPException(409,x)
+ if x in ('approval_or_schedule','template_not_approved','audience_empty','channel_not_available'):raise HTTPException(409,x)
  if not x:raise HTTPException(409,'campaign_was_modified')
  return {'status':'ok','campaign':x}

@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from app.db import notification_repository
+from app.db import broadcast_repository, notification_repository
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -91,6 +91,25 @@ def test_campaign_outbox_insert_uses_the_callers_transaction():
 def test_broadcast_queue_creates_outbox_inside_recipient_claim_transaction():
     repository = read("apps/api/app/db/broadcast_repository.py")
     assert "channel=r['channel'].lower(),connection=c" in repository
+
+
+def test_campaign_start_rejects_channels_without_a_sender(monkeypatch):
+    engine = MagicMock()
+    monkeypatch.setattr(broadcast_repository, 'engine', engine)
+    connection = engine.begin.return_value.__enter__.return_value
+    connection.execute.return_value.mappings.return_value.first.return_value = {
+        'channels': ['EMAIL'], 'approved_at': 'approved', 'scheduled_at': None,
+    }
+
+    result = broadcast_repository.action('agency', 'campaign', 'agent', 'START', 1)
+
+    assert result == 'channel_not_available'
+    assert connection.execute.call_count == 1
+
+
+def test_campaign_api_exposes_unsupported_channel_as_conflict():
+    api = read("apps/api/app/api/broadcasts.py")
+    assert "'channel_not_available'" in api
 
 
 def test_campaign_start_uses_python_none_semantics():

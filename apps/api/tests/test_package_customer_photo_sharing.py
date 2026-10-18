@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.api import packages
+from app.packages import repository
 
 
 def test_public_tracking_signs_only_explicitly_shared_photo_records(monkeypatch):
@@ -49,3 +50,24 @@ def test_visibility_update_requires_an_existing_owned_image(monkeypatch):
 
     assert error.value.status_code == 404
     update.assert_called_once_with("office", "parcel", "photo", True, "agent")
+
+
+def test_whatsapp_share_does_not_create_a_false_pending_message_without_phone(monkeypatch):
+    monkeypatch.setattr(repository, "_ensure_schema", lambda: None)
+    monkeypatch.setattr(repository, "get_package", lambda *args: {"id": "parcel", "client_id": "client"})
+    conn = MagicMock()
+    result = MagicMock()
+    result.scalar.return_value = None
+    conn.execute.return_value = result
+    engine = MagicMock()
+    engine.begin.return_value.__enter__.return_value = conn
+    monkeypatch.setattr(repository, "engine", engine)
+
+    with pytest.raises(HTTPException) as error:
+        repository.create_package_notification(
+            "office", "parcel", "agent", {"channel": "whatsapp", "message": "Suivi"}
+        )
+
+    assert error.value.status_code == 422
+    assert error.value.detail == "client_phone_unavailable"
+    conn.execute.assert_called_once()

@@ -1771,6 +1771,8 @@ def create_package_notification(org_id: str, package_id: str, user_id: str, payl
                 select coalesce(nullif(whatsapp_phone,''), nullif(phone,''))
                 from clients where org_id=:org_id and id=:client_id and deleted_at is null
             """), {"org_id": org_id, "client_id": package["client_id"]}).scalar()
+        if channel == "whatsapp" and not recipient:
+            raise HTTPException(status_code=422, detail="client_phone_unavailable")
         notification_type = payload.get("notification_type") or f"PACKAGE_MANUAL:{package_id}:{uuid4()}"
         if channel == "whatsapp" and recipient:
             queued = conn.execute(text("""

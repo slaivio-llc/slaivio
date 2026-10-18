@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import axios from "axios";
 import { ImageIcon, Upload, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
-import { uploadPackageMedia, getPackageMediaUrl } from "@/services/packages";
+import { uploadPackageMedia, getPackageMediaUrl, createPackageNotification } from "@/services/packages";
 import { type ParcelOverview } from "@/services/parcel-register";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { operationInputClass as field } from "@/components/ui/operation-styles";
@@ -21,6 +21,7 @@ export function parcelError(cause: unknown) {
     package_media_owner_required: "Les photos doivent être ajoutées depuis le bureau d’origine.",
     invalid_image_content: "Le contenu du fichier ne correspond pas au format d’image annoncé.",
     document_storage_not_configured: "Le stockage des photos n’est pas configuré. Contactez votre administrateur.",
+    client_phone_unavailable: "Aucun numéro WhatsApp n’est enregistré pour ce client.",
   };
   return messages[String(detail)] || "Opération impossible. Vérifiez vos droits et la connexion, puis réessayez.";
 }
@@ -54,7 +55,7 @@ export function ParcelEditForm({ item, saving, error, save, cancel }: {
   </form>;
 }
 
-type Photos = {items: {id:string;file_name:string;caption:string|null;customer_visible:boolean}[];page:number;total_pages:number;total:number};
+type Photos = {items: {id:string;file_name:string;caption:string|null;customer_visible:boolean}[];page:number;total_pages:number;total:number;customer_visible_count:number};
 export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: { item: ParcelOverview; changed: () => Promise<void>; busyChanged: (value: boolean) => void; disabled?: boolean }) {
   const [result,setResult]=useState<Photos|null>(null);
   const [error,setError]=useState("");const [notice,setNotice]=useState("");
@@ -103,11 +104,25 @@ export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: {
     }catch(cause){setError(parcelError(cause));}
     finally{pending.current=false;setBusy(false);busyChanged(false);}
   }
+  async function sendTrackingLink(){
+    if(disabled||pending.current||!item.public_tracking_enabled||!result?.customer_visible_count||!item.reference)return;
+    pending.current=true;setBusy(true);busyChanged(true);setError("");setNotice("");
+    try{
+      const url=new URL("/track",window.location.origin);url.searchParams.set("reference",item.reference);
+      await createPackageNotification(item.id,{
+        channel:"whatsapp",notification_type:`PACKAGE_SHARED_PHOTOS:${item.id}:${Date.now()}`,
+        message:`Bonjour${item.client_name?` ${item.client_name}`:""}, l’agence a partagé des photos de votre colis ${item.reference}. Consultez-les dans votre suivi : ${url.toString()}`,
+      });
+      setNotice("Lien préparé dans la file WhatsApp de l’agence. Vérifiez le statut réel dans l’historique des notifications.");
+    }catch(cause){setError(parcelError(cause));}
+    finally{pending.current=false;setBusy(false);busyChanged(false);}
+  }
   return <section aria-label="Photos du colis" className="grid gap-3">
     <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Photos</h3><p className="mt-1 text-xs text-slate-500">Privées par défaut. Le partage client est explicite, photo par photo.</p></div>
       {item.local_client && <PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled} onClick={()=>input.current?.click()}><Upload size={14}/>Ajouter</OperationButton><input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" hidden aria-label="Ajouter des photos" onChange={event=>{const files=Array.from(event.target.files||[]);event.target.value="";void upload(files);}}/></PermissionGuard>}
     </div>
     {notice && <p role="status" className="text-xs text-slate-600">{notice}</p>}
+    {result&&result.customer_visible_count>0&&<div className="flex flex-wrap items-center gap-2"><PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled||!item.public_tracking_enabled||!item.reference} onClick={()=>void sendTrackingLink()}>Envoyer le lien au client sur WhatsApp</OperationButton></PermissionGuard>{!item.public_tracking_enabled&&<span className="text-xs text-amber-700">Le suivi public est désactivé pour ce colis.</span>}</div>}
     {error && <div role="alert" className="text-sm text-red-700">{error} <OperationButton aria-label="Actualiser les photos" disabled={busy||disabled} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={14}/></OperationButton></div>}
     {!result&&!error?<p className="text-sm text-slate-500">Chargement des photos…</p>:result?.items.length?<ul className="grid gap-2 sm:grid-cols-2">{result.items.map(photo=><li key={photo.id} className="rounded-xl border border-slate-200 p-3"><button type="button" disabled={busy||disabled} onClick={()=>void view(photo.id,photo.caption||photo.file_name)} className="flex w-full items-center gap-3 text-left disabled:opacity-50"><ImageIcon size={20} className="shrink-0 text-slate-400"/><span className="truncate text-xs">{photo.caption||photo.file_name}</span></button><PermissionGuard permission="packages.update"><button type="button" disabled={busy||disabled} aria-pressed={photo.customer_visible} onClick={()=>void toggleCustomerVisibility(photo)} className="mt-2 text-xs font-medium text-slate-600 underline underline-offset-2 disabled:opacity-50">{photo.customer_visible?"Retirer du suivi client":"Partager dans le suivi client"}</button></PermissionGuard></li>)}</ul>:result&&<p className="text-sm text-slate-500">Aucune photo ajoutée.</p>}
     {result&&result.total_pages>1&&<div className="flex justify-end gap-2"><OperationButton disabled={busy||disabled||page===1} onClick={()=>setPage(value=>value-1)}>Précédent</OperationButton><OperationButton disabled={busy||disabled||page>=result.total_pages} onClick={()=>setPage(value=>value+1)}>Suivant</OperationButton></div>}

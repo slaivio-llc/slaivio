@@ -2,12 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { api } from "@/services/api";
-import { getPackageMediaUrl, uploadPackageMedia } from "@/services/packages";
+import { createPackageNotification, getPackageMediaUrl, uploadPackageMedia } from "@/services/packages";
 import type { ParcelOverview } from "@/services/parcel-register";
 import { ParcelEditForm, ParcelPhotos } from "./parcel-operations";
 
 vi.mock("@/services/api", () => ({ api: { get: vi.fn(), patch: vi.fn() } }));
-vi.mock("@/services/packages", () => ({ uploadPackageMedia: vi.fn(), getPackageMediaUrl: vi.fn() }));
+vi.mock("@/services/packages", () => ({ uploadPackageMedia: vi.fn(), getPackageMediaUrl: vi.fn(), createPackageNotification: vi.fn() }));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children }: { children: ReactNode }) => children }));
 
 const item = { id: "parcel", local_client: true, weight_editable: true, weight_kg: 12,
@@ -62,6 +62,17 @@ describe("Photos privées", () => {
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/packages/parcel/media/photo/customer-visibility", { customer_visible: true }));
     expect(await screen.findByText("Photo maintenant visible dans le suivi client.")).toBeInTheDocument();
     expect(changed).toHaveBeenCalledTimes(1);
+  });
+  it("envoie le lien stable du suivi public, jamais une URL temporaire de photo", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: { items: [{ id: "photo", file_name: "carton.png", caption: null, customer_visible: true }], page: 1, total_pages: 1, total: 1, customer_visible_count: 1 } });
+    vi.mocked(createPackageNotification).mockResolvedValue({} as Awaited<ReturnType<typeof createPackageNotification>>);
+    render(<ParcelPhotos item={{ ...item, reference: "COL-2026-001", client_name: "Awa", public_tracking_enabled: true }} changed={vi.fn()} busyChanged={vi.fn()}/>);
+    fireEvent.click(await screen.findByRole("button", { name: "Envoyer le lien au client sur WhatsApp" }));
+    await waitFor(() => expect(createPackageNotification).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(createPackageNotification).mock.calls[0][1];
+    expect(payload.channel).toBe("whatsapp");
+    expect(payload.message).toContain("/track?reference=COL-2026-001");
+    expect(payload.message).not.toContain("storage.example");
   });
   it("signale les échecs partiels sans réenvoyer les photos réussies", async () => {
     vi.mocked(uploadPackageMedia).mockResolvedValueOnce({} as Awaited<ReturnType<typeof uploadPackageMedia>>).mockRejectedValueOnce(new Error("offline"));

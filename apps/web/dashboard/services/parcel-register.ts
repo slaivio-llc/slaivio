@@ -7,6 +7,7 @@ export type ParcelEntry = {
 };
 export type ParcelOverview = ParcelEntry & {
   row_version: number; weight_editable: boolean;
+  public_tracking_enabled: boolean;
   supplier_tracking: string | null; external_reference: string | null; description: string | null;
   weight_kg: number | null; warehouse_location: string | null; warehouse_zone: string | null; warehouse_rack: string | null;
   destination_city: string | null; destination_country: string | null; route_name: string | null;

@@ -142,13 +142,13 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
         trend = _rows(
             connection.execute(
                 text(
-                    f"""with days as(select generate_series(cast(:start as date),cast(:end as date)-1,interval '1 day')::date day)
-                    select d.day,coalesce(c.clients,0)::int clients,coalesce(p.packages,0)::int packages,coalesce(s.shipments,0)::int shipments
+                    f"""with days as(select generate_series(cast(:start as date),cast(:end as date)-1,interval '1 day')::date as report_day)
+                    select d.report_day as day,coalesce(c.clients,0)::int clients,coalesce(p.packages,0)::int packages,coalesce(s.shipments,0)::int shipments
                     from days d
-                    left join(select c.created_at::date day,count(*) clients from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end{client} group by 1)c using(day)
-                    left join(select p.created_at::date day,count(*) packages from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package} group by 1)p using(day)
-                    left join(select e.created_at::date day,count(*) shipments from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end{expedition} group by 1)s using(day)
-                    order by d.day"""
+                    left join(select c.created_at::date as report_day,count(*) clients from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end{client} group by 1)c using(report_day)
+                    left join(select p.created_at::date as report_day,count(*) packages from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package} group by 1)p using(report_day)
+                    left join(select e.created_at::date as report_day,count(*) shipments from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end{expedition} group by 1)s using(report_day)
+                    order by d.report_day"""
                 ),
                 p,
             )

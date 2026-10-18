@@ -80,6 +80,18 @@ def test_dashboard_applies_selected_office_scope_to_every_source(monkeypatch):
     assert "payment.paid_at<:end" in finance_query
 
 
+def test_dashboard_trend_uses_non_reserved_date_alias(monkeypatch):
+    fake_engine = FakeEngine()
+    monkeypatch.setattr(repository, "engine", fake_engine)
+
+    repository.dashboard("org-1", date(2026, 10, 1), date(2026, 10, 7), ["office-1"])
+
+    trend_query = next(query for query, _ in fake_engine.connection.calls if "generate_series" in query)
+    assert "as report_day" in trend_query
+    assert "using(report_day)" in trend_query
+    assert "::date day)" not in trend_query
+
+
 def test_report_preview_applies_selected_office_scope(monkeypatch):
     fake_engine = FakeEngine()
     monkeypatch.setattr(repository, "engine", fake_engine)

@@ -106,3 +106,9 @@ def test_manual_tracking_event_accepts_historical_timestamp_with_timezone():
     event = EventPayload(event_type="ARRIVAL", title="Arrivée", occurred_at="2026-10-17T12:00:00Z")
 
     assert event.occurred_at == "2026-10-17T12:00:00+00:00"
+
+def test_tracking_timeline_does_not_backfill_old_event_location_from_current_location():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    timeline=source.split("def global_timeline(",1)[1].split("def tracking_detail(",1)[0]
+    assert "ev.metadata->>'location' location" in timeline
+    assert "coalesce(ev.metadata->>'location',e.last_location)" not in timeline

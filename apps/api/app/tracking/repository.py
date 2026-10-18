@@ -133,7 +133,7 @@ def global_timeline(org_id:str,limit:int=80)->list[dict]:
     with engine.connect() as conn:
         return _rows(conn.execute(text("""select ev.id::text,ev.expedition_id::text,e.expedition_reference tracking_id,
           ev.event_type,ev.title,ev.description,ev.actor_id,ev.actor_name,ev.metadata,ev.occurred_at,
-          coalesce(ev.metadata->>'location',e.last_location) location
+          ev.metadata->>'location' location
           from expedition_events ev join cargo_expeditions e on e.id=ev.expedition_id and e.org_id=ev.org_id
           where ev.org_id=:org_id order by ev.occurred_at desc limit :limit"""),{"org_id":org_id,"limit":min(limit,200)}).fetchall())
 

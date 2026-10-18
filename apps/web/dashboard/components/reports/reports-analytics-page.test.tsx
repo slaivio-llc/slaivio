@@ -37,9 +37,9 @@ describe("ReportsAnalyticsPage", () => {
   it("distinguishes a successfully loaded empty period from an API failure", async () => {
     vi.mocked(reportsService.getAnalytics).mockResolvedValue({
       period: { start: "2026-10-01", end: "2026-10-30", days: 30 },
-      kpis: { clients: 0, packages: 0, shipments: 0, dossiers: 0, pickups: 0, weight_kg: 0 },
+      kpis: { clients: 0, packages: 0, shipments: 0, pickups: 0, weight_kg: 0 },
       trend: [],
-      statuses: { packages: [], shipments: [], dossiers: [] },
+      statuses: { packages: [], shipments: [] },
       routes: [],
       finance: [],
       warehouses: [],
@@ -49,5 +49,6 @@ describe("ReportsAnalyticsPage", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Aucune opération n’a été enregistrée sur la période sélectionnée.");
     expect(screen.queryByText("Analytics indisponibles")).not.toBeInTheDocument();
+    expect(screen.queryByText("Dossiers")).not.toBeInTheDocument();
   });
 });

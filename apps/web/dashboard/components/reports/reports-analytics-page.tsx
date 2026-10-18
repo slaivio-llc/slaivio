@@ -73,7 +73,6 @@ export function ReportsAnalyticsPage() {
         ["Nouveaux clients", data.kpis.clients],
         ["Colis reçus", data.kpis.packages],
         ["Expéditions", data.kpis.shipments],
-        ["Dossiers", data.kpis.dossiers],
         ["Retraits", data.kpis.pickups],
         [
           "Poids traité",
@@ -82,7 +81,7 @@ export function ReportsAnalyticsPage() {
       ]
     : [];
   const hasPeriodActivity = Boolean(data && (
-    ["clients", "packages", "shipments", "dossiers", "pickups", "weight_kg"].some((key) => data.kpis[key] > 0) ||
+    ["clients", "packages", "shipments", "pickups", "weight_kg"].some((key) => data.kpis[key] > 0) ||
     data.finance.some((row) => row.invoices > 0 || !/^0+(?:\.0+)?$/.test(row.collected))
   ));
   return (
@@ -203,7 +202,7 @@ function Overview({ data }: { data: Analytics }) {
         <Trend data={data.trend} />
       </Card>
       <div className="grid gap-4 lg:grid-cols-3">
-        {Object.entries(data.statuses).map(([key, items]) => (
+        {Object.entries(data.statuses).filter(([key])=>key!="dossiers").map(([key, items]) => (
           <Card
             key={key}
             title={`Statuts · ${key}`}
@@ -249,7 +248,7 @@ function Trend({ data }: { data: Analytics["trend"] }) {
 function Operations({ data }: { data: Analytics }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      {Object.entries(data.statuses).map(([key, items]) => (
+      {Object.entries(data.statuses).filter(([key])=>key!="dossiers").map(([key, items]) => (
         <Card key={key} title={key} subtitle="Opérations créées sur la période sélectionnée">
           <Bars items={items} />
         </Card>

@@ -16,6 +16,7 @@ def test_analytics_uses_the_operational_expedition_source_of_truth():
     assert " from shipments " not in source
     assert "archived_at is null" in source
     assert "deleted_at is null" in source
+    assert "from dossiers" not in source
 
 
 def test_expedition_report_exports_transactional_totals():

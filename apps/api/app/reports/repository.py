@@ -118,7 +118,6 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
     client = _scope("client", "c", office_ids)
     package = _scope("package", "p", office_ids)
     expedition = _scope("expedition", "e", office_ids)
-    dossier = _scope("dossier", "d", office_ids)
     pickup = _scope("pickup", "po", office_ids)
     finance = _scope("finance", "fd", office_ids)
     with engine.connect() as connection:
@@ -130,7 +129,6 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                       (select count(*) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package})::int packages,
                       (select coalesce(sum(p.weight_kg),0) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package})::float weight_kg,
                       (select count(*) from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end{expedition})::int shipments,
-                      (select count(*) from dossiers d where d.org_id=:o and d.created_at>=:start and d.created_at<:end{dossier})::int dossiers,
                       (select count(*) from pickup_orders po where po.org_id=:o and po.created_at>=:start and po.created_at<:end{pickup})::int pickups,
                       (select count(*) from clients c where c.org_id=:o and c.created_at>=:ps and c.created_at<:pe{client})::int previous_clients,
                       (select count(*) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:ps and p.created_at<:pe{package})::int previous_packages,
@@ -170,16 +168,6 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                         f"""select e.status label,count(*)::int value from cargo_expeditions e
                         where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end{expedition}
                         group by e.status order by value desc"""
-                    ),
-                    p,
-                )
-            ),
-            "dossiers": _rows(
-                connection.execute(
-                    text(
-                        f"""select d.status_global label,count(*)::int value from dossiers d
-                        where d.org_id=:o and d.archived_at is null and d.created_at>=:start and d.created_at<:end{dossier}
-                        group by d.status_global order by value desc"""
                     ),
                     p,
                 )

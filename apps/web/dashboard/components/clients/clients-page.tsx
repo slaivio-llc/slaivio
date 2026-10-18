@@ -1362,7 +1362,7 @@ export function ClientFormModal({
       title={title}
       description={parcelFreight ? "Ajouter un client au répertoire." : "Renseignez les informations disponibles."}
       close={onClose}
-      placement={parcelFreight ? "right" : "center"}
+      placement="center"
       width={parcelFreight ? "max-w-md" : "max-w-3xl"}
       footer={
         <>

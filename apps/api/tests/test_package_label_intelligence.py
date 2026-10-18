@@ -1,4 +1,4 @@
-from app.services.package_label_matching import _name_score
+from app.services.package_label_matching import _automatic_match, _name_score
 from app.services.package_label_ocr import _clean_result, _fallback_fields
 
 
@@ -49,6 +49,14 @@ def test_customer_name_matching_accepts_accents_and_word_order_noise():
     assert _name_score("DIVINE DE MARIE", "Divine de Marie") == 100
     assert _name_score("Marie Divine", "DIVINE MARIE") >= 70
     assert _name_score("Divine de Marie", "Autre Client") < 35
+
+
+def test_package_label_auto_selects_only_exact_expectation_or_unique_exact_phone():
+    exact_phone = [{"client": {"id": "client-a"}, "score": 75}]
+    assert _automatic_match(exact_phone, {"client-a"}, None) == exact_phone[0]
+    assert _automatic_match(exact_phone, set(), None) is None
+    assert _automatic_match(exact_phone, {"client-a", "client-b"}, None) is None
+    assert _automatic_match(exact_phone, set(), "client-a") == exact_phone[0]
 
 
 def test_supplier_label_migration_preserves_ocr_audit_and_expectation_match_time():

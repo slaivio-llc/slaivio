@@ -36,6 +36,18 @@ def _row(value: Any) -> dict[str, Any] | None:
     return dict(value._mapping) if value else None
 
 
+def _automatic_match(
+    ranked: list[dict[str, Any]], exact_phone_ids: set[str], expectation_client_id: str | None
+) -> dict[str, Any] | None:
+    """Only preselect a client from an exact parcel expectation or a unique exact phone."""
+    if expectation_client_id:
+        return next((item for item in ranked if item["client"]["id"] == expectation_client_id), None)
+    if len(exact_phone_ids) != 1:
+        return None
+    exact_id = next(iter(exact_phone_ids))
+    return next((item for item in ranked if item["client"]["id"] == exact_id), None)
+
+
 def _compact_dossier(row: Any) -> dict[str, Any]:
     item = dict(row._mapping)
     return {
@@ -109,6 +121,7 @@ def match_package_label(org_id: str, fields: dict[str, Any]) -> dict[str, Any]:
 
         ranked: list[dict[str, Any]] = []
         expectation_client_id = str(expectation["client_id"]) if expectation else None
+        exact_phone_ids: set[str] = set()
         for client_row in clients:
             client = dict(client_row._mapping)
             client_id = str(client["id"])
@@ -118,6 +131,8 @@ def match_package_label(org_id: str, fields: dict[str, Any]) -> dict[str, Any]:
                 score, reasons = 100, ["Colis attendu retrouvé"]
             else:
                 client_phone = _digits(client.get("normalized_phone") or client.get("phone"))
+                if phone and client_phone and phone == client_phone:
+                    exact_phone_ids.add(client_id)
                 if phone and client_phone and (phone == client_phone or phone[-9:] == client_phone[-9:]):
                     score += 75
                     reasons.append("Même numéro de téléphone")
@@ -172,9 +187,7 @@ def match_package_label(org_id: str, fields: dict[str, Any]) -> dict[str, Any]:
             })
 
     ranked.sort(key=lambda item: item["score"], reverse=True)
-    best = ranked[0] if ranked else None
-    second_score = ranked[1]["score"] if len(ranked) > 1 else 0
-    automatic = best if best and best["score"] >= 95 and best["score"] - second_score >= 8 else None
+    automatic = _automatic_match(ranked, exact_phone_ids, expectation_client_id)
     if duplicate:
         duplicate = {key: (str(value) if key == "id" and value else value) for key, value in duplicate.items()}
     return {

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Download, Printer, Truck } from "lucide-react";
+import { Ban, CalendarClock, Download, PackageMinus, PackagePlus, Plane, PlaneLanding, Printer, TriangleAlert } from "lucide-react";
 import { createPortal } from "react-dom";
 import { api } from "@/services/api";
 import { OperationButton } from "@/components/ui/operation-controls";
@@ -35,36 +35,25 @@ function failure(cause:unknown){
 
 reasons.quality_review_required="Contrôle qualité bloquant à résoudre";
 
-export function FreightWorkflow({item,saved,onPlan=()=>undefined,onCancel=()=>undefined,onManifest=()=>undefined,registerAdd}:{item:Shipment;saved:()=>void;onPlan?:()=>void;onCancel?:()=>void;onManifest?:()=>void;registerAdd?:(open:()=>void)=>void}){
+export function FreightWorkflow({item,saved,onPlan=()=>undefined,onCancel=()=>undefined,onManifest=()=>undefined}:{item:Shipment;saved:()=>void;onPlan?:()=>void;onCancel?:()=>void;onManifest?:()=>void}){
   const [action,setAction]=useState<"load"|"remove"|"depart"|"arrive"|"delay"|null>(null);
-  const [menuOpen,setMenuOpen]=useState(false);
-  useEffect(()=>{registerAdd?.(()=>setAction("load"));},[registerAdd]);
   if(item.workflow_version!==2)return <p className="mb-5 text-xs text-amber-800">Expédition historique : consultation disponible. Sa reprise doit être vérifiée avant d’utiliser les nouvelles commandes.</p>;
   if(item.stage==="other")return item.status==="CANCELLED"?<span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">Expédition annulée</span>:null;
-  return <PermissionGuard permission="shipments.update"><div className="relative">
-    <OperationButton aria-label="Actions" onClick={()=>setMenuOpen(value=>!value)}><Truck size={14}/>Actions</OperationButton>
-    {menuOpen&&<div className="absolute right-0 top-10 z-20 w-60 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">
-      {item.stage==="planned"&&<>
-        <MenuAction onClick={()=>{onPlan();setMenuOpen(false);}}>Modifier le départ prévu</MenuAction>
-        <MenuAction onClick={()=>{setAction("load");setMenuOpen(false);}}>Ajouter des colis</MenuAction>
-        {!!item.packages_count&&<MenuAction onClick={()=>{setAction("remove");setMenuOpen(false);}}>Retirer des colis</MenuAction>}
-        <MenuAction onClick={()=>{onManifest();setMenuOpen(false);}}>Télécharger le manifeste PDF</MenuAction>
-        <MenuAction disabled={!item.packages_count} onClick={()=>{setAction("depart");setMenuOpen(false);}}>Confirmer le départ</MenuAction>
-        <MenuAction danger onClick={()=>{onCancel();setMenuOpen(false);}}>Annuler l’expédition</MenuAction>
-      </>}
-      {item.stage==="departed"&&<>
-        <MenuAction onClick={()=>{setAction("arrive");setMenuOpen(false);}}>Confirmer l’arrivée</MenuAction>
-        <MenuAction onClick={()=>{onManifest();setMenuOpen(false);}}>Télécharger le manifeste PDF</MenuAction>
-        <MenuAction onClick={()=>{setAction("delay");setMenuOpen(false);}}>{item.is_delayed?"Résoudre le retard":"Signaler un retard"}</MenuAction>
-      </>}
-      {item.stage==="arrived"&&<MenuAction onClick={()=>{onManifest();setMenuOpen(false);}}>Télécharger le manifeste PDF</MenuAction>}
-    </div>}
+  return <div className="flex flex-wrap items-center gap-2" aria-label="Actions disponibles">
+    {item.stage==="planned"&&<PermissionGuard permission="shipments.update"><>
+      <OperationButton onClick={onPlan}><CalendarClock size={14}/>Modifier le départ prévu</OperationButton>
+      <OperationButton onClick={()=>setAction("load")}><PackagePlus size={14}/>Ajouter des colis</OperationButton>
+      {!!item.packages_count&&<OperationButton onClick={()=>setAction("remove")}><PackageMinus size={14}/>Retirer des colis</OperationButton>}
+      <OperationButton variant="primary" disabled={!item.packages_count} onClick={()=>setAction("depart")}><Plane size={14}/>Confirmer le départ</OperationButton>
+      <OperationButton variant="danger" onClick={onCancel}><Ban size={14}/>Annuler l’expédition</OperationButton>
+    </></PermissionGuard>}
+    {item.stage==="departed"&&<PermissionGuard permission="shipments.update"><>
+      <OperationButton variant="primary" onClick={()=>setAction("arrive")}><PlaneLanding size={14}/>Confirmer l’arrivée</OperationButton>
+      <OperationButton onClick={()=>setAction("delay")}><TriangleAlert size={14}/>{item.is_delayed?"Résoudre le retard":"Signaler un retard"}</OperationButton>
+    </></PermissionGuard>}
+    <PermissionGuard permission="shipments.read"><OperationButton onClick={onManifest}><Printer size={14}/>Manifeste PDF</OperationButton></PermissionGuard>
     {action==="load"?<Loading item={item} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>:action==="remove"?<Unloading item={item} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>:action==="delay"?<Delay item={item} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>:action&&<Milestone item={item} action={action} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>}
-  </div></PermissionGuard>;
-}
-
-function MenuAction({children,onClick,disabled=false,danger=false}:{children:ReactNode;onClick:()=>void;disabled?:boolean;danger?:boolean}){
-  return <button type="button" disabled={disabled} onClick={onClick} className={`block w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-50 ${danger?"text-red-700":"text-slate-700"}`}>{children}</button>;
+  </div>;
 }
 
 function Delay({item,close,saved}:{item:Shipment;close:()=>void;saved:()=>void}){

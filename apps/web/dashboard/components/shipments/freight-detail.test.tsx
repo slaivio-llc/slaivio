@@ -25,11 +25,15 @@ describe("Fiche Expédition fret",()=>{
     expect(screen.getByRole("heading",{name:"Historique"})).toBeInTheDocument();
     expect(screen.queryByText("Finance")).not.toBeInTheDocument();
     expect(screen.getByRole("link",{name:"Opérations / Expéditions"})).toHaveAttribute("href","/app/shipments");
+    expect(screen.getByRole("link",{name:"Retour aux expéditions"})).toHaveAttribute("href","/app/shipments");
+    expect(screen.queryByRole("button",{name:"Actions"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"Ajouter des colis"})).toBeInTheDocument();
   });
   it("garde le bouton Ajouter visible mais désactivé après l’arrivée",async()=>{
     vi.mocked(api.get).mockImplementation(async url=>({data:String(url).endsWith("/one")?{...overview,stage:"arrived",status:"ARRIVED_DESTINATION",arrived_at:"2026-10-18T12:00:00Z"}:{items:[],page:1,total_pages:0,total:0}}));
     render(<FreightShipmentDetail shipmentId="one"/>);
-    expect(await screen.findByRole("button",{name:"＋Ajouter"})).toBeDisabled();
+    expect(await screen.findByRole("button",{name:"Manifeste PDF"})).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"Ajouter des colis"})).not.toBeInTheDocument();
     expect(screen.getByText("L’ajout de colis est désactivé ici car cette expédition est déjà arrivée.")).toBeInTheDocument();
   });
   it("ne présente pas la composition actuelle comme un manifeste figé après départ",async()=>{
@@ -49,8 +53,7 @@ describe("Fiche Expédition fret",()=>{
   it("conserve le motif en cas de conflit de version",async()=>{
     vi.mocked(api.patch).mockRejectedValue({isAxiosError:true,response:{data:{detail:"stale_shipment_version"}}});
     render(<FreightShipmentDetail shipmentId="one"/>);
-    fireEvent.click(await screen.findByRole("button",{name:"Actions"}));
-    fireEvent.click(screen.getByRole("button",{name:"Modifier le départ prévu"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Modifier le départ prévu"}));
     fireEvent.change(screen.getByLabelText("Motif"),{target:{value:"Date à confirmer"}});
     fireEvent.click(screen.getByRole("button",{name:"Enregistrer"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("La fiche a changé");
@@ -60,8 +63,7 @@ describe("Fiche Expédition fret",()=>{
   it("recharge la fiche après modification du planning",async()=>{
     vi.mocked(api.patch).mockResolvedValue({data:{changed:true}});
     render(<FreightShipmentDetail shipmentId="one"/>);
-    fireEvent.click(await screen.findByRole("button",{name:"Actions"}));
-    fireEvent.click(screen.getByRole("button",{name:"Modifier le départ prévu"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Modifier le départ prévu"}));
     fireEvent.change(screen.getByLabelText("Motif"),{target:{value:"Nouvelle estimation"}});
     fireEvent.click(screen.getByRole("button",{name:"Enregistrer"}));
     await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

@@ -7,7 +7,7 @@ import { FreightWorkflow, FreightManifest } from "./freight-workflow";
 vi.mock("@/services/api",()=>({api:{get:vi.fn(),post:vi.fn()}}));
 vi.mock("@/components/permissions/permission-guard",()=>({PermissionGuard:({children}:{children:ReactNode})=>children}));
 const item={id:"one",reference:"EXP-1",version:3,workflow_version:2,stage:"planned",packages_count:2};
-function chooseAction(label:string){fireEvent.click(screen.getByRole("button",{name:"Actions"}));fireEvent.click(screen.getByRole("button",{name:label}));}
+function chooseAction(label:string){fireEvent.click(screen.getByRole("button",{name:label}));}
 beforeEach(()=>{vi.mocked(api.get).mockReset();vi.mocked(api.post).mockReset();});
 describe("Commandes du mouvement fret",()=>{
   it("ne déclenche le départ qu’après confirmation explicite",async()=>{
@@ -60,11 +60,10 @@ describe("Commandes du mouvement fret",()=>{
   });
   it("n’ouvre pas les nouvelles commandes sur une expédition historique",()=>{
     render(<FreightWorkflow item={{...item,workflow_version:1}} saved={vi.fn()}/>);
-    expect(screen.queryByRole("button",{name:"Actions"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"Ajouter des colis"})).not.toBeInTheDocument();
   });
   it("ne propose plus le chargement après départ",()=>{
     render(<FreightWorkflow item={{...item,stage:"departed"}} saved={vi.fn()}/>);
-    fireEvent.click(screen.getByRole("button",{name:"Actions"}));
     expect(screen.queryByRole("button",{name:"Ajouter des colis"})).not.toBeInTheDocument();
     expect(screen.getByRole("button",{name:"Confirmer l’arrivée"})).toBeInTheDocument();
   });

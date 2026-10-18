@@ -44,6 +44,15 @@ def test_whatsapp_ai_can_only_retrieve_current_published_safe_information():
         assert guard in repository
 
 
+def test_pilot_available_to_ai_excludes_knowledge_not_yet_effective():
+    repository = read("apps/api/app/knowledge/pilot_repository.py")
+    stats_query = repository.split("def stats(", 1)[1].split("def detail(", 1)[0]
+    assert "entry.effective_at is null or entry.effective_at<=now()" in stats_query
+    assert "entry.sensitive=false" in stats_query
+    assert "entry.expires_at is null or entry.expires_at>now()" in stats_query
+    assert "entry.review_due_at is null or entry.review_due_at>now()" in stats_query
+
+
 def test_knowledge_stats_count_only_current_ai_eligible_entries():
     repository = read("apps/api/app/knowledge/repository.py")
     query = repository.split("def stats(", 1)[1].split("def create(", 1)[0]

@@ -14,34 +14,37 @@ beforeEach(()=>{
   vi.mocked(api.get).mockImplementation(async url=>({data:String(url).endsWith("/one")?overview:{items:[],page:1,total_pages:0,total:0}}));
 });
 describe("Fiche Expédition fret",()=>{
-  it("limite les sections au contrat métier et conserve les poids inconnus",async()=>{
+  it("affiche une fiche unique compacte avec progression, colis, manifeste et historique",async()=>{
     render(<FreightShipmentDetail shipmentId="one"/>);
     await screen.findByText("EXP-01");
-    expect(screen.getByRole("navigation",{name:"Sections de l’expédition"}).textContent).toBe("AperçuColisCommunicationsManifeste");
-    expect(screen.getByText("Aucun poids renseigné")).toBeInTheDocument();
-    expect(screen.getByText("0 / 3 colis")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation",{name:"Sections de l’expédition"})).not.toBeInTheDocument();
+    expect(screen.getByText("Informations de l’expédition")).toBeInTheDocument();
+    expect(screen.getByText("Progression")).toBeInTheDocument();
+    expect(screen.getByText("Colis de l’expédition")).toBeInTheDocument();
+    expect(screen.getByRole("region",{name:"Manifeste"})).toBeInTheDocument();
+    expect(screen.getByRole("heading",{name:"Historique"})).toBeInTheDocument();
     expect(screen.queryByText("Finance")).not.toBeInTheDocument();
-    expect(screen.getByRole("link",{name:"Retour aux expéditions"})).toHaveAttribute("href","/app/shipments");
+    expect(screen.getByRole("link",{name:"Opérations / Expéditions"})).toHaveAttribute("href","/app/shipments");
   });
   it("ne présente pas la composition actuelle comme un manifeste figé après départ",async()=>{
     vi.mocked(api.get).mockImplementation(async url=>{if(String(url).endsWith('/manifest'))throw {isAxiosError:true,response:{status:409}};return {data:String(url).endsWith("/one")?{...overview,stage:"departed",departed_at:"2026-10-14T12:00:00Z"}:{items:[],page:1,total_pages:0}};});
     render(<FreightShipmentDetail shipmentId="one"/>);await screen.findByText("EXP-01");
     expect(screen.queryByRole("button",{name:"Modifier le planning"})).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button",{name:"Manifeste"}));
     expect(await screen.findByRole('alert')).toHaveTextContent("Aucun manifeste figé");
     expect(screen.queryByRole('button',{name:'Excel'})).not.toBeInTheDocument();
   });
   it("n’interprète pas les communications en attente comme livrées",async()=>{
     vi.mocked(api.get).mockImplementation(async url=>({data:String(url).endsWith("/one")?overview:String(url).includes("/communications")?{items:[{id:"message",channel:"whatsapp",status:"PENDING",created_at:"2026-10-14T12:00:00Z"}],page:1,total_pages:1}:{items:[],page:1,total_pages:0}}));
     render(<FreightShipmentDetail shipmentId="one"/>);await screen.findByText("EXP-01");
-    fireEvent.click(screen.getByRole("button",{name:"Communications"}));
+    fireEvent.click(screen.getByText("Communications de l’expédition"));
     expect(await screen.findByText("En attente")).toBeInTheDocument();
     expect(screen.queryByText("Livré")).not.toBeInTheDocument();
   });
   it("conserve le motif en cas de conflit de version",async()=>{
     vi.mocked(api.patch).mockRejectedValue({isAxiosError:true,response:{data:{detail:"stale_shipment_version"}}});
     render(<FreightShipmentDetail shipmentId="one"/>);
-    fireEvent.click(await screen.findByRole("button",{name:"Modifier le planning"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Actions"}));
+    fireEvent.click(screen.getByRole("button",{name:"Modifier le départ prévu"}));
     fireEvent.change(screen.getByLabelText("Motif"),{target:{value:"Date à confirmer"}});
     fireEvent.click(screen.getByRole("button",{name:"Enregistrer"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("La fiche a changé");
@@ -51,7 +54,8 @@ describe("Fiche Expédition fret",()=>{
   it("recharge la fiche après modification du planning",async()=>{
     vi.mocked(api.patch).mockResolvedValue({data:{changed:true}});
     render(<FreightShipmentDetail shipmentId="one"/>);
-    fireEvent.click(await screen.findByRole("button",{name:"Modifier le planning"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Actions"}));
+    fireEvent.click(screen.getByRole("button",{name:"Modifier le départ prévu"}));
     fireEvent.change(screen.getByLabelText("Motif"),{target:{value:"Nouvelle estimation"}});
     fireEvent.click(screen.getByRole("button",{name:"Enregistrer"}));
     await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

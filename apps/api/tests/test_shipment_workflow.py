@@ -5,15 +5,17 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.api.shipments import ShipmentLoadingPayload, ShipmentMilestonePayload
+from app.api.shipments import ShipmentCancelPayload, ShipmentLoadingPayload, ShipmentMilestonePayload
 from app.expeditions import workflow
 
 
 def shipment(**values):
-    return dict(id='shipment', reference='EXP-1', workflow_version=2, version=3,
-                stage='planned', status='PREPARING', departed_at=None, arrived_at=None,
-                route_id='route', shipping_service_id='service',
-                destination_city='Kinshasa', destination_country='CD', **values)
+    result = dict(id='shipment', reference='EXP-1', workflow_version=2, version=3,
+                  stage='planned', status='PREPARING', departed_at=None, arrived_at=None,
+                  route_id='route', shipping_service_id='service',
+                  destination_city='Kinshasa', destination_country='CD')
+    result.update(values)
+    return result
 
 
 def parcel(**values):
@@ -106,6 +108,28 @@ def test_remove_leaves_physical_state_unchanged(monkeypatch):
     queue.assert_not_called()
 
 
+def test_cancel_releases_assigned_packages_without_changing_their_physical_state(monkeypatch):
+    _, statements, events, package_events, queue = database(monkeypatch, parcels=[parcel()])
+    assert workflow.cancel('office','shipment','actor',3,'Expédition créée par erreur') == {
+        'changed': True, 'released_packages': 1,
+    }
+    assert any("status='CANCELLED'" in sql for sql,_ in statements if sql.startswith('update cargo_expeditions'))
+    assert any('removed_at=now()' in sql for sql,_ in statements if sql.startswith('update expedition_packages'))
+    package_update=next(sql for sql,_ in statements if sql.startswith('update cargo_packages'))
+    assert 'shipment_reference=null' in package_update and 'status=' not in package_update
+    assert events.call_args.kwargs['event_type']=='EXPEDITION_CANCELLED'
+    assert package_events.call_args.kwargs['event_type']=='EXPEDITION_CANCELLED'
+    queue.assert_not_called()
+
+
+def test_cancel_is_idempotent_after_a_lost_response(monkeypatch):
+    row=shipment(status='CANCELLED')
+    _, statements, events, _, _=database(monkeypatch,row=row)
+    assert workflow.cancel('office','shipment','actor',3,'Même requête')=={'changed':False}
+    assert not statements
+    events.assert_not_called()
+
+
 def test_departure_snapshot_and_notifications_share_transaction(monkeypatch):
     _, statements, events, pe, queue=database(monkeypatch)
     result=workflow.milestone('office','shipment','actor',3,'depart')
@@ -164,6 +188,7 @@ def test_command_schemas_are_bounded():
     with pytest.raises(ValidationError): ShipmentLoadingPayload(expected_version=1,package_ids=[uuid4() for _ in range(201)])
     with pytest.raises(ValidationError): ShipmentMilestonePayload(expected_version=1,action='deliver')
     with pytest.raises(ValidationError): ShipmentMilestonePayload(expected_version=1,action='depart',org_id='other')
+    with pytest.raises(ValidationError): ShipmentCancelPayload(expected_version=1,reason='')
 
 
 def test_legacy_archive_or_bulk_status_cannot_bypass_managed_loading():

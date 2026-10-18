@@ -68,6 +68,12 @@ class ShipmentMilestonePayload(BaseModel):
     action: Literal['depart','arrive']
 
 
+class ShipmentCancelPayload(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    expected_version: int = Field(ge=1)
+    reason: str = Field(min_length=3, max_length=500)
+
+
 class ShipmentDelayPayload(BaseModel):
     model_config = ConfigDict(extra='forbid',str_strip_whitespace=True)
     expected_version: int = Field(ge=1)
@@ -103,6 +109,13 @@ def shipment_milestone(shipment_id: UUID, payload: ShipmentMilestonePayload, bac
     for notification in result.pop('notification_ids',[]):
         background_tasks.add_task(send_notification,org_id,notification)
     return result
+
+
+@router.post('/shipments/workspace/{shipment_id}/cancel', dependencies=[Depends(require_permission('shipments.update'))])
+def shipment_cancel(shipment_id: UUID, payload: ShipmentCancelPayload, tenant=Depends(get_current_tenant)):
+    from app.expeditions.workflow import cancel
+    org_id, actor = _tenant_ids(tenant)
+    return cancel(org_id, str(shipment_id), actor, payload.expected_version, payload.reason)
 
 
 @router.get('/shipments/workspace/{shipment_id}/manifest', dependencies=[Depends(require_permission('shipments.read'))])

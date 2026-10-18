@@ -20,7 +20,7 @@ def require_shipment(conn, org_id, shipment_id, lock=False):
     row = conn.execute(text(f"""select e.id::text,e.expedition_reference as reference,
         e.status,({STAGE}) as stage,e.origin_city,e.origin_country,e.destination_city,e.destination_country,
         e.route_label,e.planned_departure_at,e.departed_at,e.arrived_at,e.is_delayed,e.delay_reason,
-        e.workflow_version,e.route_id::text,e.shipping_service_id::text,
+        e.created_at,e.workflow_version,e.route_id::text,e.shipping_service_id::text,
         e.shipment_row_version as version from cargo_expeditions e where {SCOPE}
         {'for update' if lock else ''}"""), {'org_id': org_id, 'id': shipment_id}).mappings().first()
     if not row:
@@ -63,7 +63,7 @@ def history(org_id, shipment_id, page=1):
         # Whitelist operational events: do not leak financial notes, recipients or metadata.
         where = """org_id=:org_id and expedition_id=cast(:id as uuid)
             and event_type in ('EXPEDITION_CREATED','SHIPMENT_PLANNING_CHANGED',
-              'STATUS_CHANGED','PACKAGE_ADDED','PACKAGE_REMOVED','SHIPMENT_DEPARTED','SHIPMENT_ARRIVED','SHIPMENT_DELAY_CHANGED')"""
+              'STATUS_CHANGED','PACKAGE_ADDED','PACKAGE_REMOVED','SHIPMENT_DEPARTED','SHIPMENT_ARRIVED','SHIPMENT_DELAY_CHANGED','EXPEDITION_CANCELLED')"""
         total = conn.execute(text(f'select count(*) from expedition_events where {where}'), params).scalar_one()
         items = conn.execute(text(f"""select id::text,event_type,title,created_at,
             case when event_type='SHIPMENT_PLANNING_CHANGED' then metadata->>'before' else null end as previous_planned_at,

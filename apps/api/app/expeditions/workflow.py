@@ -122,6 +122,40 @@ def loading(org_id, shipment_id, actor, expected, ids, remove=False):
         return {'changed':changed}
 
 
+def cancel(org_id, shipment_id, actor, expected, reason):
+    """Cancel a preparation atomically while leaving its parcels in the agency."""
+    with engine.begin() as conn:
+        shipment = require_shipment(conn, org_id, shipment_id, lock=True)
+        if shipment['status'] == 'CANCELLED':
+            return {'changed': False}
+        editable(shipment, expected)
+        params = {'org_id': org_id, 'id': shipment_id, 'actor': actor, 'reason': reason}
+        parcels = conn.execute(text(f"""select p.id::text,p.package_reference
+            {PACKAGES} where {SCOPE} and ep.removed_at is null and p.deleted_at is null
+            order by p.id for update of p"""), params).mappings().all()
+        for parcel in parcels:
+            parcel_id = parcel['id']
+            values = {**params, 'package': parcel_id}
+            conn.execute(text("""update expedition_packages set removed_at=now(),
+                removal_reason='Expédition annulée' where org_id=:org_id
+                and expedition_id=cast(:id as uuid) and package_id=cast(:package as uuid)
+                and removed_at is null"""), values)
+            conn.execute(text("""update cargo_packages set shipment_reference=null,
+                row_version=row_version+1,updated_by=:actor,updated_at=now()
+                where org_id=:org_id and id=cast(:package as uuid)"""), values)
+            _insert_package_event(conn, org_id=org_id, package_id=parcel_id,
+                event_type='EXPEDITION_CANCELLED', title='Expédition annulée — colis libéré',
+                actor_id=actor, metadata={'expedition_id': shipment_id})
+        conn.execute(text("""update cargo_expeditions set status='CANCELLED',is_delayed=false,
+            delay_reason=null,shipment_row_version=shipment_row_version+1,
+            updated_by=:actor,updated_at=now() where org_id=:org_id and id=cast(:id as uuid)"""), params)
+        _insert_event(conn, org_id=org_id, expedition_id=shipment_id,
+            event_type='EXPEDITION_CANCELLED', title='Expédition annulée',
+            description=reason, previous_status=shipment['status'], new_status='CANCELLED',
+            actor_id=actor, metadata={'released_package_ids': [row['id'] for row in parcels]})
+        return {'changed': True, 'released_packages': len(parcels)}
+
+
 def milestone(org_id,shipment_id,actor,expected,action):
     target='DISPATCHED' if action=='depart' else 'ARRIVED_DESTINATION'
     with engine.begin() as conn:

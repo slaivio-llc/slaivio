@@ -7,12 +7,13 @@ import { FreightWorkflow, FreightManifest } from "./freight-workflow";
 vi.mock("@/services/api",()=>({api:{get:vi.fn(),post:vi.fn()}}));
 vi.mock("@/components/permissions/permission-guard",()=>({PermissionGuard:({children}:{children:ReactNode})=>children}));
 const item={id:"one",reference:"EXP-1",version:3,workflow_version:2,stage:"planned",packages_count:2};
+function chooseAction(label:string){fireEvent.click(screen.getByRole("button",{name:"Actions"}));fireEvent.click(screen.getByRole("button",{name:label}));}
 beforeEach(()=>{vi.mocked(api.get).mockReset();vi.mocked(api.post).mockReset();});
 describe("Commandes du mouvement fret",()=>{
   it("ne déclenche le départ qu’après confirmation explicite",async()=>{
     const saved=vi.fn();vi.mocked(api.post).mockResolvedValue({data:{changed:true}});
     render(<FreightWorkflow item={item} saved={saved}/>);
-    fireEvent.click(screen.getByRole("button",{name:"Confirmer le départ"}));
+    chooseAction("Confirmer le départ");
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toHaveTextContent("2 colis");
     fireEvent.click(screen.getByRole("button",{name:"Confirmer"}));
@@ -22,7 +23,7 @@ describe("Commandes du mouvement fret",()=>{
   it("conserve le refus financier sans annoncer un départ",async()=>{
     const saved=vi.fn();vi.mocked(api.post).mockRejectedValue({isAxiosError:true,response:{data:{detail:{code:"payment_clearance_required"}}}});
     render(<FreightWorkflow item={item} saved={saved}/>);
-    fireEvent.click(screen.getByRole("button",{name:"Confirmer le départ"}));
+    chooseAction("Confirmer le départ");
     fireEvent.click(screen.getByRole("button",{name:"Confirmer"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("Paiement à vérifier");
     expect(saved).not.toHaveBeenCalled();
@@ -30,7 +31,7 @@ describe("Commandes du mouvement fret",()=>{
   it("explique une exigibilité Finance renvoyée par le backend au lieu du message réseau générique",async()=>{
     const saved=vi.fn();vi.mocked(api.post).mockRejectedValue({isAxiosError:true,response:{status:409,data:{detail:{code:"PAYMENT_CLEARANCE_REQUIRED",reference:"COL-2026-000001",finance:{message:"Condition : Acompte 50 %. Montant requis : 100.00 USD. Montant confirmé : 50.00 USD. Reste avant départ : 50.00 USD."}}}}});
     render(<FreightWorkflow item={item} saved={saved}/>);
-    fireEvent.click(screen.getByRole("button",{name:"Confirmer le départ"}));
+    chooseAction("Confirmer le départ");
     fireEvent.click(screen.getByRole("button",{name:"Confirmer"}));
     const alert=await screen.findByRole("alert");
     expect(alert).toHaveTextContent("COL-2026-000001");
@@ -41,7 +42,7 @@ describe("Commandes du mouvement fret",()=>{
   it("indique quand la condition financière avant départ manque",async()=>{
     const saved=vi.fn();vi.mocked(api.post).mockRejectedValue({isAxiosError:true,response:{status:409,data:{detail:{code:"FINANCE_POLICY_MISSING",reference:"COL-1",finance:{message:"Aucune condition financière avant départ n’est configurée."}}}}});
     render(<FreightWorkflow item={item} saved={saved}/>);
-    fireEvent.click(screen.getByRole("button",{name:"Confirmer le départ"}));
+    chooseAction("Confirmer le départ");
     fireEvent.click(screen.getByRole("button",{name:"Confirmer"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("Aucune condition financière avant départ");
     expect(saved).not.toHaveBeenCalled();
@@ -50,7 +51,7 @@ describe("Commandes du mouvement fret",()=>{
     vi.mocked(api.get).mockResolvedValue({data:{items:[{id:"a",reference:"COL-A",client_name:"Client A",blockers:[]},{id:"b",reference:"COL-B",client_name:"Client B",blockers:["already_assigned"]}],page:1,total_pages:1}});
     const saved=vi.fn();vi.mocked(api.post).mockResolvedValue({data:{changed:1}});
     render(<FreightWorkflow item={item} saved={saved}/>);
-    fireEvent.click(screen.getByRole("button",{name:"Ajouter des colis"}));
+    chooseAction("Ajouter des colis");
     const available=await screen.findByRole("checkbox",{name:/COL-A/});
     expect(screen.getByRole("checkbox",{name:/COL-B/})).toBeDisabled();
     fireEvent.click(available);fireEvent.click(screen.getByRole("button",{name:"Affecter les colis"}));
@@ -59,10 +60,11 @@ describe("Commandes du mouvement fret",()=>{
   });
   it("n’ouvre pas les nouvelles commandes sur une expédition historique",()=>{
     render(<FreightWorkflow item={{...item,workflow_version:1}} saved={vi.fn()}/>);
-    expect(screen.queryByRole("button",{name:"Confirmer le départ"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"Actions"})).not.toBeInTheDocument();
   });
   it("ne propose plus le chargement après départ",()=>{
     render(<FreightWorkflow item={{...item,stage:"departed"}} saved={vi.fn()}/>);
+    fireEvent.click(screen.getByRole("button",{name:"Actions"}));
     expect(screen.queryByRole("button",{name:"Ajouter des colis"})).not.toBeInTheDocument();
     expect(screen.getByRole("button",{name:"Confirmer l’arrivée"})).toBeInTheDocument();
   });

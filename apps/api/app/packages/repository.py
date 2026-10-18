@@ -1601,6 +1601,64 @@ def get_package_media(org_id: str, package_id: str, media_id: str) -> dict | Non
           {"org_id":org_id,"package_id":package_id,"media_id":media_id}).fetchone())
 
 
+def set_package_media_customer_visibility(
+    org_id: str, package_id: str, media_id: str, visible: bool, user_id: str
+) -> bool:
+    """Explicitly allow or revoke a stored image on the public customer tracker."""
+    with engine.begin() as conn:
+        row = conn.execute(text("""update package_media media
+          set customer_visible=:visible
+          from cargo_packages package
+          where media.org_id=:org_id and media.package_id=cast(:package_id as uuid)
+            and media.id=cast(:media_id as uuid) and media.object_path is not null
+            and media.media_type='IMAGE' and package.id=media.package_id
+            and package.org_id=media.org_id and package.org_id=:org_id
+            and package.deleted_at is null
+          returning media.id"""), {
+            "org_id": org_id, "package_id": package_id, "media_id": media_id,
+            "visible": visible,
+        }).first()
+        if not row:
+            return False
+        _insert_package_event(
+            conn, org_id=org_id, package_id=package_id,
+            event_type="PACKAGE_MEDIA_CUSTOMER_VISIBILITY_CHANGED",
+            title="Visibilité d’une photo modifiée",
+            description="Photo partagée avec le client." if visible else "Photo réservée à l’équipe.",
+            actor_id=user_id,
+        )
+        conn.execute(text("""update cargo_packages
+          set row_version=row_version+1,updated_at=now(),updated_by=:user_id
+          where org_id=:org_id and id=cast(:package_id as uuid)"""), {
+            "org_id": org_id, "package_id": package_id, "user_id": user_id,
+        })
+        return True
+
+
+def public_package_tracking_media(reference: str) -> list[dict]:
+    """Only explicitly shared images from a uniquely resolved public tracking ref."""
+    normalized = str(reference or "").strip()
+    if len(normalized) < 6 or len(normalized) > 120:
+        return []
+    with engine.connect() as conn:
+        rows = conn.execute(text("""select media.id::text,media.object_path,media.file_name
+          from cargo_packages package
+          join package_media media on media.package_id=package.id and media.org_id=package.org_id
+          where package.deleted_at is null and package.public_tracking_enabled=true
+            and media.customer_visible=true and media.media_type='IMAGE'
+            and media.object_path is not null
+            and (upper(package.tracking_id)=upper(:reference)
+              or upper(package.package_reference)=upper(:reference))
+            and 1=(select count(*) from cargo_packages match
+              where match.deleted_at is null and match.public_tracking_enabled=true
+                and (upper(match.tracking_id)=upper(:reference)
+                  or upper(match.package_reference)=upper(:reference)))
+          order by media.created_at desc,media.id desc limit 20"""), {
+            "reference": normalized,
+        }).mappings().all()
+        return [dict(row) for row in rows]
+
+
 def create_package_anomaly(org_id: str, package_id: str, user_id: str, payload: dict) -> dict | None:
     _ensure_schema()
     if not get_package(org_id, package_id):

@@ -99,7 +99,7 @@ def parcel_photos(org_id, package_id, page=1):
     where = f"{SCOPE} and p.id=cast(:package_id as uuid) and m.org_id=p.org_id and m.media_type='IMAGE' and m.object_path is not null"
     with engine.connect() as conn:
         total = conn.execute(text(f"select count(*) from package_media m join cargo_packages p on p.id=m.package_id where {where}"), params).scalar_one()
-        rows = conn.execute(text(f"""select m.id::text,m.file_name,m.caption,m.created_at
+        rows = conn.execute(text(f"""select m.id::text,m.file_name,m.caption,m.created_at,m.customer_visible
             from package_media m join cargo_packages p on p.id=m.package_id
             where {where} order by m.created_at desc,m.id desc limit 20 offset :offset"""), params).mappings()
         return {"items": [dict(row) for row in rows], "total": total, "page": page, "total_pages": ceil(total/20)}

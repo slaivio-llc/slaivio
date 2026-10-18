@@ -6,7 +6,7 @@ import { getPackageMediaUrl, uploadPackageMedia } from "@/services/packages";
 import type { ParcelOverview } from "@/services/parcel-register";
 import { ParcelEditForm, ParcelPhotos } from "./parcel-operations";
 
-vi.mock("@/services/api", () => ({ api: { get: vi.fn() } }));
+vi.mock("@/services/api", () => ({ api: { get: vi.fn(), patch: vi.fn() } }));
 vi.mock("@/services/packages", () => ({ uploadPackageMedia: vi.fn(), getPackageMediaUrl: vi.fn() }));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children }: { children: ReactNode }) => children }));
 
@@ -52,6 +52,16 @@ describe("Photos privées", () => {
     fireEvent.click(photo);
     expect(await screen.findByRole("img")).toHaveAttribute("referrerpolicy", "no-referrer");
     expect(getPackageMediaUrl).toHaveBeenCalledWith("parcel", "photo");
+  });
+  it("partage une photo avec le client uniquement après une action explicite", async () => {
+    vi.mocked(api.get).mockResolvedValue({ data: { items: [{ id: "photo", file_name: "carton.png", caption: null, customer_visible: false }], page: 1, total_pages: 1, total: 1 } });
+    vi.mocked(api.patch).mockResolvedValue({ data: { status: "ok", customer_visible: true } });
+    const changed = vi.fn().mockResolvedValue(undefined);
+    render(<ParcelPhotos item={item} changed={changed} busyChanged={vi.fn()}/>);
+    fireEvent.click(await screen.findByRole("button", { name: "Partager dans le suivi client" }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/packages/parcel/media/photo/customer-visibility", { customer_visible: true }));
+    expect(await screen.findByText("Photo maintenant visible dans le suivi client.")).toBeInTheDocument();
+    expect(changed).toHaveBeenCalledTimes(1);
   });
   it("signale les échecs partiels sans réenvoyer les photos réussies", async () => {
     vi.mocked(uploadPackageMedia).mockResolvedValueOnce({} as Awaited<ReturnType<typeof uploadPackageMedia>>).mockRejectedValueOnce(new Error("offline"));

@@ -54,7 +54,7 @@ export function ParcelEditForm({ item, saving, error, save, cancel }: {
   </form>;
 }
 
-type Photos = {items: {id:string;file_name:string;caption:string|null}[];page:number;total_pages:number;total:number};
+type Photos = {items: {id:string;file_name:string;caption:string|null;customer_visible:boolean}[];page:number;total_pages:number;total:number};
 export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: { item: ParcelOverview; changed: () => Promise<void>; busyChanged: (value: boolean) => void; disabled?: boolean }) {
   const [result,setResult]=useState<Photos|null>(null);
   const [error,setError]=useState("");const [notice,setNotice]=useState("");
@@ -93,13 +93,23 @@ export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: {
     catch(cause){setError(parcelError(cause));}
     finally{pending.current=false;setBusy(false);busyChanged(false);}
   }
+  async function toggleCustomerVisibility(photo:{id:string;customer_visible:boolean}){
+    if(disabled||pending.current)return;pending.current=true;setBusy(true);busyChanged(true);setError("");setNotice("");
+    try{
+      await api.patch(`/packages/${item.id}/media/${photo.id}/customer-visibility`,{customer_visible:!photo.customer_visible});
+      setNotice(!photo.customer_visible?"Photo maintenant visible dans le suivi client.":"Photo retirée du suivi client.");
+      setRevision(value=>value+1);
+      await changed();
+    }catch(cause){setError(parcelError(cause));}
+    finally{pending.current=false;setBusy(false);busyChanged(false);}
+  }
   return <section aria-label="Photos du colis" className="grid gap-3">
-    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Photos</h3><p className="mt-1 text-xs text-slate-500">Privées · visibles par les équipes autorisées.</p></div>
+    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Photos</h3><p className="mt-1 text-xs text-slate-500">Privées par défaut. Le partage client est explicite, photo par photo.</p></div>
       {item.local_client && <PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled} onClick={()=>input.current?.click()}><Upload size={14}/>Ajouter</OperationButton><input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" hidden aria-label="Ajouter des photos" onChange={event=>{const files=Array.from(event.target.files||[]);event.target.value="";void upload(files);}}/></PermissionGuard>}
     </div>
     {notice && <p role="status" className="text-xs text-slate-600">{notice}</p>}
     {error && <div role="alert" className="text-sm text-red-700">{error} <OperationButton aria-label="Actualiser les photos" disabled={busy||disabled} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={14}/></OperationButton></div>}
-    {!result&&!error?<p className="text-sm text-slate-500">Chargement des photos…</p>:result?.items.length?<ul className="grid gap-2 sm:grid-cols-2">{result.items.map(photo=><li key={photo.id}><button type="button" disabled={busy||disabled} onClick={()=>void view(photo.id,photo.caption||photo.file_name)} className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:bg-slate-50 disabled:opacity-50"><ImageIcon size={20} className="shrink-0 text-slate-400"/><span className="truncate text-xs">{photo.caption||photo.file_name}</span></button></li>)}</ul>:result&&<p className="text-sm text-slate-500">Aucune photo ajoutée.</p>}
+    {!result&&!error?<p className="text-sm text-slate-500">Chargement des photos…</p>:result?.items.length?<ul className="grid gap-2 sm:grid-cols-2">{result.items.map(photo=><li key={photo.id} className="rounded-xl border border-slate-200 p-3"><button type="button" disabled={busy||disabled} onClick={()=>void view(photo.id,photo.caption||photo.file_name)} className="flex w-full items-center gap-3 text-left disabled:opacity-50"><ImageIcon size={20} className="shrink-0 text-slate-400"/><span className="truncate text-xs">{photo.caption||photo.file_name}</span></button><PermissionGuard permission="packages.update"><button type="button" disabled={busy||disabled} aria-pressed={photo.customer_visible} onClick={()=>void toggleCustomerVisibility(photo)} className="mt-2 text-xs font-medium text-slate-600 underline underline-offset-2 disabled:opacity-50">{photo.customer_visible?"Retirer du suivi client":"Partager dans le suivi client"}</button></PermissionGuard></li>)}</ul>:result&&<p className="text-sm text-slate-500">Aucune photo ajoutée.</p>}
     {result&&result.total_pages>1&&<div className="flex justify-end gap-2"><OperationButton disabled={busy||disabled||page===1} onClick={()=>setPage(value=>value-1)}>Précédent</OperationButton><OperationButton disabled={busy||disabled||page>=result.total_pages} onClick={()=>setPage(value=>value+1)}>Suivant</OperationButton></div>}
     {preview&&<figure className="rounded-xl border border-slate-200 p-3">
       {/* Signed private URLs must not be forwarded to an image optimization proxy. */}

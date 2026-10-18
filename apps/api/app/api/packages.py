@@ -44,6 +44,8 @@ from app.packages.repository import (
     package_stats,
     package_timeline,
     public_package_tracking,
+    public_package_tracking_media,
+    set_package_media_customer_visibility,
     resolve_package_anomaly,
     update_package,
     move_package, weigh_package, add_package_note, set_package_checklist,
@@ -315,6 +317,10 @@ class PackageMediaPayload(BaseModel):
     caption: str | None = Field(default=None, max_length=220)
 
 
+class PackageMediaVisibilityPayload(BaseModel):
+    customer_visible: bool
+
+
 class PackageAnomalyPayload(BaseModel):
     anomaly_type: str = Field(default="OTHER", max_length=80)
     severity: str = "MEDIUM"
@@ -459,6 +465,22 @@ def packages_public_tracking(reference: str):
     package = public_package_tracking(reference)
     if not package:
         raise HTTPException(status_code=404, detail="tracking_not_found")
+    photos = []
+    try:
+        for media in public_package_tracking_media(reference):
+            try:
+                photos.append({
+                    "id": media["id"], "file_name": media["file_name"],
+                    "url": create_document_download_url(
+                        media["object_path"], 300, "package-media"
+                    ),
+                })
+            except RuntimeError:
+                # Tracking status remains available if object storage is degraded.
+                continue
+    except RuntimeError:
+        photos = []
+    package["customer_photos"] = photos
     return {"status": "ok", "tracking": package}
 
 @router.get("/packages/analytics", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
@@ -802,6 +824,19 @@ def packages_media_view(package_id:str,media_id:str,tenant=Depends(get_current_t
     try: url=create_document_download_url(media["object_path"],bucket_name="package-media")
     except RuntimeError as exc: raise HTTPException(status_code=503,detail=str(exc)) from exc
     return {"status":"ok","url":url,"expires_in":300}
+
+
+@router.patch("/packages/{package_id}/media/{media_id}/customer-visibility", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
+def packages_media_customer_visibility(
+    package_id: str, media_id: str, body: PackageMediaVisibilityPayload,
+    tenant=Depends(get_current_tenant),
+):
+    updated = set_package_media_customer_visibility(
+        tenant["org_id"], package_id, media_id, body.customer_visible, _user_id(tenant)
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="media_not_found")
+    return {"status": "ok", "customer_visible": body.customer_visible}
 
 @router.get("/packages/{package_id}/label/{kind}", dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_label(package_id:str,kind:str,tenant=Depends(get_current_tenant)):

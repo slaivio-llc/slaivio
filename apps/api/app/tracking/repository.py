@@ -149,11 +149,23 @@ def tracking_detail(org_id:str,tracking_id:str)->dict|None:
 def add_manual_event(org_id:str,expedition_id:str,user_id:str,payload:dict)->dict|None:
     if not get_expedition(org_id,expedition_id): return None
     with engine.begin() as conn:
-        conn.execute(text("""insert into expedition_events(org_id,expedition_id,event_type,title,description,metadata,actor_id,occurred_at,idempotency_key)
+        event=conn.execute(text("""insert into expedition_events(org_id,expedition_id,event_type,title,description,metadata,actor_id,occurred_at,idempotency_key)
           values(:org_id,:expedition_id,:event_type,:title,:description,cast(:metadata as jsonb),:actor_id,coalesce(:occurred_at,now()),:idempotency_key)
-          on conflict(org_id,expedition_id,idempotency_key) where idempotency_key is not null do nothing"""),
-          {"org_id":org_id,"expedition_id":expedition_id,"actor_id":user_id,"event_type":payload["event_type"],"title":payload["title"],"description":payload.get("description"),"metadata":json.dumps({"location":payload.get("location"),"latitude":payload.get("latitude"),"longitude":payload.get("longitude"),"source":"MANUAL_TRACKING"}),"occurred_at":payload.get("occurred_at"),"idempotency_key":payload.get("idempotency_key")})
-        conn.execute(text("""update cargo_expeditions set last_location=coalesce(:location,last_location),last_signal_at=now(),last_signal_source='MANUAL_TRACKING',updated_by=:user_id,updated_at=now() where org_id=:org_id and id=:expedition_id"""),{"org_id":org_id,"expedition_id":expedition_id,"location":payload.get("location"),"user_id":user_id})
+          on conflict(org_id,expedition_id,idempotency_key) where idempotency_key is not null do nothing
+          returning id"""),
+          {"org_id":org_id,"expedition_id":expedition_id,"actor_id":user_id,"event_type":payload["event_type"],"title":payload["title"],"description":payload.get("description"),"metadata":json.dumps({"location":payload.get("location"),"latitude":payload.get("latitude"),"longitude":payload.get("longitude"),"source":"MANUAL_TRACKING"}),"occurred_at":payload.get("occurred_at"),"idempotency_key":payload.get("idempotency_key")}).first()
+        # A replay is not a new tracking signal. Historical events also must not
+        # move the current location/signal clock backwards or make it look fresh.
+        if event:
+            conn.execute(text("""update cargo_expeditions set
+              last_location=case when last_signal_at is null or coalesce(cast(:occurred_at as timestamptz),now())>=last_signal_at
+                then coalesce(:location,last_location) else last_location end,
+              last_signal_at=greatest(coalesce(last_signal_at,'-infinity'::timestamptz),coalesce(cast(:occurred_at as timestamptz),now())),
+              last_signal_source=case when last_signal_at is null or coalesce(cast(:occurred_at as timestamptz),now())>=last_signal_at
+                then 'MANUAL_TRACKING' else last_signal_source end,
+              updated_by=:user_id,updated_at=now()
+              where org_id=:org_id and id=:expedition_id"""),{"org_id":org_id,"expedition_id":expedition_id,
+                "location":payload.get("location"),"occurred_at":payload.get("occurred_at"),"user_id":user_id})
     return tracking_detail(org_id,expedition_id)
 
 def disable_public_token(org_id:str,expedition_id:str,user_id:str)->dict|None:

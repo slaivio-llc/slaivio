@@ -35,10 +35,21 @@ function failure(cause:unknown){
 
 reasons.quality_review_required="Contrôle qualité bloquant à résoudre";
 
-export function FreightWorkflow({item,saved,onPlan=()=>undefined,onCancel=()=>undefined,onManifest=()=>undefined}:{item:Shipment;saved:()=>void;onPlan?:()=>void;onCancel?:()=>void;onManifest?:()=>void}){
+export function FreightWorkflow({item,saved,onPlan=()=>undefined,onCancel=()=>undefined,onManifest=()=>undefined,compact=false}:{item:Shipment;saved:()=>void;onPlan?:()=>void;onCancel?:()=>void;onManifest?:()=>void;compact?:boolean}){
   const [action,setAction]=useState<"load"|"remove"|"depart"|"arrive"|"delay"|null>(null);
   if(item.workflow_version!==2)return <p className="mb-5 text-xs text-amber-800">Expédition historique : consultation disponible. Sa reprise doit être vérifiée avant d’utiliser les nouvelles commandes.</p>;
   if(item.stage==="other")return item.status==="CANCELLED"?<span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">Expédition annulée</span>:null;
+  if(compact)return <div className="flex flex-wrap items-center gap-2" aria-label="Actions disponibles">
+    {item.stage==="planned"&&<PermissionGuard permission="shipments.update"><OperationButton onClick={()=>setAction("load")}><PackagePlus size={14}/>Ajouter</OperationButton></PermissionGuard>}
+    {item.stage==="planned"&&<PermissionGuard permission="shipments.update"><OperationButton variant="primary" disabled={!item.packages_count} onClick={()=>setAction("depart")}><Plane size={14}/>Confirmer départ</OperationButton></PermissionGuard>}
+    {item.stage==="departed"&&<PermissionGuard permission="shipments.update"><OperationButton variant="primary" onClick={()=>setAction("arrive")}><PlaneLanding size={14}/>Confirmer arrivée</OperationButton></PermissionGuard>}
+    <details className="relative"><summary aria-label="Autres actions" className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-md border border-slate-200 text-lg text-slate-700 hover:bg-slate-50">…</summary><div className="absolute right-0 top-full z-20 mt-1 grid min-w-52 gap-1 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">
+      {item.stage==="planned"&&<PermissionGuard permission="shipments.update"><><button type="button" className="rounded px-3 py-2 text-left text-xs hover:bg-slate-50" onClick={onPlan}>Modifier le départ prévu</button>{!!item.packages_count&&<button type="button" className="rounded px-3 py-2 text-left text-xs hover:bg-slate-50" onClick={()=>setAction("remove")}>Retirer des colis</button>}<button type="button" className="rounded px-3 py-2 text-left text-xs text-red-700 hover:bg-red-50" onClick={onCancel}>Annuler l’expédition</button></></PermissionGuard>}
+      {item.stage==="departed"&&<PermissionGuard permission="shipments.update"><button type="button" className="rounded px-3 py-2 text-left text-xs hover:bg-slate-50" onClick={()=>setAction("delay")}>{item.is_delayed?"Résoudre le retard":"Signaler un retard"}</button></PermissionGuard>}
+      {item.stage==="arrived"&&<span className="px-3 py-2 text-xs text-slate-500">Aucune autre action disponible</span>}
+    </div></details>
+    {action==="load"?<Loading item={item} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>:action==="remove"?<Unloading item={item} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>:action==="delay"?<Delay item={item} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>:action&&<Milestone item={item} action={action} close={()=>setAction(null)} saved={()=>{setAction(null);saved();}}/>}
+  </div>;
   return <div className="flex flex-wrap items-center gap-2" aria-label="Actions disponibles">
     {item.stage==="planned"&&<PermissionGuard permission="shipments.update"><>
       <OperationButton onClick={onPlan}><CalendarClock size={14}/>Modifier le départ prévu</OperationButton>

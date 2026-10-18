@@ -19,7 +19,7 @@ PACKAGES = """from expedition_packages ep
 def require_shipment(conn, org_id, shipment_id, lock=False):
     row = conn.execute(text(f"""select e.id::text,e.expedition_reference as reference,
         e.status,({STAGE}) as stage,e.origin_city,e.origin_country,e.destination_city,e.destination_country,
-        e.route_label,e.planned_departure_at,e.departed_at,e.arrived_at,e.is_delayed,e.delay_reason,
+        e.route_label,e.planned_departure_at,e.departed_at,e.arrived_at,e.is_delayed,e.delay_reason,e.mode,e.service_type,
         e.created_at,e.workflow_version,e.route_id::text,e.shipping_service_id::text,
         e.shipment_row_version as version from cargo_expeditions e where {SCOPE}
         {'for update' if lock else ''}"""), {'org_id': org_id, 'id': shipment_id}).mappings().first()
@@ -32,6 +32,7 @@ def overview(org_id, shipment_id):
     with engine.connect() as conn:
         result = require_shipment(conn, org_id, shipment_id)
         totals = conn.execute(text(f"""select count(*) as packages_count,
+            count(distinct p.client_id)::int as clients_count,
             count(p.weight_kg) as weighed_count,sum(p.weight_kg) as known_weight_kg
             {PACKAGES} where {SCOPE} and ep.removed_at is null and p.deleted_at is null"""),
             {'org_id': org_id, 'id': shipment_id}).mappings().one()

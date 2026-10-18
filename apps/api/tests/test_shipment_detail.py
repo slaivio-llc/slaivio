@@ -21,7 +21,7 @@ def database(monkeypatch, **overrides):
         statements.append((str(statement), params))
         result = MagicMock()
         result.mappings.return_value.first.return_value = row
-        result.mappings.return_value.one.return_value = {'packages_count':3,'weighed_count':0,'known_weight_kg':None}
+        result.mappings.return_value.one.return_value = {'packages_count':3,'clients_count':2,'weighed_count':0,'known_weight_kg':None}
         result.mappings.return_value.__iter__.return_value = iter([])
         result.scalar_one.return_value = 51
         return result
@@ -37,7 +37,9 @@ def test_overview_preserves_unknown_weight(monkeypatch):
     result = detail.overview('office','shipment')
     assert result['known_weight_kg'] is None
     assert result['weighed_count'] == 0
+    assert result['clients_count'] == 2
     assert 'sum(p.weight_kg)' in statements[-1][0]
+    assert 'count(distinct p.client_id)' in statements[-1][0]
     assert 'coalesce' not in statements[-1][0]
 
 

@@ -1,4 +1,7 @@
 from pathlib import Path
+from unittest.mock import MagicMock
+
+from app.db import notification_repository
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -68,6 +71,26 @@ def test_campaign_dispatch_states_follow_outbox_and_provider_acknowledgements():
     assert "where org_id=:org_id and notification_id=cast(:notification_id as uuid)" in repo
     assert "where r.org_id=:org_id and r.notification_id=:notification_id" in delivery
     assert "when r.status='READ' then 'READ'" in delivery
+
+
+def test_campaign_outbox_insert_uses_the_callers_transaction():
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value._mapping = {"id": "notification-id"}
+
+    result = notification_repository.create_notification_outbox(
+        org_id="agency", client_id="client", dossier_id=None,
+        recipient_phone="+123456789", notification_type="BROADCAST:INFO",
+        message="Message", connection=connection,
+    )
+
+    connection.execute.assert_called_once()
+    connection.commit.assert_not_called()
+    assert result == {"id": "notification-id"}
+
+
+def test_broadcast_queue_creates_outbox_inside_recipient_claim_transaction():
+    repository = read("apps/api/app/db/broadcast_repository.py")
+    assert "channel=r['channel'].lower(),connection=c" in repository
 
 
 def test_campaign_start_uses_python_none_semantics():

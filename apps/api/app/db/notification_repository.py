@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from app.db.database import engine
 from app.core.config import settings
+from contextlib import nullcontext
 import json
 
 
@@ -13,8 +14,10 @@ def create_notification_outbox(
     notification_type: str,
     message: str,
     channel: str = "whatsapp",
+    *,
+    connection=None,
 ):
-    with engine.connect() as conn:
+    with (nullcontext(connection) if connection is not None else engine.connect()) as conn:
         result = conn.execute(
             text("""
                 insert into notification_outbox (
@@ -48,7 +51,8 @@ def create_notification_outbox(
             },
         )
 
-        conn.commit()
+        if connection is None:
+            conn.commit()
 
         row = result.fetchone()
 

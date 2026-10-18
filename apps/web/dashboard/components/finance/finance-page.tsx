@@ -6,7 +6,8 @@ import { FinanceDuePolicySettings } from "./finance-due-policy-settings";
 import { PaymentReverseButton } from "./finance-completion-actions";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronRight, Download, Plus, RefreshCcw } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BarChart3, ChevronRight, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Settings, Users } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -110,8 +111,7 @@ export function FinancePage() {
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [create, setCreate] = useState(false),
-    [policySettings, setPolicySettings] = useState(false),
-    [section, setSection] = useState<"overview" | "invoices" | "payments" | "balances" | "settings">("overview"),
+    [section, setSection] = useState<"home" | "overview" | "invoices" | "payments" | "balances" | "settings">("home"),
     [paymentRows, setPaymentRows] = useState<FinancePaymentRow[]>([]),
     [balanceRows, setBalanceRows] = useState<FinanceBalanceRow[]>([]),
     [currency, setCurrency] = useState(""),
@@ -124,20 +124,17 @@ export function FinancePage() {
     const requested = searchParams.get("section");
     if (requested === "overview" || requested === "invoices" || requested === "payments" || requested === "balances" || requested === "settings") {
       setSection(requested);
-      setPolicySettings(requested === "settings");
     } else if (requested === null) {
-      setSection("overview");
-      setPolicySettings(false);
+      setSection("home");
     }
   }, [searchParams]);
   function selectSection(next: "overview" | "invoices" | "payments" | "balances" | "settings") {
     setSection(next);
     setStatus(""); setKind(""); setActiveMetric("");
-    if (next === "settings") setPolicySettings(true);
-    else setPolicySettings(false);
-    router.replace(next === "overview" ? "/app/finance" : `/app/finance?section=${next}`, { scroll: false });
+    router.replace(`/app/finance?section=${next}`, { scroll: false });
   }
   const load = useCallback(async () => {
+    if (section === "home" || section === "settings") { setLoading(false); return; }
     setLoading(true);
     setError("");
     try {
@@ -200,16 +197,14 @@ export function FinancePage() {
     a.click();
     URL.revokeObjectURL(u);
   }
+  if (section === "settings") return <PermissionGuard permission="finance.settings"><FinanceDuePolicySettings/></PermissionGuard>;
   return (
     <div className="min-h-full bg-white">
       <OperationPageHeader
         title="Finance"
         description="Suivez les montants à payer, les paiements reçus, les soldes clients, les factures et les reçus."
-        actions={
+        actions={section !== "home" ? (
           <>
-            <PermissionGuard permission="finance.settings">
-              <button className={button} onClick={() => setPolicySettings(true)}>Conditions de paiement</button>
-            </PermissionGuard>
             <PermissionGuard permission="finance.export">
               <button className={button} onClick={download}>
                 <Download size={15} />
@@ -223,12 +218,11 @@ export function FinancePage() {
               </button>
             </PermissionGuard>
           </>
-        }
+        ) : undefined}
       />
-      <main>
+      {section === "home" ? <FinanceModuleHome/> : <main>
         <nav aria-label="Sections Finance" className="flex gap-1 overflow-x-auto border-b border-[#e6e8e9] px-6">
           {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>selectSection(key)} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section===key?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>{label}</button>)}
-          <PermissionGuard permission="finance.settings"><button type="button" aria-current={section==="settings"?"page":undefined} onClick={()=>selectSection("settings")} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section==="settings"?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>Paramètres</button></PermissionGuard>
         </nav>
         {section === "overview" && <OperationMetrics>
         <OperationMetricGrid>
@@ -316,7 +310,7 @@ export function FinancePage() {
           )}
         </OperationTable>
         </OperationContent>
-      </main>
+      </main>}
       {create && (
         <CreateModal
           close={() => setCreate(false)}
@@ -327,7 +321,6 @@ export function FinancePage() {
           }}
         />
       )}
-      <FinanceDuePolicySettings open={policySettings} close={() => setPolicySettings(false)} />
       {selected && (
         <Detail
           key={selected.id}
@@ -342,6 +335,17 @@ export function FinancePage() {
       )}
     </div>
   );
+}
+
+function FinanceModuleHome() {
+  const cards = [
+    { label: "Vue d’ensemble", description: "Indicateurs, activité récente et filtres de période.", href: "/app/finance?section=overview", icon: BarChart3, permission: "finance.read" },
+    { label: "Factures", description: "Créer, émettre et consulter les factures de l’agence.", href: "/app/finance?section=invoices", icon: ReceiptText, permission: "finance.read" },
+    { label: "Paiements", description: "Enregistrer et suivre les paiements manuels reçus.", href: "/app/finance?section=payments", icon: HandCoins, permission: "finance.read" },
+    { label: "Soldes clients", description: "Consulter les montants facturés, réglés et exigibles.", href: "/app/finance?section=balances", icon: Users, permission: "finance.read" },
+    { label: "Paramètres financiers", description: "Règles d’exigibilité et conditions de paiement.", href: "/app/finance?section=settings", icon: Settings, permission: "finance.settings" },
+  ];
+  return <OperationContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(({label,description,href,icon:Icon,permission})=><PermissionGuard key={href} permission={permission}><Link href={href} className="group min-h-[138px] rounded-[9px] border border-[#dfe3e7] p-5 transition-colors hover:border-[#b9c6c0] hover:bg-[#fbfcfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ccdb8]"><div className="flex items-center justify-between"><span className="grid h-9 w-9 place-items-center rounded-[8px] bg-[#eef6f2] text-[#16704b]"><Icon size={18}/></span><ArrowRight size={16} className="text-[#9aa2a9] group-hover:text-[#16704b]"/></div><h2 className="mt-4 text-[14px] font-semibold text-[#30373d]">{label}</h2><p className="mt-1 text-[12px] leading-5 text-[#747e86]">{description}</p></Link></PermissionGuard>)}</OperationContent>;
 }
 function CreateModal({ close, done }: { close: () => void; done: (document?: FinanceDocument) => void | Promise<void> }) {
   const [clients, setClients] = useState<ClientRecord[]>([]),

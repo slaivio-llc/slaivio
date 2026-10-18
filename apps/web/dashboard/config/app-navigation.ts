@@ -128,38 +128,23 @@ export const parcelFreightNavigation: readonly AppNavigationGroup[] = [
 
 // Cargo workspace navigation: modules are grouped by the daily agency workflow.
 export const cargoAgencyNavigation: readonly AppNavigationGroup[] = [
-  { label: "Opérations", icon: Package, collapsible: true, routes: [
-    { label: "Colis", href: "/app/packages", icon: Package, keywords: ["colis", "poids", "destination", "statut"] },
-    { label: "Expéditions", href: "/app/shipments", icon: Truck, permission: "shipments.read", keywords: ["expédition", "départ", "manifeste", "transport"] },
-    { label: "Départs", href: "/app/departures", icon: Truck, permission: "shipments.read", keywords: ["départ", "calendrier"] },
-    { label: "Tracking", href: "/app/tracking", icon: Radar, permission: "tracking.read", keywords: ["tracking", "suivi", "statut"] },
-    { label: "Entrepôts", href: "/app/warehouses", icon: Warehouse, permission: "warehouses.read", keywords: ["entrepôt", "stock", "bureau"] },
+  { label: "Opérations", icon: Package, collapsible: false, routes: [
+    { label: "Opérations", href: "/app/operations", icon: Package, keywords: ["colis", "expédition", "départ", "tracking", "entrepôt"] },
   ] },
   { label: "Clients", icon: Users, collapsible: false, routes: [
     { label: "Clients", href: "/app/clients", icon: Users, permission: "clients.read", keywords: ["client", "historique", "contact"] },
   ] },
-  { label: "Communication", icon: MessageCircle, collapsible: true, routes: [
-    { label: "Boîte de réception", href: "/app/inbox", icon: MessageCircle, permission: "inbox.read", keywords: ["whatsapp", "message", "conversation"] },
-    { label: "Notifications", href: "/app/notifications", icon: BellRing, permission: "notifications.read", keywords: ["notification", "alerte"] },
-    { label: "Annonces & Relances", href: "/app/communication/annonces-relances", icon: Megaphone, keywords: ["annonce", "campagne", "relance", "whatsapp"] },
-    { label: "Connaissances", href: "/app/knowledge", icon: BookOpen, permission: "pilot.knowledge.read", keywords: ["connaissance", "fichier", "image", "ia"] },
-    { label: "Paramètres", href: "/app/communication/settings", icon: Settings, permission: "pilot.settings.read", keywords: ["communication", "whatsapp", "canal", "ia"] },
+  { label: "Communication", icon: MessageCircle, collapsible: false, routes: [
+    { label: "Communication", href: "/app/communication", icon: MessageCircle, keywords: ["whatsapp", "message", "annonces", "relances", "connaissances", "paramètres"] },
   ] },
-  { label: "Finance", icon: ReceiptText, collapsible: true, routes: [
-    { label: "Vue d’ensemble", href: "/app/finance?section=overview", icon: BarChart3, permission: "finance.read", keywords: ["indicateurs", "aperçu"] },
-    { label: "Factures", href: "/app/finance?section=invoices", icon: ReceiptText, permission: "finance.read", keywords: ["facture", "devis"] },
-    { label: "Paiements", href: "/app/finance?section=payments", icon: HandCoins, permission: "finance.read", keywords: ["paiement", "reçu", "encaissement"] },
-    { label: "Soldes clients", href: "/app/finance?section=balances", icon: BadgeDollarSign, permission: "finance.read", keywords: ["solde", "créance", "client"] },
-    { label: "Paramètres", href: "/app/finance?section=settings", icon: Settings, permission: "finance.settings", keywords: ["condition", "exigibilité", "paiement"] },
+  { label: "Finance", icon: ReceiptText, collapsible: false, routes: [
+    { label: "Finance", href: "/app/finance", icon: ReceiptText, permission: "finance.read", keywords: ["vue d’ensemble", "factures", "paiements", "soldes clients", "paramètres"] },
   ] },
-  { label: "Rapports", icon: BarChart3, collapsible: true, routes: [
+  { label: "Rapports", icon: BarChart3, collapsible: false, routes: [
     { label: "Rapports", href: "/app/reports", icon: BarChart3, permission: "analytics.read", keywords: ["rapport", "analytics", "performance", "export"] },
   ] },
-  { label: "Gestion", icon: Settings, collapsible: true, routes: [
-    { label: "Organisation et équipe", href: "/app/settings", icon: Building2, permission: "organization.read", keywords: ["organisation", "agence", "bureau", "équipe", "accès"] },
-    { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "trajet", "origine", "destination"] },
-    { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "transport", "offre"] },
-    { label: "Tarification", href: "/app/pricing", icon: BadgeDollarSign, permission: "pricing.read", keywords: ["tarif", "grille", "prix", "simulateur"] },
+  { label: "Gestion", icon: Settings, collapsible: false, routes: [
+    { label: "Gestion", href: "/app/management", icon: Settings, keywords: ["organisation", "équipe", "routes", "services", "tarification"] },
   ] },
 ];
 
@@ -241,17 +226,11 @@ export function getCompactPrimaryRoutes(
         "/app/operations",
         "/app/communication",
         "/app/finance",
-        "/app/pricing",
+        "/app/management",
       ])
     : new Set(["/app/dossiers", "/app/inbox", "/app/followups", "/app/knowledge"]);
 
-  return routes
-    .filter((route) => visibleHrefs.has(route.href))
-    .map((route) =>
-      profile === PRODUCT_PROFILES.PARCEL_FREIGHT && route.href === "/app/pricing"
-        ? { ...route, label: "Offre commerciale" }
-        : route,
-    );
+  return routes.filter((route) => visibleHrefs.has(route.href));
 }
 
 export const appNavigation = getAppNavigation();

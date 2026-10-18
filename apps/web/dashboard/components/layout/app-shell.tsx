@@ -300,7 +300,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         {cargo && <div className="mt-auto shrink-0 border-t border-[#e8eaed] p-2.5">
-          {permissionsAvailable && permissions.includes("organization.read") && <CargoUtilityButton label={dashboardLabel(locale, "Paramètres généraux")} icon={<Settings size={17}/>} active={pathname === "/app/settings" && !searchParams.has("section")} onClick={() => router.push("/app/settings")} />}
           <CargoUtilityButton label={dashboardLabel(locale, "Aide & Support")} icon={<CircleHelp size={17}/>} active={Boolean(supportView)} onClick={() => { setFloatingPanel(null); setSupportView("topics"); }} />
           <CargoUtilityButton label={dashboardLabel(locale, "Mon compte")} icon={<UserRound size={17}/>} active={floatingPanel === "account"} onClick={() => togglePanel("account")} />
         </div>}

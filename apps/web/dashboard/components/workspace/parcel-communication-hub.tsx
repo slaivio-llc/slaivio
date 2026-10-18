@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowRight, BellRing, BookOpen, MessageCircle } from "lucide-react";
+import { ArrowRight, BellRing, BookOpen, MessageCircle, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { OperationContent } from "@/components/ui/operation-primitives";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
+import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { listFollowups, type FollowupStats } from "@/services/followups";
 import { getPilotSettings, type PilotSettingsData } from "@/services/organization-admin";
 
@@ -19,6 +20,8 @@ export function ParcelCommunicationHub(){
     <ModuleCard href="/app/inbox" icon={<MessageCircle size={18}/>} title="Messagerie WhatsApp" value={connected?"Connecté":"À connecter"} detail="Conversations clients, réponses automatiques et reprise manuelle." loading={loading}/>
     <ModuleCard href="/app/communication/annonces-relances" icon={<BellRing size={18}/>} title="Annonces et relances" value={String((followups?.due_today??0)+(followups?.overdue??0))} detail={`${followups?.due_today??0} aujourd’hui · ${followups?.overdue??0} en retard`} loading={loading}/>
     <ModuleCard href="/app/knowledge" icon={<BookOpen size={18}/>} title="Connaissances" value={String(settings?.knowledge.whatsapp_ready_count??0)} detail="Informations publiées et utilisables par l’IA avec les clients." loading={loading}/>
+    <PermissionGuard permission="notifications.read"><ModuleCard href="/app/notifications" icon={<BellRing size={18}/>} title="Notifications" value="Consulter" detail="Alertes opérationnelles qui nécessitent l’attention de l’équipe." loading={false}/></PermissionGuard>
+    <PermissionGuard permission="pilot.settings.read"><ModuleCard href="/app/communication/settings" icon={<Settings size={18}/>} title="Paramètres de communication" value="Configurer" detail="Canaux, règles de réponse IA et préférences de notification." loading={false}/></PermissionGuard>
   </OperationContent></div>;
 }
 

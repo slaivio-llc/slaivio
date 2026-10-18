@@ -36,31 +36,22 @@ describe("product navigation", () => {
   it("organizes parcel and freight modules in the Cargo sidebar", () => {
     const routes = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT).flatMap((group) => group.routes);
 
-    expect(routes.some((route) => route.href === "/app/tracking")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/communication/annonces-relances")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/communication/settings")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/operations")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/communication")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/management")).toBe(true);
     expect(routes.some((route) => route.href === "/app/settings?section=integrations")).toBe(false);
     expect(routes.some((route) => route.href === "/app/dossiers")).toBe(false);
     expect(routes.some((route) => route.href === "/app/reports")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/services")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/routes")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/finance?section=overview")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/finance?section=invoices")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/finance?section=payments")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/finance?section=balances")).toBe(true);
-    expect(routes.some((route) => route.href === "/app/finance?section=settings")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/services")).toBe(false);
+    expect(routes.some((route) => route.href === "/app/routes")).toBe(false);
+    expect(routes.some((route) => route.href === "/app/finance")).toBe(true);
     const operations = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT)
       .find((group) => group.label === "Opérations");
-    expect(operations?.routes.some((route) => route.href === "/app/tracking")).toBe(true);
-    expect(operations?.routes.map((route) => route.href)).toEqual([
-      "/app/packages",
-      "/app/shipments",
-      "/app/departures",
-      "/app/tracking",
-    ]);
+    expect(operations?.collapsible).toBe(false);
+    expect(operations?.routes.map((route) => route.href)).toEqual(["/app/operations"]);
   });
 
-  it("keeps agency settings in the bottom utility rail, not the compact navigation", () => {
+  it("keeps module navigation at the top level, not individual settings pages", () => {
     const routes = getCompactPrimaryRoutes(
       getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT).flatMap((group) => group.routes),
       PRODUCT_PROFILES.PARCEL_FREIGHT,
@@ -69,7 +60,7 @@ describe("product navigation", () => {
     expect(routes.map((route) => route.href)).not.toContain("/app/settings");
     expect(routes.map((route) => route.href)).not.toContain("/app/services");
     expect(routes.map((route) => route.href)).not.toContain("/app/routes");
-    expect(routes.find((route) => route.href === "/app/pricing")?.label).toBe("Offre commerciale");
+    expect(routes.some((route) => route.href === "/app/management")).toBe(true);
   });
 
   it("distinguishes warehouse operations from office finance", () => {
@@ -77,7 +68,7 @@ describe("product navigation", () => {
     const warehouse = getAppNavigation(PRODUCT_PROFILES.PARCEL_FREIGHT, "WAREHOUSE").flatMap(group => group.routes);
     expect(office.some(route => route.href === "/app/warehouses")).toBe(false);
     expect(office.some(route => route.href.startsWith("/app/finance"))).toBe(true);
-    expect(warehouse.some(route => route.href === "/app/warehouses")).toBe(true);
+    expect(warehouse.some(route => route.href === "/app/operations")).toBe(true);
     expect(warehouse.some(route => route.href === "/app/finance")).toBe(false);
   });
 

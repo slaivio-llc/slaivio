@@ -119,8 +119,9 @@ export function PilotSettingsPage({scope="all"}:{scope?:"all"|"communication"}) 
   if (!data) return <ErrorState title="Paramètres indisponibles" description={error} retry={load} />;
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader divider={false} title={scope==="communication"?"Paramètres de communication":dashboardLabel(locale, "Paramètres")} description={scope==="communication"?"Gérez les canaux, les réponses IA et les préférences de notification de Communication.":dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>
+    <OperationPageHeader divider={false} backHref={scope==="communication"?"/app/communication/settings":undefined} title={scope==="communication"?"Paramètres de communication":dashboardLabel(locale, "Paramètres")} description={scope==="communication"?"Gérez les canaux, les réponses IA et les préférences de notification de Communication.":dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>
       <main className="mx-auto min-w-0 w-full max-w-[1200px] px-6 pb-10 sm:px-8">
+        {scope !== "communication" && <>
         <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map(([key, label]) => {
             const active = section === key;
@@ -133,6 +134,7 @@ export function PilotSettingsPage({scope="all"}:{scope?:"all"|"communication"}) 
             >{dashboardLabel(locale, label)}</button>;
           })}
         </nav>
+        </>}
         <div className="pilot-settings-content">
           {notice && <div data-ui="settings-notice" className="mb-5 rounded-[8px] border border-[#bfe6d2] bg-[#f0faf5] px-4 py-3 text-[13px] text-[#176142]">{notice}</div>}
           {error && <div data-ui="settings-notice" className="mb-5 rounded-[8px] border border-[#efd0cc] bg-[#fff6f5] px-4 py-3 text-[13px] text-[#9d352d]">{error}</div>}

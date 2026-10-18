@@ -1364,7 +1364,7 @@ export function ClientFormModal({
       description={parcelFreight ? "Ajouter un client au répertoire." : "Renseignez les informations disponibles."}
       close={onClose}
       placement="center"
-      width={parcelFreight ? "max-w-md" : "max-w-3xl"}
+      width="max-w-3xl"
       footer={
         <>
           <OperationButton type="button" onClick={onClose} disabled={saving}>Annuler</OperationButton>

@@ -725,7 +725,8 @@ def expedition_stats(org_id: str) -> dict:
                          and status not in ('ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP',
                            'OUT_FOR_DELIVERY','DELIVERED','CANCELLED','ARCHIVED')))::int arrivals_today,
                     count(*) filter (where is_delayed = true or status = 'BLOCKED')::int delayed,
-                    coalesce(round(100.0 * count(*) filter (where status = 'DELIVERED') / nullif(count(*), 0), 1), 0) delivery_rate,
+                    coalesce(round(100.0 * count(*) filter (where status = 'DELIVERED') /
+                        nullif(count(*) filter (where status not in ('DRAFT','CANCELLED','ARCHIVED')), 0), 1), 0) delivery_rate,
                     coalesce(sum(total_weight_kg), 0) total_weight_kg,
                     coalesce(sum(total_volume_cbm), 0) total_volume_cbm
                 from cargo_expeditions

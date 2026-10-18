@@ -131,3 +131,10 @@ def test_expedition_arrival_kpi_does_not_count_stale_eta_after_arrival():
     assert "arrived_at is null and eta_at::date = current_date" in stats
     assert "'ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP'" in stats
     assert "deleted_at is null" in stats
+
+def test_expedition_delivery_rate_excludes_drafts_and_cancelled_rows():
+    source=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
+    stats=source.split("def expedition_stats(",1)[1].split("def expedition_analytics(",1)[0]
+    assert "count(*) filter (where status = 'DELIVERED')" in stats
+    assert "count(*) filter (where status not in ('DRAFT','CANCELLED','ARCHIVED'))" in stats
+    assert "archived_at is null and deleted_at is null" in stats

@@ -728,13 +728,15 @@ function ShipmentAnalyticsView({ data }: { data: ShipmentAnalytics | null }) {
         Analytics indisponibles.
       </div>
     );
-  const delivered = data.summary.delivered || 0;
-  const etaRate = Math.round((data.summary.on_time / delivered) * 100) || 0;
+  const deliveredWithEta = data.summary.delivered_with_eta;
+  const etaRate = deliveredWithEta > 0
+    ? `${Math.round((data.summary.on_time / deliveredWithEta) * 100)}%`
+    : "—";
   const groups: [
     [string, string | number],
     ...Array<[string, string | number]>,
   ] = [
-    ["Respect des ETA", `${etaRate}%`],
+    ["Respect des ETA", etaRate],
     [
       "Transit moyen",
       data.summary.average_transit_hours == null

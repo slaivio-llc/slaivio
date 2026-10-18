@@ -20,7 +20,8 @@ def require_shipment(conn, org_id, shipment_id, lock=False):
     row = conn.execute(text(f"""select e.id::text,e.expedition_reference as reference,
         e.status,({STAGE}) as stage,e.origin_city,e.origin_country,e.destination_city,e.destination_country,
         e.route_label,e.planned_departure_at,e.departed_at,e.arrived_at,e.is_delayed,e.delay_reason,
-        e.workflow_version,e.route_id::text,e.shipment_row_version as version from cargo_expeditions e where {SCOPE}
+        e.workflow_version,e.route_id::text,e.shipping_service_id::text,
+        e.shipment_row_version as version from cargo_expeditions e where {SCOPE}
         {'for update' if lock else ''}"""), {'org_id': org_id, 'id': shipment_id}).mappings().first()
     if not row:
         raise HTTPException(404, 'shipment_not_found')

@@ -12,11 +12,13 @@ from app.expeditions import workflow
 def shipment(**values):
     return dict(id='shipment', reference='EXP-1', workflow_version=2, version=3,
                 stage='planned', status='PREPARING', departed_at=None, arrived_at=None,
-                route_id='route', destination_city='Kinshasa', destination_country='CD', **values)
+                route_id='route', shipping_service_id='service',
+                destination_city='Kinshasa', destination_country='CD', **values)
 
 
 def parcel(**values):
     result = dict(id='parcel', org_id='office', status='RECEIVED', route_id='route',
+                  shipping_service_id='service',
                   client_id='client', destination_city='Kinshasa', destination_country='CD',
                   fees_total=100, fees_paid=100, payment_status='PAID', deleted_at=None)
     result.update(values)
@@ -60,6 +62,7 @@ def test_editable_rejects_unsafe_state(change,code):
 
 @pytest.mark.parametrize('change,reason', [({'status':'CONFIRMED'},'parcel_not_received'),
     ({'client_id':None},'client_missing'),({'route_id':'other'},'route_mismatch'),
+    ({'shipping_service_id':'other-service'},'service_mismatch'),
     ({'destination_city':'Other'},'destination_mismatch'),({'other_assignment':True},'already_assigned'),
     ({'departure_assignment':True},'already_assigned'),({'validation_status':'BLOCKED'},'quality_review_required')])
 def test_eligibility(change,reason):
@@ -81,6 +84,16 @@ def test_already_assigned_conflict_does_not_write(monkeypatch):
     _, statements, events, _, _=database(monkeypatch,assigned=['other'])
     with pytest.raises(HTTPException) as exc: workflow.loading('office','shipment','actor',3,['parcel'])
     assert exc.value.status_code==409
+    assert not any(sql.startswith(('update','insert')) for sql,_ in statements)
+    events.assert_not_called()
+
+
+def test_service_mismatch_is_rejected_before_assignment_writes(monkeypatch):
+    _, statements, events, _, _=database(monkeypatch,parcels=[parcel(shipping_service_id='other-service')])
+    with pytest.raises(HTTPException) as exc:
+        workflow.loading('office','shipment','actor',3,['parcel'])
+    assert exc.value.status_code==409
+    assert exc.value.detail['reasons']==['service_mismatch']
     assert not any(sql.startswith(('update','insert')) for sql,_ in statements)
     events.assert_not_called()
 

@@ -35,6 +35,12 @@ def compatible(shipment, package):
         reasons.append('client_missing')
     if not shipment.get('route_id') or str(package.get('route_id') or '') != shipment['route_id']:
         reasons.append('route_mismatch')
+    # Legacy packages/shipments without a selected service remain compatible;
+    # when both are known, prevent mixing services in one shipment.
+    shipment_service = shipment.get('shipping_service_id')
+    package_service = package.get('shipping_service_id')
+    if shipment_service and package_service and str(shipment_service) != str(package_service):
+        reasons.append('service_mismatch')
     for field in ('destination_country','destination_city'):
         if str(shipment.get(field) or '').strip().casefold() != str(package.get(field) or '').strip().casefold():
             reasons.append('destination_mismatch')
@@ -57,7 +63,8 @@ def candidates(org_id, shipment_id, q='', page=1):
         joins = 'from cargo_packages p left join clients c on c.id=p.client_id and c.org_id=p.org_id'
         total = conn.execute(text(f'select count(*) {joins} where {where}'),params).scalar_one()
         rows = conn.execute(text(f"""select p.id::text,p.package_reference as reference,p.client_id::text,
-          c.name as client_name,p.status,p.validation_status,p.route_id::text,p.destination_city,p.destination_country,
+          c.name as client_name,p.status,p.validation_status,p.route_id::text,p.shipping_service_id::text,
+          p.destination_city,p.destination_country,
           exists(select 1 from expedition_packages ep where ep.org_id=p.org_id and ep.package_id=p.id and ep.removed_at is null) other_assignment,
           exists(select 1 from departure_package_allocations da where da.org_id=p.org_id and da.package_id=p.id and da.status<>'REMOVED') departure_assignment
           {joins} where {where} order by p.created_at,p.id limit 50 offset :offset"""),params).mappings()

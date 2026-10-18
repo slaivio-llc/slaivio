@@ -132,7 +132,7 @@ type Pagination = {
   total_pages: number;
 };
 
-export function ShipmentsPage() {
+export function ShipmentsPage({ embedded = false }: { embedded?: boolean }) {
   const [parcel, setParcel] = useState<boolean | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -144,7 +144,7 @@ export function ShipmentsPage() {
   }, [retry]);
   if (error) return <div role="alert" className="p-8">Impossible de charger les expéditions. <button className="underline" onClick={() => setRetry(n => n+1)}>Réessayer</button></div>;
   if (parcel === null) return <TableSkeleton rows={6} columns={4}/>;
-  return parcel ? <FreightShipmentRegister/> : <LegacyShipmentsPage/>;
+  return parcel ? <FreightShipmentRegister embedded={embedded}/> : <LegacyShipmentsPage/>;
 }
 
 function LegacyShipmentsPage() {

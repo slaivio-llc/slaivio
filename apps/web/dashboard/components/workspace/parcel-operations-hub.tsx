@@ -131,7 +131,7 @@ export function ParcelOperationsHub() {
       </section>}
       </>}
       {visited.has("packages") && <div hidden={view !== "packages"}><PackagesPage embedded /></div>}
-      {visited.has("shipments") && <div hidden={view !== "shipments"}><ShipmentsPage /></div>}
+      {visited.has("shipments") && <div hidden={view !== "shipments"}><ShipmentsPage embedded /></div>}
       {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage /></div>}
       {visited.has("tracking") && <div hidden={view !== "tracking"}><TrackingPage /></div>}
     </main>

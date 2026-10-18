@@ -403,7 +403,7 @@ def prepare_pilot_suggestion(
     response_mode: str | None = None,
 ) -> dict:
     settings = get_pilot_ai_settings(org_id)
-    mode = response_mode or settings.get("pilot_response_mode") or "SUGGESTION_ONLY"
+    mode = response_mode or effective_ai_mode(org_id, client_phone) or settings.get("pilot_response_mode") or "SUGGESTION_ONLY"
     if mode == "PAUSED":
         return {"status": "skipped", "reason": "ai_paused", "mode": mode}
 

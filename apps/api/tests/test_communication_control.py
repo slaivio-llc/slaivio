@@ -7,6 +7,16 @@ from app.ai.services import pilot_inbox_ai_service as service
 from app.ai.repositories.parcel_customer_journey_repository import _missing
 
 
+def test_manual_draft_respects_conversation_pause_override(monkeypatch):
+    monkeypatch.setattr(service, 'get_pilot_ai_settings', lambda _: {'pilot_response_mode': 'SUGGESTION_ONLY'})
+    monkeypatch.setattr(service, 'effective_ai_mode', lambda *_: 'PAUSED')
+    monkeypatch.setattr(service, 'conversation_ai_context', lambda *_: pytest.fail('Paused conversation must stop before context generation'))
+
+    result = service.prepare_pilot_suggestion(org_id='agency', client_phone='+123')
+
+    assert result == {'status': 'skipped', 'reason': 'ai_paused', 'mode': 'PAUSED'}
+
+
 def test_contextual_router_receives_previous_route(monkeypatch):
     captured = {}
 

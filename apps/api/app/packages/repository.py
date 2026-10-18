@@ -2146,6 +2146,7 @@ def delivery_proof(org_id,package_id,user_id,payload):
 
 def detect_package_alerts(org_id,office_ids=None):
     rules=[("STALE_WAREHOUSE","HIGH","Colis immobilisé en entrepôt depuis plus de 7 jours","received_at<now()-interval '7 days' and status in ('RECEIVED','WAREHOUSED','WAREHOUSE_PROCESSING')"),("MISSING_CLIENT","CRITICAL","Colis sans client","client_id is null"),("MISSING_DOSSIER","HIGH","Colis sans dossier","dossier_id is null"),("MISSING_WEIGHT","MEDIUM","Colis sans poids","weight_kg is null and status not in ('CREATED','PENDING_VALIDATION')"),("PAID_BLOCKED","HIGH","Colis payé mais bloqué","payment_status in ('PAID','CLEARED') and status='BLOCKED'"),("ARRIVED_NOT_PICKED","MEDIUM","Colis arrivé non retiré","status in ('ARRIVED','CLEARED','READY_FOR_PICKUP') and updated_at<now()-interval '5 days'")]
+    rules[-1] = (*rules[-1][:3], "status in ('ARRIVED','ARRIVED_DESTINATION','CLEARED','READY_FOR_PICKUP') and coalesce((select max(e.created_at) from package_events e where e.org_id=p.org_id and e.package_id=p.id and (e.event_type='SHIPMENT_ARRIVED' or e.new_status in ('ARRIVED','ARRIVED_DESTINATION'))),p.updated_at)<now()-interval '5 days'")
     created=0
     office_filter = ""
     params={"o":org_id}

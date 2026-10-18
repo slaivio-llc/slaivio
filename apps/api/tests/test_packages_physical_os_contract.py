@@ -30,6 +30,15 @@ def test_package_status_notifications_are_dispatched_and_deduplicated():
     assert 'sync_package_notification_status' in sender
 
 
+def test_arrival_alert_covers_expedition_arrival_and_uses_arrival_event_age():
+    repository=(ROOT/'apps/api/app/packages/repository.py').read_text(encoding='utf-8')
+    alert_sql=repository.split('rules[-1] =',1)[1].split('\n',1)[0]
+    assert "'ARRIVED_DESTINATION'" in alert_sql
+    assert "e.event_type='SHIPMENT_ARRIVED'" in alert_sql
+    assert "e.new_status in ('ARRIVED','ARRIVED_DESTINATION')" in alert_sql
+    assert "p.updated_at)<now()-interval '5 days'" in alert_sql
+
+
 def test_parcel_status_notifications_are_dispatched_and_public_tracking_is_safe():
     repository=(ROOT/'apps/api/app/packages/repository.py').read_text(encoding='utf-8')
     api=(ROOT/'apps/api/app/api/packages.py').read_text(encoding='utf-8')

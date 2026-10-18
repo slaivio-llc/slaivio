@@ -2,10 +2,11 @@ import csv
 import hashlib
 import io
 from pathlib import Path
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter,Depends,File,Form,HTTPException,Query,Request,UploadFile
-from pydantic import BaseModel,Field
+from pydantic import BaseModel,Field,field_validator
 from starlette.responses import StreamingResponse
 
 from app.core.permissions import require_permission
@@ -19,6 +20,22 @@ def _user(tenant:dict)->str:return str(tenant.get("user_id") or tenant.get("cler
 
 class EventPayload(BaseModel):
     event_type:str=Field(min_length=2,max_length=60);title:str=Field(min_length=2,max_length=180);description:str|None=Field(default=None,max_length=1000);location:str|None=Field(default=None,max_length=200);latitude:float|None=Field(default=None,ge=-90,le=90);longitude:float|None=Field(default=None,ge=-180,le=180);occurred_at:str|None=None;idempotency_key:str|None=Field(default=None,min_length=8,max_length=120)
+
+    @field_validator("occurred_at", mode="before")
+    @classmethod
+    def validate_occurred_at(cls, value):
+        if value is None:
+            return value
+        if isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("occurred_at_must_be_iso_datetime") from exc
+        if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("occurred_at_must_include_timezone")
+        if value > datetime.now(timezone.utc):
+            raise ValueError("occurred_at_cannot_be_in_future")
+        return value.isoformat()
 class AlertPayload(BaseModel):
     anomaly_type:str="OPERATIONAL";severity:str=Field(default="MEDIUM",pattern="^(LOW|MEDIUM|HIGH|CRITICAL)$");title:str=Field(min_length=2,max_length=180);description:str|None=Field(default=None,max_length=1000)
 class ResolvePayload(BaseModel):notes:str|None=Field(default=None,max_length=1000)

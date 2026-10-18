@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import pytest
 from fastapi.routing import APIRoute
+from pydantic import ValidationError
 
-from app.api.tracking import router
+from app.api.tracking import EventPayload, router
 from app.organizations.services.provisioning_service import TRACKING_ROLE_PERMISSIONS
 
 
@@ -92,3 +94,15 @@ def test_tracking_transit_duration_does_not_substitute_planned_departure():
     assert "delivered_at-departed_at" in stats
     assert "delivered_at is not null and departed_at is not null" in stats
     assert "coalesce(departed_at,planned_departure_at)" not in stats
+
+def test_manual_tracking_event_rejects_future_or_timezone_free_timestamps():
+    with pytest.raises(ValidationError, match="occurred_at_cannot_be_in_future"):
+        EventPayload(event_type="ARRIVAL", title="Arrivée", occurred_at="2999-01-01T12:00:00Z")
+    with pytest.raises(ValidationError, match="occurred_at_must_include_timezone"):
+        EventPayload(event_type="ARRIVAL", title="Arrivée", occurred_at="2026-10-17T12:00:00")
+
+
+def test_manual_tracking_event_accepts_historical_timestamp_with_timezone():
+    event = EventPayload(event_type="ARRIVAL", title="Arrivée", occurred_at="2026-10-17T12:00:00Z")
+
+    assert event.occurred_at == "2026-10-17T12:00:00+00:00"

@@ -45,6 +45,7 @@ def snapshot(campaign_id:str,tenant=Depends(get_current_tenant)):
 @router.post('/{campaign_id}/test',dependencies=[Depends(require_permission('broadcasts.send'))])
 def test(campaign_id:str,body:TestSend,tenant=Depends(get_current_tenant)):
  x=repo.test_send(tenant['org_id'],campaign_id,actor(tenant),body.channel,body.recipient)
+ if x=='channel_not_available':raise HTTPException(409,'channel_not_available')
  if not x:raise HTTPException(404,'campaign_not_found')
  return {'status':'ok','test':x}
 @router.get('/{campaign_id}/export',dependencies=[Depends(require_permission('broadcasts.export'))])

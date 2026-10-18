@@ -107,6 +107,25 @@ def test_campaign_start_rejects_channels_without_a_sender(monkeypatch):
     assert connection.execute.call_count == 1
 
 
+def test_campaign_test_send_rejects_unsupported_channel_before_queueing(monkeypatch):
+    engine = MagicMock()
+    monkeypatch.setattr(broadcast_repository, 'engine', engine)
+    connection = engine.begin.return_value.__enter__.return_value
+    connection.execute.return_value.mappings.return_value.first.return_value = {
+        'message': 'Test message',
+    }
+
+    result = broadcast_repository.test_send('agency', 'campaign', 'agent', 'EMAIL', 'a@example.com')
+
+    assert result == 'channel_not_available'
+    assert connection.execute.call_count == 1
+
+
+def test_campaign_test_send_api_exposes_unsupported_channel_as_conflict():
+    api = read("apps/api/app/api/broadcasts.py")
+    assert "if x=='channel_not_available':raise HTTPException(409,'channel_not_available')" in api
+
+
 def test_campaign_api_exposes_unsupported_channel_as_conflict():
     api = read("apps/api/app/api/broadcasts.py")
     assert "'channel_not_available'" in api

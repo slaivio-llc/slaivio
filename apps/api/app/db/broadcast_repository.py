@@ -117,7 +117,9 @@ def test_send(o,b,a,channel,recipient):
  with engine.begin() as c:
   campaign=c.execute(text('select * from broadcasts where org_id=:o and id=:b'),{'o':o,'b':b}).mappings().first()
   if not campaign:return None
-  n=create_notification_outbox(org_id=o,client_id=None,dossier_id=None,recipient_phone=recipient,notification_type='BROADCAST_TEST',message=campaign['message'],channel=channel.lower());row=c.execute(text("insert into broadcast_test_sends(org_id,broadcast_id,channel,recipient,status,notification_id,created_by) values(:o,:b,:channel,:recipient,'QUEUED',:n,:a) returning *"),{'o':o,'b':b,'channel':channel,'recipient':recipient,'n':n['id'],'a':a}).mappings().one();c.execute(text('update broadcasts set test_sent_at=now() where id=:b'),{'b':b});return dict(row)
+  normalized_channel=(channel or '').strip().upper()
+  if normalized_channel!='WHATSAPP':return 'channel_not_available'
+  n=create_notification_outbox(org_id=o,client_id=None,dossier_id=None,recipient_phone=recipient,notification_type='BROADCAST_TEST',message=campaign['message'],channel='whatsapp');row=c.execute(text("insert into broadcast_test_sends(org_id,broadcast_id,channel,recipient,status,notification_id,created_by) values(:o,:b,:channel,:recipient,'QUEUED',:n,:a) returning *"),{'o':o,'b':b,'channel':normalized_channel,'recipient':recipient,'n':n['id'],'a':a}).mappings().one();c.execute(text('update broadcasts set test_sent_at=now() where id=:b'),{'b':b});return dict(row)
 def save_view(o,u,name,filters):
  with engine.begin() as c:return dict(c.execute(text("insert into broadcast_saved_views(org_id,user_id,name,filters) values(:o,:u,:name,cast(:f as jsonb)) on conflict(org_id,user_id,name) do update set filters=excluded.filters,updated_at=now() returning *"),{'o':o,'u':u,'name':name,'f':json.dumps(filters)}).mappings().one())
 def export_recipients(o,b):

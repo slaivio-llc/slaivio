@@ -73,7 +73,7 @@ export function CargoDirectory({ open, revision, create = () => undefined }: {
     ...(summary?.finance_visible ? [{ key: "due" as const, label: "Solde dû" }, { key: "current" as const, label: "À jour" }] : []),
   ];
 
-  return <section className="mx-auto w-full px-6 pb-8 sm:px-8" aria-label="Répertoire clients">
+  return <section className="mx-auto w-full px-6 py-6 sm:px-8" aria-label="Répertoire clients">
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <header className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 sm:px-7">
         <div>

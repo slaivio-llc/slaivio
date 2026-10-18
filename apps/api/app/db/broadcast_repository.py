@@ -1,9 +1,23 @@
 import json,re
+from datetime import datetime, timezone
 from uuid import uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from fastapi import HTTPException
 from sqlalchemy import text
 from app.db.database import engine
 def rows(r):return [dict(x._mapping) for x in r]
 def event(c,o,b,e,a=None,p=None,r=None):c.execute(text('insert into broadcast_events(org_id,broadcast_id,recipient_id,event_type,actor_id,payload) values(:o,:b,:r,:e,:a,cast(:p as jsonb))'),{'o':o,'b':b,'r':r,'e':e,'a':a,'p':json.dumps(p or {},default=str)})
+
+def _scheduled_at_utc(value, workspace_timezone):
+ if not value:return None
+ try:
+  scheduled=datetime.fromisoformat(str(value).replace('Z','+00:00'))
+  if scheduled.tzinfo is None:
+   scheduled=scheduled.replace(tzinfo=ZoneInfo(workspace_timezone or 'UTC'))
+  return scheduled.astimezone(timezone.utc)
+ except (ValueError,ZoneInfoNotFoundError):
+  raise HTTPException(422,'invalid_campaign_schedule')
+
 def dashboard(o,q=None,status=None,channel=None,page=1,page_size=40):
  f=['b.org_id=:o','b.archived_at is null'];p={'o':o,'limit':page_size,'offset':(page-1)*page_size}
  if q:f.append('(b.reference ilike :q or b.title ilike :q)');p['q']=f'%{q}%'
@@ -16,6 +30,8 @@ def dashboard(o,q=None,status=None,channel=None,page=1,page_size=40):
 def create_campaign(o,a,d):
  ref=f"CAM-{__import__('datetime').datetime.now():%Y}-{uuid4().hex[:8].upper()}"
  with engine.begin() as c:
+  workspace_timezone=c.execute(text('select timezone from organization_settings where org_id=:o'),{'o':o}).scalar() or 'UTC'
+  d={**d,'scheduled_at':_scheduled_at_utc(d.get('scheduled_at'),workspace_timezone)}
   row=c.execute(text("""insert into broadcasts(org_id,workspace_id,reference,title,message,broadcast_type,target_type,objective,channels,audience_id,selected_client_ids,template_id,language_versions,media,variable_defaults,scheduled_at,timezone_mode,created_by,status) values(:o,cast(:workspace_id as uuid),:ref,:title,:message,:campaign_type,'DYNAMIC',:objective,:channels,cast(:audience_id as uuid),cast(:selected_client_ids as jsonb),cast(:template_id as uuid),cast(:language_versions as jsonb),cast(:media as jsonb),cast(:defaults as jsonb),:scheduled_at,:timezone_mode,:a,:status) returning *"""),{'o':o,'a':a,'ref':ref,'status':'SCHEDULED' if d.get('scheduled_at') else 'DRAFT','language_versions':json.dumps(d.get('language_versions') or {}),'media':json.dumps(d.get('media') or []),'defaults':json.dumps(d.get('variable_defaults') or {}),**d,'selected_client_ids':json.dumps(d.get('selected_client_ids') or [])}).mappings().one();event(c,o,row['id'],'CAMPAIGN_CREATED',a,dict(row));return dict(row)
 def detail(o,b):
  with engine.connect() as c:

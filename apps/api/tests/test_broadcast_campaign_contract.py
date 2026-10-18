@@ -112,6 +112,16 @@ def test_campaign_api_exposes_unsupported_channel_as_conflict():
     assert "'channel_not_available'" in api
 
 
+def test_naive_campaign_schedule_is_interpreted_in_workspace_timezone():
+    value = broadcast_repository._scheduled_at_utc('2026-10-20T15:30', 'Africa/Kinshasa')
+    assert value.isoformat() == '2026-10-20T14:30:00+00:00'
+
+
+def test_campaign_schedule_with_offset_preserves_absolute_instant():
+    value = broadcast_repository._scheduled_at_utc('2026-10-20T15:30:00+02:00', 'UTC')
+    assert value.isoformat() == '2026-10-20T13:30:00+00:00'
+
+
 def test_campaign_start_uses_python_none_semantics():
     repo = read("apps/api/app/db/broadcast_repository.py")
     assert "campaign['approved_at'] is None" in repo

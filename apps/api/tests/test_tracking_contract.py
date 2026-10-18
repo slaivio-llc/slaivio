@@ -154,6 +154,11 @@ def test_expedition_in_transit_kpi_requires_confirmed_departure():
     assert "status in ('DISPATCHED','IN_TRANSIT') and departed_at is not null" in stats
     assert "count(*) filter (where status = 'IN_TRANSIT')::int in_transit" not in stats
 
+def test_active_expedition_kpi_excludes_drafts():
+    source=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
+    stats=source.split("def expedition_stats(",1)[1].split("def expedition_analytics(",1)[0]
+    assert "status not in ('DRAFT','DELIVERED','CANCELLED','ARCHIVED')" in stats
+
 def test_expedition_analytics_excludes_soft_deleted_rows_from_every_report():
     source=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
     analytics=source.split("def expedition_analytics(",1)[1].split("def get_expedition(",1)[0]

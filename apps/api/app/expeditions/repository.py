@@ -718,7 +718,7 @@ def expedition_stats(org_id: str) -> dict:
         row = conn.execute(
             text(f"""
                 select
-                    count(*) filter (where status not in ('DELIVERED','CANCELLED','ARCHIVED'))::int active,
+                    count(*) filter (where status not in ('DRAFT','DELIVERED','CANCELLED','ARCHIVED'))::int active,
                     count(*) filter (where created_at::date = current_date)::int today,
                     count(*) filter (where status in ('DISPATCHED','IN_TRANSIT') and departed_at is not null)::int in_transit,
                     count(*) filter (where arrived_at::date = current_date or

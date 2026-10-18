@@ -16,6 +16,7 @@ def test_transit_duration_uses_only_recorded_departure_times():
     repository = (ROOT / "apps/api/app/expeditions/repository.py").read_text(encoding="utf-8")
     analytics = repository.split("def expedition_analytics(", 1)[1].split("def get_expedition(", 1)[0]
 
-    assert "delivered_at-departed_at" in analytics
-    assert "delivered_at is not null and departed_at is not null" in analytics
+    assert "arrived_at-departed_at" in analytics
+    assert "arrived_at is not null and departed_at is not null" in analytics
+    assert "delivered_at-departed_at" not in analytics
     assert "coalesce(departed_at,planned_departure_at)" not in analytics

@@ -126,7 +126,7 @@ def tracking_stats(org_id:str)->dict:
           count(*) filter(where delivered_at::date=current_date)::int delivered_today,
           count(*) filter(where {TRACKING_DELAY_PREDICATE})::int delays,
           (select count(*)::int from expedition_anomalies a where a.org_id=:org_id and a.status in ('OPEN','IN_REVIEW')) incidents_open,
-          round(avg(extract(epoch from (delivered_at-departed_at))/3600) filter(where delivered_at is not null and departed_at is not null)::numeric,1) average_transit_hours
+          round(avg(extract(epoch from (arrived_at-departed_at))/3600) filter(where arrived_at is not null and departed_at is not null)::numeric,1) average_transit_hours
           from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null"""),{"org_id":org_id}).fetchone()
     return _safe(dict(row._mapping)) if row else {}
 

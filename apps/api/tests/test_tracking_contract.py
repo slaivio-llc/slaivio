@@ -102,8 +102,9 @@ def test_eta_overdue_is_cleared_by_actual_arrival_across_tracking_views():
 def test_tracking_transit_duration_does_not_substitute_planned_departure():
     source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
     stats=source.split("def tracking_stats(",1)[1].split("def global_timeline(",1)[0]
-    assert "delivered_at-departed_at" in stats
-    assert "delivered_at is not null and departed_at is not null" in stats
+    assert "arrived_at-departed_at" in stats
+    assert "arrived_at is not null and departed_at is not null" in stats
+    assert "delivered_at-departed_at" not in stats
     assert "coalesce(departed_at,planned_departure_at)" not in stats
 
 def test_manual_tracking_event_rejects_future_or_timezone_free_timestamps():

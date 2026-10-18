@@ -159,3 +159,11 @@ def test_expedition_delay_metrics_ignore_eta_after_arrival_and_include_overdue_e
     assert "arrived_at is null" in source.split("EXPEDITION_DELAY_PREDICATE=",1)[1].split("\n",1)[0]
     assert "{EXPEDITION_DELAY_PREDICATE}" in stats
     assert "{EXPEDITION_DELAY_PREDICATE}" in analytics
+
+def test_archiving_tracking_revokes_and_hides_public_access():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    archive=source.split("def archive_tracking(",1)[1].split("def public_token(",1)[0]
+    public_view=source.split("def public_view(",1)[1].split("def save_view(",1)[0]
+    assert "public_tracking_enabled=false" in archive
+    assert "public_tracking_token=null" in archive
+    assert "archived_at is null" in public_view

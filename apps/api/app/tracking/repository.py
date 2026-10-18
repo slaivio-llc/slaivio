@@ -179,7 +179,10 @@ def disable_public_token(org_id:str,expedition_id:str,user_id:str)->dict|None:
 
 def archive_tracking(org_id:str,expedition_id:str,user_id:str)->bool:
     with engine.begin() as conn:
-        row=conn.execute(text("update cargo_expeditions set archived_at=now(),status='ARCHIVED',updated_by=:user_id,updated_at=now() where org_id=:org_id and id=:id and archived_at is null returning id"),{"org_id":org_id,"id":expedition_id,"user_id":user_id}).fetchone()
+        row=conn.execute(text("""update cargo_expeditions set archived_at=now(),status='ARCHIVED',
+          public_tracking_enabled=false,public_tracking_token=null,public_tracking_expires_at=null,
+          updated_by=:user_id,updated_at=now() where org_id=:org_id and id=:id and archived_at is null returning id"""),
+          {"org_id":org_id,"id":expedition_id,"user_id":user_id}).fetchone()
         if row:conn.execute(text("insert into tracking_audit_log(org_id,expedition_id,action,actor_id) values(:org_id,:id,'TRACKING_ARCHIVED',:user_id)"),{"org_id":org_id,"id":expedition_id,"user_id":user_id})
     return bool(row)
 
@@ -197,7 +200,8 @@ def public_view(token:str,ip_address:str|None,user_agent:str|None)->dict|None:
         row=conn.execute(text("""select id::text,org_id,expedition_reference tracking_id,status,mode,origin_country,origin_city,
           destination_country,destination_city,route_label,last_location,eta_at,null::integer progress_percent,is_delayed,updated_at
           from cargo_expeditions where public_tracking_token=:token and public_tracking_enabled
-          and (public_tracking_expires_at is null or public_tracking_expires_at>now()) and deleted_at is null limit 1"""),{"token":token}).fetchone()
+          and (public_tracking_expires_at is null or public_tracking_expires_at>now())
+          and deleted_at is null and archived_at is null limit 1"""),{"token":token}).fetchone()
         if not row:return None
         item=_safe(dict(row._mapping))
         conn.execute(text("insert into tracking_public_access_logs(org_id,expedition_id,ip_address,user_agent) values(:org_id,:id,:ip,:ua)"),{"org_id":item["org_id"],"id":item["id"],"ip":ip_address,"ua":user_agent})

@@ -264,6 +264,11 @@ def transition(o,d,a,n,status,version,reason=None):
  with engine.begin() as c:
   cur=c.execute(text('select * from cargo_departures where id=:d and org_id=:o for update'),{'d':d,'o':o}).mappings().first()
   if not cur:raise HTTPException(404,'departure_not_found')
+  # A retried confirmation after a lost response must not rerun eligibility,
+  # emit duplicate events, or enqueue duplicate customer notifications.
+  if cur['status']==status:return dict(cur)
+  if version!=cur['row_version'] or status not in allowed.get(cur['status'],set()):raise HTTPException(409,'departure_state_conflict')
+  if status=='CANCELLED' and not reason:raise HTTPException(422,'cancellation_reason_required')
   if status in {'CONFIRMED','LOADING','DEPARTED'}:
    allocated=c.execute(text("select count(*) from departure_package_allocations where org_id=:o and departure_id=:d and status<>'REMOVED'"),{'o':o,'d':d}).scalar_one()
    if not allocated:raise HTTPException(409,{'code':'departure_has_no_packages','message':'Aucun colis n’est affecté à ce départ.'})
@@ -273,8 +278,6 @@ def transition(o,d,a,n,status,version,reason=None):
    blocked=c.execute(text("select count(*) from departure_allocations da left join compliance_checks cc on cc.org_id=da.org_id and cc.entity_type='SHIPMENT' and cc.entity_id=da.shipment_id where da.departure_id=:d and da.status<>'REMOVED' and coalesce(cc.status,'BLOCKED')<>'CLEAR'"),{'d':d}).scalar_one()
    if blocked:raise HTTPException(409,'departure_compliance_blocked')
   if status=='DEPARTED' and not all((cur.get('checklist') or {}).values()):raise HTTPException(409,'departure_checklist_incomplete')
-  if version!=cur['row_version'] or status not in allowed.get(cur['status'],set()):raise HTTPException(409,'departure_state_conflict')
-  if status=='CANCELLED' and not reason:raise HTTPException(422,'cancellation_reason_required')
   row=dict(c.execute(text("update cargo_departures set status=:s,row_version=row_version+1,notes=concat_ws(E'\\n',notes,:r),delay_reason=case when :s='DELAYED' then :r else delay_reason end,actual_departure_at=case when :s='DEPARTED' then now() else actual_departure_at end,actual_arrival_at=case when :s='ARRIVED' then now() else actual_arrival_at end,updated_at=now() where id=:d returning *"),{'s':status,'r':reason,'d':d}).mappings().one())
   ev(c,o,d,status,a,n,{'reason':reason})
   _sync_operations(c,o,row,a,n,status,reason,queued_notification_ids)

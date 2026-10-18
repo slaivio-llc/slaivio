@@ -46,7 +46,7 @@ def test_disabled_milestones_do_not_queue_any_message():
 
 def test_public_lookup_returns_brand_without_internal_package_id(monkeypatch):
     conn = MagicMock()
-    package = {"id": "internal-id", "tracking_id": "LUZA-001",
+    package = {"id": "internal-id", "org_id": "office-1", "tracking_id": "LUZA-001",
                "agency_name": "LUZA SERVICES", "agency_logo_url": "https://example.com/logo.png"}
     conn.execute.return_value.fetchall.side_effect = [[SimpleNamespace(_mapping=package)], []]
     engine = MagicMock()
@@ -57,6 +57,9 @@ def test_public_lookup_returns_brand_without_internal_package_id(monkeypatch):
     assert result["agency_logo_url"] == "https://example.com/logo.png"
     assert "id" not in result
     assert result["events"] == []
+    event_sql, event_params = conn.execute.call_args_list[1].args
+    assert "org_id=:org_id" in str(event_sql)
+    assert event_params["org_id"] == "office-1"
 
 
 def test_ambiguous_public_reference_does_not_choose_an_agency(monkeypatch):

@@ -56,7 +56,7 @@ def control_tower(org_id:str,*,q:str|None=None,status:str|None=None,risk_level:s
       e.origin_country,e.origin_city,e.destination_country,e.destination_city,e.route_label,e.origin_warehouse,e.destination_warehouse,
       e.last_location,e.eta_at,e.progress_percent,e.is_delayed,e.delay_hours,e.delay_reason,e.owner_name,e.container_number,e.batch_reference,
       e.packages_count,e.clients_count,e.total_weight_kg,e.total_volume_cbm,e.updated_at,
-      coalesce(e.last_signal_at,e.updated_at) last_signal_at,coalesce(e.last_signal_source,'SLAIVIO') last_signal_source,
+      e.last_signal_at,e.last_signal_source,
       (select count(*)::int from expedition_anomalies a where a.org_id=e.org_id and a.expedition_id=e.id and a.status in ('OPEN','IN_REVIEW')) open_alerts
       from cargo_expeditions e"""
     with engine.connect() as conn:
@@ -103,6 +103,8 @@ def detect_simple_alerts(org_id:str,user_id:str="system")->int:
     created=0
     with engine.begin() as conn:
         for key,severity,title,condition in rules:
+            if key=="STALE_SIGNAL":
+                condition="status in ('DISPATCHED','IN_TRANSIT','CUSTOMS_CLEARANCE') and coalesce(last_signal_at,departed_at,updated_at)<now()-interval '24 hours'"
             result=conn.execute(text(f"""insert into expedition_anomalies(org_id,expedition_id,anomaly_type,severity,status,title,description,created_by,detection_key)
               select e.org_id,e.id,'TRACKING',:severity,'OPEN',:title,'Détection automatique Slaivio',:user_id,:key from cargo_expeditions e where e.org_id=:org_id and e.deleted_at is null and e.archived_at is null and {condition}
               on conflict(org_id,expedition_id,detection_key) where detection_key is not null and status in ('OPEN','IN_REVIEW') do nothing"""),{"org_id":org_id,"severity":severity,"title":title,"user_id":user_id,"key":key})
@@ -119,7 +121,7 @@ def tracking_stats(org_id:str)->dict:
           count(*) filter(where status='IN_TRANSIT')::int packages_in_transit,
           count(*) filter(where status in ('PREPARING','LOADING','READY_FOR_DEPARTURE','DISPATCHED','IN_TRANSIT','ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP','OUT_FOR_DELIVERY'))::int active_shipments,
           count(*) filter(where delivered_at::date=current_date)::int delivered_today,
-          count(*) filter(where is_delayed or (eta_at<now() and status<>'DELIVERED'))::int delays,
+          count(*) filter(where status not in ('DELIVERED','CANCELLED','ARCHIVED') and (is_delayed or eta_at<now()))::int delays,
           (select count(*)::int from expedition_anomalies a where a.org_id=:org_id and a.status in ('OPEN','IN_REVIEW')) incidents_open,
           round(avg(extract(epoch from(delivered_at-coalesce(departed_at,planned_departure_at)))/3600) filter(where delivered_at is not null and coalesce(departed_at,planned_departure_at) is not null)::numeric,1) average_transit_hours
           from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null"""),{"org_id":org_id}).fetchone()

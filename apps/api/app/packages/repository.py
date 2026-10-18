@@ -911,13 +911,13 @@ def public_package_tracking(reference: str) -> dict | None:
         package["events"] = [_safe(dict(row._mapping)) for row in conn.execute(text("""
             select event_type, title, null::text description, new_status, created_at occurred_at
             from package_events
-            where package_id=cast(:package_id as uuid)
+            where org_id=:org_id and package_id=cast(:package_id as uuid)
               and event_type in ('PACKAGE_CREATED','PACKAGE_STATUS_CHANGED','STATUS_CHANGED',
                 'DEPARTURE_CONFIRMED','DEPARTURE_DELAYED','DEPARTURE_DEPARTED',
                 'DEPARTURE_ARRIVED','DEPARTURE_CANCELLED','DELIVERED')
             order by created_at desc
             limit 50
-        """), {"package_id": package["id"]}).fetchall()]
+        """), {"org_id": package["org_id"], "package_id": package["id"]}).fetchall()]
         package.pop("id", None)
         return package
 

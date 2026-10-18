@@ -1153,8 +1153,9 @@ def _package_eligibility(conn, org_id: str, expedition: dict, package: dict) -> 
         reasons.append("warehouse_not_ready")
     if package.get("validation_status") != "VALIDATED":
         reasons.append("validation_required")
-    if expedition.get("require_payment_clearance", True) and package.get("payment_status") not in {"PAID", "CLEARED"}:
-        reasons.append("payment_not_cleared")
+    # Payment eligibility belongs to Finance's policy-aware departure check.
+    # Assignment is operational preparation and must not impose a global
+    # paid-in-full rule before the agency's configured due event.
     if package.get("route_id") and expedition.get("route_id") and str(package["route_id"]) != str(expedition["route_id"]):
         reasons.append("route_mismatch")
     if package.get("shipping_service_id") and expedition.get("shipping_service_id") and str(package["shipping_service_id"]) != str(expedition["shipping_service_id"]):
@@ -1199,11 +1200,9 @@ def _expedition_for_package_validation(conn, org_id: str, expedition_id: str) ->
         select e.id::text, e.expedition_reference, e.status, e.mode,
                e.route_id::text, e.shipping_service_id::text, e.departure_id::text,
                e.destination_country, e.destination_city,
-               coalesce(settings.require_payment_clearance, true) require_payment_clearance,
                departure.capacity_weight_kg, departure.reserved_weight_kg,
                departure.capacity_cbm, departure.reserved_cbm
         from cargo_expeditions e
-        left join parcel_operation_settings settings on settings.org_id = e.org_id
         left join cargo_departures departure
           on departure.org_id = e.org_id and departure.id = e.departure_id
         where e.org_id = :org_id and e.id = :id and e.archived_at is null

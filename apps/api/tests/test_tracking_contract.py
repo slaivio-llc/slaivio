@@ -50,3 +50,10 @@ def test_tracking_migration_contains_tenant_and_concurrency_guards():
     assert "tracking_alert_history" in sql
     assert "tracking_audit_log" in sql
     assert "revoke all" in sql
+
+def test_tracking_never_substitutes_record_update_for_a_real_signal():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    assert "coalesce(e.last_signal_at,e.updated_at)" not in source
+    assert "e.last_signal_at,e.last_signal_source" in source
+    assert "status not in ('DELIVERED','CANCELLED','ARCHIVED')" in source
+    assert "coalesce(last_signal_at,departed_at,updated_at)" in source

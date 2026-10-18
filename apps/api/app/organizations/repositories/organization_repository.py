@@ -28,7 +28,7 @@ def upsert_organization(
                     :organization_name,
                     :organization_code,
                     :organization_name,
-                    'AGENCY',
+                    'PARCEL_FREIGHT',
                     :clerk_org_id,
                     'CLERK',
                     'ACTIVE',

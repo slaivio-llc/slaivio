@@ -4,19 +4,22 @@ from pydantic import ValidationError
 from app.onboarding.schemas.onboarding_schemas import AgencyProfileIn
 
 
-def payload(business_type: str) -> dict:
-    return {
+def payload(business_type: str | None = "PARCEL_FREIGHT") -> dict:
+    result = {
         "brand_name": "Luza Services",
         "country": "CD",
-        "business_type": business_type,
     }
+    if business_type is not None:
+        result["business_type"] = business_type
+    return result
 
 
-@pytest.mark.parametrize("business_type", ["VEHICLE_IMPORT", "PARCEL_FREIGHT"])
-def test_agency_profile_accepts_the_two_product_surfaces(business_type):
-    assert AgencyProfileIn(**payload(business_type)).business_type == business_type
+def test_agency_profile_defaults_to_parcel_freight():
+    assert AgencyProfileIn(**payload("PARCEL_FREIGHT")).business_type == "PARCEL_FREIGHT"
+    assert AgencyProfileIn(**payload(None)).business_type == "PARCEL_FREIGHT"
 
 
-def test_agency_profile_rejects_legacy_hybrid_choices():
+@pytest.mark.parametrize("business_type", ["VEHICLE_IMPORT", "HYBRID"])
+def test_agency_profile_rejects_retired_product_surfaces(business_type):
     with pytest.raises(ValidationError):
-        AgencyProfileIn(**payload("HYBRID"))
+        AgencyProfileIn(**payload(business_type))

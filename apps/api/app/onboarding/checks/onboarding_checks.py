@@ -26,7 +26,7 @@ def evaluate_onboarding(org_id: str):
         profile
         and profile.get("brand_name")
         and profile.get("country")
-        and profile.get("business_type") in {"VEHICLE_IMPORT", "PARCEL_FREIGHT"}
+        and profile.get("business_type") == "PARCEL_FREIGHT"
     ):
         completed.append("AGENCY_PROFILE")
     else:

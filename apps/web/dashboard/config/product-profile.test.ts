@@ -14,19 +14,21 @@ afterEach(() => {
 });
 
 describe("Pilot V1 product profile", () => {
-  it("is the safe default product surface", () => {
-    expect(getProductProfile()).toBe(PRODUCT_PROFILES.PILOT_V1);
+  it("defaults to the parcel and freight product surface", () => {
+    expect(getProductProfile()).toBe(PRODUCT_PROFILES.PARCEL_FREIGHT);
   });
 
   it("allows the former surface only through an explicit profile", () => {
     process.env.NEXT_PUBLIC_PRODUCT_PROFILE = "CARGO_OS";
     expect(getProductProfile()).toBe(PRODUCT_PROFILES.CARGO_OS);
+    process.env.NEXT_PUBLIC_PRODUCT_PROFILE = "PILOT_V1";
+    expect(getProductProfile()).toBe(PRODUCT_PROFILES.PARCEL_FREIGHT);
   });
 
   it("selects the product surface from the active agency", () => {
     expect(getOrganizationProductProfile("PARCEL_FREIGHT")).toBe(PRODUCT_PROFILES.PARCEL_FREIGHT);
-    expect(getOrganizationProductProfile("VEHICLE_IMPORT")).toBe(PRODUCT_PROFILES.PILOT_V1);
-    expect(getOrganizationProductProfile("AGENCY")).toBe(PRODUCT_PROFILES.PILOT_V1);
+    expect(getOrganizationProductProfile("VEHICLE_IMPORT")).toBe(PRODUCT_PROFILES.PARCEL_FREIGHT);
+    expect(getOrganizationProductProfile("AGENCY")).toBe(PRODUCT_PROFILES.PARCEL_FREIGHT);
   });
 
   it("allows only Pilot pages and their detail routes", () => {

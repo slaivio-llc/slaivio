@@ -14,7 +14,7 @@ class AgencyProfileIn(BaseModel):
     website: str | None = None
     default_language: str | None = None
     default_currency: str | None = None
-    business_type: Literal["VEHICLE_IMPORT", "PARCEL_FREIGHT"]
+    business_type: Literal["PARCEL_FREIGHT"] = "PARCEL_FREIGHT"
 
 
 class CompleteStepIn(BaseModel):

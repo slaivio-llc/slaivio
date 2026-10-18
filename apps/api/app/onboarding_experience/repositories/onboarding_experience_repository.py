@@ -161,12 +161,7 @@ def update_step_status(
 def get_business_type(org_id: str):
     row = fetch_one(
         """
-        select case
-            when profile.business_type = 'PARCEL_FREIGHT'
-              or organization.organization_type = 'PARCEL_FREIGHT'
-                then 'PARCEL_FREIGHT'
-            else 'VEHICLE_IMPORT'
-        end as business_type
+        select 'PARCEL_FREIGHT' as business_type
         from organizations organization
         left join agency_profile profile on profile.org_id = organization.id
         where organization.id = :org_id
@@ -174,7 +169,7 @@ def get_business_type(org_id: str):
         """,
         {"org_id": org_id},
     )
-    return (row or {}).get("business_type", "VEHICLE_IMPORT")
+    return (row or {}).get("business_type", "PARCEL_FREIGHT")
 
 
 def complete_journey(org_id: str, journey_id: str):

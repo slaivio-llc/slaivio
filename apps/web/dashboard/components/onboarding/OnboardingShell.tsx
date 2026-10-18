@@ -16,13 +16,6 @@ const routes: Record<string, string> = {
 };
 
 const journeyLabels = {
-  VEHICLE_IMPORT: {
-    AGENCY_PROFILE: "Entreprise",
-    OPERATIONS: "Bureau principal",
-    WHATSAPP: "WhatsApp",
-    AI_KNOWLEDGE: "Réponses dossiers",
-    REVIEW: "Vérification",
-  },
   PARCEL_FREIGHT: {
     AGENCY_PROFILE: "Entreprise",
     OPERATIONS: "Dépôt principal",
@@ -55,7 +48,7 @@ export function OnboardingShell({ children, state, currentStep }: {
             const complete = step.status === "COMPLETED" || skipped || index < currentIndex;
             const selected = step.step_key === active;
             const canOpen = complete || selected;
-            const label = journeyLabels[state.business_type]?.[step.step_key as keyof typeof journeyLabels.VEHICLE_IMPORT] || step.step_name;
+            const label = journeyLabels.PARCEL_FREIGHT[step.step_key as keyof typeof journeyLabels.PARCEL_FREIGHT] || step.step_name;
             const content = <><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-semibold ${skipped ? "border-[#cbd2d7] bg-[#f4f6f7] text-[#69747c]" : complete ? "border-[#19a463] bg-[#19a463] text-white" : selected ? "border-[#087f4f] bg-[#087f4f] text-white" : "border-[#d9dee2] bg-[#f6f7f8] text-[#68737c]"}`}>{skipped ? <Clock3 size={13}/> : complete ? <Check size={14}/> : index + 1}</span><span className={`ml-2 whitespace-nowrap text-[13px] font-medium ${selected ? "text-[#087f4f]" : complete ? "text-[#34414a]" : "text-[#7b858e]"}`}>{label}</span></>;
             return <li key={step.step_key} className="flex items-center">
               {canOpen ? <Link href={routes[step.step_key]} className="flex items-center rounded-md px-1 py-1 focus:outline-none focus:ring-2 focus:ring-[#087f4f]/20">{content}</Link> : <span className="flex items-center px-1 py-1">{content}</span>}

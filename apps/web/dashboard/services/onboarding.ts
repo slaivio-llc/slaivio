@@ -11,7 +11,7 @@ export type AgencyProfilePayload = {
   website: string;
   default_language: string;
   default_currency: string;
-  business_type: "VEHICLE_IMPORT" | "PARCEL_FREIGHT";
+  business_type: "PARCEL_FREIGHT";
 };
 
 export type AgencyProfile = AgencyProfilePayload & { id: string; org_id: string };

@@ -22,11 +22,14 @@ def get_onboarding_status(org_id: str):
 
 
 def save_agency_profile(org_id: str, user_id: str, payload: dict):
-    business_type = payload["business_type"]
+    # SLAIVIO currently ships the parcel/freight product only. Normalize the
+    # persisted profile as well, so legacy clients cannot reactivate vehicle UI.
+    business_type = "PARCEL_FREIGHT"
     profile = upsert_agency_profile(
         org_id=org_id,
         data={
             **payload,
+            "business_type": business_type,
             "metadata": {
                 "updated_from": "onboarding",
             },

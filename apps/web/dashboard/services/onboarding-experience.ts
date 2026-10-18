@@ -18,7 +18,7 @@ export type OnboardingWarning = {
 
 export type OnboardingExperienceState = {
   journey: Record<string, unknown>;
-  business_type: "VEHICLE_IMPORT" | "PARCEL_FREIGHT";
+  business_type: "PARCEL_FREIGHT";
   steps: OnboardingStep[];
   progress: number;
   readiness_score: number;

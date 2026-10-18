@@ -17,7 +17,7 @@ export default function OnboardingReviewPage(){
   if(!state)return stateError?<OnboardingError message={stateError} retry={()=>void reload()}/>:<OnboardingLoading/>;
   if(!settings)return error?<OnboardingError message={error} retry={()=>window.location.reload()}/>:<OnboardingLoading/>;
   const number=settings.whatsapp_numbers.find(item=>item.connection_status==="CONNECTED");
-  const parcel=profile?.business_type==="PARCEL_FREIGHT"||state.business_type==="PARCEL_FREIGHT";
+  const parcel=true;
   const rows=[{icon:<Building2 size={18}/>,title:"Entreprise",value:profile?.brand_name||settings.organization.organization_name,detail:parcel?"Colis et fret":"Importation de véhicules",href:"/onboarding/agency-profile"},{icon:<MapPin size={18}/>,title:parcel?"Dépôt principal":"Bureau principal",value:settings.locations[0]?.name||"À configurer plus tard",detail:settings.locations[0]?[settings.locations[0].city,settings.locations[0].country].filter(Boolean).join(", "):"Disponible depuis les paramètres",href:"/onboarding/operations"},{icon:<MessageCircle size={18}/>,title:"WhatsApp",value:number?.display_phone_number||"À connecter plus tard",detail:number?"Connexion active":"Disponible depuis les paramètres",href:"/onboarding/whatsapp"},{icon:<Sparkles size={18}/>,title:"Réponses IA",value:settings.knowledge.published_count?modeLabel(settings.ai.pilot_response_mode):"À configurer plus tard",detail:`${settings.knowledge.published_count} information(s) publiée(s)`,href:"/onboarding/ai-knowledge"}];
   const ready=Boolean(profile?.brand_name&&profile?.business_type);
   const deferred=!settings.locations.length||!number||!settings.knowledge.published_count;

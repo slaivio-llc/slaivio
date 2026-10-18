@@ -3528,22 +3528,15 @@ function PackageScannerModal({
   onClose: () => void;
   onCreated: (item: PackageRecord) => void;
 }) {
-  const [dossiers, setDossiers] = useState<DossierRecord[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<Awaited<
     ReturnType<typeof scanPackageLabel>
   > | null>(null);
   const [selectedClientId, setSelectedClientId] = useState("");
-  const [selectedDossierId, setSelectedDossierId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const previewUrl = useMemo(() => file ? URL.createObjectURL(file) : "", [file]);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
-  useEffect(() => {
-    listDossiers({ page_size: 100, sort: "updated_desc" })
-      .then((r) => setDossiers(r.items))
-      .catch(() => setDossiers([]));
-  }, []);
   async function analyse() {
     if (!file) {
       setError("Prenez ou sélectionnez une photo.");
@@ -3559,7 +3552,6 @@ function PackageScannerModal({
       const automatic = analysis.matching.automatic_match;
       if (automatic) {
         setSelectedClientId(automatic.client.id);
-        setSelectedDossierId(automatic.expectation?.dossier_id || (automatic.dossiers.length === 1 ? automatic.dossiers[0].id : ""));
       }
     } catch (e) {
       setError(apiErrorMessage(e));
@@ -3574,7 +3566,7 @@ function PackageScannerModal({
     setError("");
     try {
       const item = await createPackage({
-        dossier_id: clean(f.get("dossier_id")) || null,
+        dossier_id: null,
         client_id: selectedClientId || null,
         source: "warehouse",
         tracking_id: clean(f.get("supplier_tracking")),
@@ -3648,10 +3640,7 @@ function PackageScannerModal({
             {result.matching.duplicate_package && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-[13px] text-red-800"><p className="font-semibold">Ce colis semble déjà enregistré</p><p className="mt-1">Référence {result.matching.duplicate_package.package_reference || result.matching.duplicate_package.tracking_id}. La création est bloquée pour éviter un doublon.</p></div>}
             <section className="space-y-3"><div><h3 className="text-[14px] font-semibold text-[#26313a]">1. À quel client appartient ce colis ?</h3><p className="mt-0.5 text-[12px] text-[#6f7a84]">Suggestions basées sur le téléphone, le nom, le shipping mark et les colis attendus.</p></div>
               {(result.fields.recipient_name || result.fields.recipient_phone) && <div className="rounded-lg border border-[#dfe4e8] bg-[#f8fafb] px-3 py-2 text-[12px] text-[#53606a]"><span className="font-semibold text-[#2e3942]">Lu sur l’étiquette :</span> {result.fields.recipient_name || "Nom non lisible"}{result.fields.recipient_phone ? ` · ${result.fields.recipient_phone}` : ""}</div>}
-              {result.matching.matches.length ? <div className="grid gap-2">{result.matching.matches.map((match) => <button type="button" key={match.client.id} onClick={()=>{setSelectedClientId(match.client.id);setSelectedDossierId(match.expectation?.dossier_id || (match.dossiers.length===1?match.dossiers[0].id:""));}} className={`flex items-center justify-between gap-4 rounded-lg border p-3 text-left ${selectedClientId===match.client.id?"border-[#0b875b] bg-[#f2faf6]":"border-[#dfe4e8] bg-white hover:bg-[#fafbfc]"}`}><span><span className="block text-[13px] font-semibold text-[#26313a]">{match.client.name || "Client sans nom"}</span><span className="mt-0.5 block text-[12px] text-[#6d7882]">{match.client.phone || match.client.email || "Coordonnée indisponible"} · {match.reasons.join(" · ")}</span></span><span className="shrink-0 rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-[#39745d]">{match.score}%</span></button>)}</div> : <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">Aucun client fiable retrouvé. Choisissez un dossier existant ou créez d’abord le client.</div>}
-            </section>
-            <section className="space-y-3"><div><h3 className="text-[14px] font-semibold text-[#26313a]">2. Dossier de rattachement (facultatif)</h3><p className="mt-0.5 text-[12px] text-[#6f7a84]">Le colis peut être reçu au nom du client maintenant et rattaché à un dossier plus tard.</p></div>
-              <select name="dossier_id" value={selectedDossierId} onChange={(event)=>setSelectedDossierId(event.target.value)} className={inputClass}><option value="">Aucun dossier pour le moment</option>{(result.matching.matches.find((item)=>item.client.id===selectedClientId)?.dossiers || []).map((d)=><option key={d.id} value={d.id}>{d.reference} · {d.destination_city || d.destination_country || "Destination à compléter"} · {d.status}</option>)}{!selectedClientId && dossiers.map((d)=><option key={d.id} value={d.id}>{d.dossier_reference} · {d.client_name || d.client_full_name}</option>)}</select>
+              {result.matching.matches.length ? <div className="grid gap-2">{result.matching.matches.map((match) => <button type="button" key={match.client.id} onClick={()=>setSelectedClientId(match.client.id)} className={`flex items-center justify-between gap-4 rounded-lg border p-3 text-left ${selectedClientId===match.client.id?"border-[#0b875b] bg-[#f2faf6]":"border-[#dfe4e8] bg-white hover:bg-[#fafbfc]"}`}><span><span className="block text-[13px] font-semibold text-[#26313a]">{match.client.name || "Client sans nom"}</span><span className="mt-0.5 block text-[12px] text-[#6d7882]">{match.client.phone || match.client.email || "Coordonnée indisponible"} · {match.reasons.join(" · ")}</span></span><span className="shrink-0 rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-[#39745d]">{match.score}%</span></button>)}</div> : <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">Aucun client fiable retrouvé. Créez d’abord la fiche client ou sélectionnez manuellement un client existant.</div>}
             </section>
             <section className="space-y-3"><div><h3 className="text-[14px] font-semibold text-[#26313a]">3. Informations lues sur l’étiquette</h3><p className="mt-0.5 text-[12px] text-[#6f7a84]">Vérifiez puis corrigez seulement les informations utiles.</p></div><div className="grid gap-3 md:grid-cols-2">
               <TextInput name="supplier_tracking" label="Tracking fournisseur" defaultValue={result.fields.supplier_tracking || ""}/><TextInput name="shipping_mark" label="Shipping mark / code client" defaultValue={result.fields.shipping_mark || ""}/>
@@ -3667,7 +3656,7 @@ function PackageScannerModal({
             </div></section>
             {(result.ambiguities.length>0 || result.fields.handwritten_annotations.length>0) && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[12px] leading-5 text-amber-900"><p className="font-semibold">Points à vérifier manuellement</p><ul className="mt-1 list-disc pl-4">{result.ambiguities.map((item,index)=><li key={`a-${index}`}>{item}</li>)}{result.fields.handwritten_annotations.map((item,index)=><li key={`h-${index}`}>Annotation « {item.value || "illisible"} » : signification non confirmée.</li>)}</ul></div>}
             <details className="rounded-lg border border-[#dfe4e8] text-[12px]"><summary className="cursor-pointer px-4 py-3 font-semibold text-[#3f4a53]">Comparer avec le texte original</summary><div className="grid gap-3 border-t border-[#e6eaed] p-4 md:grid-cols-2"><div><p className="mb-2 font-semibold">Original</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-[#f6f7f8] p-3">{result.raw_text}</pre></div><div><p className="mb-2 font-semibold">Traduction</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-[#f6f7f8] p-3">{result.translated_text}</pre></div></div></details>
-            <div className="flex justify-end gap-2 border-t border-[#e3e7ea] pt-4"><button type="button" onClick={()=>{setResult(null);setSelectedClientId("");setSelectedDossierId("");}} className={buttonClass}>Reprendre la photo</button><button disabled={busy || Boolean(result.matching.duplicate_package) || (!selectedClientId && !selectedDossierId)} className={primaryButtonClass}>{busy ? "Création…" : "Confirmer et créer le colis"}</button></div>
+            <div className="flex justify-end gap-2 border-t border-[#e3e7ea] pt-4"><button type="button" onClick={()=>{setResult(null);setSelectedClientId("");}} className={buttonClass}>Reprendre la photo</button><button disabled={busy || Boolean(result.matching.duplicate_package) || !selectedClientId} className={primaryButtonClass}>{busy ? "Création…" : "Confirmer et créer le colis"}</button></div>
           </form>
         )}
         {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}

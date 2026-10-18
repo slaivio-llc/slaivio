@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ParcelOperationsHub } from "./parcel-operations-hub";
 
@@ -19,6 +19,10 @@ vi.mock("@/services/shipments", () => ({
   getShipmentDepartureCalendar: mocks.departureCalendar,
 }));
 vi.mock("@/services/tracking", () => ({ listTracking: mocks.tracking }));
+vi.mock("@/components/packages/packages-page", () => ({ PackagesPage: () => <div>Vue colis intégrée</div> }));
+vi.mock("@/components/shipments/shipments-page", () => ({ ShipmentsPage: () => <div>Vue expéditions intégrée</div> }));
+vi.mock("@/components/departures/departure-calendar-page", () => ({ DepartureCalendarPage: () => <div>Vue calendrier intégrée</div> }));
+vi.mock("@/components/tracking/tracking-page", () => ({ TrackingPage: () => <div>Vue tracking intégrée</div> }));
 
 describe("ParcelOperationsHub", () => {
   beforeEach(() => {
@@ -41,7 +45,7 @@ describe("ParcelOperationsHub", () => {
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
-    expect(screen.getByText("7", { selector: "a span" })).toBeInTheDocument();
+    expect(screen.getByText("7", { selector: "button span" })).toBeInTheDocument();
     expect(screen.getByText("Retard signalé")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Paris → Dakar/ })).toHaveAttribute("href", "/app/shipments/shipment-1");
   });
@@ -52,5 +56,21 @@ describe("ParcelOperationsHub", () => {
 
     expect(await screen.findAllByText("Indisponible")).toHaveLength(2);
     expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("switches operational views in place and keeps previously opened views mounted", async () => {
+    render(<ParcelOperationsHub />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Colis" }));
+    expect(screen.getByText("Vue colis intégrée")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Colis" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("link", { name: "Colis" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expéditions" }));
+    expect(screen.getByText("Vue expéditions intégrée")).toBeVisible();
+    expect(screen.getByText("Vue colis intégrée")).not.toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Colis" }));
+    expect(screen.getByText("Vue colis intégrée")).toBeVisible();
   });
 });

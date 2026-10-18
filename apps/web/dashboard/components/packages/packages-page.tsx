@@ -579,7 +579,7 @@ function LegacyPackagesPage() {
       client_id: clean(form.get("client_id")) || formPackage?.client_id || null,
       tracking_id: clean(form.get("tracking_id")),
       ...(form.has("supplier_tracking") ? { supplier_tracking: clean(form.get("supplier_tracking")) } : {}),
-      status: String(form.get("status") || "RECEIVED_AT_ORIGIN") as PackageStatus,
+      status: String(form.get("status") || "CREATED") as PackageStatus,
       package_condition: String(
         form.get("package_condition") || "UNKNOWN",
       ) as PackageCondition,

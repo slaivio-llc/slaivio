@@ -41,6 +41,6 @@ def test_parcel_status_notifications_are_dispatched_and_public_tracking_is_safe(
     assert 'len(matches) != 1' in repository
     assert 'package.pop("id", None)' in repository
     assert 'notification_outbox_id' in repository
-    assert 'status: str = "RECEIVED_AT_ORIGIN"' in api
+    assert 'status: str = "CREATED"' in api
     assert 'BackgroundTasks' in api and 'send_notification' in api
     assert '/public/packages/tracking/{reference}' in api

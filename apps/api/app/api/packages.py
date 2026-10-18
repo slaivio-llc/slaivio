@@ -148,7 +148,7 @@ class PackagePayload(BaseModel):
     package_type: str = "carton"
     description: str | None = Field(default=None, max_length=260)
     category: str | None = Field(default=None, max_length=120)
-    status: str = "RECEIVED_AT_ORIGIN"
+    status: str = "CREATED"
     validation_status: str = "PENDING"
     payment_status: str = "UNKNOWN"
     payment_clearance_status: str | None = None

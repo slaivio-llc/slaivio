@@ -13,6 +13,13 @@ def test_package_creation_accepts_only_initial_statuses(status):
     assert payload.status == status
 
 
+def test_administrative_package_creation_does_not_mark_physical_receipt():
+    payload = PackagePayload()
+
+    assert payload.status == "CREATED"
+    assert payload.received_at is None
+
+
 @pytest.mark.parametrize(
     "status",
     ["SHIPPED", "IN_TRANSIT", "ARRIVED", "ARRIVED_DESTINATION", "DELIVERED", "CANCELLED"],

@@ -87,6 +87,14 @@ def test_eta_compliance_uses_only_deliveries_with_a_known_eta():
     analytics=source.split("def tracking_analytics(",1)[1].split("def list_alerts(",1)[0]
     assert "delivered_with_eta" in analytics
     assert "delivered_at is not null and eta_at is not null and delivered_at<=eta_at" in analytics
+    assert "arrived_with_eta" in analytics
+    assert "arrived_at is not null and eta_at is not null and arrived_at<=eta_at" in analytics
+
+def test_route_eta_performance_uses_actual_destination_arrivals():
+    source=(Path(__file__).parents[1]/"app"/"routes_services"/"repository.py").read_text(encoding="utf-8")
+    assert "e.arrived_at<=e.eta_at" in source
+    assert "e.arrived_at is not null and e.eta_at is not null" in source
+    assert "delivered_at<=e.eta_at" not in source
 
 def test_eta_overdue_is_cleared_by_actual_arrival_across_tracking_views():
     source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")

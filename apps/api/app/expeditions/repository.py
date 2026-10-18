@@ -754,6 +754,8 @@ def expedition_analytics(org_id:str)->dict:
         summary=conn.execute(text("""select count(*)::int total,count(*) filter(where delivered_at is not null)::int delivered,
           count(*) filter(where delivered_at is not null and eta_at is not null)::int delivered_with_eta,
           count(*) filter(where delivered_at is not null and eta_at is not null and delivered_at<=eta_at)::int on_time,
+          count(*) filter(where arrived_at is not null and eta_at is not null)::int arrived_with_eta,
+          count(*) filter(where arrived_at is not null and eta_at is not null and arrived_at<=eta_at)::int arrived_on_time,
           round(avg(extract(epoch from (arrived_at-departed_at))/3600) filter(where arrived_at is not null and departed_at is not null)::numeric,1) average_transit_hours,
           coalesce(sum(total_weight_kg),0) total_weight_kg,coalesce(sum(total_volume_cbm),0) total_volume_cbm,
           coalesce(sum(profit_total),0) profit_total from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null"""),{"org_id":org_id}).fetchone()

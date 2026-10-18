@@ -297,7 +297,7 @@ export type ExpeditionStats = {
   total_weight_kg: number;
   total_volume_cbm: number;
 };
-export type ShipmentAnalytics={summary:{total:number;delivered:number;delivered_with_eta:number;on_time:number;average_transit_hours:number|null;total_weight_kg:number;total_volume_cbm:number;profit_total:number};by_status:Array<{label:string;count:number}>;by_mode:Array<{label:string;count:number}>;by_route:Array<{label:string;count:number}>;delays_by_route:Array<{label:string;count:number}>;monthly_deliveries:Array<{label:string;count:number}>};
+export type ShipmentAnalytics={summary:{total:number;delivered:number;delivered_with_eta:number;on_time:number;arrived_with_eta:number;arrived_on_time:number;average_transit_hours:number|null;total_weight_kg:number;total_volume_cbm:number;profit_total:number};by_status:Array<{label:string;count:number}>;by_mode:Array<{label:string;count:number}>;by_route:Array<{label:string;count:number}>;delays_by_route:Array<{label:string;count:number}>;monthly_deliveries:Array<{label:string;count:number}>};
 
 export type ShipmentsResponse = {
   status: "ok";

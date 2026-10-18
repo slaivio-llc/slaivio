@@ -10,6 +10,8 @@ def test_expedition_eta_rate_has_an_explicit_eligible_denominator():
 
     assert "delivered_with_eta" in analytics
     assert "delivered_at is not null and eta_at is not null and delivered_at<=eta_at" in analytics
+    assert "arrived_with_eta" in analytics
+    assert "arrived_at is not null and eta_at is not null and arrived_at<=eta_at" in analytics
 
 
 def test_transit_duration_uses_only_recorded_departure_times():

@@ -728,9 +728,9 @@ function ShipmentAnalyticsView({ data }: { data: ShipmentAnalytics | null }) {
         Analytics indisponibles.
       </div>
     );
-  const deliveredWithEta = data.summary.delivered_with_eta;
+  const deliveredWithEta = data.summary.arrived_with_eta;
   const etaRate = deliveredWithEta > 0
-    ? `${Math.round((data.summary.on_time / deliveredWithEta) * 100)}%`
+    ? `${Math.round((data.summary.arrived_on_time / deliveredWithEta) * 100)}%`
     : "—";
   const groups: [
     [string, string | number],

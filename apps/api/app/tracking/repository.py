@@ -118,7 +118,8 @@ def detect_all_tracking_alerts()->dict:
 def tracking_stats(org_id:str)->dict:
     with engine.connect() as conn:
         row=conn.execute(text("""select
-          count(*) filter(where status='IN_TRANSIT')::int packages_in_transit,
+          (select count(*)::int from cargo_packages p where p.org_id=:org_id and p.deleted_at is null
+            and p.status in ('SHIPPED','IN_TRANSIT')) packages_in_transit,
           count(*) filter(where status in ('PREPARING','LOADING','READY_FOR_DEPARTURE','DISPATCHED','IN_TRANSIT','ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP','OUT_FOR_DELIVERY'))::int active_shipments,
           count(*) filter(where delivered_at::date=current_date)::int delivered_today,
           count(*) filter(where status not in ('DELIVERED','CANCELLED','ARCHIVED') and (is_delayed or eta_at<now()))::int delays,

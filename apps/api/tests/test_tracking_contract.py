@@ -72,3 +72,10 @@ def test_public_shipment_timeline_only_exposes_safe_milestones():
     assert "select event_type,title,description,occurred_at" not in public_view
     assert "FINANCE_LINE_ADDED" not in public_view
     assert "NOTE_ADDED" not in public_view
+
+def test_packages_in_transit_metric_counts_parcels_not_expeditions():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    stats=source.split("def tracking_stats(",1)[1].split("def global_timeline(",1)[0]
+    assert "from cargo_packages p where p.org_id=:org_id" in stats
+    assert "p.status in ('SHIPPED','IN_TRANSIT')" in stats
+    assert "count(*) filter(where status='IN_TRANSIT')::int packages_in_transit" not in stats

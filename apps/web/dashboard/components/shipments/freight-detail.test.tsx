@@ -24,8 +24,8 @@ describe("Fiche Expédition fret",()=>{
     expect(screen.getByRole("region",{name:"Manifeste"})).toBeInTheDocument();
     expect(screen.getByRole("heading",{name:"Historique"})).toBeInTheDocument();
     expect(screen.queryByText("Finance")).not.toBeInTheDocument();
-    expect(screen.getByRole("link",{name:"Opérations / Expéditions"})).toHaveAttribute("href","/app/shipments");
-    expect(screen.getByRole("link",{name:"Retour aux expéditions"})).toHaveAttribute("href","/app/shipments");
+    expect(screen.getByRole("link",{name:"Opérations / Expéditions"})).toHaveAttribute("href","/app/operations?view=shipments");
+    expect(screen.getByRole("link",{name:"Retour aux expéditions"})).toHaveAttribute("href","/app/operations?view=shipments");
     expect(screen.queryByRole("button",{name:"Actions"})).not.toBeInTheDocument();
     expect(screen.getByRole("button",{name:"Ajouter des colis"})).toBeInTheDocument();
   });

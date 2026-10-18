@@ -55,6 +55,18 @@ export function ParcelOperationsHub() {
   }
 
   useEffect(() => {
+    if (permissionsLoading || typeof window === "undefined") return;
+    const requested = new URLSearchParams(window.location.search).get("view") as OperationsView | null;
+    const allowed = requested === "overview"
+      || (requested === "packages" && canPackages)
+      || ((requested === "shipments" || requested === "calendar") && canShipments)
+      || (requested === "tracking" && canTracking);
+    if (!allowed || !requested) return;
+    setView(requested);
+    setVisited(current => current.has(requested) ? current : new Set(current).add(requested));
+  }, [permissionsLoading, canPackages, canShipments, canTracking]);
+
+  useEffect(() => {
     if (permissionsLoading) return;
     let active = true;
     setLoading(true);

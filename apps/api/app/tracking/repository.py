@@ -190,7 +190,8 @@ def public_token(org_id:str,expedition_id:str,expires_at:str|None=None)->dict|No
     token=secrets.token_urlsafe(32)
     with engine.begin() as conn:
         row=conn.execute(text("""update cargo_expeditions set public_tracking_token=:token,public_tracking_enabled=true,
-          public_tracking_expires_at=:expires_at,updated_at=now() where org_id=:org_id and id=:expedition_id and deleted_at is null
+          public_tracking_expires_at=:expires_at,updated_at=now() where org_id=:org_id and id=:expedition_id
+          and deleted_at is null and archived_at is null
           returning public_tracking_token,public_tracking_expires_at"""),{"org_id":org_id,"expedition_id":expedition_id,"token":token,"expires_at":expires_at}).fetchone()
         if row:conn.execute(text("insert into tracking_audit_log(org_id,expedition_id,action,payload) values(:org_id,:id,'PUBLIC_TOKEN_GENERATED',cast(:payload as jsonb))"),{"org_id":org_id,"id":expedition_id,"payload":json.dumps({"expires_at":expires_at})})
     return _safe(dict(row._mapping)) if row else None

@@ -167,3 +167,5 @@ def test_archiving_tracking_revokes_and_hides_public_access():
     assert "public_tracking_enabled=false" in archive
     assert "public_tracking_token=null" in archive
     assert "archived_at is null" in public_view
+    token_creation=source.split("def public_token(",1)[1].split("def public_view(",1)[0]
+    assert "deleted_at is null and archived_at is null" in token_creation

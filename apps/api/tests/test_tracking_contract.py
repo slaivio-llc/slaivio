@@ -88,6 +88,17 @@ def test_eta_compliance_uses_only_deliveries_with_a_known_eta():
     assert "delivered_with_eta" in analytics
     assert "delivered_at is not null and eta_at is not null and delivered_at<=eta_at" in analytics
 
+def test_eta_overdue_is_cleared_by_actual_arrival_across_tracking_views():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    analytics=source.split("def tracking_analytics(",1)[1].split("def list_alerts(",1)[0]
+    stats=source.split("def tracking_stats(",1)[1].split("def global_timeline(",1)[0]
+    alert_rules=source.split("def detect_simple_alerts(",1)[1].split("def detect_all_tracking_alerts(",1)[0]
+    assert 'TRACKING_DELAY_PREDICATE="status not in (\'DELIVERED\',\'CANCELLED\',\'ARCHIVED\') and arrived_at is null' in source
+    assert "{TRACKING_DELAY_PREDICATE}" in analytics
+    assert "{TRACKING_DELAY_PREDICATE}" in stats
+    assert '"eta_at<now() and arrived_at is null' in alert_rules
+    assert "deleted_at is null and archived_at is null" in analytics
+
 def test_tracking_transit_duration_does_not_substitute_planned_departure():
     source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
     stats=source.split("def tracking_stats(",1)[1].split("def global_timeline(",1)[0]

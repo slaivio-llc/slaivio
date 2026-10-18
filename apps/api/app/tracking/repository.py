@@ -14,6 +14,7 @@ from app.expeditions.repository import get_expedition, expedition_timeline
 
 
 ACTIVE_STATUSES=("PREPARING","LOADING","READY_FOR_DEPARTURE","DISPATCHED","IN_TRANSIT","ARRIVED_DESTINATION","CUSTOMS_CLEARANCE","AVAILABLE_FOR_PICKUP","OUT_FOR_DELIVERY")
+TRACKING_DELAY_PREDICATE="status not in ('DELIVERED','CANCELLED','ARCHIVED') and arrived_at is null and (coalesce(is_delayed,false) or (eta_at is not null and eta_at<now()))"
 
 def _safe(value:Any)->Any:
     if isinstance(value,Decimal): return float(value)
@@ -66,18 +67,18 @@ def control_tower(org_id:str,*,q:str|None=None,status:str|None=None,risk_level:s
 
 def tracking_analytics(org_id:str)->dict:
     with engine.connect() as conn:
-        summary=conn.execute(text("""select count(*) filter(where delivered_at is not null)::int delivered,
+        summary=conn.execute(text(f"""select count(*) filter(where delivered_at is not null)::int delivered,
           count(*) filter(where delivered_at is not null and eta_at is not null)::int delivered_with_eta,
           count(*) filter(where delivered_at is not null and eta_at is not null and delivered_at<=eta_at)::int delivered_on_time,
-          count(*) filter(where is_delayed)::int delayed,
+          count(*) filter(where {TRACKING_DELAY_PREDICATE})::int delayed,
           (select round(avg(extract(epoch from(a.resolved_at-a.detected_at))/3600)::numeric,1) from expedition_anomalies a where a.org_id=:org_id and a.resolved_at is not null) mean_resolution_hours
-          from cargo_expeditions e where e.org_id=:org_id and e.deleted_at is null"""),{"org_id":org_id}).fetchone()
+          from cargo_expeditions e where e.org_id=:org_id and e.deleted_at is null and e.archived_at is null"""),{"org_id":org_id}).fetchone()
         def grouped(sql:str):return _rows(conn.execute(text(sql),{"org_id":org_id}).fetchall())
         return {"summary":_safe(dict(summary._mapping)),
           "best_routes":grouped("""select coalesce(route_label,'Route non renseignée') label,round(100.0*count(*) filter(where delivered_at<=eta_at)/nullif(count(*) filter(where delivered_at is not null and eta_at is not null),0))::int count from cargo_expeditions where org_id=:org_id group by 1 having count(*) filter(where delivered_at is not null and eta_at is not null)>0 order by 2 desc limit 10"""),
-          "delays_by_route":grouped("select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and is_delayed group by 1 order by 2 desc limit 10"),
-          "delays_by_country":grouped("select coalesce(destination_country,'Pays non renseigné') label,count(*)::int count from cargo_expeditions where org_id=:org_id and is_delayed group by 1 order by 2 desc limit 10"),
-          "delays_by_warehouse":grouped("select coalesce(origin_warehouse,'Entrepôt non renseigné') label,count(*)::int count from cargo_expeditions where org_id=:org_id and is_delayed group by 1 order by 2 desc limit 10"),
+          "delays_by_route":grouped(f"select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null and {TRACKING_DELAY_PREDICATE} group by 1 order by 2 desc limit 10"),
+          "delays_by_country":grouped(f"select coalesce(destination_country,'Pays non renseigné') label,count(*)::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null and {TRACKING_DELAY_PREDICATE} group by 1 order by 2 desc limit 10"),
+          "delays_by_warehouse":grouped(f"select coalesce(origin_warehouse,'Entrepôt non renseigné') label,count(*)::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null and {TRACKING_DELAY_PREDICATE} group by 1 order by 2 desc limit 10"),
           "incidents_by_type":grouped("select anomaly_type label,count(*)::int count from expedition_anomalies where org_id=:org_id group by 1 order by 2 desc limit 10"),
           "deliveries":grouped("select delivered_at::date::text label,count(*)::int count from cargo_expeditions where org_id=:org_id and delivered_at>=current_date-interval '30 days' group by 1 order by 1")}
 
@@ -100,7 +101,7 @@ def update_alert(org_id:str,expedition_id:str,alert_id:str,user_id:str,*,status:
     return tracking_detail(org_id,expedition_id)
 
 def detect_simple_alerts(org_id:str,user_id:str="system")->int:
-    rules=[("ETA_OVERDUE","CRITICAL","ETA dépassée","eta_at<now() and status not in ('DELIVERED','CANCELLED','ARCHIVED')"),("MISSING_DOCUMENT","MEDIUM","Document manquant","status in ('READY_FOR_DEPARTURE','DISPATCHED','IN_TRANSIT') and not exists(select 1 from expedition_documents d where d.org_id=e.org_id and d.expedition_id=e.id)"),("PACKAGELESS","MEDIUM","Expédition sans colis","status not in ('DRAFT','CANCELLED','ARCHIVED') and packages_count=0"),("CUSTOMS_BLOCKED","HIGH","Blocage en douane","status='CUSTOMS_CLEARANCE' and coalesce(is_delayed,false)"),("STALE_SIGNAL","HIGH","Signal logistique ancien","status in ('DISPATCHED','IN_TRANSIT','CUSTOMS_CLEARANCE') and coalesce(last_signal_at,updated_at)<now()-interval '24 hours'")]
+    rules=[("ETA_OVERDUE","CRITICAL","ETA dépassée","eta_at<now() and arrived_at is null and status not in ('DELIVERED','CANCELLED','ARCHIVED')"),("MISSING_DOCUMENT","MEDIUM","Document manquant","status in ('READY_FOR_DEPARTURE','DISPATCHED','IN_TRANSIT') and not exists(select 1 from expedition_documents d where d.org_id=e.org_id and d.expedition_id=e.id)"),("PACKAGELESS","MEDIUM","Expédition sans colis","status not in ('DRAFT','CANCELLED','ARCHIVED') and packages_count=0"),("CUSTOMS_BLOCKED","HIGH","Blocage en douane","status='CUSTOMS_CLEARANCE' and coalesce(is_delayed,false)"),("STALE_SIGNAL","HIGH","Signal logistique ancien","status in ('DISPATCHED','IN_TRANSIT','CUSTOMS_CLEARANCE') and coalesce(last_signal_at,updated_at)<now()-interval '24 hours'")]
     created=0
     with engine.begin() as conn:
         for key,severity,title,condition in rules:
@@ -118,12 +119,12 @@ def detect_all_tracking_alerts()->dict:
 
 def tracking_stats(org_id:str)->dict:
     with engine.connect() as conn:
-        row=conn.execute(text("""select
+        row=conn.execute(text(f"""select
           (select count(*)::int from cargo_packages p where p.org_id=:org_id and p.deleted_at is null
             and p.status in ('SHIPPED','IN_TRANSIT')) packages_in_transit,
           count(*) filter(where status in ('PREPARING','LOADING','READY_FOR_DEPARTURE','DISPATCHED','IN_TRANSIT','ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP','OUT_FOR_DELIVERY'))::int active_shipments,
           count(*) filter(where delivered_at::date=current_date)::int delivered_today,
-          count(*) filter(where status not in ('DELIVERED','CANCELLED','ARCHIVED') and (is_delayed or eta_at<now()))::int delays,
+          count(*) filter(where {TRACKING_DELAY_PREDICATE})::int delays,
           (select count(*)::int from expedition_anomalies a where a.org_id=:org_id and a.status in ('OPEN','IN_REVIEW')) incidents_open,
           round(avg(extract(epoch from (delivered_at-departed_at))/3600) filter(where delivered_at is not null and departed_at is not null)::numeric,1) average_transit_hours
           from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null"""),{"org_id":org_id}).fetchone()

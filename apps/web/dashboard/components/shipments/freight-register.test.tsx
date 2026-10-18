@@ -9,7 +9,7 @@ vi.mock("@/services/tenant",()=>({getTenantContext:()=>Promise.resolve({active_t
 vi.mock("next/navigation",()=>({usePathname:()=>"/app/shipments"}));
 vi.mock("@/components/permissions/permission-guard",()=>({PermissionGuard:({children}:{children:ReactNode})=>children}));
 const item={id:"shipment",reference:"EXP-0048",origin_country:"CN",origin_city:"Guangzhou",destination_country:"CD",destination_city:"Kinshasa",stage:"planned",status:"PREPARING",packages_count:3,planned_departure_at:null,departed_at:null};
-const route={id:"route",route_name:"Chine RDC aérien",origin_country:"CN",origin_city:"Guangzhou",destination_country:"CD",destination_city:"Kinshasa",transport_mode:"AIR"};
+const route={id:"route",route_name:"Chine RDC aérien",origin_country:"CN",origin_city:"Guangzhou",destination_country:"CD",destination_city:"Kinshasa",transport_mode:"AIR",services:[{id:"service-air",name:"Aérien",mode:"AIR"}]};
 beforeEach(()=>{
   vi.mocked(api.get).mockReset();vi.mocked(api.post).mockReset();
   vi.mocked(api.get).mockImplementation(async url=>({data:String(url).endsWith("/routes")?{items:[route]}:{items:[item],page:1,total:1,total_pages:1}}));
@@ -19,6 +19,7 @@ async function openCreation(){
   await screen.findByRole("option",{name:"Guangzhou, CN"});
   fireEvent.change(screen.getByLabelText("Origine"),{target:{value:JSON.stringify(["CN","Guangzhou"])}});
   fireEvent.change(screen.getByLabelText("Destination"),{target:{value:"route"}});
+  fireEvent.click(screen.getByLabelText("Aérien"));
 }
 
 describe("Registre Expéditions fret",()=>{
@@ -43,18 +44,18 @@ describe("Registre Expéditions fret",()=>{
     expect(await screen.findByRole("alert")).toHaveTextContent("Impossible de charger");
     expect(screen.queryByText("Aucune expédition enregistrée")).not.toBeInTheDocument();
   });
-  it("crée depuis la route sans imposer de date ni de champs techniques",async()=>{
+  it("planifie depuis une route et un service actifs avec date et note interne",async()=>{
     vi.mocked(api.post).mockResolvedValue({data:{id:"new",reference:"EXP-NEW"}});
     render(<FreightShipmentRegister/>);await openCreation();
     expect(screen.queryByLabelText("Transporteur")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button",{name:"Créer l’expédition"}));
-    await waitFor(()=>expect(api.post).toHaveBeenCalledWith("/shipments/register",{route_id:"route",request_key:expect.any(String),planned_departure_at:null}));
+    fireEvent.click(screen.getByRole("button",{name:"Planifier le départ"}));
+    await waitFor(()=>expect(api.post).toHaveBeenCalledWith("/shipments/register",expect.objectContaining({route_id:"route",shipping_service_id:"service-air",notes:null,request_key:expect.any(String),planned_departure_at:expect.any(String)})));
     expect(await screen.findByText("EXP-NEW créée.")).toBeInTheDocument();
   });
   it("réessaie la même demande après perte de réponse et conserve les champs",async()=>{
     vi.mocked(api.post).mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce({data:{id:"new",reference:"EXP-NEW"}});
     render(<FreightShipmentRegister/>);await openCreation();
-    fireEvent.click(screen.getByRole("button",{name:"Créer l’expédition"}));
+    fireEvent.click(screen.getByRole("button",{name:"Planifier le départ"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("Confirmation non reçue");
     expect(screen.getByLabelText("Origine")).toBeDisabled();
     fireEvent.click(screen.getByRole("button",{name:"Réessayer la confirmation"}));

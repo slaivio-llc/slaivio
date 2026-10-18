@@ -1,51 +1,56 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, RefreshCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { PermissionGuard } from "@/components/permissions/permission-guard";
+import { ShipmentCreation } from "@/components/shipments/freight-register";
 import { getShipmentDepartureCalendar, type ShipmentDepartureCalendarItem } from "@/services/shipments";
 
 const monthLabel = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" });
-const dayLabel = new Intl.DateTimeFormat("fr-FR", { dateStyle: "full", timeStyle: "short" });
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+const routeLabel=(item:ShipmentDepartureCalendarItem)=>item.route_label||`${item.origin_city||item.origin_country||"Origine"} → ${item.destination_city||item.destination_country||"Destination"}`;
+const dayTime=(value:string)=>new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"short",timeStyle:"short"}).format(new Date(value));
 
 export function DepartureCalendarPage() {
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
   const [items,setItems]=useState<ShipmentDepartureCalendarItem[]>([]);
   const [selected,setSelected]=useState(dateKey(new Date()));
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState("");
-  const [truncated,setTruncated]=useState(false);
+  const [loading,setLoading]=useState(true);const [error,setError]=useState("");const [truncated,setTruncated]=useState(false);
+  const [view,setView]=useState<"month"|"list">("month");const [planning,setPlanning]=useState(false);
+  const [created,setCreated]=useState<{id:string;reference:string}|null>(null);
   const load=useCallback(async()=>{
     setLoading(true);setError("");
-    try { const start=new Date(month.getFullYear(),month.getMonth(),1);const end=new Date(month.getFullYear(),month.getMonth()+1,1);const result=await getShipmentDepartureCalendar(start.toISOString(),end.toISOString());setItems(result.items);setTruncated(result.truncated); }
-    catch { setError("Le calendrier des expéditions n’a pas pu être chargé."); }
-    finally { setLoading(false); }
+    try {const start=new Date(month.getFullYear(),month.getMonth(),1);const end=new Date(month.getFullYear(),month.getMonth()+1,1);const result=await getShipmentDepartureCalendar(start.toISOString(),end.toISOString());setItems(result.items);setTruncated(result.truncated);}
+    catch {setError("Le calendrier des expéditions n’a pas pu être chargé.");}
+    finally {setLoading(false);}
   },[month]);
   useEffect(()=>{void load();},[load]);
   const daysInMonth=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
   const offset=(new Date(month.getFullYear(),month.getMonth(),1).getDay()+6)%7;
   const counts=new Map<string,number>();for(const item of items){const key=dateKey(new Date(item.calendar_at));counts.set(key,(counts.get(key)||0)+1);}
   const selectedItems=items.filter(item=>dateKey(new Date(item.calendar_at))===selected);
-  const plannedCount=items.filter(item=>!item.departed_at).length;
-  const departedCount=items.length-plannedCount;
+  const orderedItems=[...items].sort((a,b)=>a.calendar_at.localeCompare(b.calendar_at));
   const move=(delta:number)=>{const next=new Date(month.getFullYear(),month.getMonth()+delta,1);setMonth(next);setSelected(dateKey(next));};
   return <div className="min-h-full bg-white">
-    <OperationPageHeader title="Calendrier des départs" description="Vue des départs prévus et réels des expéditions. La création et la confirmation restent dans Expéditions." actions={<><OperationButton onClick={()=>void load()} aria-label="Actualiser le calendrier"><RefreshCcw size={14}/>Actualiser</OperationButton><Link href="/app/shipments" className="inline-flex h-9 items-center rounded-md bg-[#12a865] px-3 text-[13px] font-medium text-white">Ouvrir les expéditions</Link></>}/>
-    <main className="mx-auto grid w-full max-w-[1200px] gap-5 px-6 pb-10 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,.8fr)]">
-      <section className="grid gap-3 sm:col-span-2 sm:grid-cols-3" aria-label="Résumé du mois"><div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Expéditions avec un départ ce mois</p><p className="mt-1 text-xl font-semibold text-slate-800">{items.length}{truncated?"+":""}</p></div><div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Départs prévus</p><p className="mt-1 text-xl font-semibold text-slate-800">{plannedCount}</p></div><div className="rounded-lg border border-slate-200 p-4"><p className="text-xs text-slate-500">Départs confirmés</p><p className="mt-1 text-xl font-semibold text-slate-800">{departedCount}</p></div></section>
-      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5" aria-label="Calendrier mensuel des départs">
-        <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-semibold capitalize text-slate-800">{monthLabel.format(month)}</h2><div className="flex gap-1"><OperationButton aria-label="Mois précédent" onClick={()=>move(-1)}><ChevronLeft size={16}/></OperationButton><OperationButton aria-label="Mois suivant" onClick={()=>move(1)}><ChevronRight size={16}/></OperationButton></div></div>
-        <div className="grid grid-cols-7 text-center text-[11px] font-medium text-slate-500">{["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].map(day=><div key={day} className="py-2">{day}</div>)}</div>
-        <div className="grid grid-cols-7 gap-1">{Array.from({length:offset},(_,i)=><div key={`blank-${i}`} className="min-h-16 rounded-md bg-slate-50/50 sm:min-h-20"/>)}{Array.from({length:daysInMonth},(_,i)=>{const date=new Date(month.getFullYear(),month.getMonth(),i+1);const key=dateKey(date);const count=counts.get(key)||0;return <button key={key} type="button" onClick={()=>setSelected(key)} aria-pressed={selected===key} className={`min-h-16 rounded-md border p-2 text-left sm:min-h-20 ${selected===key?"border-emerald-500 bg-emerald-50":"border-slate-100 hover:border-slate-300"}`}><span className="text-xs font-medium text-slate-700">{i+1}</span>{count>0&&<span className="mt-2 block rounded bg-emerald-100 px-1.5 py-0.5 text-center text-[10px] font-medium text-emerald-800">{count} expédition{count===1?"":"s"}</span>}</button>;})}</div>
-      </section>
-      <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5"><h2 className="mb-4 text-sm font-semibold text-slate-800">{dayLabel.format(new Date(`${selected}T12:00:00`))}</h2>
-        {loading?<LoadingState label="Chargement du calendrier…"/>:error?<ErrorState title="Calendrier indisponible" description={error} retry={()=>void load()}/>:selectedItems.length===0?<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Aucun départ prévu ou confirmé pour cette journée.</p>:<ul className="divide-y divide-slate-100">{selectedItems.map(item=><li key={item.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-800">{item.reference}</p><p className="mt-1 text-xs text-slate-600">{item.route_label||`${item.origin_city||item.origin_country||"Origine"} → ${item.destination_city||item.destination_country||"Destination"}`}</p><p className="mt-1 text-xs text-slate-500">{item.packages_count} colis · {new Intl.DateTimeFormat("fr-FR",{timeStyle:"short"}).format(new Date(item.calendar_at))}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${item.departed_at?"bg-blue-50 text-blue-700":"bg-amber-50 text-amber-700"}`}>{item.departed_at?"Départ confirmé":"Prévu"}</span></div></li>)}</ul>}
-        {truncated&&<p className="mt-3 text-xs text-amber-700">L’affichage est limité aux 500 premières expéditions de cette période.</p>}
-      </section>
+    <OperationPageHeader title="Calendrier des départs" description="Consultez les expéditions programmées et les prochains départs à confirmer." actions={<><PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setPlanning(true)}><Plus size={14}/>Planifier</OperationButton></PermissionGuard><OperationButton onClick={()=>void load()} aria-label="Actualiser le calendrier"><RefreshCcw size={14}/>Actualiser</OperationButton></>}/>
+    <main className="mx-auto w-full max-w-[1200px] px-4 pb-10 sm:px-8">
+      {created&&<p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Départ planifié : <Link className="font-medium underline" href={`/app/shipments/${created.id}`}>{created.reference}</Link>. L’expédition est en préparation; aucun colis n’est encore parti.</p>}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><OperationButton aria-label="Mois précédent" onClick={()=>move(-1)}><ChevronLeft size={16}/></OperationButton><h2 className="min-w-32 text-sm font-semibold capitalize text-slate-800">{monthLabel.format(month)}</h2><OperationButton aria-label="Mois suivant" onClick={()=>move(1)}><ChevronRight size={16}/></OperationButton></div><div className="inline-flex rounded-lg border border-slate-200 p-0.5" aria-label="Affichage du calendrier">{([['month','Mois'],['list','Liste']] as const).map(([key,label])=><button key={key} type="button" aria-pressed={view===key} onClick={()=>setView(key)} className={`rounded-md px-3 py-1.5 text-xs ${view===key?'bg-slate-100 font-medium text-slate-900':'text-slate-500 hover:text-slate-800'}`}>{label}</button>)}</div></div>
+      {loading&&<LoadingState label="Chargement du calendrier…"/>}{!loading&&error&&<ErrorState title="Calendrier indisponible" description={error} retry={()=>void load()}/>}
+      {!loading&&!error&&view==="month"&&<>
+        <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5" aria-label="Calendrier mensuel des départs">
+          <div className="grid grid-cols-7 text-center text-[11px] font-medium text-slate-500">{["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].map(day=><div key={day} className="py-2">{day}</div>)}</div>
+          <div className="grid grid-cols-7 gap-1">{Array.from({length:offset},(_,i)=><div key={`blank-${i}`} className="min-h-12 rounded-md bg-slate-50/50 sm:min-h-14"/>)}{Array.from({length:daysInMonth},(_,i)=>{const date=new Date(month.getFullYear(),month.getMonth(),i+1);const key=dateKey(date);const count=counts.get(key)||0;return <button key={key} type="button" onClick={()=>setSelected(key)} aria-pressed={selected===key} className={`min-h-12 rounded-md border p-1.5 text-center sm:min-h-14 ${selected===key?"border-emerald-500 bg-emerald-50":"border-slate-100 bg-slate-50 hover:border-slate-300"}`}><span className="text-xs font-medium text-slate-700">{i+1}</span>{count>0&&<span className="mt-1 block text-[9px] font-semibold text-emerald-700">● {count}</span>}</button>;})}</div>
+        </section>
+        <section className="mt-4 border-t border-slate-100 pt-4"><h2 className="mb-3 text-sm font-semibold text-slate-800">Départs du {new Intl.DateTimeFormat("fr-FR",{day:"numeric",month:"long"}).format(new Date(`${selected}T12:00:00`))}</h2>{selectedItems.length===0?<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Aucun départ prévu ou confirmé pour cette journée.</p>:<ul className="divide-y divide-slate-100">{selectedItems.map(item=><li key={item.id}><Link href={`/app/shipments/${item.id}`} className="flex items-center justify-between gap-3 py-3 hover:bg-slate-50"><span className="min-w-0"><span className="block truncate text-sm font-medium text-slate-800">{routeLabel(item)}</span><span className="mt-1 block truncate text-[11px] text-slate-500">{item.reference} · {item.packages_count} colis</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${item.departed_at?"bg-blue-50 text-blue-700":"bg-slate-100 text-slate-700"}`}>{item.departed_at?"Départ confirmé":"Prévu"}</span></Link></li>)}</ul>}</section>
+      </>}
+      {!loading&&!error&&view==="list"&&<section aria-label="Liste mensuelle des départs" className="overflow-hidden rounded-xl border border-slate-200"><div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 bg-slate-50 px-4 py-2 text-[11px] font-medium text-slate-500"><span>Expédition / route</span><span>Date prévue ou réelle</span></div>{orderedItems.map(item=><Link key={item.id} href={`/app/shipments/${item.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-slate-100 px-4 py-3 hover:bg-slate-50"><span className="min-w-0"><span className="block truncate text-xs font-medium text-slate-800">{item.reference}</span><span className="block truncate text-[11px] text-slate-500">{routeLabel(item)} · {item.packages_count} colis</span></span><span className="text-right"><span className="block whitespace-nowrap text-[11px] text-slate-700">{dayTime(item.calendar_at)}</span><span className="text-[10px] text-slate-500">{item.departed_at?"Départ confirmé":"Prévu"}</span></span></Link>)}{!orderedItems.length&&<p className="p-5 text-sm text-slate-500">Aucun départ réel ou programmé sur ce mois.</p>}</section>}
+      {truncated&&<p className="mt-3 text-xs text-amber-700">L’affichage est limité aux 500 premières expéditions de cette période.</p>}
     </main>
+    {planning&&<ShipmentCreation close={()=>setPlanning(false)} created={item=>{setPlanning(false);setCreated(item);void load();}}/>}
   </div>;
 }

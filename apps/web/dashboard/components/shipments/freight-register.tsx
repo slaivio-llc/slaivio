@@ -17,9 +17,11 @@ type Shipment = { id:string; reference:string; origin_city:string|null; origin_c
   packages_count:number; planned_departure_at:string|null; departed_at:string|null };
 type Result = { items:Shipment[]; page:number; total:number; total_pages:number };
 type Route = { id:string; route_name:string; origin_city:string|null; origin_country:string;
-  destination_city:string|null; destination_country:string; transport_mode:string };
+  destination_city:string|null; destination_country:string; transport_mode:string;
+  services:Array<{id:string;name:string;mode:string}> };
 const stages:Record<string,string> = { planned:"Prévue", departed:"Partie", arrived:"Arrivée", other:"Autre état" };
 function location(city:string|null,country:string|null) { return [city,country].filter(Boolean).join(", ") || "Non renseigné"; }
+function todayLocal(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;}
 function departure(item:Shipment) {
   const value=item.departed_at||item.planned_departure_at;
   return value ? `${item.departed_at?"Réel":"Prévu"} · ${new Intl.DateTimeFormat("fr",{dateStyle:"medium"}).format(new Date(value))}` : "Date à définir";
@@ -80,9 +82,10 @@ export function FreightShipmentRegister() {
   </div>;
 }
 
-function ShipmentCreation({close,created}:{close:()=>void;created:(item:{id:string;reference:string})=>void}) {
+export function ShipmentCreation({close,created}:{close:()=>void;created:(item:{id:string;reference:string})=>void}) {
   const [routes,setRoutes]=useState<Route[]|null>(null);const [loadError,setLoadError]=useState(false);const [retry,setRetry]=useState(0);
-  const [origin,setOrigin]=useState("");const [routeId,setRouteId]=useState("");const [planned,setPlanned]=useState("");
+  const [origin,setOrigin]=useState("");const [routeId,setRouteId]=useState("");const [serviceId,setServiceId]=useState("");
+  const [plannedDate,setPlannedDate]=useState(todayLocal);const [plannedTime,setPlannedTime]=useState("10:00");const [notes,setNotes]=useState("");
   const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [frozen,setFrozen]=useState(false);
   const pending=useRef(false);const key=useRef<string|null>(null);
   useEffect(()=>{const controller=new AbortController();setLoadError(false);
@@ -91,10 +94,13 @@ function ShipmentCreation({close,created}:{close:()=>void;created:(item:{id:stri
   const originKey=(route:Route)=>JSON.stringify([route.origin_country,route.origin_city]);
   const origins=Array.from(new Map((routes||[]).map(route=>[originKey(route),location(route.origin_city,route.origin_country)])).entries());
   const available=(routes||[]).filter(route=>originKey(route)===origin);
+  const selectedRoute=available.find(route=>route.id===routeId);const services=selectedRoute?.services||[];
+  function reset(){if(frozen)return;setOrigin("");setRouteId("");setServiceId("");setPlannedDate(todayLocal());setPlannedTime("10:00");setNotes("");setError("");key.current=null;}
   async function submit(event:FormEvent){
-    event.preventDefault();if(pending.current||!routeId)return;
+    event.preventDefault();if(pending.current||!routeId||!serviceId||!plannedDate)return;
     pending.current=true;setSaving(true);setFrozen(true);setError("");key.current??=crypto.randomUUID();
-    try{const response=await api.post<{id:string;reference:string}>("/shipments/register",{route_id:routeId,request_key:key.current,planned_departure_at:planned?new Date(planned).toISOString():null});created(response.data);}
+    const localDateTime=`${plannedDate}T${plannedTime||"10:00"}:00`;
+    try{const response=await api.post<{id:string;reference:string}>("/shipments/register",{route_id:routeId,shipping_service_id:serviceId,notes:notes.trim()||null,request_key:key.current,planned_departure_at:new Date(localDateTime).toISOString()});created(response.data);}
     catch(cause){const status=axios.isAxiosError(cause)?cause.response?.status:null;
       if(status===409||status===422){setFrozen(false);setError("La route ou la demande n’est plus valide. Vérifiez votre sélection.");}
       else setError("Confirmation non reçue. Réessayez ici avec la même demande avant de créer une autre expédition.");
@@ -102,15 +108,18 @@ function ShipmentCreation({close,created}:{close:()=>void;created:(item:{id:stri
   }
   return <OperationDrawer open title="Nouvelle expédition" placement="right" width="max-w-2xl" close={()=>{if(!pending.current)close();}}>
     {loadError?<p role="alert">Routes indisponibles. <button className="underline" onClick={()=>setRetry(n=>n+1)}>Réessayer</button></p>:!routes?<TableSkeleton rows={3} columns={1}/>:!routes.length?<p className="text-sm">Configurez une route active dans Routes et services avant de préparer une expédition.</p>:<form onSubmit={submit} className="grid gap-5">
-      <p className="text-sm text-slate-500">La création prépare le mouvement. Aucun colis n’est déclaré parti et aucun message n’est envoyé.</p>
+      <p className="text-sm text-slate-500">Planifiez une expédition à partir des routes et services actifs de votre agence. Aucun colis n’est déclaré parti à cette étape.</p>
       <fieldset disabled={saving||frozen} className="grid gap-4">
         <label className="grid gap-1.5 text-sm">Origine<select required className={field} value={origin} onChange={e=>{setOrigin(e.target.value);setRouteId("");}}><option value="">Choisir l’origine</option>{origins.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-        <label className="grid gap-1.5 text-sm">Destination<select required disabled={!origin||saving||frozen} className={field} value={routeId} onChange={e=>setRouteId(e.target.value)}><option value="">Choisir la destination et sa route</option>{available.map(route=><option key={route.id} value={route.id}>{location(route.destination_city,route.destination_country)} · {route.route_name}</option>)}</select></label>
-        <label className="grid gap-1.5 text-sm">Départ prévu (facultatif)<input type="datetime-local" className={field} value={planned} onChange={e=>setPlanned(e.target.value)}/></label>
-        <p className="text-xs text-slate-500">Heure locale de votre navigateur. Laissez vide si le départ n’est pas encore fixé.</p>
+        <label className="grid gap-1.5 text-sm">Destination<select required disabled={!origin||saving||frozen} className={field} value={routeId} onChange={e=>{setRouteId(e.target.value);setServiceId("");}}><option value="">Choisir la destination et sa route</option>{available.map(route=><option key={route.id} value={route.id}>{location(route.destination_city,route.destination_country)} · {route.route_name}</option>)}</select></label>
+        <fieldset disabled={!selectedRoute||saving||frozen} className="grid gap-2"><legend className="mb-2 text-sm">Service <span className="text-red-600">*</span></legend>{services.length?services.map(service=><label key={service.id} className="flex items-center gap-2 text-sm"><input type="radio" name="shipping-service" required checked={serviceId===service.id} onChange={()=>setServiceId(service.id)} className="accent-emerald-700"/>{service.name}</label>):<p className="text-xs text-amber-800">Aucun service actif n’est configuré pour cette route.</p>}</fieldset>
+        <label className="grid gap-1.5 text-sm">Date prévue du départ <span className="text-red-600">*</span><input required type="date" className={field} value={plannedDate} onChange={e=>setPlannedDate(e.target.value)}/></label>
+        <label className="grid gap-1.5 text-sm">Heure prévue (facultative)<input type="time" className={field} value={plannedTime} onChange={e=>setPlannedTime(e.target.value)}/></label>
+        <label className="grid gap-1.5 text-sm">Note interne (facultative)<textarea maxLength={1000} className={field} rows={3} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Informations utiles pour l’équipe…"/></label>
+        <div className="rounded-md bg-slate-50 p-3 text-xs"><p className="font-medium">Départ planifié</p><p className="mt-1 text-slate-600">L’expédition sera créée avec le statut « Prévue ». Vous pourrez ensuite y ajouter des colis.</p></div>
       </fieldset>
       {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-      <div className="flex justify-end gap-2"><OperationButton disabled={saving} onClick={close}>Annuler</OperationButton><OperationButton type="submit" variant="primary" disabled={saving||!routeId}>{saving?"Création…":frozen?"Réessayer la confirmation":"Créer l’expédition"}</OperationButton></div>
+      <div className="flex justify-end gap-2"><OperationButton disabled={saving||frozen} onClick={reset}>Réinitialiser</OperationButton><OperationButton type="submit" variant="primary" disabled={saving||!routeId||!serviceId||!plannedDate}>{saving?"Création…":frozen?"Réessayer la confirmation":"Planifier le départ"}</OperationButton></div>
     </form>}
   </OperationDrawer>;
 }

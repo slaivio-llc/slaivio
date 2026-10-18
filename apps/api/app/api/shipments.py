@@ -46,6 +46,8 @@ class PlannedShipmentPayload(BaseModel):
     route_id: UUID
     request_key: UUID
     planned_departure_at: AwareDatetime | None = None
+    shipping_service_id: UUID | None = None
+    notes: str | None = Field(default=None, max_length=1000)
 
 
 class ShipmentPlanningPayload(BaseModel):
@@ -215,7 +217,9 @@ def shipment_creation_routes(tenant=Depends(get_current_tenant)):
 def create_planned_shipment(payload: PlannedShipmentPayload, tenant=Depends(get_current_tenant)):
     from app.expeditions.register import create
     org_id, actor_id = _tenant_ids(tenant)
-    return create(org_id, actor_id, str(payload.route_id), payload.planned_departure_at, str(payload.request_key))
+    return create(org_id, actor_id, str(payload.route_id), payload.planned_departure_at,
+                  str(payload.request_key), str(payload.shipping_service_id) if payload.shipping_service_id else None,
+                  payload.notes)
 
 
 class ExpeditionPayload(BaseModel):

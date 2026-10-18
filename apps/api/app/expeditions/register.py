@@ -86,17 +86,26 @@ def locations(org_id):
 def routes(org_id):
     with engine.connect() as conn:
         return [dict(row) for row in conn.execute(text("""select id::text,route_name,
-            origin_city,origin_country,destination_city,destination_country,transport_mode
-            from shipping_routes where org_id=:org_id and active=true and archived_at is null
-            and status in ('ACTIVE','LIMITED') and availability not in ('FULL','SUSPENDED','UNAVAILABLE')
-            order by origin_country,origin_city,destination_country,destination_city,id"""), {'org_id': org_id}).mappings()]
+            origin_city,origin_country,destination_city,destination_country,transport_mode,
+            coalesce((select jsonb_agg(jsonb_build_object('id',s.id::text,'name',s.service_name,
+                'mode',s.shipping_mode) order by s.priority,s.service_name)
+              from service_route_offerings offering join shipping_services s
+                on s.id=offering.service_id and s.org_id=offering.org_id
+              where offering.org_id=r.org_id and offering.route_id=r.id
+                and offering.effective_from<=now() and (offering.effective_until is null or offering.effective_until>now())
+                and offering.availability in ('AVAILABLE','LIMITED','QUOTE_ONLY')
+                and s.active and s.status in ('ACTIVE','LIMITED') and s.archived_at is null), '[]'::jsonb) as services
+            from shipping_routes r where r.org_id=:org_id and r.active=true and r.archived_at is null
+            and r.status in ('ACTIVE','LIMITED') and r.availability not in ('FULL','SUSPENDED','UNAVAILABLE')
+            order by r.origin_country,r.origin_city,r.destination_country,r.destination_city,r.id"""), {'org_id': org_id}).mappings()]
 
 
-def create(org_id, actor_id, route_id, planned_departure_at, request_key):
+def create(org_id, actor_id, route_id, planned_departure_at, request_key, shipping_service_id=None, notes=None):
     # The client-generated request key is the UUID identity of this creation only.
     # Persist the original payload hash in the creation event, not mutable fields.
     planned = planned_departure_at.astimezone(timezone.utc) if planned_departure_at else None
-    fingerprint = hashlib.sha256(json.dumps({'route': route_id, 'planned': planned.isoformat() if planned else None}, sort_keys=True).encode()).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps({'route': route_id, 'service': shipping_service_id,
+        'planned': planned.isoformat() if planned else None, 'notes': (notes or '').strip()}, sort_keys=True).encode()).hexdigest()
     with engine.begin() as conn:
         conn.execute(text('select pg_advisory_xact_lock(hashtext(:key))'), {'key': f'expedition-create:{request_key}'})
         existing = conn.execute(text("""select e.org_id,e.created_by,e.expedition_reference,
@@ -118,18 +127,35 @@ def create(org_id, actor_id, route_id, planned_departure_at, request_key):
             raise HTTPException(409, 'shipment_route_unavailable')
         if route['transport_mode'] not in {'AIR','SEA','ROAD','EXPRESS','GROUPAGE','OTHER'}:
             raise HTTPException(409, 'shipment_route_mode_invalid')
+        service = None
+        if shipping_service_id:
+            service = conn.execute(text("""select s.service_name,s.shipping_mode from service_route_offerings o
+                join shipping_services s on s.org_id=o.org_id and s.id=o.service_id
+                where o.org_id=:org_id and o.route_id=cast(:route_id as uuid)
+                  and o.service_id=cast(:service_id as uuid)
+                  and o.effective_from<=now() and (o.effective_until is null or o.effective_until>now())
+                  and o.availability in ('AVAILABLE','LIMITED','QUOTE_ONLY')
+                  and s.active and s.status in ('ACTIVE','LIMITED') and s.archived_at is null"""),
+                {'org_id': org_id, 'route_id': route_id, 'service_id': shipping_service_id}).first()
+            if not service:
+                raise HTTPException(409, 'shipment_service_unavailable_for_route')
+        transport_mode = service['shipping_mode'] if service else route['transport_mode']
         reference = generate_expedition_reference()
         conn.execute(text("""insert into cargo_expeditions
-            (id,org_id,expedition_reference,status,mode,route_id,route_label,workflow_version,
+            (id,org_id,expedition_reference,status,mode,service_type,route_id,shipping_service_id,notes,route_label,workflow_version,
              origin_country,origin_city,destination_country,destination_city,
              planned_departure_at,created_by,updated_by)
-            values(cast(:id as uuid),:org_id,:reference,'PREPARING',:transport_mode,
-             cast(:route_id as uuid),:route_name,2,:origin_country,:origin_city,
+            values(cast(:id as uuid),:org_id,:reference,'PREPARING',:transport_mode,:service_name,
+             cast(:route_id as uuid),cast(:service_id as uuid),:notes,:route_name,2,:origin_country,:origin_city,
              :destination_country,:destination_city,:planned,:actor,:actor)"""),
             {**dict(route), 'id': request_key, 'org_id': org_id, 'reference': reference,
-             'route_id': route_id, 'planned': planned, 'actor': actor_id})
+             'transport_mode': transport_mode, 'service_name': service['service_name'] if service else None,
+             'route_id': route_id, 'service_id': shipping_service_id, 'notes': (notes or '').strip() or None,
+             'planned': planned, 'actor': actor_id})
         _insert_event(conn, org_id=org_id, expedition_id=request_key,
             event_type='EXPEDITION_CREATED', title='Expédition prévue', new_status='PREPARING',
             actor_id=actor_id, metadata={'creation_hash': fingerprint, 'route_id': route_id,
-                                      'planned_departure_at': planned.isoformat() if planned else None})
+                                      'planned_departure_at': planned.isoformat() if planned else None,
+                                      'shipping_service_id': shipping_service_id,
+                                      'notes': (notes or '').strip() or None})
         return {'id': request_key, 'reference': reference, 'replayed': False}

@@ -211,6 +211,19 @@ class PackagePayload(BaseModel):
     @model_validator(mode="after")
     def validate_package(self):
         _assert_allowed(self.status, PACKAGE_STATUSES, "invalid_status")
+        # Creating a package records its administrative intake (and, where
+        # applicable, its physical receipt). Dispatch, arrival and delivery
+        # are operational events and must go through the transition workflow.
+        creatable_statuses = {
+            "CREATED", "PENDING_VALIDATION", "CONFIRMED", "RECEIVED",
+            "RECEIVED_AT_ORIGIN",
+        }
+        if self.status not in creatable_statuses:
+            raise ValueError("package_creation_cannot_skip_operational_transitions")
+        if self.dispatched_at or self.delivered_at:
+            raise ValueError("package_creation_cannot_record_dispatch_or_delivery")
+        if self.received_at and self.status not in {"RECEIVED", "RECEIVED_AT_ORIGIN"}:
+            raise ValueError("received_at_requires_received_status")
         _assert_allowed(self.package_condition, PACKAGE_CONDITIONS, "invalid_package_condition")
         _assert_allowed(self.inventory_status, INVENTORY_STATUSES, "invalid_inventory_status")
         _assert_allowed(self.validation_status, VALIDATION_STATUSES, "invalid_validation_status")

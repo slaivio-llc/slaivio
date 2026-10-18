@@ -123,3 +123,11 @@ def test_tracking_timeline_does_not_backfill_old_event_location_from_current_loc
     timeline=source.split("def global_timeline(",1)[1].split("def tracking_detail(",1)[0]
     assert "ev.metadata->>'location' location" in timeline
     assert "coalesce(ev.metadata->>'location',e.last_location)" not in timeline
+
+def test_expedition_arrival_kpi_does_not_count_stale_eta_after_arrival():
+    source=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
+    stats=source.split("def expedition_stats(",1)[1].split("def expedition_analytics(",1)[0]
+    assert "arrived_at::date = current_date" in stats
+    assert "arrived_at is null and eta_at::date = current_date" in stats
+    assert "'ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP'" in stats
+    assert "deleted_at is null" in stats

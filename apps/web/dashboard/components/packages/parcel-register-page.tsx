@@ -107,7 +107,7 @@ export function ParcelRegisterPage({ embedded = false }: { embedded?: boolean })
   return <div className={`min-h-full bg-white ${embedded ? "py-2" : ""}`}>
     {!embedded && <OperationPageHeader title="Colis" description="De la réception à la remise au client." backHref="/app/operations" backLabel="Retour aux opérations"
       actions={<PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={15} />Enregistrer un colis</OperationButton></PermissionGuard>} />}
-    <section aria-label="Registre des colis" className={`mx-auto w-full pb-8 ${embedded ? "max-w-xl px-1" : "max-w-[1200px] px-6 sm:px-8"}`}>
+    <section aria-label="Registre des colis" className={`mx-auto w-full pb-8 ${embedded ? "max-w-full px-0" : "max-w-[1200px] px-6 sm:px-8"}`}>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         {embedded && <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">Colis</h2><p className="mt-1 text-[11px] text-slate-500">Gestion des colis de l’agence</p></div><PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={14} />Nouveau colis</OperationButton></PermissionGuard></header>}
         {embedded && <div className="grid grid-cols-4 gap-2 border-b border-slate-100 px-4 py-3" aria-label="Indicateurs colis">

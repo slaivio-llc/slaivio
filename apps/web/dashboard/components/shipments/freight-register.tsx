@@ -61,7 +61,7 @@ export function FreightShipmentRegister({embedded=false}:{embedded?:boolean}) {
   return <div className={`min-h-full bg-white ${embedded?"py-2":""}`}>
     {!embedded&&<OperationPageHeader title="Expéditions" description="Préparez le chargement et suivez chaque mouvement." backHref="/app/shipments" backLabel="Retour aux opérations"
       actions={<PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setCreating(true)}><Plus size={15}/>Nouvelle expédition</OperationButton></PermissionGuard>}/>}
-    <section className={`mx-auto w-full pb-8 ${embedded?"max-w-xl px-1":"max-w-[1200px] px-6 sm:px-8"}`} aria-label="Registre des expéditions">
+    <section className={`mx-auto w-full pb-8 ${embedded?"max-w-full px-0":"max-w-[1200px] px-6 sm:px-8"}`} aria-label="Registre des expéditions">
       {created&&<p role="status" className="mb-4 text-sm text-emerald-800">{created.reference} créée. <Link className="underline" href={`/app/shipments/${created.id}`}>Ouvrir l’expédition</Link></p>}
       <div className="overflow-hidden rounded-xl border border-slate-200">
         {embedded&&<header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">Expéditions</h2><p className="mt-1 text-[11px] text-slate-500">Gestion des départs et des marchandises</p></div><PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setCreating(true)}><Plus size={14}/>Nouvelle expédition</OperationButton></PermissionGuard></header>}

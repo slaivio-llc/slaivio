@@ -50,7 +50,7 @@ const sections = [
 type Section = (typeof sections)[number][0];
 const inputClass = "h-9 w-full rounded-[7px] border border-[#d5dade] bg-white px-3 text-[13px] text-[#293038] outline-none transition focus:border-[#12a865]";
 
-export function PilotSettingsPage({scope="all"}:{scope?:"all"|"communication"}) {
+export function PilotSettingsPage({scope="all",embedded=false}:{scope?:"all"|"communication";embedded?:boolean}) {
   const locale = useDashboardLocale();
   const router = useRouter();
   const params = useSearchParams();
@@ -89,7 +89,7 @@ export function PilotSettingsPage({scope="all"}:{scope?:"all"|"communication"}) 
   function choose(next: Section) {
     setSection(next);
     setNotice("");
-    router.replace(scope==="communication"?`/app/communication/settings?section=${next}`:`/app/settings?section=${next}`, { scroll: false });
+    if (!embedded) router.replace(scope==="communication"?`/app/communication/settings?section=${next}`:`/app/settings?section=${next}`, { scroll: false });
   }
 
   async function run(action: () => Promise<unknown>, message: string) {
@@ -119,9 +119,9 @@ export function PilotSettingsPage({scope="all"}:{scope?:"all"|"communication"}) 
   if (!data) return <ErrorState title="Paramètres indisponibles" description={error} retry={load} />;
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader divider={false} backHref={scope==="communication"?"/app/communication/settings":undefined} title={scope==="communication"?"Paramètres de communication":dashboardLabel(locale, "Paramètres")} description={scope==="communication"?"Gérez les canaux, les réponses IA et les préférences de notification de Communication.":dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>
+    {!embedded && <OperationPageHeader divider={false} backHref={scope==="communication"?"/app/communication/settings":undefined} title={scope==="communication"?"Paramètres de communication":dashboardLabel(locale, "Paramètres")} description={scope==="communication"?"Gérez les canaux, les réponses IA et les préférences de notification de Communication.":dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>}
       <main className="mx-auto min-w-0 w-full max-w-[1200px] px-6 pb-10 sm:px-8">
-        {scope !== "communication" && <>
+        {(scope !== "communication" || embedded) && <>
         <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map(([key, label]) => {
             const active = section === key;

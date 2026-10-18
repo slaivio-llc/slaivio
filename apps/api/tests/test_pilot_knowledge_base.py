@@ -44,6 +44,15 @@ def test_whatsapp_ai_can_only_retrieve_current_published_safe_information():
         assert guard in repository
 
 
+def test_knowledge_stats_count_only_current_ai_eligible_entries():
+    repository = read("apps/api/app/knowledge/repository.py")
+    query = repository.split("def stats(", 1)[1].split("def create(", 1)[0]
+    assert "and (expires_at is null or expires_at>now())) active" in query
+    assert "status='PUBLISHED' and ai_scope<>'NONE' and sensitive=false" in query
+    assert "(effective_at is null or effective_at<=now())" in query
+    assert "(review_due_at is null or review_due_at>now())" in query
+
+
 def test_pilot_ui_uses_agency_language_and_hides_technical_governance():
     page = read("apps/web/dashboard/components/knowledge/knowledge-page.tsx")
     route = read("apps/web/dashboard/app/app/knowledge/page.tsx")

@@ -77,7 +77,21 @@ def listing(org_id: str, filters: dict[str, Any]):
 
 def stats(org_id: str):
     with engine.connect() as conn:
-        row = conn.execute(text("""select count(*) filter(where status not in('ARCHIVED','EXPIRED')) active,count(*) filter(where knowledge_type='DOCUMENT') documents,count(*) filter(where knowledge_type='FAQ') faq,count(*) filter(where knowledge_type='PROCEDURE') procedures,count(*) filter(where knowledge_type in('RULE','POLICY')) rules,count(*) filter(where status in('PENDING_REVIEW','NEEDS_REVIEW')) needs_review,count(*) filter(where status='EXPIRED' or expires_at<now()) expired,count(*) filter(where status='PUBLISHED' and ai_scope<>'NONE') ai_enabled,count(*) filter(where status<>'PUBLISHED') unpublished,count(*) filter(where owner_id is null and status not in('ARCHIVED','EXPIRED')) ownerless from knowledge_entries where org_id=:o"""), {"o": org_id}).fetchone()
+        row = conn.execute(text("""select
+          count(*) filter(where status not in('ARCHIVED','EXPIRED') and (expires_at is null or expires_at>now())) active,
+          count(*) filter(where knowledge_type='DOCUMENT') documents,
+          count(*) filter(where knowledge_type='FAQ') faq,
+          count(*) filter(where knowledge_type='PROCEDURE') procedures,
+          count(*) filter(where knowledge_type in('RULE','POLICY')) rules,
+          count(*) filter(where status in('PENDING_REVIEW','NEEDS_REVIEW')) needs_review,
+          count(*) filter(where status='EXPIRED' or expires_at<now()) expired,
+          count(*) filter(where status='PUBLISHED' and ai_scope<>'NONE' and sensitive=false
+            and (effective_at is null or effective_at<=now())
+            and (expires_at is null or expires_at>now())
+            and (review_due_at is null or review_due_at>now())) ai_enabled,
+          count(*) filter(where status<>'PUBLISHED') unpublished,
+          count(*) filter(where owner_id is null and status not in('ARCHIVED','EXPIRED')) ownerless
+          from knowledge_entries where org_id=:o"""), {"o": org_id}).fetchone()
         conflicts = conn.execute(text("select count(*) from knowledge_conflicts where org_id=:o and status='OPEN'"), {"o": org_id}).scalar_one()
         unanswered = conn.execute(text("select count(*) from knowledge_response_logs where org_id=:o and decision='NO_RESULT' and created_at>now()-interval '30 days'"), {"o": org_id}).scalar_one()
         result = _dict(row); result.update({"conflicts": conflicts, "unanswered": unanswered})

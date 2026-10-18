@@ -125,7 +125,7 @@ def test_individual_location_is_not_mandatory():
     assert _missing({'full_name': 'Jean Mukendi', 'customer_type': 'individual'}) == []
 
 
-def test_qualified_whatsapp_prospect_is_not_automatically_created_as_crm_client(monkeypatch):
+def test_qualified_whatsapp_prospect_waits_for_agency_by_default(monkeypatch):
     monkeypatch.setattr(service, 'is_parcel_organization', lambda _: True)
     extracted = {'stage': 'QUALIFIED', 'customer_type': 'individual', 'full_name': 'Jean Mukendi',
                  'service_intent_confirmed': True, 'confidence': 0.95}
@@ -138,6 +138,20 @@ def test_qualified_whatsapp_prospect_is_not_automatically_created_as_crm_client(
     assert result['client'] is None
     assert result['journey']['stage'] == 'QUALIFIED'
     assert 'doit confirmer votre inscription' in result['reply']
+
+
+def test_qualified_whatsapp_prospect_can_be_created_when_agency_opted_in(monkeypatch):
+    monkeypatch.setattr(service, 'is_parcel_organization', lambda _: True)
+    extracted = {'stage': 'QUALIFIED', 'customer_type': 'individual', 'full_name': 'Jean Mukendi',
+                 'service_intent_confirmed': True, 'confidence': 0.95}
+    monkeypatch.setattr(service, '_provider_response', lambda *args, **kwargs: {
+        'success': True, 'content': json.dumps(extracted)})
+    monkeypatch.setattr(service, 'upsert_journey', lambda org, phone, values, **kwargs: {
+        **values, 'missing_fields': _missing(values)})
+    monkeypatch.setattr(service, 'convert_journey', lambda org, phone: {'id': 'client', 'display_name': 'Jean Mukendi'})
+    result = service._parcel_qualification({'auto_create_qualified_whatsapp_clients': True}, {'org_id': 'agency'}, '+123')
+    assert result['client']['id'] == 'client'
+    assert 'fiche client est créée' in result['reply']
 
 
 def test_rejected_answer_cannot_be_promoted_by_qualification(monkeypatch):

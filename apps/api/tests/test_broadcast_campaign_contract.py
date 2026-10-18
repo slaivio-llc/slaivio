@@ -131,6 +131,16 @@ def test_campaign_api_exposes_unsupported_channel_as_conflict():
     assert "'channel_not_available'" in api
 
 
+def test_auto_create_prospect_setting_is_opt_in_and_permission_gated():
+    migration = read("infra/sql/145_communication_ai_prospect_auto_create.sql")
+    api = read("apps/api/app/api/ai_drafts.py")
+    settings = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
+    assert "default false" in migration
+    assert "auto_create_qualified_whatsapp_clients" in migration
+    assert 'require_permission("inbox.ai.manage")' in api
+    assert "Créer automatiquement une fiche client après qualification" in settings
+
+
 def test_naive_campaign_schedule_is_interpreted_in_workspace_timezone():
     value = broadcast_repository._scheduled_at_utc('2026-10-20T15:30', 'Africa/Kinshasa')
     assert value.isoformat() == '2026-10-20T14:30:00+00:00'

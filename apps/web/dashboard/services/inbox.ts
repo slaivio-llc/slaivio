@@ -169,6 +169,10 @@ export async function updateInboxAIMode(mode: InboxAIMode) {
   return (await api.patch<{ settings: InboxAISettings }>("/inbox/ai/settings", { mode })).data.settings;
 }
 
+export async function updateQualifiedProspectAutoCreate(enabled: boolean) {
+  return (await api.patch("/inbox/ai/settings/qualified-prospect-auto-create", { enabled })).data;
+}
+
 export async function generateInboxAISuggestion(phone: string) {
   return (await api.post<InboxAISuggestion>(`/inbox/conversations/${encodeURIComponent(phone)}/ai-draft`, {})).data;
 }

@@ -70,7 +70,8 @@ def overview(org_id: str) -> dict:
           order by is_default desc,created_at desc
         """), {"org_id": org_id}).fetchall()]
         ai = _dict(conn.execute(text("""
-          select pilot_response_mode,pilot_require_published_knowledge,system_prompt,
+          select pilot_response_mode,pilot_require_published_knowledge,
+                 auto_create_qualified_whatsapp_clients,system_prompt,
                  user_prompt_template,communication_style,prompt_row_version,updated_at
           from ai_settings where org_id=:org_id
         """), {"org_id": org_id}).fetchone())

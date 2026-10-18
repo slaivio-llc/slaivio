@@ -12,7 +12,7 @@ import { OperationButton, OperationStatus } from "@/components/ui/operation-cont
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { FormGeographyFields, PhoneField } from "@/components/ui/geography-fields";
 import { dashboardLabel, useDashboardLocale } from "@/components/i18n/dashboard-language";
-import { updateInboxAIMode, type InboxAIMode } from "@/services/inbox";
+import { updateInboxAIMode, updateQualifiedProspectAutoCreate, type InboxAIMode } from "@/services/inbox";
 import {
   getPilotSettings,
   revokeInvitation,
@@ -357,6 +357,14 @@ function AISettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<u
         <SettingsCard title="Mode de réponse" description="Ce choix s’applique immédiatement à la Boîte de réception.">
           <div className="grid gap-2">{(Object.keys(modeContent) as InboxAIMode[]).map(mode=><button key={mode} type="button" onClick={()=>mode!==data.ai.pilot_response_mode&&run(()=>updateInboxAIMode(mode),"Le mode de réponse de l’IA a été modifié.")} className={`flex gap-3 rounded-[8px] border p-4 text-left transition ${mode===data.ai.pilot_response_mode?"border-[#12ad64] bg-[#eff9f4]":"border-[#dce1e4] hover:bg-[#fafbfb]"}`}><span className={`mt-0.5 grid h-8 w-8 place-items-center rounded-full ${mode===data.ai.pilot_response_mode?"bg-[#d7f1e4] text-[#087848]":"bg-[#f1f3f4] text-[#66717a]"}`}><Sparkles size={16}/></span><span className="flex-1"><strong className="text-[14px] text-[#303941]">{modeContent[mode].title}</strong><span className="mt-1 block text-[12px] leading-5 text-[#727d86]">{modeContent[mode].description}</span></span>{mode===data.ai.pilot_response_mode&&<Check size={16} className="mt-2 text-[#0b8e51]"/>}</button>)}</div>
         </SettingsCard>
+        {data.organization.organization_type === "PARCEL_FREIGHT" && <SettingsCard title="Inscription des prospects WhatsApp" description="En mode automatique, choisissez si une demande qualifiée crée automatiquement une fiche client ou attend la validation d’un membre de l’agence.">
+          <PermissionGuard permission="inbox.ai.manage" fallback={<p className="text-[13px] text-[#66717a]">{data.ai.auto_create_qualified_whatsapp_clients ? "Création automatique activée" : "Confirmation par l’agence"}</p>}>
+            <label className="flex items-start gap-3 text-[13px] text-[#344149]">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#0b9a5b]" checked={data.ai.auto_create_qualified_whatsapp_clients} onChange={event=>void run(()=>updateQualifiedProspectAutoCreate(event.target.checked),event.target.checked?"La création automatique des clients qualifiés est activée.":"La création des clients attendra désormais la confirmation de l’agence.")}/>
+              <span><strong className="font-semibold">Créer automatiquement une fiche client après qualification</strong><span className="mt-1 block text-[12px] leading-5 text-[#727d86]">L’IA doit détecter une intention explicite d’expédier et recueillir les informations requises. Les entreprises et les cas ambigus restent à valider par l’agence. Désactivé par défaut.</span></span>
+            </label>
+          </PermissionGuard>
+        </SettingsCard>}
         <SettingsCard title="Instructions et style" description="Les connaissances ne doivent pas être recopiées ici : SLAIVIO injecte automatiquement les informations publiées et communicables.">
           <div className="grid gap-5">
             <div className="flex justify-end"><OperationButton onClick={useRecommendedPrompts}><Sparkles size={14}/>Utiliser le modèle recommandé</OperationButton></div>

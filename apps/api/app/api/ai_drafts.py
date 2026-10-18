@@ -29,6 +29,10 @@ class UpdatePilotAIMode(BaseModel):
     mode: Literal["SUGGESTION_ONLY", "CONTROLLED_AUTO", "PAUSED"]
 
 
+class UpdateQualifiedProspectAutoCreate(BaseModel):
+    enabled: bool
+
+
 class UpdatePilotPrompt(BaseModel):
     system_prompt: str
     user_prompt_template: str = ""
@@ -52,6 +56,15 @@ def read_pilot_ai_settings(tenant=Depends(get_current_tenant)):
 def change_pilot_ai_settings(body: UpdatePilotAIMode, tenant=Depends(get_current_tenant)):
     settings = update_pilot_ai_settings(
         tenant["org_id"], body.mode, str(tenant.get("user_id") or "system"),
+    )
+    return {"status": "ok", "settings": settings}
+
+
+@router.patch("/inbox/ai/settings/qualified-prospect-auto-create", dependencies=[Depends(require_permission("inbox.ai.manage"))])
+def change_qualified_prospect_auto_create(body: UpdateQualifiedProspectAutoCreate, tenant=Depends(get_current_tenant)):
+    from app.ai.repositories.pilot_inbox_ai_repository import update_qualified_prospect_auto_create
+    settings = update_qualified_prospect_auto_create(
+        tenant["org_id"], body.enabled, str(tenant.get("user_id") or "system"),
     )
     return {"status": "ok", "settings": settings}
 

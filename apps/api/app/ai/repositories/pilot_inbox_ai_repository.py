@@ -16,12 +16,25 @@ def get_pilot_ai_settings(org_id: str) -> dict:
           select settings.enabled, settings.provider, settings.model_name, settings.temperature, settings.max_tokens,
                  auto_reply_min_confidence, pilot_response_mode,system_prompt,
                  user_prompt_template,communication_style,prompt_row_version,
-                 pilot_require_published_knowledge, settings.updated_at,
+                 pilot_require_published_knowledge,auto_create_qualified_whatsapp_clients, settings.updated_at,
                  organization.name organization_name
           from ai_settings settings
           join organizations organization on organization.id=settings.org_id
           where settings.org_id=:org_id
         """), {"org_id": org_id}).mappings().one()
+        return dict(row)
+
+
+def update_qualified_prospect_auto_create(org_id: str, enabled: bool, actor_id: str) -> dict:
+    with engine.begin() as conn:
+        conn.execute(text("insert into ai_settings(org_id) values(:org_id) on conflict(org_id) do nothing"), {"org_id": org_id})
+        row = conn.execute(text("""
+          update ai_settings
+          set auto_create_qualified_whatsapp_clients=:enabled,
+              pilot_updated_by=:actor_id,updated_at=now()
+          where org_id=:org_id
+          returning auto_create_qualified_whatsapp_clients,pilot_updated_by,updated_at
+        """), {"org_id": org_id, "enabled": enabled, "actor_id": actor_id}).mappings().one()
         return dict(row)
 
 

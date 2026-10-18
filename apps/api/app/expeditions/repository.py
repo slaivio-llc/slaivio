@@ -749,7 +749,7 @@ def expedition_analytics(org_id:str)->dict:
         summary=conn.execute(text("""select count(*)::int total,count(*) filter(where delivered_at is not null)::int delivered,
           count(*) filter(where delivered_at is not null and eta_at is not null)::int delivered_with_eta,
           count(*) filter(where delivered_at is not null and eta_at is not null and delivered_at<=eta_at)::int on_time,
-          round(avg(extract(epoch from(delivered_at-coalesce(departed_at,planned_departure_at)))/3600) filter(where delivered_at is not null and coalesce(departed_at,planned_departure_at) is not null)::numeric,1) average_transit_hours,
+          round(avg(extract(epoch from (delivered_at-departed_at))/3600) filter(where delivered_at is not null and departed_at is not null)::numeric,1) average_transit_hours,
           coalesce(sum(total_weight_kg),0) total_weight_kg,coalesce(sum(total_volume_cbm),0) total_volume_cbm,
           coalesce(sum(profit_total),0) profit_total from cargo_expeditions where org_id=:org_id and archived_at is null"""),{"org_id":org_id}).fetchone()
         return {"summary":_safe(dict(summary._mapping)),

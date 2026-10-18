@@ -85,3 +85,10 @@ def test_eta_compliance_uses_only_deliveries_with_a_known_eta():
     analytics=source.split("def tracking_analytics(",1)[1].split("def list_alerts(",1)[0]
     assert "delivered_with_eta" in analytics
     assert "delivered_at is not null and eta_at is not null and delivered_at<=eta_at" in analytics
+
+def test_tracking_transit_duration_does_not_substitute_planned_departure():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    stats=source.split("def tracking_stats(",1)[1].split("def global_timeline(",1)[0]
+    assert "delivered_at-departed_at" in stats
+    assert "delivered_at is not null and departed_at is not null" in stats
+    assert "coalesce(departed_at,planned_departure_at)" not in stats

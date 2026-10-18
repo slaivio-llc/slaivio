@@ -572,6 +572,7 @@ export function ClientsPage() {
         <OperationPageHeader
           title="Clients"
           description="Retrouvez et gérez les clients de votre organisation."
+          wide={parcelFreight}
           actions={
             <>
               <PermissionGuard permission="clients.import">

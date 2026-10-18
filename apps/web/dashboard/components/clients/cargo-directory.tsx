@@ -39,7 +39,7 @@ export function CargoDirectory({open,revision,canExport=false}:{open:(id:string)
     return()=>{window.clearTimeout(timer);controller.abort();};
   },[q,type,page,sort,dates,retry,revision,invalidDates]);
   const filtered=Boolean(q||type||dates.start||dates.end);
-  return <section className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8" aria-label="Répertoire clients">
+  return <section className="mx-auto w-full px-6 pb-8 sm:px-8" aria-label="Répertoire clients">
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center gap-2 p-4">
         <label className="relative mr-auto block w-full sm:max-w-xs"><Search size={15} aria-hidden="true" className="absolute left-3 top-3 text-slate-400"/><input type="search" maxLength={120} value={q} onChange={e=>{setQ(e.target.value);setPage(1);}} aria-label="Rechercher par nom, téléphone ou référence" placeholder="Rechercher un client…" className={`${field} w-full pl-9`}/></label>

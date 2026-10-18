@@ -13,6 +13,7 @@ export function OperationPageHeader({
   actions,
   tabs,
   divider = false,
+  wide = false,
   backHref,
   backLabel = "Retour",
 }: {
@@ -21,6 +22,7 @@ export function OperationPageHeader({
   actions?: ReactNode;
   tabs?: ReactNode;
   divider?: boolean;
+  wide?: boolean;
   backHref?: string;
   backLabel?: string;
 }) {
@@ -31,7 +33,7 @@ export function OperationPageHeader({
   const resolvedBackHref=backHref || parentHref;
   return (
     <header data-ui="operation-page-header" className="operation-page-header bg-white">
-      <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-8 sm:pt-8">
+      <div className={`mx-auto w-full px-6 pt-6 sm:px-8 sm:pt-8 ${wide ? "max-w-none" : "max-w-[1200px]"}`}>
         <div className={`flex flex-col gap-3 pb-6 lg:flex-row lg:items-center lg:justify-between ${divider ? "border-b border-[#dfe1e3]" : ""}`}>
           <div className="flex min-w-0 items-start gap-3">
             {resolvedBackHref && (

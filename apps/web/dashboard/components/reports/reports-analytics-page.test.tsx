@@ -23,4 +23,31 @@ describe("ReportsAnalyticsPage", () => {
     expect(screen.getByRole("button", { name: "Réessayer" })).toBeInTheDocument();
     expect(screen.queryByText("Analytics temporairement indisponibles")).not.toBeInTheDocument();
   });
+
+  it("explains when the browser received no HTTP response", async () => {
+    vi.mocked(reportsService.getAnalytics).mockRejectedValue(
+      Object.assign(new Error("Network Error"), { isAxiosError: true, code: "ERR_NETWORK" }),
+    );
+
+    render(<ReportsAnalyticsPage />);
+
+    expect(await screen.findByText(/Aucune réponse HTTP de l’API/)).toBeInTheDocument();
+  });
+
+  it("distinguishes a successfully loaded empty period from an API failure", async () => {
+    vi.mocked(reportsService.getAnalytics).mockResolvedValue({
+      period: { start: "2026-10-01", end: "2026-10-30", days: 30 },
+      kpis: { clients: 0, packages: 0, shipments: 0, dossiers: 0, pickups: 0, weight_kg: 0 },
+      trend: [],
+      statuses: { packages: [], shipments: [], dossiers: [] },
+      routes: [],
+      finance: [],
+      warehouses: [],
+    });
+
+    render(<ReportsAnalyticsPage />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Aucune opération n’a été enregistrée sur la période sélectionnée.");
+    expect(screen.queryByText("Analytics indisponibles")).not.toBeInTheDocument();
+  });
 });

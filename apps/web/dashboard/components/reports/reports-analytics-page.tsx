@@ -1,6 +1,7 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "@/services/api";
 import { Download, RefreshCcw, Save } from "lucide-react";
 import {
   exportReport,
@@ -80,6 +81,10 @@ export function ReportsAnalyticsPage() {
         ],
       ]
     : [];
+  const hasPeriodActivity = Boolean(data && (
+    ["clients", "packages", "shipments", "dossiers", "pickups", "weight_kg"].some((key) => data.kpis[key] > 0) ||
+    data.finance.some((row) => row.invoices > 0 || !/^0+(?:\.0+)?$/.test(row.collected))
+  ));
   return (
     <div className="min-h-full bg-[#f6f7f7]">
       <OperationPageHeader
@@ -138,6 +143,7 @@ export function ReportsAnalyticsPage() {
           <LoadingState label="Calcul des indicateurs…" />
         ) : data ? (
           <>
+            {!hasPeriodActivity && <div role="status" className="mb-4 border border-[#dfe3e4] bg-white px-4 py-3 text-[12px] text-[#697178]">Aucune opération n’a été enregistrée sur la période sélectionnée. Les vues d’état courant peuvent toutefois afficher le stock existant.</div>}
             {tab === "overview" && <Overview data={data} />}{" "}
             {tab === "operations" && <Operations data={data} />}{" "}
             {tab === "finance" && <Finance data={data} />}{" "}
@@ -170,7 +176,11 @@ function analyticsErrorMessage(error: unknown) {
     return "Le calcul des indicateurs n’a pas pu être terminé.";
   }
   if (!error.response) {
-    return "Le serveur Analytics ne répond pas. Vérifiez le déploiement de l’API puis réessayez.";
+    if (error.code === "ECONNABORTED") {
+      return "La requête Analytics a dépassé le délai d’attente. Vérifiez la disponibilité de l’API et réessayez.";
+    }
+    const target = API_BASE_URL ? `${API_BASE_URL}/reports/analytics` : "URL de l’API non configurée";
+    return `Aucune réponse HTTP de l’API (${target}). Vérifiez l’URL publique du backend, sa disponibilité, le réseau, TLS et CORS.`;
   }
   if (error.response.status === 401) {
     return "Votre session a expiré. Reconnectez-vous pour consulter les indicateurs.";
@@ -197,7 +207,7 @@ function Overview({ data }: { data: Analytics }) {
           <Card
             key={key}
             title={`Statuts · ${key}`}
-            subtitle="Répartition actuelle"
+            subtitle="Opérations créées sur la période sélectionnée"
           >
             <Bars items={items} />
           </Card>
@@ -240,7 +250,7 @@ function Operations({ data }: { data: Analytics }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {Object.entries(data.statuses).map(([key, items]) => (
-        <Card key={key} title={key} subtitle="Charge opérationnelle actuelle">
+        <Card key={key} title={key} subtitle="Opérations créées sur la période sélectionnée">
           <Bars items={items} />
         </Card>
       ))}
@@ -251,7 +261,7 @@ function Finance({ data }: { data: Analytics }) {
   return (
     <Card
       title="Performance financière"
-      subtitle="Les devises restent séparées afin d’éviter des totaux comptables incorrects."
+      subtitle="Factures créées sur la période, encaissements selon la date du paiement et soldes actuels. Les devises restent séparées."
     >
       <Table rows={data.finance} />
     </Card>

@@ -38,6 +38,9 @@ describe("product navigation", () => {
 
     expect(routes.some((route) => route.href === "/app/tracking")).toBe(true);
     expect(routes.some((route) => route.href === "/app/communication/annonces-relances")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/communication/settings")).toBe(true);
+    expect(routes.some((route) => route.href === "/app/settings?section=integrations")).toBe(false);
+    expect(routes.some((route) => route.href === "/app/dossiers")).toBe(false);
     expect(routes.some((route) => route.href === "/app/reports")).toBe(true);
     expect(routes.some((route) => route.href === "/app/services")).toBe(true);
     expect(routes.some((route) => route.href === "/app/routes")).toBe(true);

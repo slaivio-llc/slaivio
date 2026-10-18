@@ -107,6 +107,29 @@ def test_luza_parcel_navigation_keeps_every_daily_module_available():
         assert f'href: "{route}"' in navigation
 
 
+def test_departure_calendar_reads_expeditions_and_keeps_departure_mutations_out_of_the_view():
+    api = read("apps/api/app/api/shipments.py")
+    projection = read("apps/api/app/expeditions/register.py")
+    page = read("apps/web/dashboard/components/departures/departure-calendar-page.tsx")
+    navigation = read("apps/web/dashboard/config/app-navigation.ts")
+    assert '"/shipments/departure-calendar"' in api
+    assert "def departure_calendar" in projection
+    assert "from cargo_expeditions e" in projection
+    assert "coalesce(e.departed_at,e.planned_departure_at)" in projection
+    assert "createDeparture" not in page and "transitionDeparture" not in page
+    assert "href: \"/app/departures\", icon: Truck, permission: \"shipments.read\"" in navigation
+
+
+def test_communication_settings_are_scoped_to_the_communication_module():
+    navigation = read("apps/web/dashboard/config/app-navigation.ts")
+    page = read("apps/web/dashboard/app/app/communication/settings/page.tsx")
+    settings = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
+    assert 'href: "/app/communication/settings"' in navigation
+    assert 'PilotSettingsPage scope="communication"' in page
+    assert '["channels","ai","notifications"]' in settings
+    assert 'router.replace(scope==="communication"?' in settings
+
+
 def test_luza_multi_office_network_has_secure_office_scope_and_shared_destination_tracking():
     migration = read("infra/sql/124_parcel_multi_office_network.sql")
     network_repository = read("apps/api/app/organization_network/repository.py")

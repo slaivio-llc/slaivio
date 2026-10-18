@@ -131,7 +131,7 @@ export const cargoAgencyNavigation: readonly AppNavigationGroup[] = [
   { label: "Opérations", icon: Package, collapsible: true, routes: [
     { label: "Colis", href: "/app/packages", icon: Package, keywords: ["colis", "poids", "destination", "statut"] },
     { label: "Expéditions", href: "/app/shipments", icon: Truck, permission: "shipments.read", keywords: ["expédition", "départ", "manifeste", "transport"] },
-    { label: "Départs", href: "/app/departures", icon: Truck, permission: "departures.read", keywords: ["départ", "calendrier"] },
+    { label: "Départs", href: "/app/departures", icon: Truck, permission: "shipments.read", keywords: ["départ", "calendrier"] },
     { label: "Tracking", href: "/app/tracking", icon: Radar, permission: "tracking.read", keywords: ["tracking", "suivi", "statut"] },
     { label: "Entrepôts", href: "/app/warehouses", icon: Warehouse, permission: "warehouses.read", keywords: ["entrepôt", "stock", "bureau"] },
   ] },
@@ -143,7 +143,7 @@ export const cargoAgencyNavigation: readonly AppNavigationGroup[] = [
     { label: "Notifications", href: "/app/notifications", icon: BellRing, permission: "notifications.read", keywords: ["notification", "alerte"] },
     { label: "Annonces & Relances", href: "/app/communication/annonces-relances", icon: Megaphone, keywords: ["annonce", "campagne", "relance", "whatsapp"] },
     { label: "Connaissances", href: "/app/knowledge", icon: BookOpen, permission: "pilot.knowledge.read", keywords: ["connaissance", "fichier", "image", "ia"] },
-    { label: "Paramètres", href: "/app/settings?section=integrations", icon: Settings, permission: "organization.read", keywords: ["communication", "whatsapp", "canal"] },
+    { label: "Paramètres", href: "/app/communication/settings", icon: Settings, permission: "pilot.settings.read", keywords: ["communication", "whatsapp", "canal", "ia"] },
   ] },
   { label: "Finance", icon: ReceiptText, collapsible: true, routes: [
     { label: "Vue d’ensemble", href: "/app/finance?section=overview", icon: BarChart3, permission: "finance.read", keywords: ["indicateurs", "aperçu"] },
@@ -160,7 +160,6 @@ export const cargoAgencyNavigation: readonly AppNavigationGroup[] = [
     { label: "Routes", href: "/app/routes", icon: Route, permission: "routes.read", keywords: ["route", "trajet", "origine", "destination"] },
     { label: "Services", href: "/app/services", icon: Boxes, permission: "services.read", keywords: ["service", "transport", "offre"] },
     { label: "Tarification", href: "/app/pricing", icon: BadgeDollarSign, permission: "pricing.read", keywords: ["tarif", "grille", "prix", "simulateur"] },
-    { label: "Dossiers", href: "/app/dossiers", icon: Folder, permission: "dossiers.read", keywords: ["dossier", "documents", "client"] },
   ] },
 ];
 

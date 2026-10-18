@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Literal
 from uuid import UUID, uuid4
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
@@ -342,6 +342,15 @@ def list_shipments(
         sort=sort,
     )
     return {"status": "ok", "items": data["items"], "shipments": data["items"], "pagination": data["pagination"]}
+
+
+@router.get("/shipments/departure-calendar",dependencies=[Depends(require_permission("shipments.read"))])
+def shipment_departure_calendar(start: datetime, end: datetime, tenant=Depends(get_current_tenant)):
+    if start >= end:
+        raise HTTPException(422, "invalid_date_range")
+    from app.expeditions.register import departure_calendar
+    org_id, _ = _tenant_ids(tenant)
+    return departure_calendar(org_id, start=start, end=end)
 
 
 @router.get("/shipments/stats",dependencies=[Depends(require_permission("shipments.read"))])

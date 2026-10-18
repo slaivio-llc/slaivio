@@ -325,6 +325,16 @@ export async function listShipments(params: {
   return (await api.get<ShipmentsResponse>("/shipments", { params })).data;
 }
 
+export type ShipmentDepartureCalendarItem = {
+  id: string; reference: string; status: ExpeditionStatus; planned_departure_at: string | null;
+  departed_at: string | null; calendar_at: string; route_label: string | null;
+  origin_city: string | null; origin_country: string | null; destination_city: string | null;
+  destination_country: string | null; packages_count: number;
+};
+export async function getShipmentDepartureCalendar(start: string, end: string) {
+  return (await api.get<{items:ShipmentDepartureCalendarItem[];truncated:boolean}>("/shipments/departure-calendar",{params:{start,end}})).data;
+}
+
 export async function getShipmentStats() {
   return (await api.get<{ status: "ok"; stats: ExpeditionStats }>("/shipments/stats")).data.stats;
 }

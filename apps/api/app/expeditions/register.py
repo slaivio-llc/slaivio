@@ -53,6 +53,26 @@ def listing(org_id, *, q='', stage=None, start=None, end=None, page=1, origin=No
         return {'items': [dict(row) for row in items], 'total': total, 'page': page, 'total_pages': ceil(total/50)}
 
 
+def departure_calendar(org_id, *, start, end):
+    """Read-only calendar projection of the canonical expedition records."""
+    with engine.connect() as conn:
+        items = conn.execute(text("""select e.id::text,e.expedition_reference as reference,
+            e.status,e.planned_departure_at,e.departed_at,
+            coalesce(e.departed_at,e.planned_departure_at) as calendar_at,
+            e.route_label,e.origin_city,e.origin_country,e.destination_city,e.destination_country,
+            (select count(*) from expedition_packages ep
+              join cargo_packages p on p.id=ep.package_id and p.org_id=ep.org_id
+              where ep.org_id=e.org_id and ep.expedition_id=e.id and ep.removed_at is null
+                and p.deleted_at is null) as packages_count
+            from cargo_expeditions e
+            where e.org_id=:org_id and e.archived_at is null and e.deleted_at is null
+              and coalesce(e.departed_at,e.planned_departure_at) >= cast(:start as timestamptz)
+              and coalesce(e.departed_at,e.planned_departure_at) < cast(:end as timestamptz)
+            order by coalesce(e.departed_at,e.planned_departure_at),e.expedition_reference
+            limit 501"""), {'org_id':org_id,'start':start,'end':end}).mappings().all()
+    return {'items':[dict(row) for row in items[:500]],'truncated':len(items)>500}
+
+
 def locations(org_id):
     with engine.connect() as conn:
         rows=conn.execute(text("""select distinct concat_ws(', ',origin_city,origin_country) as origin,

@@ -50,22 +50,20 @@ const sections = [
 type Section = (typeof sections)[number][0];
 const inputClass = "h-9 w-full rounded-[7px] border border-[#d5dade] bg-white px-3 text-[13px] text-[#293038] outline-none transition focus:border-[#12a865]";
 
-export function PilotSettingsPage() {
+export function PilotSettingsPage({scope="all"}:{scope?:"all"|"communication"}) {
   const locale = useDashboardLocale();
   const router = useRouter();
   const params = useSearchParams();
-  const [section, setSection] = useState<Section>("company");
+  const [section, setSection] = useState<Section>(scope==="communication"?"channels":"company");
   const [data, setData] = useState<PilotSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const parcelFreight = data?.organization.organization_type === "PARCEL_FREIGHT";
-  const visibleSections = useMemo(
-    () => sections.filter(([key]) =>
-      parcelFreight || !["network", "services", "routes"].includes(key),
-    ),
-    [parcelFreight],
-  );
+  const visibleSections = useMemo(() => scope==="communication"
+    ? sections.filter(([key])=>["channels","ai","notifications"].includes(key))
+    : sections.filter(([key])=>parcelFreight||!["network","services","routes"].includes(key)),
+    [parcelFreight,scope]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,15 +80,16 @@ export function PilotSettingsPage() {
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     const requested = params.get("section") as Section | null;
+    if (scope==="communication"&&!params.get("section")) { setSection("channels"); return; }
     if (params.get("section") === "communication") { setSection("channels"); return; }
     if (requested === "network" && data && !parcelFreight) { setSection("company"); return; }
     if (requested && visibleSections.some(([key]) => key === requested)) setSection(requested);
-  }, [data, params, parcelFreight, visibleSections]);
+  }, [data, params, parcelFreight, scope, visibleSections]);
 
   function choose(next: Section) {
     setSection(next);
     setNotice("");
-    router.replace(`/app/settings?section=${next}`, { scroll: false });
+    router.replace(scope==="communication"?`/app/communication/settings?section=${next}`:`/app/settings?section=${next}`, { scroll: false });
   }
 
   async function run(action: () => Promise<unknown>, message: string) {
@@ -120,7 +119,7 @@ export function PilotSettingsPage() {
   if (!data) return <ErrorState title="Paramètres indisponibles" description={error} retry={load} />;
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader divider={false} title={dashboardLabel(locale, "Paramètres")} description={dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>
+    <OperationPageHeader divider={false} title={scope==="communication"?"Paramètres de communication":dashboardLabel(locale, "Paramètres")} description={scope==="communication"?"Gérez les canaux, les réponses IA et les préférences de notification de Communication.":dashboardLabel(locale, "Configurez uniquement ce qui est nécessaire au fonctionnement quotidien de votre entreprise.")}/>
       <main className="mx-auto min-w-0 w-full max-w-[1200px] px-6 pb-10 sm:px-8">
         <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map(([key, label]) => {

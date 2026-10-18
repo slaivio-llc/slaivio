@@ -116,7 +116,7 @@ def test_registration_requires_confirmed_intent_and_valid_confidence(monkeypatch
         'success': True, 'content': json.dumps({'stage': 'QUALIFIED', 'customer_type': 'individual',
             'full_name': 'Jean Mukendi', 'service_intent_confirmed': confirmed, 'confidence': confidence})})
     monkeypatch.setattr(service, 'upsert_journey', lambda org, phone, values, **kwargs: values)
-    monkeypatch.setattr(service, 'convert_journey', lambda *args: pytest.fail('No confirmed registration'))
+    monkeypatch.setattr(service, 'convert_journey', lambda *args: pytest.fail('No confirmed registration'), raising=False)
     result = service._parcel_qualification({}, {'org_id': 'agency'}, '+123')
     assert result['journey']['stage'] == 'INTERESTED'
 
@@ -125,7 +125,7 @@ def test_individual_location_is_not_mandatory():
     assert _missing({'full_name': 'Jean Mukendi', 'customer_type': 'individual'}) == []
 
 
-def test_confirmed_individual_can_convert_without_country_or_city(monkeypatch):
+def test_qualified_whatsapp_prospect_is_not_automatically_created_as_crm_client(monkeypatch):
     monkeypatch.setattr(service, 'is_parcel_organization', lambda _: True)
     extracted = {'stage': 'QUALIFIED', 'customer_type': 'individual', 'full_name': 'Jean Mukendi',
                  'service_intent_confirmed': True, 'confidence': 0.95}
@@ -133,11 +133,11 @@ def test_confirmed_individual_can_convert_without_country_or_city(monkeypatch):
         'success': True, 'content': json.dumps(extracted)})
     monkeypatch.setattr(service, 'upsert_journey', lambda org, phone, values, **kwargs: {
         **values, 'missing_fields': _missing(values)})
-    captured = []
-    monkeypatch.setattr(service, 'convert_journey', lambda org, phone: captured.append((org, phone)) or {'id': 'client'})
+    monkeypatch.setattr(service, 'convert_journey', lambda *args: pytest.fail('Prospect conversion needs an explicit agency action'), raising=False)
     result = service._parcel_qualification({}, {'org_id': 'agency'}, '+123')
-    assert result['client']['id'] == 'client'
-    assert captured == [('agency', '+123')]
+    assert result['client'] is None
+    assert result['journey']['stage'] == 'QUALIFIED'
+    assert 'doit confirmer votre inscription' in result['reply']
 
 
 def test_rejected_answer_cannot_be_promoted_by_qualification(monkeypatch):

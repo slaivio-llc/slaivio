@@ -755,13 +755,13 @@ def expedition_analytics(org_id:str)->dict:
           count(*) filter(where delivered_at is not null and eta_at is not null and delivered_at<=eta_at)::int on_time,
           round(avg(extract(epoch from (delivered_at-departed_at))/3600) filter(where delivered_at is not null and departed_at is not null)::numeric,1) average_transit_hours,
           coalesce(sum(total_weight_kg),0) total_weight_kg,coalesce(sum(total_volume_cbm),0) total_volume_cbm,
-          coalesce(sum(profit_total),0) profit_total from cargo_expeditions where org_id=:org_id and archived_at is null"""),{"org_id":org_id}).fetchone()
+          coalesce(sum(profit_total),0) profit_total from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null"""),{"org_id":org_id}).fetchone()
         return {"summary":_safe(dict(summary._mapping)),
-          "by_status":rows("select status label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null group by 1 order by 2 desc"),
-          "by_mode":rows("select mode label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null group by 1 order by 2 desc"),
-          "by_route":rows("select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null group by 1 order by 2 desc limit 12"),
-          "delays_by_route":rows("select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and (is_delayed or status='BLOCKED') group by 1 order by 2 desc limit 12"),
-          "monthly_deliveries":rows("select to_char(delivered_at,'YYYY-MM') label,count(*)::int count from cargo_expeditions where org_id=:org_id and delivered_at>=date_trunc('month',current_date)-interval '11 months' group by 1 order by 1")}
+          "by_status":rows("select status label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null group by 1 order by 2 desc"),
+          "by_mode":rows("select mode label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null group by 1 order by 2 desc"),
+          "by_route":rows("select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null group by 1 order by 2 desc limit 12"),
+          "delays_by_route":rows("select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null and (is_delayed or status='BLOCKED') group by 1 order by 2 desc limit 12"),
+          "monthly_deliveries":rows("select to_char(delivered_at,'YYYY-MM') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null and delivered_at>=date_trunc('month',current_date)-interval '11 months' group by 1 order by 1")}
 
 
 def get_expedition(org_id: str, expedition_id: str) -> dict | None:

@@ -141,11 +141,22 @@ def test_retry_does_not_duplicate_departure(monkeypatch):
 
 
 def test_arrival_does_not_deliver_or_replace_snapshot(monkeypatch):
-    row=shipment();row.update(status='DISPATCHED',stage='departed')
+    row=shipment();row.update(status='DISPATCHED',stage='departed',departed_at='2026-10-18T10:00:00Z')
     _, statements, _, _, queue=database(monkeypatch,row=row,parcels=[parcel(status='SHIPPED')])
     workflow.milestone('office','shipment','actor',3,'arrive')
     assert queue.call_args.args[2]=='ARRIVED_DESTINATION'
     assert not any('expedition_departure_manifests' in sql for sql,_ in statements)
+
+
+def test_arrival_requires_a_recorded_departure(monkeypatch):
+    row=shipment();row.update(status='DISPATCHED',stage='departed',departed_at=None)
+    _, statements, events, _, queue=database(monkeypatch,row=row,parcels=[parcel(status='SHIPPED')])
+    with pytest.raises(HTTPException) as exc:
+        workflow.milestone('office','shipment','actor',3,'arrive')
+    assert exc.value.status_code==409
+    assert exc.value.detail=='shipment_departure_not_confirmed'
+    assert not any(sql.startswith(('update','insert')) for sql,_ in statements)
+    events.assert_not_called();queue.assert_not_called()
 
 
 def test_command_schemas_are_bounded():

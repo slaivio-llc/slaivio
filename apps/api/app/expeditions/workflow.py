@@ -130,7 +130,8 @@ def milestone(org_id,shipment_id,actor,expected,action):
         if shipment['status']==target:return {'notification_ids':[],'changed':False}
         if shipment['version']!=expected:raise HTTPException(409,'stale_shipment_version')
         if action=='depart':editable(shipment,expected)
-        elif shipment['status']!='DISPATCHED':raise HTTPException(409,'shipment_not_departed')
+        elif shipment['status']!='DISPATCHED' or not shipment.get('departed_at'):
+            raise HTTPException(409,'shipment_departure_not_confirmed')
         params={'org_id':org_id,'id':shipment_id,'actor':actor}
         rows=conn.execute(text("""select p.* from cargo_packages p join expedition_packages ep
           on ep.package_id=p.id and ep.org_id=p.org_id where ep.org_id=:org_id

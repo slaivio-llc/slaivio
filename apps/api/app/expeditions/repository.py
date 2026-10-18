@@ -42,6 +42,7 @@ EXPEDITION_TRANSITIONS={
  "AVAILABLE_FOR_PICKUP":{"OUT_FOR_DELIVERY","DELIVERED","BLOCKED"},"OUT_FOR_DELIVERY":{"DELIVERED","BLOCKED"},"BLOCKED":{"PREPARING","LOADING","READY_FOR_DEPARTURE","IN_TRANSIT","CUSTOMS_CLEARANCE","AVAILABLE_FOR_PICKUP","OUT_FOR_DELIVERY","CANCELLED"},
  "DELIVERED":{"ARCHIVED"},"CANCELLED":{"ARCHIVED"},"ARCHIVED":set(),
 }
+EXPEDITION_DELAY_PREDICATE="status='BLOCKED' or (status not in ('DELIVERED','CANCELLED','ARCHIVED') and arrived_at is null and (coalesce(is_delayed,false) or (eta_at is not null and eta_at<now())))"
 RISK_LEVELS = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
 FINANCIAL_STATUSES = {"NOT_CALCULATED", "PENDING", "PARTIAL", "PAID", "OVERDUE", "BLOCKED"}
 ANOMALY_STATUSES = {"OPEN", "IN_REVIEW", "RESOLVED", "DISMISSED"}
@@ -715,7 +716,7 @@ def expedition_stats(org_id: str) -> dict:
     _ensure_schema()
     with engine.connect() as conn:
         row = conn.execute(
-            text("""
+            text(f"""
                 select
                     count(*) filter (where status not in ('DELIVERED','CANCELLED','ARCHIVED'))::int active,
                     count(*) filter (where created_at::date = current_date)::int today,
@@ -724,7 +725,7 @@ def expedition_stats(org_id: str) -> dict:
                         (arrived_at is null and eta_at::date = current_date
                          and status not in ('ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP',
                            'OUT_FOR_DELIVERY','DELIVERED','CANCELLED','ARCHIVED')))::int arrivals_today,
-                    count(*) filter (where is_delayed = true or status = 'BLOCKED')::int delayed,
+                    count(*) filter (where {EXPEDITION_DELAY_PREDICATE})::int delayed,
                     coalesce(round(100.0 * count(*) filter (where status = 'DELIVERED') /
                         nullif(count(*) filter (where status not in ('DRAFT','CANCELLED','ARCHIVED')), 0), 1), 0) delivery_rate,
                     coalesce(sum(total_weight_kg), 0) total_weight_kg,
@@ -760,7 +761,7 @@ def expedition_analytics(org_id:str)->dict:
           "by_status":rows("select status label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null group by 1 order by 2 desc"),
           "by_mode":rows("select mode label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null group by 1 order by 2 desc"),
           "by_route":rows("select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null group by 1 order by 2 desc limit 12"),
-          "delays_by_route":rows("select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null and (is_delayed or status='BLOCKED') group by 1 order by 2 desc limit 12"),
+          "delays_by_route":rows(f"select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null and ({EXPEDITION_DELAY_PREDICATE}) group by 1 order by 2 desc limit 12"),
           "monthly_deliveries":rows("select to_char(delivered_at,'YYYY-MM') label,count(*)::int count from cargo_expeditions where org_id=:org_id and archived_at is null and deleted_at is null and delivered_at>=date_trunc('month',current_date)-interval '11 months' group by 1 order by 1")}
 
 

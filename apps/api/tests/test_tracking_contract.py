@@ -150,3 +150,12 @@ def test_expedition_analytics_excludes_soft_deleted_rows_from_every_report():
     analytics=source.split("def expedition_analytics(",1)[1].split("def get_expedition(",1)[0]
     assert analytics.count("deleted_at is null") >= 6
     assert analytics.count("archived_at is null") >= 6
+
+def test_expedition_delay_metrics_ignore_eta_after_arrival_and_include_overdue_eta():
+    source=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
+    stats=source.split("def expedition_stats(",1)[1].split("def expedition_analytics(",1)[0]
+    analytics=source.split("def expedition_analytics(",1)[1].split("def get_expedition(",1)[0]
+    assert 'EXPEDITION_DELAY_PREDICATE="status=\'BLOCKED\' or (' in source
+    assert "arrived_at is null" in source.split("EXPEDITION_DELAY_PREDICATE=",1)[1].split("\n",1)[0]
+    assert "{EXPEDITION_DELAY_PREDICATE}" in stats
+    assert "{EXPEDITION_DELAY_PREDICATE}" in analytics

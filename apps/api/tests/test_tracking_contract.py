@@ -79,3 +79,9 @@ def test_packages_in_transit_metric_counts_parcels_not_expeditions():
     assert "from cargo_packages p where p.org_id=:org_id" in stats
     assert "p.status in ('SHIPPED','IN_TRANSIT')" in stats
     assert "count(*) filter(where status='IN_TRANSIT')::int packages_in_transit" not in stats
+
+def test_eta_compliance_uses_only_deliveries_with_a_known_eta():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    analytics=source.split("def tracking_analytics(",1)[1].split("def list_alerts(",1)[0]
+    assert "delivered_with_eta" in analytics
+    assert "delivered_at is not null and eta_at is not null and delivered_at<=eta_at" in analytics

@@ -67,6 +67,7 @@ def control_tower(org_id:str,*,q:str|None=None,status:str|None=None,risk_level:s
 def tracking_analytics(org_id:str)->dict:
     with engine.connect() as conn:
         summary=conn.execute(text("""select count(*) filter(where delivered_at is not null)::int delivered,
+          count(*) filter(where delivered_at is not null and eta_at is not null)::int delivered_with_eta,
           count(*) filter(where delivered_at is not null and eta_at is not null and delivered_at<=eta_at)::int delivered_on_time,
           count(*) filter(where is_delayed)::int delayed,
           (select round(avg(extract(epoch from(a.resolved_at-a.detected_at))/3600)::numeric,1) from expedition_anomalies a where a.org_id=:org_id and a.resolved_at is not null) mean_resolution_hours

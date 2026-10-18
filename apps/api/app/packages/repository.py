@@ -1980,6 +1980,8 @@ def transition_package(org_id,package_id,user_id,new_status,expected_version,rea
         allowed=OFFICIAL_TRANSITIONS.get(row["status"],set())
         if new_status not in allowed:raise HTTPException(409,"invalid_package_transition")
         if new_status in("WAREHOUSED","READY_FOR_BATCH") and not row.get("weight_kg"):raise HTTPException(409,"package_weight_required")
+        if new_status == "DELIVERED":
+            _require_package_delivery_financial_clearance(conn, owner_org_id, row)
         item=conn.execute(text("update cargo_packages set status=:s,row_version=row_version+1,updated_by=:u,updated_at=now(),received_at=case when :s='RECEIVED' then coalesce(received_at,now()) else received_at end,dispatched_at=case when :s='SHIPPED' then coalesce(dispatched_at,now()) else dispatched_at end,delivered_at=case when :s='DELIVERED' then coalesce(delivered_at,now()) else delivered_at end where org_id=:o and id=:id returning *"),{"s":new_status,"u":user_id,"o":owner_org_id,"id":package_id}).mappings().one()
         _insert_package_event(conn,org_id=owner_org_id,package_id=package_id,event_type="STATUS_CHANGED",title=f"Statut : {new_status}",description=reason,previous_status=row["status"],new_status=new_status,actor_id=user_id,metadata={"version":item["row_version"],"acting_org_id":org_id,"office_role":"DESTINATION" if destination_access else "ORIGIN"})
         queued_notification_id=_queue_customer_status_notification(conn,dict(item),new_status,user_id)
@@ -2057,6 +2059,23 @@ def _protect_managed_loading(conn,org_id,package_ids):
         raise HTTPException(409,'managed_shipment_requires_operational_command')
 
 
+def _require_package_delivery_financial_clearance(conn, org_id, package):
+    from app.finance.clearance import delivery_clearance
+
+    decision = delivery_clearance(conn, org_id, dict(package))
+    if not decision["allowed"]:
+        raise HTTPException(status_code=409, detail={
+            "code": decision.get("code") or "PAYMENT_CLEARANCE_REQUIRED",
+            "message": decision.get("message"),
+            "reference": decision.get("reference"),
+            "policy": decision.get("policy"),
+            "required": decision.get("required"),
+            "paid": decision.get("paid"),
+            "remaining": decision.get("remaining"),
+            "currency": decision.get("currency"),
+        })
+
+
 def bulk_package_operation(org_id,user_id,idempotency_key,operation_type,package_ids,payload):
     if not package_ids or len(package_ids)>500:raise HTTPException(422,"invalid_package_selection")
     allowed={"STATUS","MOVE","ASSIGN","NOTIFY","ARCHIVE"}
@@ -2109,12 +2128,21 @@ def compatible_departures(org_id,package_id):
     with engine.connect() as conn:return [_safe(dict(r._mapping)) for r in conn.execute(text("select d.id,d.departure_code,d.scheduled_at,d.status,d.capacity_weight_kg,d.reserved_weight_kg,d.capacity_packages,d.reserved_packages,s.service_name,r.route_name from cargo_departures d join shipping_services s on s.id=d.shipping_service_id and s.org_id=d.org_id join shipping_routes r on r.id=s.route_id and r.org_id=s.org_id where d.org_id=:o and d.status in('OPEN','PLANNED','PENDING_CONFIRMATION','CONFIRMED') and (:service is null or s.id=:service) and (:route is null or r.id=:route) and (d.cutoff_at is null or d.cutoff_at>now()) order by d.scheduled_at limit 50"),{"o":org_id,"service":item.get("shipping_service_id"),"route":item.get("route_id")}).fetchall()]
 
 def delivery_proof(org_id,package_id,user_id,payload):
+    queued_notification_id = None
     with engine.begin() as conn:
         row=conn.execute(text("select * from cargo_packages where org_id=:o and id=:id and deleted_at is null for update"),{"o":org_id,"id":package_id}).mappings().first()
         if not row:raise HTTPException(404,"package_not_found")
+        if row.get("status") != "READY_FOR_PICKUP":
+            raise HTTPException(409,"package_not_ready_for_delivery")
+        _require_package_delivery_financial_clearance(conn, org_id, row)
         proof=conn.execute(text("insert into package_delivery_proofs(org_id,package_id,recipient_name,recipient_document,signature_path,photo_path,otp_verified,delivered_by) values(:o,:id,:recipient_name,:recipient_document,:signature_path,:photo_path,:otp_verified,:u) returning *"),{"o":org_id,"id":package_id,"u":user_id,**payload}).mappings().one()
-        conn.execute(text("update cargo_packages set status='DELIVERED',delivered_at=now(),delivered_to_name=:n,delivery_signature_path=:s,delivery_photo_path=:p,delivery_otp_verified=:otp,row_version=row_version+1,updated_at=now() where org_id=:o and id=:id"),{"n":payload["recipient_name"],"s":payload.get("signature_path"),"p":payload.get("photo_path"),"otp":payload.get("otp_verified",False),"o":org_id,"id":package_id});_insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="DELIVERED",title="Colis livré",description=payload["recipient_name"],actor_id=user_id,metadata=dict(proof))
-    return get_package(org_id,package_id)
+        item=conn.execute(text("update cargo_packages set status='DELIVERED',delivered_at=now(),delivered_to_name=:n,delivery_signature_path=:s,delivery_photo_path=:p,delivery_otp_verified=:otp,row_version=row_version+1,updated_at=now() where org_id=:o and id=:id returning *"),{"n":payload["recipient_name"],"s":payload.get("signature_path"),"p":payload.get("photo_path"),"otp":payload.get("otp_verified",False),"o":org_id,"id":package_id}).mappings().one()
+        _insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="DELIVERED",title="Colis livré",description=payload["recipient_name"],actor_id=user_id,metadata=dict(proof))
+        queued_notification_id = _queue_customer_status_notification(conn, dict(item), "DELIVERED", user_id)
+    result = get_package(org_id,package_id)
+    if result and queued_notification_id:
+        result["queued_notification_id"] = queued_notification_id
+    return result
 
 def detect_package_alerts(org_id,office_ids=None):
     rules=[("STALE_WAREHOUSE","HIGH","Colis immobilisé en entrepôt depuis plus de 7 jours","received_at<now()-interval '7 days' and status in ('RECEIVED','WAREHOUSED','WAREHOUSE_PROCESSING')"),("MISSING_CLIENT","CRITICAL","Colis sans client","client_id is null"),("MISSING_DOSSIER","HIGH","Colis sans dossier","dossier_id is null"),("MISSING_WEIGHT","MEDIUM","Colis sans poids","weight_kg is null and status not in ('CREATED','PENDING_VALIDATION')"),("PAID_BLOCKED","HIGH","Colis payé mais bloqué","payment_status in ('PAID','CLEARED') and status='BLOCKED'"),("ARRIVED_NOT_PICKED","MEDIUM","Colis arrivé non retiré","status in ('ARRIVED','CLEARED','READY_FOR_PICKUP') and updated_at<now()-interval '5 days'")]

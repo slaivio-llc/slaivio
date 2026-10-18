@@ -723,7 +723,9 @@ def packages_pricing(package_id:str,body:PackagePricingPayload,tenant=Depends(ge
 @router.get("/packages/{package_id}/compatible-departures",dependencies=[Depends(require_permission("packages.read")), Depends(require_package_office_scope)])
 def packages_compatible(package_id:str,tenant=Depends(get_current_tenant)):return {"status":"ok","items":compatible_departures(tenant["org_id"],package_id)}
 @router.post("/packages/{package_id}/delivery-proof",dependencies=[Depends(require_permission("packages.delivery")), Depends(require_package_office_scope)])
-def packages_delivery(package_id:str,body:PackageDeliveryPayload,tenant=Depends(get_current_tenant)):return {"status":"ok","package":delivery_proof(tenant["org_id"],package_id,_user_id(tenant),body.model_dump())}
+def packages_delivery(package_id:str,body:PackageDeliveryPayload,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant)):
+    package = delivery_proof(tenant["org_id"],package_id,_user_id(tenant),body.model_dump())
+    return {"status":"ok","package":_dispatch_queued_status(background_tasks,tenant["org_id"],package)}
 
 @router.post("/packages/{package_id}/move", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
 def packages_move(package_id: str, body: PackageMovePayload, tenant=Depends(get_current_tenant)):

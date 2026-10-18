@@ -33,6 +33,7 @@ def list_center(org_id,user_id,status=None,category=None,priority=None,source=No
         and split_part(n.notification_type,':',3)=package.id::text
         and array_length(string_to_array(n.notification_type,':'),1)=3
       left join notification_user_states s on s.org_id=n.org_id and s.user_id=:u and s.source='DELIVERY' and s.notification_id=n.id where n.org_id=:o
+        and n.status in ('PENDING','FAILED','CANCELLED')
     ) unified"""
     with engine.connect() as c:
         total=c.execute(text(f'select count(*) from ({base}) x where {where}'),p).scalar_one()

@@ -72,3 +72,16 @@ def test_cargo_links_join_existing_records_in_same_office(monkeypatch):
     assert "split_part(n.notification_type,':',1)='EXPEDITION_ASSIGNED'" in query
     assert "split_part(n.notification_type,':',3)=package.id::text" in query
     assert "array_length(string_to_array(n.notification_type,':'),1)=3" in query
+
+
+def test_notification_center_shows_actionable_delivery_states_not_success_noise(monkeypatch):
+    engine = MagicMock()
+    monkeypatch.setattr(repository, 'engine', engine)
+    connection = engine.connect.return_value.__enter__.return_value
+    connection.execute.return_value.scalar_one.return_value = 0
+    connection.execute.return_value.mappings.return_value.one.return_value = {}
+
+    repository.list_center('office-a', 'agent-a')
+
+    query = str(connection.execute.call_args_list[0].args[0])
+    assert "n.status in ('PENDING','FAILED','CANCELLED')" in query

@@ -5,7 +5,7 @@ import Link from "next/link";
 import axios from "axios";
 import { ChevronLeft, ChevronRight, Plus, RefreshCw, Search, SquarePen, PackageCheck } from "lucide-react";
 import { api } from "@/services/api";
-import { createPackage, getPackage, type PackageRecord } from "@/services/packages";
+import { createPackage, getPackage, getPackageStats, type PackageRecord, type PackageStats } from "@/services/packages";
 import { getParcelOverview, type ParcelEntry, type ParcelOverview, type ParcelHistoryResult, type RegisterResult } from "@/services/parcel-register";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -34,7 +34,7 @@ function formatDate(value: string | null) {
   return value && !Number.isNaN(Date.parse(value)) ? new Intl.DateTimeFormat("fr", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Non renseignée";
 }
 
-export function ParcelRegisterPage() {
+export function ParcelRegisterPage({ embedded = false }: { embedded?: boolean }) {
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState("");
   const [dates, setDates] = useState({ start: "", end: "" });
@@ -49,8 +49,18 @@ export function ParcelRegisterPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [stats, setStats] = useState<PackageStats | null>(null);
+  const [statsError, setStatsError] = useState(false);
   const invalidDates = Boolean(dates.start && dates.end && dates.start > dates.end);
   const clearLink = useResourceLink(getParcelOverview, setSelected, setError);
+
+  useEffect(() => {
+    if (!embedded) return;
+    let active = true;
+    getPackageStats().then(value => { if (active) { setStats(value); setStatsError(false); } })
+      .catch(() => { if (active) setStatsError(true); });
+    return () => { active = false; };
+  }, [embedded, revision]);
 
   useEffect(() => {
     if (invalidDates) return;
@@ -94,27 +104,34 @@ export function ParcelRegisterPage() {
 
   function reset() { setQuery(""); setStage(""); setDates({ start: "", end: "" }); setPage(1); }
   const filtered = Boolean(query || stage || dates.start || dates.end);
-  return <div className="min-h-full bg-white">
-    <OperationPageHeader title="Colis" description="De la réception à la remise au client." backHref="/app/operations" backLabel="Retour aux opérations"
-      actions={<PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={15} />Enregistrer un colis</OperationButton></PermissionGuard>} />
-    <section aria-label="Registre des colis" className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8">
+  return <div className={`min-h-full bg-white ${embedded ? "py-2" : ""}`}>
+    {!embedded && <OperationPageHeader title="Colis" description="De la réception à la remise au client." backHref="/app/operations" backLabel="Retour aux opérations"
+      actions={<PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={15} />Enregistrer un colis</OperationButton></PermissionGuard>} />}
+    <section aria-label="Registre des colis" className={`mx-auto w-full pb-8 ${embedded ? "max-w-xl px-1" : "max-w-[1200px] px-6 sm:px-8"}`}>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center gap-2 p-4">
-          <label className="relative mr-auto w-full sm:max-w-xs"><Search size={15} className="absolute left-3 top-3 text-slate-400" aria-hidden="true" />
-            <input type="search" aria-label="Rechercher un colis" placeholder="Référence, client ou téléphone…" maxLength={120} className={`${field} pl-9`} value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
+        {embedded && <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">Colis</h2><p className="mt-1 text-[11px] text-slate-500">Gestion des colis de l’agence</p></div><PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={14} />Nouveau colis</OperationButton></PermissionGuard></header>}
+        {embedded && <div className="grid grid-cols-4 gap-2 border-b border-slate-100 px-4 py-3" aria-label="Indicateurs colis">
+          {[["Total", stats?.total], ["Reçus", stats?.received], ["Expédiés", stats?.in_transit], ["Arrivés", stats?.arrived]].map(([label, value]) => <div key={String(label)} className="min-w-0"><span className="block truncate text-[10px] text-slate-500">{label}</span><strong className="mt-1 block text-sm font-semibold text-slate-900">{statsError ? "—" : value ?? "—"}</strong></div>)}
+        </div>}
+        <div className={`flex flex-wrap items-center gap-2 ${embedded ? "px-3 pt-3" : "p-4"}`}>
+          <label className={`relative mr-auto w-full ${embedded ? "" : "sm:max-w-xs"}`}><Search size={15} className="absolute left-3 top-3 text-slate-400" aria-hidden="true" />
+            <input type="search" aria-label="Rechercher un colis" placeholder={embedded ? "Rechercher un colis ou un client…" : "Référence, client ou téléphone…"} maxLength={120} className={`${field} pl-9`} value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
+          {!embedded && <>
           <OperationFilterPopover title="Filtrer les colis" activeCount={Number(Boolean(stage)) + Number(Boolean(dates.start || dates.end))} onReset={reset}>
             <label className="grid gap-1.5 text-xs font-medium">État<select className={field} value={stage} onChange={event => { setStage(event.target.value); setPage(1); }}><option value="">Tous les états</option>{stages.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
             <label className="grid gap-1.5 text-xs font-medium">Enregistré à partir du (UTC)<input type="date" className={field} value={dates.start} onChange={event => { setDates(value => ({ ...value, start: event.target.value })); setPage(1); }} /></label>
             <label className="grid gap-1.5 text-xs font-medium">Jusqu’au (UTC)<input type="date" className={field} value={dates.end} min={dates.start || undefined} onChange={event => { setDates(value => ({ ...value, end: event.target.value })); setPage(1); }} /></label>
           </OperationFilterPopover>
           <OperationButton className="w-9 px-0" aria-label="Actualiser les colis" title="Actualiser" disabled={loading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={15} /></OperationButton>
+          </>}
         </div>
+        {embedded && <nav aria-label="Filtrer les colis par statut" className="flex flex-wrap gap-1 px-3 py-2">{[["", "Tous"], ["received", "Reçus"], ["shipped", "Expédiés"], ["arrived", "Arrivés"], ["delivered", "Livrés"]].map(([key, label]) => <button key={key} type="button" aria-pressed={stage === key} onClick={() => { setStage(key); setPage(1); }} className={`rounded-full px-2.5 py-1 text-[11px] ${stage === key ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-500 hover:bg-slate-50"}`}>{label}</button>)}</nav>}
         {invalidDates ? <p role="alert" className="p-5 text-sm text-red-700">La date de fin doit suivre la date de début.</p>
           : error ? <div role="alert" className="p-5 text-sm">{error} <button type="button" className="underline" onClick={() => setRevision(value => value + 1)}>Réessayer</button></div>
           : loading ? <TableSkeleton rows={6} columns={4} label="Chargement des colis" />
           : !result?.items.length ? <div className="px-5 py-16 text-center"><h2 className="text-sm font-semibold">{filtered ? "Aucun colis correspondant" : "Aucun colis enregistré"}</h2><p className="mt-2 text-sm text-slate-500">{filtered ? "Modifiez la recherche ou les filtres." : "Enregistrez votre première réception pour commencer."}</p>{filtered && <OperationButton className="mt-3" onClick={reset}>Effacer les filtres</OperationButton>}</div>
-          : <><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr>{["Colis", "Client", "Service", "État"].map(label => <th key={label} scope="col" className="px-5 py-3 font-medium">{label}</th>)}</tr></thead>
-            <tbody className="divide-y divide-slate-100">{result.items.map(item => <tr key={item.id} className="hover:bg-slate-50/60"><td className="px-5 py-4"><button type="button" className={linkClass} onClick={() => setOpening(item.id)}>{item.reference || "Sans référence"}</button>{!item.local_client && <span className="mt-1 block text-xs text-slate-500">{item.office_name}</span>}</td><td className="px-5 py-4"><ClientLink item={item} /></td><td className="px-5 py-4 text-slate-600">{item.service_name || "Non renseigné"}</td><td className="whitespace-nowrap px-5 py-4"><Status item={item} /></td></tr>)}</tbody></table></div>
+          : <><div className={embedded ? "divide-y divide-slate-100 px-2" : "overflow-x-auto"}>{embedded ? result.items.map(item => <button key={item.id} type="button" onClick={() => setOpening(item.id)} className="flex w-full items-center gap-3 px-2 py-4 text-left hover:bg-slate-50"><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-slate-900">{item.reference || "Sans référence"}</span><span className="mt-1 block truncate text-[10px] text-slate-600">{item.client_name || "Client non renseigné"}{item.service_name ? ` · ${item.service_name}` : ""}</span>{!item.local_client && <span className="mt-1 block truncate text-[10px] text-slate-500">{item.office_name}</span>}</span><Status item={item}/><ChevronRight size={14} className="shrink-0 text-slate-400"/></button>) : <table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs text-slate-500"><tr>{["Colis", "Client", "Service", "État"].map(label => <th key={label} scope="col" className="px-5 py-3 font-medium">{label}</th>)}</tr></thead>
+            <tbody className="divide-y divide-slate-100">{result.items.map(item => <tr key={item.id} className="hover:bg-slate-50/60"><td className="px-5 py-4"><button type="button" className={linkClass} onClick={() => setOpening(item.id)}>{item.reference || "Sans référence"}</button>{!item.local_client && <span className="mt-1 block text-xs text-slate-500">{item.office_name}</span>}</td><td className="px-5 py-4"><ClientLink item={item} /></td><td className="px-5 py-4 text-slate-600">{item.service_name || "Non renseigné"}</td><td className="whitespace-nowrap px-5 py-4"><Status item={item} /></td></tr>)}</tbody></table>}</div>
             <div className="flex items-center gap-2 px-5 py-4 text-xs text-slate-500"><span className="mr-auto">{(page-1)*50+1}–{Math.min(page*50,result.total)} sur {result.total}</span><OperationButton className="w-9 px-0" aria-label="Page précédente" disabled={page === 1} onClick={() => setPage(value => value-1)}><ChevronLeft size={15} /></OperationButton><OperationButton className="w-9 px-0" aria-label="Page suivante" disabled={page >= result.total_pages} onClick={() => setPage(value => value+1)}><ChevronRight size={15} /></OperationButton></div></>}
       </div>
     </section>

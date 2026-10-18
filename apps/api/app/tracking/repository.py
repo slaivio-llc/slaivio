@@ -54,7 +54,7 @@ def control_tower(org_id:str,*,q:str|None=None,status:str|None=None,risk_level:s
     where=" and ".join(filters);page=max(page,1);page_size=min(max(page_size,1),100);offset=(page-1)*page_size
     select="""select e.id::text,e.expedition_reference tracking_id,'SHIPMENT' type,e.title,e.status,e.mode,e.risk_level,
       e.origin_country,e.origin_city,e.destination_country,e.destination_city,e.route_label,e.origin_warehouse,e.destination_warehouse,
-      e.last_location,e.eta_at,e.progress_percent,e.is_delayed,e.delay_hours,e.delay_reason,e.owner_name,e.container_number,e.batch_reference,
+      e.last_location,e.eta_at,null::integer progress_percent,e.is_delayed,e.delay_hours,e.delay_reason,e.owner_name,e.container_number,e.batch_reference,
       e.packages_count,e.clients_count,e.total_weight_kg,e.total_volume_cbm,e.updated_at,
       e.last_signal_at,e.last_signal_source,
       (select count(*)::int from expedition_anomalies a where a.org_id=e.org_id and a.expedition_id=e.id and a.status in ('OPEN','IN_REVIEW')) open_alerts
@@ -192,7 +192,7 @@ def public_token(org_id:str,expedition_id:str,expires_at:str|None=None)->dict|No
 def public_view(token:str,ip_address:str|None,user_agent:str|None)->dict|None:
     with engine.begin() as conn:
         row=conn.execute(text("""select id::text,org_id,expedition_reference tracking_id,status,mode,origin_country,origin_city,
-          destination_country,destination_city,route_label,last_location,eta_at,progress_percent,is_delayed,updated_at
+          destination_country,destination_city,route_label,last_location,eta_at,null::integer progress_percent,is_delayed,updated_at
           from cargo_expeditions where public_tracking_token=:token and public_tracking_enabled
           and (public_tracking_expires_at is null or public_tracking_expires_at>now()) and deleted_at is null limit 1"""),{"token":token}).fetchone()
         if not row:return None

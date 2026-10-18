@@ -57,3 +57,7 @@ def test_tracking_never_substitutes_record_update_for_a_real_signal():
     assert "e.last_signal_at,e.last_signal_source" in source
     assert "status not in ('DELIVERED','CANCELLED','ARCHIVED')" in source
     assert "coalesce(last_signal_at,departed_at,updated_at)" in source
+
+def test_tracking_does_not_present_unmaintained_progress_percent_as_real():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    assert source.count("null::integer progress_percent") == 2

@@ -71,16 +71,18 @@ def tracking_analytics(org_id:str)->dict:
           count(*) filter(where delivered_at is not null and eta_at is not null)::int delivered_with_eta,
           count(*) filter(where delivered_at is not null and eta_at is not null and delivered_at<=eta_at)::int delivered_on_time,
           count(*) filter(where {TRACKING_DELAY_PREDICATE})::int delayed,
-          (select round(avg(extract(epoch from(a.resolved_at-a.detected_at))/3600)::numeric,1) from expedition_anomalies a where a.org_id=:org_id and a.resolved_at is not null) mean_resolution_hours
+          (select round(avg(extract(epoch from(a.resolved_at-a.detected_at))/3600)::numeric,1)
+            from expedition_anomalies a join cargo_expeditions ae on ae.org_id=a.org_id and ae.id=a.expedition_id
+            where a.org_id=:org_id and a.resolved_at is not null and ae.deleted_at is null and ae.archived_at is null) mean_resolution_hours
           from cargo_expeditions e where e.org_id=:org_id and e.deleted_at is null and e.archived_at is null"""),{"org_id":org_id}).fetchone()
         def grouped(sql:str):return _rows(conn.execute(text(sql),{"org_id":org_id}).fetchall())
         return {"summary":_safe(dict(summary._mapping)),
-          "best_routes":grouped("""select coalesce(route_label,'Route non renseignée') label,round(100.0*count(*) filter(where delivered_at<=eta_at)/nullif(count(*) filter(where delivered_at is not null and eta_at is not null),0))::int count from cargo_expeditions where org_id=:org_id group by 1 having count(*) filter(where delivered_at is not null and eta_at is not null)>0 order by 2 desc limit 10"""),
+          "best_routes":grouped("""select coalesce(route_label,'Route non renseignée') label,round(100.0*count(*) filter(where delivered_at<=eta_at)/nullif(count(*) filter(where delivered_at is not null and eta_at is not null),0))::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null group by 1 having count(*) filter(where delivered_at is not null and eta_at is not null)>0 order by 2 desc limit 10"""),
           "delays_by_route":grouped(f"select coalesce(route_label,'Route non renseignée') label,count(*)::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null and {TRACKING_DELAY_PREDICATE} group by 1 order by 2 desc limit 10"),
           "delays_by_country":grouped(f"select coalesce(destination_country,'Pays non renseigné') label,count(*)::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null and {TRACKING_DELAY_PREDICATE} group by 1 order by 2 desc limit 10"),
           "delays_by_warehouse":grouped(f"select coalesce(origin_warehouse,'Entrepôt non renseigné') label,count(*)::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null and {TRACKING_DELAY_PREDICATE} group by 1 order by 2 desc limit 10"),
-          "incidents_by_type":grouped("select anomaly_type label,count(*)::int count from expedition_anomalies where org_id=:org_id group by 1 order by 2 desc limit 10"),
-          "deliveries":grouped("select delivered_at::date::text label,count(*)::int count from cargo_expeditions where org_id=:org_id and delivered_at>=current_date-interval '30 days' group by 1 order by 1")}
+          "incidents_by_type":grouped("select a.anomaly_type label,count(*)::int count from expedition_anomalies a join cargo_expeditions e on e.org_id=a.org_id and e.id=a.expedition_id where a.org_id=:org_id and e.deleted_at is null and e.archived_at is null group by 1 order by 2 desc limit 10"),
+          "deliveries":grouped("select delivered_at::date::text label,count(*)::int count from cargo_expeditions where org_id=:org_id and deleted_at is null and archived_at is null and delivered_at>=current_date-interval '30 days' group by 1 order by 1")}
 
 def list_alerts(org_id:str,*,status:str|None=None,severity:str|None=None,assigned_to:str|None=None)->list[dict]:
     filters=["a.org_id=:org_id"];params={"org_id":org_id}

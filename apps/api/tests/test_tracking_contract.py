@@ -152,6 +152,16 @@ def test_expedition_analytics_excludes_soft_deleted_rows_from_every_report():
     assert analytics.count("deleted_at is null") >= 6
     assert analytics.count("archived_at is null") >= 6
 
+def test_tracking_analytics_applies_active_expedition_scope_to_all_series():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    analytics=source.split("def tracking_analytics(",1)[1].split("def list_alerts(",1)[0]
+    assert "ae.deleted_at is null and ae.archived_at is null" in analytics
+    assert '"best_routes":grouped' in analytics
+    assert '"incidents_by_type":grouped' in analytics
+    assert '"deliveries":grouped' in analytics
+    assert analytics.count("deleted_at is null") >= 7
+    assert analytics.count("archived_at is null") >= 7
+
 def test_expedition_delay_metrics_ignore_eta_after_arrival_and_include_overdue_eta():
     source=(Path(__file__).parents[1]/"app"/"expeditions"/"repository.py").read_text(encoding="utf-8")
     stats=source.split("def expedition_stats(",1)[1].split("def expedition_analytics(",1)[0]

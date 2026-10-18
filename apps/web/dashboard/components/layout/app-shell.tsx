@@ -236,11 +236,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
 
       <aside data-ui="sidebar" className={`slaivio-sidebar fixed inset-y-0 left-0 z-50 flex w-[292px] flex-col border-r border-[#e8eaed] bg-white transition-[width,transform] duration-200 lg:relative lg:z-auto lg:translate-x-0 ${cargo ? "lg:w-[292px]" : pilot ? "lg:w-[232px]" : sidebarCollapsed ? "lg:w-[56px]" : "lg:w-[248px]"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className={`flex shrink-0 items-center ${cargo ? "min-h-[150px] border-b border-[#e8eaed] px-3 py-3" : pilot ? "h-[72px] px-3" : `h-[60px] border-b border-[#e3e4e5] ${sidebarCollapsed ? "lg:justify-center lg:px-1" : "px-4"}`}`}>
+        <div className={`flex shrink-0 items-center ${cargo ? "min-h-[88px] border-b border-[#e8eaed] px-3 py-2" : pilot ? "h-[72px] px-3" : `h-[60px] border-b border-[#e3e4e5] ${sidebarCollapsed ? "lg:justify-center lg:px-1" : "px-4"}`}`}>
           {cargo ? <div className="min-w-0 flex-1">
-            <Link href="/app" className="flex h-10 items-center gap-2 px-1" onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly /><span><span className="block text-[14px] font-semibold leading-5 text-[#20252b]">SLAIVIO</span><span className="block text-[11px] leading-4 text-[#79818a]">Cargo OS</span></span></Link>
+            <Link href="/app" className="flex h-10 items-center gap-2 px-1" onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly /><span className="text-[14px] font-semibold leading-5 text-[#20252b]">SLAIVIO</span></Link>
             <div className="mt-2"><OrganizationSwitcher menuPlacement="down" header /></div>
-            <div className="mt-2 rounded-md bg-[#f7f8f8] px-2.5 py-2"><OfficeContextSelector /></div>
           </div> : pilot ? <div className="min-w-0 flex-1"><OrganizationSwitcher menuPlacement="down" /></div> : <Link href="/app" className={`flex items-center ${sidebarCollapsed?"lg:hidden":""}`} onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly={sidebarCollapsed}/></Link>}
           <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="ml-auto rounded-[4px] p-1.5 text-[#555] hover:bg-[#f0f1f1] lg:hidden">
             <X size={17} />
@@ -250,7 +249,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>}
         </div>
 
-        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot && !cargo ? "px-3 py-3" : `py-2.5 ${sidebarCollapsed && !cargo ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
+        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot && !cargo ? "px-3 py-3" : `py-2.5 ${cargo ? "px-3 pb-5" : sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
           {pilot && !cargo ? (
             <div>
               <PilotRailLink href="/app" icon={<Home size={19} />} active={pathname === "/app"} label={dashboardLabel(locale, "Accueil", "/app")} />
@@ -339,6 +338,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {cargo && <button type="button" onClick={() => setSearchOpen(true)} aria-label={locale === "en" ? "Search Slaivio" : "Rechercher dans Slaivio"} className="mr-2 flex h-9 min-w-9 items-center gap-2 rounded-md border border-[#d7dade] bg-white px-2 text-sm text-[#656c74] hover:bg-[#f8faf9] sm:w-[min(360px,28vw)] sm:px-3"><Search size={16}/><span className="hidden min-w-0 flex-1 truncate text-left sm:block">{locale === "en" ? "Search Slaivio…" : "Rechercher dans Slaivio…"}</span><kbd className="hidden text-[10px] lg:block">Ctrl K</kbd></button>}
           <div className="ml-auto flex items-center gap-1.5">
+            {cargo && <div className="w-[min(190px,32vw)]"><OfficeContextSelector compact /></div>}
             {pilot && !cargo && <PilotReadinessPanel compact />}
             {!pilot && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {!pilot && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => togglePanel("help")} active={floatingPanel === "help"} showLabel />}

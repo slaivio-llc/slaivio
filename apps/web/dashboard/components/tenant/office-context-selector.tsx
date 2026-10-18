@@ -10,7 +10,7 @@ import {
 
 const storageKey = "slaivio:office-context";
 
-export function OfficeContextSelector({ collapsed = false }: { collapsed?: boolean }) {
+export function OfficeContextSelector({ collapsed = false, compact = false }: { collapsed?: boolean; compact?: boolean }) {
   const [context, setContext] = useState<OfficeContext | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
@@ -49,8 +49,8 @@ export function OfficeContextSelector({ collapsed = false }: { collapsed?: boole
   }
 
   return (
-    <div className="mt-2">
-      {!collapsed && (
+    <div className={compact ? "min-w-0" : "mt-2"}>
+      {!collapsed && !compact && (
         <label htmlFor="office-context" className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#7a8188]">
           Contexte de travail
         </label>

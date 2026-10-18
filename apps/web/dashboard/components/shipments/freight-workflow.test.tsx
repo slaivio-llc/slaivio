@@ -54,7 +54,7 @@ describe("Commandes du mouvement fret",()=>{
     chooseAction("Ajouter des colis");
     const available=await screen.findByRole("checkbox",{name:/COL-A/});
     expect(screen.getByRole("checkbox",{name:/COL-B/})).toBeDisabled();
-    fireEvent.click(available);fireEvent.click(screen.getByRole("button",{name:"Affecter les colis"}));
+    fireEvent.click(available);fireEvent.click(screen.getByRole("button",{name:"Ajouter 1 colis"}));
     await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
     expect(api.post).toHaveBeenCalledWith("/shipments/workspace/one/loading",{expected_version:3,package_ids:["a"]});
   });

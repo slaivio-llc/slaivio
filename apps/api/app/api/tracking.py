@@ -50,8 +50,9 @@ class SavedViewPayload(BaseModel):name:str=Field(min_length=2,max_length=80);fil
 class BulkNotificationPayload(NotificationPayload):tracking_ids:list[str]=Field(min_length=1,max_length=100)
 
 @router.get("/tracking",dependencies=[Depends(require_permission("tracking.read"))])
-def index(q:str|None=None,status:str|None=None,risk_level:str|None=None,country:str|None=None,route:str|None=None,warehouse:str|None=None,client_id:str|None=None,container:str|None=None,batch:str|None=None,incident:bool|None=None,date_from:str|None=None,date_to:str|None=None,page:int=Query(default=1,ge=1),page_size:int=Query(default=30,ge=1,le=100),tenant=Depends(get_current_tenant)):
-    result=control_tower(tenant["org_id"],q=q,status=status,risk_level=risk_level,country=country,route=route,warehouse=warehouse,client_id=client_id,container=container,batch=batch,incident=incident,date_from=date_from,date_to=date_to,page=page,page_size=page_size)
+def index(q:str|None=None,status:str|None=None,risk_level:str|None=None,country:str|None=None,route:str|None=None,warehouse:str|None=None,client_id:str|None=None,container:str|None=None,batch:str|None=None,incident:bool|None=None,date_from:str|None=None,date_to:str|None=None,phase:str|None=None,page:int=Query(default=1,ge=1),page_size:int=Query(default=30,ge=1,le=100),tenant=Depends(get_current_tenant)):
+    if phase not in (None,"transit","delayed","arrived"):raise HTTPException(status_code=422,detail="invalid_tracking_phase")
+    result=control_tower(tenant["org_id"],q=q,status=status,risk_level=risk_level,country=country,route=route,warehouse=warehouse,client_id=client_id,container=container,batch=batch,incident=incident,date_from=date_from,date_to=date_to,phase=phase,page=page,page_size=page_size)
     return {"status":"ok","items":result["items"],"pagination":result["pagination"]}
 
 @router.get("/tracking/stats",dependencies=[Depends(require_permission("tracking.read"))])

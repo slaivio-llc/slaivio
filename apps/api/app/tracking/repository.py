@@ -40,7 +40,7 @@ def update_tracking_fields(org_id:str,expedition_id:str,user_id:str,payload:dict
             return None
     return tracking_detail(org_id,expedition_id)
 
-def control_tower(org_id:str,*,q:str|None=None,status:str|None=None,risk_level:str|None=None,country:str|None=None,route:str|None=None,warehouse:str|None=None,client_id:str|None=None,container:str|None=None,batch:str|None=None,incident:bool|None=None,date_from:str|None=None,date_to:str|None=None,page:int=1,page_size:int=30)->dict:
+def control_tower(org_id:str,*,q:str|None=None,status:str|None=None,risk_level:str|None=None,country:str|None=None,route:str|None=None,warehouse:str|None=None,client_id:str|None=None,container:str|None=None,batch:str|None=None,incident:bool|None=None,date_from:str|None=None,date_to:str|None=None,phase:str|None=None,page:int=1,page_size:int=30)->dict:
     filters=["e.org_id=:org_id","e.deleted_at is null","e.archived_at is null"]
     params:dict[str,Any]={"org_id":org_id}
     if q:
@@ -50,12 +50,18 @@ def control_tower(org_id:str,*,q:str|None=None,status:str|None=None,risk_level:s
     if country: filters.append("(e.origin_country=:country or e.destination_country=:country)");params["country"]=country
     if client_id: filters.append("exists(select 1 from expedition_packages ep where ep.org_id=e.org_id and ep.expedition_id=e.id and ep.client_id=:client_id and ep.removed_at is null)");params["client_id"]=client_id
     if incident is True: filters.append("exists(select 1 from expedition_anomalies a where a.org_id=e.org_id and a.expedition_id=e.id and a.status in ('OPEN','IN_REVIEW'))")
+    if phase == "transit": filters.append("e.status in ('DISPATCHED','IN_TRANSIT') and e.arrived_at is null")
+    elif phase == "delayed": filters.append(TRACKING_DELAY_PREDICATE)
+    elif phase == "arrived": filters.append("(e.arrived_at is not null or e.status in ('ARRIVED_DESTINATION','AVAILABLE_FOR_PICKUP','OUT_FOR_DELIVERY','DELIVERED'))")
     if date_from: filters.append("e.updated_at>=cast(:date_from as date)");params["date_from"]=date_from
     if date_to: filters.append("e.updated_at<cast(:date_to as date)+interval '1 day'");params["date_to"]=date_to
     where=" and ".join(filters);page=max(page,1);page_size=min(max(page_size,1),100);offset=(page-1)*page_size
-    select="""select e.id::text,e.expedition_reference tracking_id,'SHIPMENT' type,e.title,e.status,e.mode,e.risk_level,
+    delayed_expression=TRACKING_DELAY_PREDICATE.replace('status','e.status').replace('arrived_at','e.arrived_at').replace('is_delayed','e.is_delayed').replace('eta_at','e.eta_at')
+    select=f"""select e.id::text,e.expedition_reference tracking_id,'SHIPMENT' type,e.title,e.status,e.mode,e.risk_level,
       e.origin_country,e.origin_city,e.destination_country,e.destination_city,e.route_label,e.origin_warehouse,e.destination_warehouse,
-      e.last_location,e.eta_at,null::integer progress_percent,e.is_delayed,e.delay_hours,e.delay_reason,e.owner_name,e.container_number,e.batch_reference,
+      e.last_location,e.eta_at,null::integer progress_percent,e.is_delayed,
+      ({delayed_expression}) is_overdue,
+      e.delay_hours,e.delay_reason,e.owner_name,e.container_number,e.batch_reference,
       e.packages_count,e.clients_count,e.total_weight_kg,e.total_volume_cbm,e.updated_at,
       e.last_signal_at,e.last_signal_source,
       (select count(*)::int from expedition_anomalies a where a.org_id=e.org_id and a.expedition_id=e.id and a.status in ('OPEN','IN_REVIEW')) open_alerts
@@ -126,6 +132,8 @@ def tracking_stats(org_id:str)->dict:
         row=conn.execute(text(f"""select
           (select count(*)::int from cargo_packages p where p.org_id=:org_id and p.deleted_at is null
             and p.status in ('SHIPPED','IN_TRANSIT')) packages_in_transit,
+          count(*) filter(where status in ('DISPATCHED','IN_TRANSIT') and arrived_at is null)::int in_transit_shipments,
+          count(*) filter(where arrived_at is not null or status in ('ARRIVED_DESTINATION','AVAILABLE_FOR_PICKUP','OUT_FOR_DELIVERY','DELIVERED'))::int arrived_shipments,
           count(*) filter(where status in ('PREPARING','LOADING','READY_FOR_DEPARTURE','DISPATCHED','IN_TRANSIT','ARRIVED_DESTINATION','CUSTOMS_CLEARANCE','AVAILABLE_FOR_PICKUP','OUT_FOR_DELIVERY'))::int active_shipments,
           count(*) filter(where delivered_at::date=current_date)::int delivered_today,
           count(*) filter(where {TRACKING_DELAY_PREDICATE})::int delays,

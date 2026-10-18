@@ -120,6 +120,24 @@ def test_tracking_transit_duration_does_not_substitute_planned_departure():
     assert "delivered_at-departed_at" not in stats
     assert "coalesce(departed_at,planned_departure_at)" not in stats
 
+def test_operations_tracking_phases_use_real_expedition_status_and_signal_data(monkeypatch):
+    from unittest.mock import MagicMock
+    from app.tracking import repository
+    engine=MagicMock()
+    conn=engine.connect.return_value.__enter__.return_value
+    conn.execute.return_value.scalar.return_value=0
+    conn.execute.return_value.fetchall.return_value=[]
+    monkeypatch.setattr(repository,'engine',engine)
+    for phase, expected in (("transit","e.status in ('DISPATCHED','IN_TRANSIT')"),
+                            ("delayed","eta_at<now()"),
+                            ("arrived","e.arrived_at is not null")):
+        repository.control_tower('org-a',phase=phase)
+        count_sql=str(conn.execute.call_args_list[-2].args[0])
+        rows_sql=str(conn.execute.call_args_list[-1].args[0])
+        assert expected in count_sql
+        assert 'is_overdue' in rows_sql
+        assert '{delayed_expression}' not in rows_sql
+
 def test_manual_tracking_event_rejects_future_or_timezone_free_timestamps():
     with pytest.raises(ValidationError, match="occurred_at_cannot_be_in_future"):
         EventPayload(event_type="ARRIVAL", title="Arrivée", occurred_at="2999-01-01T12:00:00Z")

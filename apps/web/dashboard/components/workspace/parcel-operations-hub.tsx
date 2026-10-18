@@ -13,7 +13,7 @@ import { listTracking, type TrackingItem } from "@/services/tracking";
 import { PackagesPage } from "@/components/packages/packages-page";
 import { ShipmentsPage } from "@/components/shipments/shipments-page";
 import { DepartureCalendarPage } from "@/components/departures/departure-calendar-page";
-import { TrackingPage } from "@/components/tracking/tracking-page";
+import { CargoTrackingView } from "@/components/tracking/cargo-tracking-view";
 import { FreightShipmentDetail } from "@/components/shipments/freight-detail";
 
 type OperationsView = "overview" | "packages" | "shipments" | "calendar" | "tracking";
@@ -147,7 +147,7 @@ export function ParcelOperationsHub() {
       {visited.has("packages") && <div hidden={view !== "packages"}><PackagesPage embedded /></div>}
       {visited.has("shipments") && <div hidden={view !== "shipments"}><ShipmentsPage embedded /></div>}
       {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage /></div>}
-      {visited.has("tracking") && <div hidden={view !== "tracking"}><TrackingPage /></div>}
+      {visited.has("tracking") && <div hidden={view !== "tracking"}><CargoTrackingView revision={revision} open={setSelectedShipment} /></div>}
     </main>
     {selectedShipment && <FreightShipmentDetail shipmentId={selectedShipment} onClose={() => setSelectedShipment(null)} />}
   </div>;

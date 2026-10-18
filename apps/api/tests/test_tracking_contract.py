@@ -61,3 +61,14 @@ def test_tracking_never_substitutes_record_update_for_a_real_signal():
 def test_tracking_does_not_present_unmaintained_progress_percent_as_real():
     source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
     assert source.count("null::integer progress_percent") == 2
+
+def test_public_shipment_timeline_only_exposes_safe_milestones():
+    source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
+    public_view=source.split("def public_view(",1)[1].split("def save_view(",1)[0]
+    for event in ("EXPEDITION_CREATED","SHIPMENT_DEPARTED","DEPARTURE_DEPARTED",
+                  "SHIPMENT_ARRIVED","DEPARTURE_ARRIVED"):
+        assert event in public_view
+    assert "null::text description" in public_view
+    assert "select event_type,title,description,occurred_at" not in public_view
+    assert "FINANCE_LINE_ADDED" not in public_view
+    assert "NOTE_ADDED" not in public_view

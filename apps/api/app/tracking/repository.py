@@ -199,7 +199,22 @@ def public_view(token:str,ip_address:str|None,user_agent:str|None)->dict|None:
         item=_safe(dict(row._mapping))
         conn.execute(text("insert into tracking_public_access_logs(org_id,expedition_id,ip_address,user_agent) values(:org_id,:id,:ip,:ua)"),{"org_id":item["org_id"],"id":item["id"],"ip":ip_address,"ua":user_agent})
         item.pop("org_id",None)
-        item["events"]=_rows(conn.execute(text("""select event_type,title,description,occurred_at from expedition_events where expedition_id=:id and org_id=:org_id order by occurred_at asc"""),{"id":item["id"],"org_id":row._mapping["org_id"]}).fetchall())
+        item["events"]=_rows(conn.execute(text("""select event_type,
+          case event_type
+            when 'EXPEDITION_CREATED' then 'Expédition créée'
+            when 'SHIPMENT_DEPARTED' then 'Expédition partie'
+            when 'DEPARTURE_DEPARTED' then 'Expédition partie'
+            when 'SHIPMENT_ARRIVED' then 'Expédition arrivée à destination'
+            when 'DEPARTURE_ARRIVED' then 'Expédition arrivée à destination'
+          end as title,
+          null::text description,occurred_at
+          from (
+            select event_type,occurred_at from expedition_events
+            where expedition_id=:id and org_id=:org_id
+              and event_type in ('EXPEDITION_CREATED','SHIPMENT_DEPARTED','DEPARTURE_DEPARTED',
+                'SHIPMENT_ARRIVED','DEPARTURE_ARRIVED')
+            order by occurred_at desc limit 50
+          ) public_events order by occurred_at asc"""),{"id":item["id"],"org_id":row._mapping["org_id"]}).fetchall())
         return item
 
 def save_view(org_id:str,user_id:str,name:str,filters:dict)->dict:

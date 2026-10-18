@@ -90,9 +90,12 @@ export function ParcelRegisterPage({ embedded = false }: { embedded?: boolean })
     const value = (key: string) => String(form.get(key) || "").trim();
     setSaving(true); setSaveError("");
     try {
+      const physicalReceived = form.get("physical_received") === "on";
       const created = await createPackage({ client_id: value("client_id"), shipping_service_id: value("shipping_service_id"), route_id: value("route_id"),
         supplier_tracking: value("supplier_tracking") || null, description: value("description") || null,
-        weight_kg: value("weight_kg") ? Number(value("weight_kg")) : null, warehouse_location: value("warehouse_location") || null, source: "manual" });
+        weight_kg: value("weight_kg") ? Number(value("weight_kg")) : null, pieces_count: Number(value("pieces_count") || "1"),
+        warehouse_location: value("warehouse_location") || null, status: physicalReceived ? "RECEIVED_AT_ORIGIN" : "CREATED",
+        received_at: physicalReceived ? new Date().toISOString() : null, source: "manual" });
       setCreateOpen(false); setPage(1); setRevision(value => value + 1); setOpening(created.id);
     } catch (cause) {
       const detail = axios.isAxiosError(cause) ? cause.response?.data?.detail : null;

@@ -1360,15 +1360,15 @@ export function ClientFormModal({
     <OperationDrawer
       open
       title={title}
-      description={parcelFreight ? undefined : "Renseignez les informations disponibles."}
+      description={parcelFreight ? "Ajouter un client au répertoire." : "Renseignez les informations disponibles."}
       close={onClose}
       placement={parcelFreight ? "right" : "center"}
-      width={parcelFreight ? "max-w-2xl" : "max-w-3xl"}
+      width={parcelFreight ? "max-w-md" : "max-w-3xl"}
       footer={
         <>
           <OperationButton type="button" onClick={onClose} disabled={saving}>Annuler</OperationButton>
           <OperationButton type="submit" form="client-form" variant="primary" disabled={saving}>
-            {saving ? "Enregistrement..." : mode === "edit" ? "Enregistrer" : "Créer le client"}
+            {saving ? "Enregistrement..." : mode === "edit" ? "Enregistrer" : parcelFreight ? "Enregistrer le client" : "Créer le client"}
           </OperationButton>
         </>
       }
@@ -1380,14 +1380,17 @@ export function ClientFormModal({
             </div>
           )}
           {parcelFreight ? <div className="grid gap-5">
-            <label className="grid gap-2 text-sm">Type de client<select name="customer_type" value={cargoType} onChange={e=>setCargoType(e.target.value)} className={inputClass}><option value="individual">Particulier</option><option value="business">Entreprise</option></select></label>
+            <fieldset className="grid gap-2"><legend className="text-sm font-medium">Type de client</legend><div className="flex flex-wrap gap-x-5 gap-y-2">
+              <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="customer_type" value="individual" checked={cargoType === "individual"} onChange={()=>setCargoType("individual")} className="accent-slate-900"/>Particulier</label>
+              <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="customer_type" value="business" checked={cargoType === "business"} onChange={()=>setCargoType("business")} className="accent-slate-900"/>Entreprise</label>
+            </div></fieldset>
             {cargoType === "business" ? <Input key="company" label="Nom de l’entreprise" name="company_name" required defaultValue={client?.company_name || ""}/> : <Input key="person" label="Nom complet" name="name" required defaultValue={client?.name || ""}/>}
-            <InternationalPhone required={cargoType !== "business"} defaultValue={client?.phone || initialPhone} className={inputClass}/>
-            <p className="text-xs text-slate-500">Rattaché au bureau actif. WhatsApp utilise ce même numéro lorsqu’une conversation est disponible.</p>
-            <details><summary className="cursor-pointer text-sm font-medium">Informations supplémentaires</summary><div className="mt-4 grid gap-4">
-              <Input label="E-mail" name="email" type="email" defaultValue={client?.email || ""}/>
-              <Input label="Adresse" name="address" defaultValue={client?.address || ""}/>
-            </div></details>
+            <InternationalPhone required defaultValue={client?.phone || initialPhone} className={inputClass} label="Téléphone / WhatsApp" showHelp={false}/>
+            <GeographyFields country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} className={inputClass} fieldClassName="grid min-w-0 gap-2 text-sm" required showCity={false}/>
+            <Input label="Email (facultatif)" name="email" type="email" defaultValue={client?.email || ""}/>
+            <Input label="Adresse (facultative)" name="address" defaultValue={client?.address || ""}/>
+            <label className="grid gap-2 text-sm font-medium">Note interne (facultative)<textarea name="notes" rows={3} defaultValue={client?.notes || ""} className="min-h-20 w-full resize-y rounded-md border border-[#cfd5dd] bg-white px-3 py-2 text-[13px] font-normal outline-none focus:border-[#12a865]" placeholder="Informations utiles pour l’équipe…"/></label>
+            <p className="text-xs text-slate-500">Le client sera rattaché au bureau actif.</p>
             <input type="hidden" name="lifecycle_status" value={client?.lifecycle_status || "lead"}/>
             <input type="hidden" name="source" value={client?.source || "manual"}/>
           </div> : <><div className="grid gap-5 md:grid-cols-2">

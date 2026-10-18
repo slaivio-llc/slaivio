@@ -13,8 +13,10 @@ export function cargoClientPayload(form: FormData, rowVersion?: number): ClientP
     phone: value('phone'),
     phone_region: value('phone_region') || undefined,
     whatsapp_phone: value('phone'),
+    country: value('country'),
     email: value('email'),
     address: value('address'),
+    notes: value('notes'),
     row_version: rowVersion,
   };
 }

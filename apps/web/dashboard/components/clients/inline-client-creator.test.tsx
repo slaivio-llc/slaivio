@@ -14,7 +14,7 @@ it('keeps the package draft and never submits its parent form during client crea
   render(<form onSubmit={parentSubmit}><input aria-label="Poids du colis" defaultValue="12.5"/><InlineClientCreator onCreated={selected}/></form>);
   fireEvent.click(screen.getByRole('button',{name:'Nouveau client'}));
   fireEvent.change(screen.getByLabelText(/^Nom complet/),{target:{value:'Jean'}});
-  fireEvent.change(screen.getByLabelText('Téléphone *'),{target:{value:'+33612345678'}});
+  fireEvent.change(screen.getByLabelText('Téléphone / WhatsApp *'),{target:{value:'+33612345678'}});
   fireEvent.submit(screen.getByLabelText(/^Nom complet/).closest('form')!);
   await waitFor(()=>expect(selected).toHaveBeenCalledWith(saved));
   expect(parentSubmit).not.toHaveBeenCalled();
@@ -37,7 +37,7 @@ it('prefills the WhatsApp number and reuses its request key after failure',async
   vi.mocked(createClient).mockRejectedValue(new Error('offline'));
   render(<InlineClientCreator initialPhone="+33612345678" source="whatsapp" onCreated={vi.fn()}/>);
   fireEvent.click(screen.getByRole('button',{name:'Nouveau client'}));
-  expect(screen.getByLabelText('Téléphone *')).toHaveValue('+33612345678');
+  expect(screen.getByLabelText('Téléphone / WhatsApp *')).toHaveValue('+33612345678');
   fireEvent.change(screen.getByLabelText(/^Nom complet/),{target:{value:'Jean'}});
   const form=screen.getByLabelText(/^Nom complet/).closest('form')!;
   fireEvent.submit(form);

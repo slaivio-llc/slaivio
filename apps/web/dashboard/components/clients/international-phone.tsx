@@ -7,8 +7,8 @@ const names = new Intl.DisplayNames(['fr'], { type: 'region' });
 const countries = getCountries().map(code => ({ code, name: names.of(code) || code, dial: getCountryCallingCode(code) }))
   .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
-export function InternationalPhone({defaultValue = '', required = false, className = ''}: {
-  defaultValue?: string; required?: boolean; className?: string;
+export function InternationalPhone({defaultValue = '', required = false, className = '', label = 'Téléphone', showHelp = true}: {
+  defaultValue?: string; required?: boolean; className?: string; label?: string; showHelp?: boolean;
 }) {
   const initial = parsePhoneNumberFromString(defaultValue);
   const [country, setCountry] = useState<CountryCode | ''>(initial?.country || '');
@@ -25,7 +25,7 @@ export function InternationalPhone({defaultValue = '', required = false, classNa
   const options = useMemo(() => countries.filter(item =>
     `${item.name} ${item.code} +${item.dial}`.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr'))), [query]);
   return <div className="grid gap-2 text-sm">
-    <label htmlFor={id}>Téléphone{required ? ' *' : ' (facultatif)'}</label>
+    <label htmlFor={id}>{label}{required ? ' *' : ' (facultatif)'}</label>
     <div className="flex min-w-0 gap-2">
       <details ref={menu} className="relative shrink-0">
         <summary className={`${className} cursor-pointer list-none`} aria-label="Choisir l’indicatif du pays">
@@ -44,13 +44,13 @@ export function InternationalPhone({defaultValue = '', required = false, classNa
       </details>
       <input ref={input} id={id} type="tel" inputMode="tel" autoComplete="tel" required={required}
         value={value} onChange={e => setValue(e.target.value)} onBlur={() => setTouched(true)}
-        aria-invalid={touched && !valid} aria-describedby={`${id}-help`}
+        aria-invalid={touched && !valid} aria-describedby={showHelp || (touched && error) ? `${id}-help` : undefined}
         className={`${className} min-w-0 flex-1`} placeholder="Numéro de téléphone"/>
     </div>
     <input type="hidden" name="phone" value={parsed?.isValid() && !parsed.ext ? parsed.number : value}/>
     <input type="hidden" name="phone_region" value={country}/>
-    <p id={`${id}-help`} className={`text-xs ${touched && error ? 'text-red-700' : 'text-slate-500'}`}>
+    {(showHelp || (touched && error)) && <p id={`${id}-help`} className={`text-xs ${touched && error ? 'text-red-700' : 'text-slate-500'}`}>
       {touched && error ? error : 'Choisissez le pays pour un numéro local, ou collez un numéro avec + et son indicatif.'}
-    </p>
+    </p>}
   </div>;
 }

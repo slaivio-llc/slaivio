@@ -96,6 +96,11 @@ def test_route_eta_performance_uses_actual_destination_arrivals():
     assert "e.arrived_at is not null and e.eta_at is not null" in source
     assert "delivered_at<=e.eta_at" not in source
 
+def test_route_performance_excludes_archived_shipments():
+    source=(Path(__file__).parents[1]/"app"/"routes_services"/"repository.py").read_text(encoding="utf-8")
+    assert source.count("archived_at is null") >= 3
+    assert "e.deleted_at is null and e.archived_at is null" in source
+
 def test_eta_overdue_is_cleared_by_actual_arrival_across_tracking_views():
     source=(Path(__file__).parents[1]/"app"/"tracking"/"repository.py").read_text(encoding="utf-8")
     analytics=source.split("def tracking_analytics(",1)[1].split("def list_alerts(",1)[0]

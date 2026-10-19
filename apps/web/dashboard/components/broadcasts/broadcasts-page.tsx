@@ -7,6 +7,7 @@ import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationActionMenu, OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients, type ClientRecord } from "@/services/clients";
+import { OfficeContextSelector } from "@/components/tenant/office-context-selector";
 import {
   campaignAction,
   campaignResources,
@@ -285,7 +286,17 @@ function CampaignModal({
     [error, setError] = useState(""),
     [clientSearch, setClientSearch] = useState(""),
     [clientOptions, setClientOptions] = useState<ClientRecord[]>([]),
-    [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+    [selectedClientIds, setSelectedClientIds] = useState<string[]>([]),
+    [step, setStep] = useState<1 | 2 | 3>(1),
+    [audienceSelection, setAudienceSelection] = useState("__all__"),
+    [title, setTitle] = useState(""),
+    [message, setMessage] = useState(""),
+    [previewVisible, setPreviewVisible] = useState(true),
+    [sendLater, setSendLater] = useState(false),
+    [scheduledAt, setScheduledAt] = useState(""),
+    [confirmed, setConfirmed] = useState(false),
+    [review, setReview] = useState({ title: "", message: "", audience: "", recipients: "" });
+  const audiences = (resources.audiences || []) as Array<Record<string, unknown>>;
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(() => {
@@ -295,8 +306,38 @@ function CampaignModal({
     }, 200);
     return () => { active = false; window.clearTimeout(timer); };
   }, [clientSearch]);
+  function continueWizard() {
+    setError("");
+    if (step === 1) {
+      if (audienceSelection === "__manual__" && selectedClientIds.length === 0) {
+        setError("Sélectionnez au moins un client dans la liste.");
+        return;
+      }
+      setStep(2);
+      return;
+    }
+    if (title.trim().length < 2 || message.trim().length < 2) {
+      setError("Renseignez le titre de l’annonce et son message avant de continuer.");
+      return;
+    }
+    if (sendLater && (!scheduledAt || new Date(scheduledAt).getTime() <= Date.now())) {
+      setError("Choisissez une date future pour programmer l’annonce.");
+      return;
+    }
+    const audience = audienceSelection === "__all__"
+      ? "Tous les clients éligibles"
+      : audienceSelection === "__manual__"
+        ? "Sélection personnalisée"
+        : String(audiences.find((item) => String(item.id) === audienceSelection)?.name || "Groupe enregistré");
+    setReview({ title: title.trim(), message: message.trim(), audience, recipients: audienceSelection === "__manual__" ? String(selectedClientIds.length) : "Selon le groupe et les règles d’éligibilité" });
+    setStep(3);
+  }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!confirmed) {
+      setError("Confirmez la vérification des destinataires et du contenu.");
+      return;
+    }
     setBusy(true);
     setError("");
     const f = new FormData(e.currentTarget);
@@ -315,9 +356,10 @@ function CampaignModal({
         channels: [f.get("channel")],
         audience_id: audienceSelection.startsWith("__") ? null : audienceSelection || null,
         selected_client_ids: audienceSelection === "__all__" ? [] : selectedClientIds,
-        scheduled_at: f.get("date")
+        scheduled_at: sendLater && f.get("date")
           ? new Date(String(f.get("date"))).toISOString()
           : null,
+        template_id: f.get("template") || null,
         timezone_mode: "WORKSPACE",
         language_versions: {},
         media: [],
@@ -332,18 +374,25 @@ function CampaignModal({
     }
   }
   return (
-    <Modal title="Nouvelle campagne" close={close}>
+    <Modal title="Nouvelle annonce" description="Communication / Annonces & Relances" width="max-w-4xl" close={close}>
       <form className="grid gap-3" onSubmit={submit}>
-        <label className="grid gap-1 text-[12px] font-medium">
-          Nom interne de la campagne
+        <ol aria-label="Étapes de création" className="mb-2 grid grid-cols-3 gap-2 border-b border-[#e5e8e9] pb-3">
+          {(["Destinataires", "Message", "Vérification"] as const).map((label, index) => { const number = index + 1; return <li key={label} className={`flex items-center gap-2 border-b-2 pb-2 text-[12px] ${step === number ? "border-[#12ad64] font-semibold text-[#25292e]" : step > number ? "border-[#12ad64] text-[#52615a]" : "border-[#e5e8e9] text-[#7b8389]"}`}><span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] ${step >= number ? "bg-[#12875a] text-white" : "bg-[#f0f1f1] text-[#788087]"}`}>{step > number ? "✓" : number}</span>{label}</li>; })}
+        </ol>
+        {step === 1 && <label className="grid gap-1 text-[12px] font-medium">Bureau concerné<OfficeContextSelector compact /></label>}
+        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
+          Titre de l’annonce *
           <input
-            required
+            required={step === 2}
             name="title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
             className={field}
             placeholder="Ex. Annonce du départ de vendredi"
           />
         </label>
-        <label className="grid gap-1 text-[12px] font-medium">
+        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>Modèle de message<select name="template" className={field} defaultValue="" onChange={(event) => { const templates = (resources.templates || []) as Array<Record<string, unknown>>; const template = templates.find((item) => String(item.id) === event.target.value); if (template) setMessage(String(template.body || "")); }}><option value="">Message personnalisé</option>{((resources.templates || []) as Array<Record<string, unknown>>).map((template) => <option key={String(template.id)} value={String(template.id)}>{String(template.name)}</option>)}</select></label>
+        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
           Que souhaitez-vous faire ?
           <select name="objective" className={field}>
             <option value="INFORM">Informer les clients</option>
@@ -352,7 +401,7 @@ function CampaignModal({
             <option value="ANNOUNCE">Faire une annonce importante</option>
           </select>
         </label>
-        <label className="grid gap-1 text-[12px] font-medium">
+        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
           Nature du message
           <select name="type" className={field}>
             <option value="INFORMATIONAL">Information opérationnelle</option>
@@ -366,31 +415,20 @@ function CampaignModal({
             donné leur accord.
           </small>
         </label>
-        <label className="grid gap-1 text-[12px] font-medium">
+        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
           Canal d’envoi
           <select name="channel" className={field}>
             <option value="WHATSAPP">WhatsApp Business connecté</option>
           </select>
         </label>
-        <label className="grid gap-1 text-[12px] font-medium">
-          Audience principale
-          <select required name="audience" className={field}>
-            <option value="">Choisir une audience</option>
-            <option value="__all__">Tous les clients éligibles</option>
-            <option value="__manual__">Clients sélectionnés manuellement</option>
-            {(
-              (resources.audiences || []) as Array<Record<string, unknown>>
-            ).map((x) => (
-              <option key={String(x.id)} value={String(x.id)}>
-                {String(x.name)}
-              </option>
-            ))}
-          </select>
-          <small className="font-normal text-[#727b84]">
-            Les groupes enregistrés appliquent leurs filtres. Les consentements et exclusions sont toujours vérifiés avant l’envoi.
-          </small>
-        </label>
-        <section className="grid gap-2 rounded-md border border-[#e1e5e8] p-3">
+        <fieldset className={`grid gap-1 ${step === 1 ? "" : "hidden"}`}>
+          <legend className="mb-1 text-[13px] font-semibold text-[#30373d]">À qui envoyer l’annonce ?</legend>
+          <select name="audience" className="hidden" value={audienceSelection} onChange={(event) => setAudienceSelection(event.target.value)}><option value="__all__">Tous les clients éligibles</option><option value="__manual__">Sélection personnalisée</option>{audiences.map((audience) => <option key={String(audience.id)} value={String(audience.id)}>{String(audience.name)}</option>)}</select>
+          <AudienceChoice value="__all__" selected={audienceSelection} onSelect={(value) => { setAudienceSelection(value); setSelectedClientIds([]); }} title="Tous les clients éligibles" description="Les consentements et exclusions seront contrôlés avant envoi." />
+          {audiences.map((audience) => <AudienceChoice key={String(audience.id)} value={String(audience.id)} selected={audienceSelection} onSelect={(value) => { setAudienceSelection(value); setSelectedClientIds([]); }} title={String(audience.name)} description="Groupe enregistré · ses filtres seront appliqués." />)}
+          <AudienceChoice value="__manual__" selected={audienceSelection} onSelect={setAudienceSelection} title="Sélection personnalisée" description="Choisir les clients individuellement." />
+        </fieldset>
+        <section className={`grid gap-2 rounded-md border border-[#e1e5e8] p-3 ${step === 1 && audienceSelection === "__manual__" ? "" : "hidden"}`}>
           <div>
             <p className="text-[12px] font-medium text-[#273038]">Ajouter des clients précis (facultatif)</p>
             <p className="mt-1 text-[11px] text-[#727b84]">Les clients cochés s’ajoutent au groupe choisi. Avec « Tous les clients éligibles », la sélection manuelle ne réduit pas l’audience.</p>
@@ -423,31 +461,34 @@ function CampaignModal({
           </div>
           <p className="text-[11px] text-[#5f6873]">{selectedClientIds.length} client{selectedClientIds.length === 1 ? " sélectionné" : "s sélectionnés"}</p>
         </section>
-        <label className="grid gap-1 text-[12px] font-medium">
+        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
           Message envoyé au nom de l’agence
           <textarea
-            required
+            required={step === 2}
             name="message"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
             className="min-h-36 rounded-md border border-[#d2d7dc] bg-white p-3 text-[13px] outline-none focus:border-[#16855f] focus:ring-1 focus:ring-[#b9e5d2]"
             placeholder="Écrivez le message au nom de votre agence. Le prénom du client sera ajouté automatiquement lorsqu’il est disponible."
           />
         </label>
-        <label className="grid gap-1 text-[12px] font-medium">
-          Programmer l’envoi (facultatif)
-          <input name="date" type="datetime-local" className={field} />
-        </label>
+        <section className={`rounded-md border border-[#e1e5e8] p-3 ${step === 2 ? "" : "hidden"}`}><div className="mb-2 flex items-center justify-between"><h3 className="text-[12px] font-semibold">Aperçu WhatsApp</h3><button type="button" className="text-[11px] text-[#667078]" onClick={() => setPreviewVisible((value) => !value)}>{previewVisible ? "Masquer" : "Afficher"}</button></div>{previewVisible && <div className="ml-auto max-w-[520px] whitespace-pre-wrap rounded-lg bg-[#e4f2ec] p-4 text-[13px] leading-5 text-[#25352e]">{message || "L’aperçu du message apparaîtra ici."}<p className="mt-2 text-right text-[10px] text-[#738078]">Aperçu uniquement</p></div>}</section>
+        <fieldset className={`grid gap-2 ${step === 2 ? "" : "hidden"}`}><legend className="mb-1 text-[12px] font-semibold">Quand envoyer l’annonce ?</legend><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={!sendLater} onChange={() => setSendLater(false)} />Dès validation (la campagne sera créée comme brouillon)</label><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={sendLater} onChange={() => setSendLater(true)} />Programmer pour plus tard</label><input name="date" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} disabled={!sendLater} className={`${field} max-w-sm ${sendLater ? "" : "hidden"}`} /></fieldset>
+        {step === 3 && <section className="grid gap-4"><div><h3 className="text-[13px] font-semibold">Destinataires</h3><p className="mt-2 flex items-center justify-between border-b border-[#eceeef] py-2 text-[12px]"><span className="text-[#68717d]">Audience</span><span className="font-medium">{review.audience}</span></p><p className="mt-2 text-[11px] text-[#737d86]">{review.recipients}. Les règles de consentement et exclusions seront revérifiées côté serveur.</p></div><div><h3 className="text-[13px] font-semibold">Message</h3><div className="mt-2 rounded-md border border-[#e1e5e8] p-3"><p className="text-[12px] font-semibold">{review.title}</p><p className="mt-2 whitespace-pre-wrap border-t border-[#eceeef] pt-2 text-[12px] leading-5">{review.message}</p></div></div><label className="flex items-start gap-2 border-t border-[#eceeef] pt-4 text-[12px] leading-5"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1" />Je confirme avoir vérifié les destinataires et le contenu de cette annonce.</label></section>}
         {error && (
           <p className="rounded-md bg-red-50 p-3 text-[12px] text-red-700">
             {error}
           </p>
         )}
-        <button disabled={busy} className={primary}>
-          {busy ? "Enregistrement…" : "Créer la campagne"}
-        </button>
+        <footer className="flex items-center justify-between border-t border-[#e5e8e9] pt-3"><button type="button" className={btn} onClick={() => { setError(""); if (step === 1) close(); else setStep((value) => (value - 1) as 1 | 2 | 3); }}>{step === 1 ? "Annuler" : "← Retour"}</button>{step < 3 ? <button type="button" className={primary} onClick={continueWizard}>Continuer →</button> : <button type="submit" disabled={busy || !confirmed} className={`${primary} disabled:cursor-not-allowed disabled:opacity-50`}>{busy ? "Enregistrement…" : "Créer l’annonce"}</button>}</footer>
       </form>
     </Modal>
   );
 }
+function AudienceChoice({ value, selected, onSelect, title, description }: { value: string; selected: string; onSelect: (value: string) => void; title: string; description: string }) {
+  return <label className={`flex cursor-pointer items-start gap-3 rounded-md px-2.5 py-2 transition-colors hover:bg-[#f8faf9] ${selected === value ? "bg-[#f5f8f6]" : ""}`}><input type="radio" name="campaign-audience-choice" checked={selected === value} onChange={() => onSelect(value)} className="mt-0.5 accent-[#111111]"/><span className="min-w-0"><span className="block text-[12px] font-medium text-[#25292e]">{title}</span><span className="mt-0.5 block text-[11px] text-[#747d85]">{description}</span></span></label>;
+}
+
 function AudienceModal({
   close,
   done,
@@ -560,10 +601,14 @@ function AudienceModal({
 }
 function Modal({
   title,
+  description,
+  width,
   close,
   children,
 }: {
   title: string;
+  description?: string;
+  width?: string;
   close: () => void;
   children: React.ReactNode;
 }) {
@@ -571,7 +616,8 @@ function Modal({
     <OperationDrawer
       open
       title={title}
-      description="Renseignez uniquement les informations utiles à l’agence."
+      description={description || "Renseignez uniquement les informations utiles à l’agence."}
+      width={width}
       close={close}
     >
       {children}

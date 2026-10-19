@@ -94,7 +94,8 @@ def listing(org_id: str, *, view: str | None = None, q: str | None = None, categ
 def stats(org_id: str) -> dict:
     with engine.connect() as conn:
         row = conn.execute(text("""
-          select count(*) filter(where entry.status='PUBLISHED')::int published,
+          select count(*)::int total,
+            count(*) filter(where entry.status='PUBLISHED')::int published,
             count(*) filter(where entry.status<>'ARCHIVED' and (entry.status<>'PUBLISHED' or draft.id is not null))::int drafts,
             count(*) filter(where entry.status<>'ARCHIVED' and (entry.status in('NEEDS_REVIEW','EXPIRED') or entry.review_due_at<=now() or entry.expires_at<=now()))::int needs_review,
             count(*) filter(where entry.status='PUBLISHED' and entry.ai_scope in('CLIENT','BOTH') and entry.sensitive=false and (entry.effective_at is null or entry.effective_at<=now()) and (entry.review_due_at is null or entry.review_due_at>now()) and (entry.expires_at is null or entry.expires_at>now()))::int available_to_ai,

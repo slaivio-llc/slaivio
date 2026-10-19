@@ -112,6 +112,7 @@ beforeEach(() => {
     }],
   });
   vi.mocked(knowledgeService.getPilotKnowledgeStats).mockResolvedValue({
+    total: 1,
     published: 1,
     drafts: 0,
     needs_review: 0,

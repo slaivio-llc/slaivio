@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Building2 } from "lucide-react";
 import { ChevronDown } from "lucide-react";
 import {
@@ -13,6 +13,7 @@ import { getTenantContext } from "@/services/tenant";
 const storageKey = "slaivio:office-context";
 
 export function OfficeContextSelector({ collapsed = false, compact = false }: { collapsed?: boolean; compact?: boolean }) {
+  const selectorId = useId();
   const [context, setContext] = useState<OfficeContext | null>(null);
   const [selected, setSelected] = useState("");
   const [error, setError] = useState("");
@@ -30,10 +31,13 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
       .then((result) => {
         if (!active) return;
         const stored = window.sessionStorage.getItem(storageKey) || "";
-        const valid = result.offices.some((office) => office.location_id === stored);
+        const storedOffice = result.offices.some((office) => office.location_id === stored);
+        const returnedOffice = result.offices.some((office) => office.location_id === result.selected_office_id);
         setContext(result);
-        setSelected(valid ? stored : "");
-        if (!valid) window.sessionStorage.removeItem(storageKey);
+        const initialSelection = storedOffice ? stored : returnedOffice ? result.selected_office_id || "" : "";
+        setSelected(initialSelection);
+        if (initialSelection) window.sessionStorage.setItem(storageKey, initialSelection);
+        else window.sessionStorage.removeItem(storageKey);
       })
       .catch(() => {
         if (active) setError("Contexte des bureaux indisponible.");
@@ -58,7 +62,7 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
   return (
     <div className={compact ? "min-w-0" : "mt-2"}>
       {!collapsed && !compact && (
-        <label htmlFor="office-context" className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#7a8188]">
+        <label htmlFor={selectorId} className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#7a8188]">
           Contexte de travail
         </label>
       )}
@@ -66,7 +70,7 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
       <div className="relative min-w-0">
         <Building2 size={14} className="pointer-events-none absolute left-2.5 top-1/2 z-[1] -translate-y-1/2 text-[#555f68]" />
         <select
-          id="office-context"
+          id={selectorId}
           aria-label="Bureau actif"
           className="h-9 w-full appearance-none rounded-full border border-[#d4d8da] bg-white pl-8 pr-7 text-[12px] font-medium text-[#41494f] disabled:cursor-not-allowed disabled:text-[#737d86]"
           value={selected}
@@ -81,7 +85,7 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
       ) : <div className="flex items-center gap-2">
         {collapsed && <Building2 size={15} className="shrink-0 text-[#667078]" />}
         <select
-          id="office-context"
+          id={selectorId}
           aria-label="Contexte de travail"
           className="h-9 min-w-0 flex-1 rounded-[5px] border border-[#d8d9dc] bg-white px-2 text-[12px]"
           value={selected}
@@ -95,6 +99,7 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
           ))}
         </select>
       </div>}
+      {compact && context && context.offices.length === 0 && !error && <p className="mt-1 text-[11px] text-[#737d86]">Aucun autre bureau actif n’est autorisé pour votre compte.</p>}
       {error && <p role="alert" className="mt-1 text-[11px] text-red-700">{error}</p>}
     </div>
   );

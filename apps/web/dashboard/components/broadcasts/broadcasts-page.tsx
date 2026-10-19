@@ -376,10 +376,10 @@ function CampaignModal({
   return (
     <Modal title="Nouvelle annonce" description="Communication / Annonces & Relances" width="max-w-4xl" close={close}>
       <form className="grid gap-3" onSubmit={submit}>
-        <ol aria-label="Étapes de création" className="mb-2 grid grid-cols-3 gap-2 border-b border-[#e5e8e9] pb-3">
-          {(["Destinataires", "Message", "Vérification"] as const).map((label, index) => { const number = index + 1; return <li key={label} className={`flex items-center gap-2 border-b-2 pb-2 text-[12px] ${step === number ? "border-[#12ad64] font-semibold text-[#25292e]" : step > number ? "border-[#12ad64] text-[#52615a]" : "border-[#e5e8e9] text-[#7b8389]"}`}><span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] ${step >= number ? "bg-[#12875a] text-white" : "bg-[#f0f1f1] text-[#788087]"}`}>{step > number ? "✓" : number}</span>{label}</li>; })}
+        <ol aria-label="Étapes de création" className="mb-2 grid grid-cols-3 gap-2 py-3">
+          {(["Destinataires", "Message", "Vérification"] as const).map((label, index) => { const number = index + 1; return <li key={label} className={`flex flex-col items-center gap-1.5 text-[12px] ${step === number ? "font-semibold text-[#25292e]" : step > number ? "text-[#52615a]" : "text-[#7b8389]"}`}><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] ${step >= number ? "bg-[#078956] text-white" : "bg-[#f0f1f1] text-[#788087]"}`}>{step > number ? "✓" : number}</span>{label}</li>; })}
         </ol>
-        {step === 1 && <label className="grid gap-1 text-[12px] font-medium">Bureau concerné<OfficeContextSelector compact /></label>}
+        {step === 1 && <div className="grid gap-1 text-[12px] font-medium"><label className="text-[#30373d]">Bureau concerné</label><OfficeContextSelector compact /></div>}
         <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
           Titre de l’annonce *
           <input
@@ -435,7 +435,7 @@ function CampaignModal({
           </div>
           <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder="Rechercher un client par nom, téléphone…" aria-label="Rechercher un client destinataire" />
           <div className="max-h-44 overflow-y-auto rounded border border-[#edf0f2]">
-            <label className="sticky top-0 z-[1] flex cursor-pointer items-center gap-2 border-b border-[#e1e5e8] bg-[#fafbfb] px-3 py-2 text-[11px] font-medium text-[#45515b]">
+            <label className="sticky top-0 z-[1] flex cursor-pointer items-center gap-2 bg-[#fafbfb] px-3 py-2 text-[11px] font-medium text-[#45515b]">
               <input
                 type="checkbox"
                 checked={clientOptions.length > 0 && clientOptions.every((client) => selectedClientIds.includes(String(client.id)))}
@@ -452,7 +452,7 @@ function CampaignModal({
             {clientOptions.length ? clientOptions.map((client) => {
               const id = String(client.id);
               const selected = selectedClientIds.includes(id);
-              return <label key={id} className="flex cursor-pointer items-center gap-2 border-b border-[#edf0f2] px-3 py-2 text-[12px] last:border-0 hover:bg-[#f8faf9]">
+              return <label key={id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[12px] hover:bg-[#f8faf9]">
                 <input type="checkbox" checked={selected} disabled={!selected && selectedClientIds.length >= 500} onChange={() => setSelectedClientIds((current) => selected ? current.filter((value) => value !== id) : [...current, id])} />
                 <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || "Client"}</span>
                 <span className="shrink-0 text-[#77818a]">{client.phone || client.email || "Contact manquant"}</span>
@@ -474,13 +474,13 @@ function CampaignModal({
         </label>
         <section className={`rounded-md border border-[#e1e5e8] p-3 ${step === 2 ? "" : "hidden"}`}><div className="mb-2 flex items-center justify-between"><h3 className="text-[12px] font-semibold">Aperçu WhatsApp</h3><button type="button" className="text-[11px] text-[#667078]" onClick={() => setPreviewVisible((value) => !value)}>{previewVisible ? "Masquer" : "Afficher"}</button></div>{previewVisible && <div className="ml-auto max-w-[520px] whitespace-pre-wrap rounded-lg bg-[#e4f2ec] p-4 text-[13px] leading-5 text-[#25352e]">{message || "L’aperçu du message apparaîtra ici."}<p className="mt-2 text-right text-[10px] text-[#738078]">Aperçu uniquement</p></div>}</section>
         <fieldset className={`grid gap-2 ${step === 2 ? "" : "hidden"}`}><legend className="mb-1 text-[12px] font-semibold">Quand envoyer l’annonce ?</legend><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={!sendLater} onChange={() => setSendLater(false)} />Dès validation (la campagne sera créée comme brouillon)</label><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={sendLater} onChange={() => setSendLater(true)} />Programmer pour plus tard</label><input name="date" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} disabled={!sendLater} className={`${field} max-w-sm ${sendLater ? "" : "hidden"}`} /></fieldset>
-        {step === 3 && <section className="grid gap-4"><div><h3 className="text-[13px] font-semibold">Destinataires</h3><p className="mt-2 flex items-center justify-between border-b border-[#eceeef] py-2 text-[12px]"><span className="text-[#68717d]">Audience</span><span className="font-medium">{review.audience}</span></p><p className="mt-2 text-[11px] text-[#737d86]">{review.recipients}. Les règles de consentement et exclusions seront revérifiées côté serveur.</p></div><div><h3 className="text-[13px] font-semibold">Message</h3><div className="mt-2 rounded-md border border-[#e1e5e8] p-3"><p className="text-[12px] font-semibold">{review.title}</p><p className="mt-2 whitespace-pre-wrap border-t border-[#eceeef] pt-2 text-[12px] leading-5">{review.message}</p></div></div><label className="flex items-start gap-2 border-t border-[#eceeef] pt-4 text-[12px] leading-5"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1" />Je confirme avoir vérifié les destinataires et le contenu de cette annonce.</label></section>}
+        {step === 3 && <section className="grid gap-4"><div><h3 className="text-[13px] font-semibold">Destinataires</h3><p className="mt-2 flex items-center justify-between py-2 text-[12px]"><span className="text-[#68717d]">Audience</span><span className="font-medium">{review.audience}</span></p><p className="mt-2 text-[11px] text-[#737d86]">{review.recipients}. Les règles de consentement et exclusions seront revérifiées côté serveur.</p></div><div><h3 className="text-[13px] font-semibold">Message</h3><div className="mt-2 rounded-md bg-[#f8faf9] p-3"><p className="text-[12px] font-semibold">{review.title}</p><p className="mt-2 whitespace-pre-wrap pt-2 text-[12px] leading-5">{review.message}</p></div></div><label className="flex items-start gap-2 pt-2 text-[12px] leading-5"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1" />Je confirme avoir vérifié les destinataires et le contenu de cette annonce.</label></section>}
         {error && (
           <p className="rounded-md bg-red-50 p-3 text-[12px] text-red-700">
             {error}
           </p>
         )}
-        <footer className="flex items-center justify-between border-t border-[#e5e8e9] pt-3"><button type="button" className={btn} onClick={() => { setError(""); if (step === 1) close(); else setStep((value) => (value - 1) as 1 | 2 | 3); }}>{step === 1 ? "Annuler" : "← Retour"}</button>{step < 3 ? <button type="button" className={primary} onClick={continueWizard}>Continuer →</button> : <button type="submit" disabled={busy || !confirmed} className={`${primary} disabled:cursor-not-allowed disabled:opacity-50`}>{busy ? "Enregistrement…" : "Créer l’annonce"}</button>}</footer>
+        <footer className="flex items-center justify-between pt-3"><button type="button" className={btn} onClick={() => { setError(""); if (step === 1) close(); else setStep((value) => (value - 1) as 1 | 2 | 3); }}>{step === 1 ? "Annuler" : "← Retour"}</button>{step < 3 ? <button type="button" className={primary} onClick={continueWizard}>Continuer →</button> : <button type="submit" disabled={busy || !confirmed} className={`${primary} disabled:cursor-not-allowed disabled:opacity-50`}>{busy ? "Enregistrement…" : "Créer l’annonce"}</button>}</footer>
       </form>
     </Modal>
   );

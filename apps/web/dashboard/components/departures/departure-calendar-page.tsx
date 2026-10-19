@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, RefreshCcw } from "lucide-react";
-import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -35,10 +34,9 @@ export function DepartureCalendarPage() {
   const selectedItems=items.filter(item=>dateKey(new Date(item.calendar_at))===selected);
   const move=(delta:number)=>{const next=new Date(month.getFullYear(),month.getMonth()+delta,1);setMonth(next);setSelected(dateKey(next));};
   return <div className="min-h-full bg-white">
-    <OperationPageHeader title="Calendrier des départs" description="Consultez les expéditions programmées et les prochains départs à confirmer." actions={<><PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setPlanning(true)}><Plus size={14}/>Planifier</OperationButton></PermissionGuard><OperationButton onClick={()=>void load()} aria-label="Actualiser le calendrier"><RefreshCcw size={14}/>Actualiser</OperationButton></>}/>
     <main className="mx-auto w-full max-w-[1200px] px-4 pb-10 sm:px-8">
       {created&&<p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Départ planifié : <button type="button" className="font-medium underline" onClick={()=>setSelectedShipment(created.id)}>{created.reference}</button>. L’expédition est en préparation; aucun colis n’est encore parti.</p>}
-      <div className="mb-3 flex items-center gap-2"><OperationButton aria-label="Mois précédent" onClick={()=>move(-1)}><ChevronLeft size={16}/></OperationButton><h2 className="min-w-32 text-sm font-semibold capitalize text-slate-800">{monthLabel.format(month)}</h2><OperationButton aria-label="Mois suivant" onClick={()=>move(1)}><ChevronRight size={16}/></OperationButton></div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><OperationButton aria-label="Mois précédent" onClick={()=>move(-1)}><ChevronLeft size={16}/></OperationButton><h2 className="min-w-32 text-sm font-semibold capitalize text-slate-800">{monthLabel.format(month)}</h2><OperationButton aria-label="Mois suivant" onClick={()=>move(1)}><ChevronRight size={16}/></OperationButton></div><div className="flex items-center gap-2"><PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setPlanning(true)}><Plus size={14}/>Planifier</OperationButton></PermissionGuard><OperationButton onClick={()=>void load()} aria-label="Actualiser le calendrier"><RefreshCcw size={14}/>Actualiser</OperationButton></div></div>
       {loading&&<LoadingState label="Chargement du calendrier…"/>}{!loading&&error&&<ErrorState title="Calendrier indisponible" description={error} retry={()=>void load()}/>}
       {!loading&&!error&&<>
         <section className="rounded-xl border border-slate-200 bg-white p-3 sm:p-5" aria-label="Calendrier mensuel des départs">

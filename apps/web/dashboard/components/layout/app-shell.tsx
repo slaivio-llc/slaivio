@@ -3,6 +3,7 @@
 import { useClerk, useUser } from "@clerk/nextjs";
 import {
   ArrowLeft,
+  BarChart3,
   Bell,
   BookOpen,
   CheckCheck,
@@ -13,6 +14,7 @@ import {
   CreditCard,
   FileQuestion,
   Home,
+  LayoutDashboard,
   Keyboard,
   Languages,
   LogOut,
@@ -20,9 +22,11 @@ import {
   Menu,
   Megaphone,
   MessageSquareText,
+  MessagesSquare,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Package,
   Plug,
   Search,
   Settings,
@@ -34,6 +38,7 @@ import {
   Trash2,
   UserRound,
   Users,
+  Wallet,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -88,6 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [floatingPanel, setFloatingPanel] = useState<FloatingPanel>(null);
   const [supportView, setSupportView] = useState<SupportView>(null);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
     pilot ? { Opérations: true } : { Clients: false, Opérations: true, "Offre commerciale": false, Communication: false, Pilotage: false },
@@ -195,6 +201,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
+  useEffect(() => {
+    if (!cargo) return;
+    let active = true;
+    listNotifications({ page: 1, page_size: 1 }).then((result) => {
+      if (active) setHasUnreadNotifications(result.stats.unread > 0);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [cargo]);
+
   function openRoute(href: string) {
     setSearchOpen(false);
     setQuery("");
@@ -246,7 +261,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>}
         </div>
 
-        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot && !cargo ? "px-3 py-3" : `py-2.5 ${cargo ? sidebarCollapsed ? "px-2 pb-5" : "px-3 pb-5" : sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
+        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot && !cargo ? "px-3 py-3" : `py-2.5 ${cargo ? sidebarCollapsed ? "border-t border-[#e8eaed] px-2 pb-5 pt-3" : "border-t border-[#e8eaed] px-3 pb-5 pt-3" : sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
           {pilot && !cargo ? (
             <div>
               <PilotRailLink href="/app" icon={<Home size={19} />} active={pathname === "/app"} label={dashboardLabel(locale, "Accueil", "/app")} />
@@ -261,8 +276,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               ))}
             </div>
           ) : cargo ? <>
-            <SidebarLink href="/app" icon={<Home size={18}/>} active={pathname === "/app"} label="Tableau de bord" collapsed={sidebarCollapsed}/>
-            {groupedRoutes.flatMap(group => group.routes).map(route => <div key={route.href} className="mt-1"><SidebarLink href={route.href} icon={<route.icon size={18}/>} active={isNavigationRouteActive(pathname, searchParams, route.href)} label={dashboardLabel(locale, route.label, route.href)} collapsed={sidebarCollapsed}/></div>)}
+            <CargoSidebarLink href="/app" icon={<LayoutDashboard size={17}/>} active={pathname === "/app"} label="Tableau de bord" collapsed={sidebarCollapsed}/>
+            <div className="mt-2 space-y-2">
+              {groupedRoutes.flatMap(group => group.routes).map(route => <CargoSidebarLink key={route.href} href={route.href} icon={cargoSidebarIcon(route.href, route.label)} active={isNavigationRouteActive(pathname, searchParams, route.href)} label={dashboardLabel(locale, route.label, route.href)} collapsed={sidebarCollapsed}/>) }
+            </div>
           </> : <>
             <SidebarLink href="/app" icon={<Home size={18} />} active={pathname === "/app"} label={cargo ? "Dashboard" : dashboardLabel(locale, "Accueil", "/app")} collapsed={sidebarCollapsed} />
             {groupedRoutes.map((group) => group.collapsible === false && group.routes[0] ? (
@@ -299,7 +316,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </>}
         </nav>
 
-        {cargo && canAccessRoute(utilityRoutes.find(route => route.href === "/app/settings")!, permissions, permissionsAvailable) && <div className={`shrink-0 border-t border-[#e8eaed] py-2.5 ${sidebarCollapsed ? "px-2" : "px-3"}`}><SidebarLink href="/app/settings" icon={<Settings size={18}/>} active={isNavigationRouteActive(pathname, searchParams, "/app/settings")} label="Paramètres" collapsed={sidebarCollapsed}/></div>}
+        {cargo && canAccessRoute(utilityRoutes.find(route => route.href === "/app/settings")!, permissions, permissionsAvailable) && <div className={`shrink-0 border-t border-[#e8eaed] py-3 ${sidebarCollapsed ? "px-2" : "px-3"}`}><CargoSidebarLink href="/app/settings" icon={<Settings size={17}/>} active={isNavigationRouteActive(pathname, searchParams, "/app/settings")} label="Paramètres" collapsed={sidebarCollapsed}/></div>}
         {pilot && !cargo && <div className="mt-auto flex shrink-0 items-center px-3 pb-3 lg:grid lg:px-0 lg:pb-0">
           <PilotRailButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={19} />} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />
           <AccountTrigger onClick={() => togglePanel("account")} rail />
@@ -339,7 +356,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {!pilot && !cargo && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {(cargo || !pilot) && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => cargo ? (setFloatingPanel(null), setSupportView("topics")) : togglePanel("help")} active={floatingPanel === "help" || Boolean(cargo && supportView)} showLabel={!cargo} />}
             {!cargo && <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />}
-            {(cargo || !pilot) && canAccessRoute(utilityRoutes.find(route => route.href === "/app/notifications")!, permissions, permissionsAvailable) && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<Bell size={16} />} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />}
+            {(cargo || !pilot) && canAccessRoute(utilityRoutes.find(route => route.href === "/app/notifications")!, permissions, permissionsAvailable) && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<span className="relative inline-flex"><Bell size={16} />{cargo && hasUnreadNotifications && <span className="absolute -right-1 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#e5484d] ring-2 ring-white" />}</span>} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />}
             {(cargo || !pilot) && <AccountTrigger onClick={() => togglePanel("account")} />}
           </div>
         </header>
@@ -394,6 +411,26 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
     </div>
   );
+}
+
+function CargoSidebarLink({ href, icon, active, label, collapsed = false }: { href: string; icon: ReactNode; active: boolean; label: string; collapsed?: boolean }) {
+  return (
+    <Link data-ui="cargo-sidebar-link" data-active={active ? "true" : "false"} href={href} title={collapsed ? label : undefined} aria-current={active ? "page" : undefined} className={`flex min-h-[42px] items-center rounded-[6px] text-[13px] tracking-[-0.005em] ${collapsed ? "justify-center px-1" : "gap-2.5 px-2.5"} ${active ? "bg-[#dcefe8] font-semibold text-[#145f49]" : "bg-[#f2f2f2] font-normal text-[#3f474f] hover:bg-[#e9eeec] hover:text-[#20252b]"}`}>
+      <span className={active ? "text-[#16855f]" : "text-[#5d6871]"}>{icon}</span>
+      {!collapsed && <span className="truncate">{label}</span>}
+    </Link>
+  );
+}
+
+function cargoSidebarIcon(href: string, label: string): ReactNode {
+  if (href.includes("settings")) return <Settings size={17} />;
+  if (/client/i.test(label) || href.includes("clients")) return <Users size={17} />;
+  if (/communication|messag|inbox/i.test(label) || /inbox|communication|messages/.test(href)) return <MessagesSquare size={17} />;
+  if (/finance|paiement/i.test(label) || /finance|payment/.test(href)) return <Wallet size={17} />;
+  if (/rapport|report/i.test(label) || href.includes("reports")) return <BarChart3 size={17} />;
+  if (/gestion|admin/i.test(label) || href.includes("admin")) return <SlidersHorizontal size={17} />;
+  if (/op[eé]ration|colis|exp[eé]di/i.test(label) || /operations|packages|shipments/.test(href)) return <Package size={17} />;
+  return <Home size={17} />;
 }
 
 function SidebarLink({ href, icon, active, label, collapsed = false, nested = false }: { href: string; icon: ReactNode; active: boolean; label: string; collapsed?: boolean; nested?: boolean }) {

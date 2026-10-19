@@ -912,6 +912,15 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   font-weight: 630;
 }
 
+.slaivio-sidebar [data-ui="cargo-sidebar-link"] {
+  min-height: 42px;
+}
+
+.slaivio-pilot .slaivio-sidebar [data-ui="cargo-sidebar-link"][data-active="true"] {
+  background: #dcefe8;
+  color: #145f49;
+}
+
 .slaivio-topbar button,
 .slaivio-topbar a {
   font-size: 13px;

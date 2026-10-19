@@ -38,15 +38,28 @@ def test_pilot_followup_api_requires_preview_confirmation_and_permissions():
 def test_pilot_followup_ui_uses_business_choices_and_no_technical_ids():
     ui = source("apps/web/dashboard/components/followups/followups-page.tsx")
     for label in (
-        "Qui souhaitez-vous contacter ?",
-        "Confirmer les destinataires",
+        "Sélectionner les destinataires",
+        "Tous les clients concernés",
+        "Sélection manuelle",
+        "Confirmer l’envoi",
         "Enregistrer en brouillon",
-        "Envoyer sur WhatsApp",
-        "Exclure",
+        "Retirer",
     ):
         assert label in ui
     assert "ID client" not in ui
     assert "Règles et séquences" not in ui
+
+
+def test_followup_reasons_use_live_eligible_clients_and_are_persisted():
+    api = source("apps/api/app/api/followups.py")
+    repository = source("apps/api/app/db/pilot_followup_repository.py")
+    migration = source("infra/sql/147_pilot_followup_reason.sql")
+    assert "/pilot/eligible" in api
+    assert "eligible_options" in repository
+    assert "followup_type" in repository
+    assert "PAYMENT_DUE" in migration
+    assert "PICKUP_REMINDER" in migration
+    assert "DOCUMENT_MISSING" in migration
 
 
 def test_whatsapp_reply_updates_the_pilot_recipient():

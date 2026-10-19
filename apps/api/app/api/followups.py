@@ -2,7 +2,9 @@ from typing import Any
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,Field
 from app.core.tenant_context import get_current_tenant
+from app.core.auth import get_current_manager
 from app.core.permissions import require_permission
+from app.permissions.services.permission_service import assert_permission
 from app.db import followup_repository as repo
 from app.db import pilot_followup_repository as pilot_repo
 
@@ -29,6 +31,7 @@ class PilotAudience(BaseModel):
 class PilotDraftCreate(PilotAudience):
  title:str=Field(min_length=2,max_length=160)
  message:str=Field(min_length=2,max_length=2000)
+ followup_type:str=Field(default='PILOT_MANUAL',pattern='^(PILOT_MANUAL|PAYMENT_DUE|PICKUP_REMINDER|DOCUMENT_MISSING)$')
  idempotency_key:str|None=Field(default=None,max_length=180)
 class PilotConfirm(BaseModel):expected_version:int=Field(ge=1)
 class PilotSavedMessage(BaseModel):name:str=Field(min_length=2,max_length=100);body:str=Field(min_length=2,max_length=2000)
@@ -70,6 +73,11 @@ def pilot_index(view:str|None=None,q:str|None=None,tenant=Depends(get_current_te
 @router.get('/pilot/options',dependencies=[Depends(require_permission('pilot.followups.read'))])
 def pilot_options(q:str|None=Query(default=None,max_length=120),tenant=Depends(get_current_tenant)):
  return {'status':'ok',**pilot_repo.options(tenant['org_id'],q=q)}
+@router.get('/pilot/eligible',dependencies=[Depends(require_permission('pilot.followups.read'))])
+def pilot_eligible(reason:str=Query(pattern='^(PAYMENT_PENDING|PACKAGE_COLLECTION|MISSING_INFORMATION)$'),q:str|None=Query(default=None,max_length=120),tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+ if reason=='PAYMENT_PENDING':
+  assert_permission(user_id=manager.get('user_id') or manager.get('id'),org_id=tenant['org_id'],permission_code='finance.read')
+ return {'status':'ok','items':pilot_repo.eligible_options(tenant['org_id'],reason,q)}
 @router.post('/pilot/preview',dependencies=[Depends(require_permission('pilot.followups.manage'))])
 def pilot_preview(body:PilotAudience,tenant=Depends(get_current_tenant)):
  return {'status':'ok',**pilot_repo.preview(tenant['org_id'],body.client_ids,body.dossier_ids,body.journey_ids,body.excluded_client_ids,body.excluded_journey_ids)}

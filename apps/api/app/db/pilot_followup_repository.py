@@ -39,6 +39,71 @@ def _render(body: str, client: dict, organization_name: str) -> str:
     return rendered.strip()
 
 
+def eligible_options(org_id: str, reason: str, q: str | None = None) -> list[dict]:
+    """Return clients that currently match one of the supported reminder reasons."""
+    filters = """and (:q = '' or coalesce(client.display_name,client.name,client.phone,'') ilike :q
+      or coalesce(client.client_reference,'') ilike :q or coalesce(client.phone,'') ilike :q)"""
+    params = {"org_id": org_id, "q": f"%{(q or '').strip()}%" if q else ""}
+    if reason == "PAYMENT_PENDING":
+        sql = f"""
+          with invoice_debts as (
+            select document.client_id, document.currency, sum(document.balance_due)::numeric balance_due
+            from finance_documents document
+            where document.org_id=:org_id and document.document_type='INVOICE'
+              and document.status in('ISSUED','PARTIALLY_PAID','OVERDUE') and document.balance_due>0
+            group by document.client_id,document.currency
+          ), legacy_debts as (
+            select client.id client_id, coalesce(client.payment_currency,client.preferred_currency,'USD') currency,
+              greatest(client.payment_amount_due-client.payment_amount_paid,0)::numeric balance_due
+            from clients client
+            where client.org_id=:org_id and client.deleted_at is null
+              and client.payment_amount_due>client.payment_amount_paid
+              and not exists(select 1 from invoice_debts debt where debt.client_id=client.id)
+          ), debts as (
+            select * from invoice_debts union all select * from legacy_debts
+          )
+          select client.id::text, client.client_reference,
+            coalesce(client.display_name,client.name,client.phone,'Client') display_name,
+            client.phone, string_agg(to_char(debts.balance_due,'FM999999990.00')||' '||debts.currency,' · ' order by debts.currency) balance_summary,
+            'Paiement en attente' detail
+          from debts join clients client on client.id=debts.client_id and client.org_id=:org_id
+          where client.deleted_at is null and coalesce(client.phone,'')<>'' {filters}
+          group by client.id
+          order by client.updated_at desc nulls last limit 500
+        """
+    elif reason == "PACKAGE_COLLECTION":
+        sql = f"""
+          select client.id::text, client.client_reference,
+            coalesce(client.display_name,client.name,client.phone,'Client') display_name,
+            client.phone, count(distinct pickup.id)::int item_count,
+            'Colis disponible à retirer' detail
+          from pickup_orders pickup join clients client
+            on client.id=pickup.client_id and client.org_id=pickup.org_id
+          where pickup.org_id=:org_id and pickup.status in('READY','NOTIFIED')
+            and client.deleted_at is null and coalesce(client.phone,'')<>'' {filters}
+          group by client.id
+          order by client.updated_at desc nulls last limit 500
+        """
+    elif reason == "MISSING_INFORMATION":
+        sql = f"""
+          select client.id::text, client.client_reference,
+            coalesce(client.display_name,client.name,client.phone,'Client') display_name,
+            client.phone, count(distinct checklist.id)::int missing_count,
+            'Information obligatoire manquante' detail
+          from dossier_checklist_items checklist
+          join dossiers dossier on dossier.id=checklist.dossier_id and dossier.org_id=:org_id
+          join clients client on client.id=dossier.client_id and client.org_id=:org_id
+          where checklist.org_id=:org_id and checklist.required and checklist.status='PENDING'
+            and client.deleted_at is null and coalesce(client.phone,'')<>'' {filters}
+          group by client.id
+          order by client.updated_at desc nulls last limit 500
+        """
+    else:
+        return []
+    with engine.connect() as conn:
+        return _rows(conn.execute(text(sql), params))
+
+
 def options(org_id: str, q: str | None = None, limit: int = 40) -> dict:
     params = {"org_id": org_id, "q": f"%{(q or '').strip()}%", "limit": limit}
     query_filter = "" if not q else """and (
@@ -170,14 +235,15 @@ def save_draft(org_id: str, actor: str, data: dict) -> tuple[dict, bool]:
                 return dict(existing), True
         row = dict(conn.execute(text("""
           insert into pilot_followup_batches(
-            org_id,title,message,selected_client_ids,selected_dossier_ids,selected_journey_ids,excluded_client_ids,excluded_journey_ids,
+            org_id,title,message,followup_type,selected_client_ids,selected_dossier_ids,selected_journey_ids,excluded_client_ids,excluded_journey_ids,
             idempotency_key,created_by,updated_by
           ) values(
-            :org_id,:title,:message,cast(:client_ids as uuid[]),cast(:dossier_ids as uuid[]),cast(:journey_ids as uuid[]),
+            :org_id,:title,:message,:followup_type,cast(:client_ids as uuid[]),cast(:dossier_ids as uuid[]),cast(:journey_ids as uuid[]),
             cast(:excluded_ids as uuid[]),cast(:excluded_journey_ids as uuid[]),:idempotency_key,:actor,:actor
           ) returning *
         """), {
             "org_id": org_id, "title": data["title"].strip(), "message": data["message"].strip(),
+            "followup_type": data.get("followup_type") or "PILOT_MANUAL",
             "client_ids": data.get("client_ids") or [], "dossier_ids": data.get("dossier_ids") or [],
             "journey_ids": data.get("journey_ids") or [], "excluded_ids": data.get("excluded_client_ids") or [],
             "excluded_journey_ids": data.get("excluded_journey_ids") or [], "idempotency_key": idempotency_key,
@@ -248,7 +314,7 @@ def send(org_id: str, batch_id: str, actor: str) -> dict | None:
                 "workspace_id": None,
                 "client_id": str(recipient["client_id"]) if recipient.get("client_id") else None,
                 "dossier_id": str(recipient["dossier_id"]) if recipient.get("dossier_id") else None,
-                "followup_type": "PILOT_MANUAL",
+                "followup_type": batch.get("followup_type") or "PILOT_MANUAL",
                 "subject_type": "CLIENT" if recipient.get("client_id") else "PROSPECT",
                 "subject_id": str(recipient.get("client_id") or recipient.get("journey_id")),
                 "subject_reference": recipient.get("client_reference_snapshot"),

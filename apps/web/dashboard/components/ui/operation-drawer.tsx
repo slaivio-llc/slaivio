@@ -110,6 +110,7 @@ export function OperationDrawer({
   headerLeading,
   headerMeta,
   footer,
+  footerClassName = "",
   bodyClassName = "",
   width = "max-w-3xl",
   placement = "center",
@@ -125,6 +126,7 @@ export function OperationDrawer({
   headerLeading?: ReactNode;
   headerMeta?: ReactNode;
   footer?: ReactNode;
+  footerClassName?: string;
   bodyClassName?: string;
   width?: string;
   placement?: "center" | "right";
@@ -223,7 +225,7 @@ export function OperationDrawer({
         <div className={`operation-form-surface min-h-0 flex-1 overflow-y-auto bg-white p-6 sm:p-7 ${bodyClassName}`}>
           {children}
         </div>
-        {footer && <footer className="operation-drawer-footer flex min-h-[68px] shrink-0 items-center justify-end gap-2.5 border-t border-[#dfe3e7] bg-[#fbfcfc] px-6 py-3.5">{footer}</footer>}
+        {footer && <footer className={`operation-drawer-footer flex min-h-[68px] shrink-0 items-center justify-end gap-2.5 border-t border-[#dfe3e7] bg-[#fbfcfc] px-6 py-3.5 ${footerClassName}`}>{footer}</footer>}
       </section>
     </div>,
     document.body,

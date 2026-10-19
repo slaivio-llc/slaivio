@@ -65,16 +65,17 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
       {compact ? (
       <div className="relative min-w-0">
         <Building2 size={14} className="pointer-events-none absolute left-2.5 top-1/2 z-[1] -translate-y-1/2 text-[#555f68]" />
-        {context?.offices.length ? <select
+        <select
           id="office-context"
           aria-label="Bureau actif"
-          className="h-9 w-full appearance-none rounded-full border border-[#d4d8da] bg-white pl-8 pr-7 text-[12px] font-medium text-[#41494f]"
+          className="h-9 w-full appearance-none rounded-full border border-[#d4d8da] bg-white pl-8 pr-7 text-[12px] font-medium text-[#41494f] disabled:cursor-not-allowed disabled:text-[#737d86]"
           value={selected}
+          disabled={!context?.offices.length}
           onChange={(event) => changeContext(event.target.value)}
         >
-          <option value="">{activeOffice || "Tous les bureaux"}</option>
-          {context.offices.map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}
-        </select> : <div aria-label="Bureau actif" className="flex h-9 items-center truncate rounded-full border border-[#d4d8da] bg-white pl-8 pr-7 text-[12px] font-medium text-[#41494f]">{activeOffice || "Mon bureau"}</div>}
+          <option value="">{context ? (context.offices.length ? activeOffice || "Tous les bureaux" : `${activeOffice || "Bureau actif"} · aucun autre bureau`) : "Chargement du bureau…"}</option>
+          {(context?.offices || []).map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}
+        </select>
         <ChevronDown size={13} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#59636b]" />
       </div>
       ) : <div className="flex items-center gap-2">

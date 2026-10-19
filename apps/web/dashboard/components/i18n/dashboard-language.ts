@@ -58,7 +58,6 @@ const EN_BY_HREF: Record<string, string> = {
   "/app/broadcasts": "Broadcasts",
   "/app/reports": "Reports & analytics",
   "/app/assistant": "Slaivio Assistant",
-  "/app/notifications": "Notifications",
   "/app/support": "Help center",
 };
 

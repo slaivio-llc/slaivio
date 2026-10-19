@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Bell, BellRing, BookOpen, Clock3, MessageCircle, Megaphone, Settings2, UserRound } from "lucide-react";
+import { ArrowRight, Bell, BookOpen, Clock3, MessageCircle, Megaphone, Settings2, UserRound } from "lucide-react";
 import { OperationContent } from "@/components/ui/operation-primitives";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { PilotInboxPage } from "@/components/inbox/pilot-inbox-page";
 import { CommunicationAnnouncementsReminders } from "@/components/workspace/communication-announcements-reminders";
 import { KnowledgePage } from "@/components/knowledge/knowledge-page";
-import { NotificationCenterPage } from "@/components/notifications/notification-center-page";
 import { PilotSettingsPage } from "@/components/settings/pilot-settings-page";
 import { listInboxConversations, type InboxConversation } from "@/services/inbox";
 import { listNotifications } from "@/services/notification-center";
@@ -19,7 +18,6 @@ const tabs = [
   ["inbox", "Réception"],
   ["announcements", "Annonces"],
   ["knowledge", "Connaissances"],
-  ["notifications", "Notifications"],
   ["settings", "Paramètres"],
 ] as const;
 type Tab = (typeof tabs)[number][0];
@@ -64,7 +62,6 @@ export function ParcelCommunicationHub() {
     {tab === "inbox" && <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><PermissionGuard permission="inbox.read"><PilotInboxPage embedded /></PermissionGuard></div>}
     {tab === "announcements" && <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><CommunicationAnnouncementsReminders /></div>}
     {tab === "knowledge" && <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><PermissionGuard permission="pilot.knowledge.read"><KnowledgePage embedded /></PermissionGuard></div>}
-    {tab === "notifications" && <PermissionGuard permission="notifications.read"><NotificationCenterPage /></PermissionGuard>}
     {tab === "settings" && <PermissionGuard permission="pilot.settings.read"><PilotSettingsPage scope="communication" embedded /></PermissionGuard>}
   </div>;
 }
@@ -80,7 +77,6 @@ function OverviewPanel({ overview, loading, openTab }: { overview: Overview | nu
     { tab: "inbox", title: "Boîte de réception", description: "Conversations WhatsApp et demandes clients", icon: MessageCircle },
     { tab: "announcements", title: "Annonces & Relances", description: "Campagnes et rappels aux clients", icon: Megaphone },
     { tab: "knowledge", title: "Connaissances", description: "Informations utilisées par l’équipe et l’IA", icon: BookOpen },
-    { tab: "notifications", title: "Notifications", description: "Messages envoyés et événements à suivre", icon: BellRing },
     { tab: "settings", title: "Paramètres", description: "Canaux, réponses IA et préférences", icon: Settings2 },
   ];
 

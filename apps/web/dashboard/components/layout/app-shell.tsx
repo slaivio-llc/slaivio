@@ -70,7 +70,6 @@ const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 const utilityRoutes: readonly AppRoute[] = [
   { label: "Assistant Slaivio", href: "/app/assistant", icon: Sparkles, keywords: ["assistant", "ia", "automatisation", "escalade"] },
   { label: "Paramètres", href: "/app/settings", icon: Settings, permission: "organization.read", keywords: ["organisation", "équipe", "rôle", "sécurité", "paramètres"] },
-  { label: "Notifications", href: "/app/notifications", icon: Bell, permission: "notifications.read", keywords: ["notification", "alerte", "préférence"] },
   { label: "Centre d’aide", href: "/app/support", icon: CircleHelp, permission: "support.read", keywords: ["aide", "support", "ticket", "documentation"] },
 ];
 
@@ -357,7 +356,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {!pilot && !cargo && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {(cargo || !pilot) && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => cargo ? (setFloatingPanel(null), setSupportView("topics")) : togglePanel("help")} active={floatingPanel === "help" || Boolean(cargo && supportView)} showLabel={!cargo} />}
             {!cargo && <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />}
-            {(cargo || !pilot) && canAccessRoute(utilityRoutes.find(route => route.href === "/app/notifications")!, permissions, permissionsAvailable) && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<span className="relative inline-flex"><Bell size={16} />{cargo && hasUnreadNotifications && <span className="absolute -right-1 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#e5484d] ring-2 ring-white" />}</span>} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />}
+            {(cargo || !pilot) && (!permissionsAvailable || permissions.includes("notifications.read")) && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<span className="relative inline-flex"><Bell size={16} />{cargo && hasUnreadNotifications && <span className="absolute -right-1 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#e5484d] ring-2 ring-white" />}</span>} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />}
             {(cargo || !pilot) && <AccountTrigger onClick={() => togglePanel("account")} />}
           </div>
         </header>
@@ -584,7 +583,7 @@ function AccountMenuContent({ close, name, email, imageUrl, openSupport, logout 
       <MenuLink href="/app/settings?section=workspaces" icon={<Home size={15} />} label="Espaces et agences" close={close} />
       <MenuLink href="/app/settings?section=team" icon={<Users size={15} />} label="Équipe et accès" close={close} />
       <MenuLink href="/app/settings?section=roles" icon={<ShieldCheck size={15} />} label="Rôles et permissions" close={close} />
-      <MenuLink href="/app/notifications?preferences=1" icon={<SlidersHorizontal size={15} />} label="Préférences de notifications" close={close} />
+      <MenuLink href="/app/settings?section=notifications" icon={<SlidersHorizontal size={15} />} label="Préférences de notifications" close={close} />
       <MenuLink href="/app/settings?section=general" icon={<Languages size={15} />} label="Langue et formats" close={close} />
       <button type="button" onClick={toggleTheme} className={menuClass}>{theme==="dark"?<Sun size={15}/>:<Moon size={15}/>} {theme==="dark"?"Mode clair":"Mode sombre"}</button>
       <MenuDivider />
@@ -694,7 +693,8 @@ function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?
     setError("");
     try {
       if (!item.read_at && canManage) await notificationAction(item, "read");
-      router.push(item.href || "/app/notifications");
+      const destination = item.href && !item.href.startsWith("/app/notifications") ? item.href : null;
+      if (destination) router.push(destination);
       close();
     } catch {
       setError("Impossible de marquer la notification comme lue. Réessayez.");
@@ -757,8 +757,8 @@ function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?
         ))}
       </div>
       <div className="grid shrink-0 grid-cols-2 border-t border-[#e5e6e7] p-2">
-        <Link href={pilot ? "/app/inbox" : "/app/notifications"} onClick={close} className="flex h-8 items-center justify-center rounded-[5px] text-[11px] font-medium hover:bg-[#f0f1f1]">{pilot ? "Boîte de réception" : "Tout afficher"}</Link>
-        <Link href={pilot ? "/app/settings?section=notifications" : "/app/notifications?preferences=1"} onClick={close} className="flex h-8 items-center justify-center gap-1.5 rounded-[5px] text-[11px] font-medium hover:bg-[#f0f1f1]"><Settings size={13} />Préférences</Link>
+        <Link href={pilot ? "/app/inbox" : "/app/communication"} onClick={close} className="flex h-8 items-center justify-center rounded-[5px] text-[11px] font-medium hover:bg-[#f0f1f1]">{pilot ? "Boîte de réception" : "Communication"}</Link>
+        <Link href="/app/settings?section=notifications" onClick={close} className="flex h-8 items-center justify-center gap-1.5 rounded-[5px] text-[11px] font-medium hover:bg-[#f0f1f1]"><Settings size={13} />Préférences</Link>
       </div>
     </div>
   );

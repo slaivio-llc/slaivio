@@ -11,16 +11,16 @@ export function CommunicationAnnouncementsReminders() {
   const [headerAction, setHeaderAction] = useState<ReactNode>(null);
 
   return (
-    <div className="min-h-full bg-[#f7f7f6] px-4 py-5 sm:px-6 lg:px-8">
-      <section className="w-full overflow-hidden rounded-[10px] border border-[#dfe3e7] bg-white">
-        <header className="flex min-h-[70px] items-center justify-between gap-4 px-5 py-3 sm:px-6">
+    <div className="min-h-full bg-white">
+      <section className="w-full bg-white">
+        <header className="flex min-h-[70px] items-center justify-between gap-4 px-6 py-3 sm:px-8">
           <div className="min-w-0">
             <h2 className="text-[16px] font-semibold text-[#20252b]">Annonces &amp; Relances</h2>
             <p className="mt-1 text-[12px] text-[#737d86]">Communications ciblées via WhatsApp</p>
           </div>
           <div className="shrink-0">{headerAction}</div>
         </header>
-        <nav aria-label="Annonces et relances" className="mx-5 grid grid-cols-2 rounded-full bg-[#f1f2f2] p-1 sm:mx-6">
+        <nav aria-label="Annonces et relances" className="mx-6 grid max-w-[420px] grid-cols-2 rounded-full bg-[#f1f2f2] p-1 sm:mx-8">
           {([
             ["announcements", "Annonces"],
             ["reminders", "Relances"],

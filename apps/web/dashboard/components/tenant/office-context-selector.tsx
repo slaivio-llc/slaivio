@@ -99,7 +99,6 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
           ))}
         </select>
       </div>}
-      {compact && context && context.offices.length === 0 && !error && <p className="mt-1 text-[11px] text-[#737d86]">Aucun autre bureau actif n’est autorisé pour votre compte.</p>}
       {error && <p role="alert" className="mt-1 text-[11px] text-red-700">{error}</p>}
     </div>
   );

@@ -21,14 +21,15 @@ export function InternationalPhone({defaultValue = '', required = false, classNa
   const parsed = parsePhoneNumberFromString(value.replace(/^00/, '+'), {defaultCountry: country || undefined, extract: false});
   const valid = !value.trim() || Boolean(parsed?.isValid() && !parsed.ext);
   const error = valid ? '' : 'Saisissez un numéro valide pour le pays choisi, ou avec son indicatif international.';
+  const controlHeight = /\bh-10\b/.test(className) ? 'h-10' : 'h-9';
   useEffect(() => { input.current?.setCustomValidity(error); }, [error]);
   const options = useMemo(() => countries.filter(item =>
     `${item.name} ${item.code} +${item.dial}`.toLocaleLowerCase('fr').includes(query.toLocaleLowerCase('fr'))), [query]);
   return <div className="grid gap-2 text-sm">
     <label htmlFor={id}>{label}{required ? ' *' : ' (facultatif)'}</label>
     <div className="flex min-w-0 gap-2">
-      <details ref={menu} className="relative shrink-0">
-        <summary className={`${className} cursor-pointer list-none`} aria-label="Choisir l’indicatif du pays">
+      <details ref={menu} className={`relative ${controlHeight} w-[132px] shrink-0`}>
+        <summary className={`${className} ${controlHeight} flex w-full cursor-pointer list-none items-center justify-between gap-2`} aria-label="Choisir l’indicatif du pays">
           {country ? `${country} +${getCountryCallingCode(country)}` : 'Indicatif'}
         </summary>
         <div className="absolute left-0 top-full z-30 mt-1 w-64 max-w-[80vw] rounded-lg border bg-white p-2 shadow-lg">

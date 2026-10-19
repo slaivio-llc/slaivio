@@ -148,7 +148,7 @@ export function PilotSettingsPage({scope="all",embedded=false}:{scope?:"all"|"co
           {section === "routes" && parcelFreight && <OrganizationTransportSettings section="routes"/>}
           {section === "identifiers" && <IdentifierSettings data={data} run={run}/>} 
           {section === "channels" && <CommunicationSettings data={data} run={run} compact={scope==="communication"}/>}
-          {section === "ai" && <AISettings data={data} run={run}/>}
+          {section === "ai" && (scope==="communication"?<CommunicationAssistantSettings data={data} run={run}/>:<AISettings data={data} run={run}/>)}
           {section === "responses" && <AutoReplySettings data={data} run={run}/>}
           {section === "knowledge" && <KnowledgeSettings data={data} run={run}/>} 
           {section === "privacy" && <PrivacySettings organizationName={data.organization.organization_name}/>}
@@ -346,6 +346,22 @@ function AutoReplySettings({data,run}:{data:PilotSettingsData;run:(action:()=>Pr
       </SettingsCard>}
     </div>
   </>;
+}
+function CommunicationAssistantSettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<unknown>,message:string)=>Promise<void>}) {
+  const [systemPrompt,setSystemPrompt]=useState(data.ai.system_prompt||"");
+  const [style,setStyle]=useState(data.ai.communication_style||"PROFESSIONAL");
+  const active=data.ai.pilot_response_mode!=="PAUSED";
+  const rules=[
+    {title:"Utiliser les connaissances publiées",description:"Répondre avec les tarifs, horaires, adresses et services validés",enabled:data.ai.pilot_require_published_knowledge},
+    {title:"Transférer vers un agent humain",description:"Lorsque la demande nécessite une intervention",enabled:true},
+    {title:"Utiliser le nom de l’agence",description:"Personnaliser les messages au nom de l’entreprise",enabled:true},
+  ];
+  return <section className="mx-auto w-full max-w-[620px] rounded-[10px] border border-[#dfe3e6] bg-white p-5">
+    <header className="flex items-start justify-between gap-3"><div><h2 className="text-[14px] font-semibold text-[#29323a]">Assistant IA</h2><p className="mt-1 text-[11px] text-[#77818a]">Personnalisez les réponses de votre agence</p></div><span className={`rounded-full px-2 py-1 text-[10px] font-medium ${active?"bg-[#dff5e9] text-[#087848]":"bg-[#f0f1f2] text-[#606a71]"}`}>{active?"Activé":"En pause"}</span></header>
+    <section className="mt-4 border-t border-[#eceeef] pt-4"><h3 className="text-[12px] font-semibold text-[#343b40]">Mode de fonctionnement</h3><div className="mt-2 grid gap-2.5">{(Object.keys(modeContent) as InboxAIMode[]).map(mode=><label key={mode} className="flex cursor-pointer items-start gap-2 text-[12px]"><input type="radio" name="communication-ai-mode" className="mt-0.5 h-4 w-4 accent-[#111111]" checked={data.ai.pilot_response_mode===mode} onChange={()=>void run(()=>updateInboxAIMode(mode),"Le mode de réponse de l’IA a été modifié.")}/><span><span className="block font-medium text-[#303941]">{mode==="SUGGESTION_ONLY"?"Suggestions uniquement":mode==="CONTROLLED_AUTO"?"Réponses automatiques":"IA en pause"}</span><span className="mt-0.5 block text-[10px] leading-4 text-[#78828a]">{modeContent[mode].description}</span></span></label>)}</div></section>
+    <section className="mt-4 border-t border-[#eceeef] pt-4"><h3 className="text-[12px] font-semibold text-[#343b40]">Personnalisation</h3><div className="mt-2 grid grid-cols-2 gap-2"><Field label="Ton des réponses"><select className={inputClass} value={style} onChange={event=>setStyle(event.target.value as typeof style)}><option value="PROFESSIONAL">Professionnel et chaleureux</option><option value="CONCISE">Concis et direct</option><option value="FORMAL">Formel</option><option value="WARM">Chaleureux</option></select></Field><Field label="Langue"><select className={inputClass} value="AUTO" disabled aria-label="Langue automatique"><option value="AUTO">Automatique</option></select></Field></div><Field label="Instructions personnalisées" hint="Définissez le style de réponse et les consignes propres à votre agence."><textarea value={systemPrompt} onChange={event=>setSystemPrompt(event.target.value)} className={`${inputClass} mt-1 h-[90px] resize-y py-2 leading-4`} placeholder="Ajoutez les consignes de réponse de votre agence…"/></Field><PermissionGuard permission="inbox.ai.manage"><div className="mt-3 flex justify-end"><OperationButton variant="primary" onClick={()=>run(()=>savePilotAIPrompt({system_prompt:systemPrompt,user_prompt_template:data.ai.user_prompt_template,communication_style:style,expected_version:data.ai.prompt_row_version}),"La configuration de l’assistant IA a été enregistrée.")}>Enregistrer</OperationButton></div></PermissionGuard></section>
+    <section className="mt-4 border-t border-[#eceeef] pt-4"><h3 className="text-[12px] font-semibold text-[#343b40]">Règles de fonctionnement</h3><div className="mt-1">{rules.map(rule=><div key={rule.title} className="flex items-center gap-3 border-b border-[#eceeef] py-3 last:border-0"><span className="min-w-0 flex-1"><strong className="block text-[11px] font-medium text-[#303941]">{rule.title}</strong><span className="mt-0.5 block text-[10px] text-[#78828a]">{rule.description}</span></span><Check size={15} className={rule.enabled?"shrink-0 text-[#202326]":"shrink-0 text-[#b0b7bb]"}/></div>)}</div></section>
+  </section>;
 }
 function AISettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<unknown>,message:string)=>Promise<void>}) {
   const [systemPrompt,setSystemPrompt]=useState(data.ai.system_prompt||"");

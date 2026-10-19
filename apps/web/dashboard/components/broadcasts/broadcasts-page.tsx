@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState, type ReactNode } from "react";
 import { ChevronRight, Download, Plus } from "lucide-react";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
@@ -51,7 +51,7 @@ const channelLabels: Record<string, string> = {
   SMS: "SMS",
   PUSH: "Notification mobile",
 };
-export function BroadcastsPage() {
+export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?: boolean; onHeaderAction?: (action: ReactNode) => void }) {
   const [items, setItems] = useState<Campaign[]>([]),
     [stats, setStats] = useState<Record<string, number>>({}),
     [status, setStatus] = useState(""),
@@ -81,6 +81,11 @@ export function BroadcastsPage() {
     load();
     campaignResources().then(setResources);
   }, [load]);
+  useEffect(() => {
+    if (!embedded || !onHeaderAction) return;
+    onHeaderAction(<OperationButton variant="primary" onClick={() => setModal("campaign")}><Plus size={14}/>Nouvelle annonce</OperationButton>);
+    return () => onHeaderAction(null);
+  }, [embedded, onHeaderAction]);
   async function open(x: Campaign) {
     setSelected((await getCampaign(x.id)).campaign);
   }
@@ -107,7 +112,8 @@ export function BroadcastsPage() {
     ["Taux lecture", `${stats.read_rate || 0}%`],
   ];
   return (
-    <div className="min-h-full bg-[#f7f7f6]">
+    <div className={`min-h-full ${embedded ? "bg-white" : "bg-[#f7f7f6]"}`}>
+      {embedded ? <EmbeddedCampaignList items={items} loading={loading} error={error} q={q} setQ={setQ} stats={stats} open={open} retry={load}/> : <>
       <OperationPageHeader
         title="Broadcasts"
         description="Créez, programmez et analysez vos campagnes WhatsApp et email auprès de vos clients et prospects."
@@ -189,6 +195,7 @@ export function BroadcastsPage() {
           </tbody>
         </table>
       </OperationTable> : <EmptyState title="Aucune campagne dans cette vue" description="Créez une campagne ou modifiez vos filtres pour afficher les communications de l’agence." />}
+      </>}
       {selected && (
         <OperationDrawer
           open
@@ -249,6 +256,22 @@ export function BroadcastsPage() {
     </div>
   );
 }
+
+function EmbeddedCampaignList({items,loading,error,q,setQ,stats,open,retry}:{items:Campaign[];loading:boolean;error:string;q:string;setQ:(value:string)=>void;stats:Record<string,number>;open:(item:Campaign)=>void;retry:()=>void}) {
+  return <div className="px-6 pb-7 pt-4 sm:px-8">
+    <div className="grid grid-cols-3 gap-4 border-b border-[#eceeef] pb-4">
+      {[['Annonces envoyées',stats.sent_month||0],['Programmées',stats.scheduled||0],['Destinataires',stats.recipients||0]].map(([label,value])=><div key={String(label)}><p className="text-[11px] text-[#737d86]">{label}</p><p className="mt-1 text-[18px] font-semibold tabular-nums text-[#25292e]">{Number(value).toLocaleString('fr-FR')}</p></div>)}
+    </div>
+    <div className="my-3 [&_[data-ui=operation-search]]:h-10 [&_[data-ui=operation-search]]:max-w-none"><OperationSearch value={q} onChange={setQ} placeholder="Rechercher une annonce…"/></div>
+    {error ? <ErrorState title="Annonces indisponibles" description={error} retry={retry}/> : loading ? <TableSkeleton rows={4} columns={3} label="Chargement des annonces…"/> : items.length ? <div className="divide-y divide-[#eceeef] border-y border-[#eceeef]">{items.map(item=>{
+      const rawDate=String(item.scheduled_at||item.created_at||item.updated_at||'');
+      const dateLabel=rawDate?new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium'}).format(new Date(rawDate)):'Date non renseignée';
+      const tone=item.status==='COMPLETED'?'bg-[#e5f6ed] text-[#16834a]':item.status==='SCHEDULED'?'bg-[#eaf3fc] text-[#3074b8]':item.status==='FAILED'||item.status==='PARTIALLY_FAILED'?'bg-[#fff0ed] text-[#bd4839]':'bg-[#f0f1f1] text-[#58616a]';
+      return <button type="button" key={item.id} onClick={()=>void open(item)} className="flex min-h-[64px] w-full items-center gap-3 py-3 text-left hover:bg-[#fafbfb]"><span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold text-[#25292e]">{item.title}</span><span className="mt-1 block truncate text-[11px] text-[#737d86]">{dateLabel} · {(item.recipients||0).toLocaleString('fr-FR')} destinataires</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${tone}`}>{campaignStatusLabels[item.status]||item.status}</span><ChevronRight size={15} className="shrink-0 text-[#7b848d]"/></button>;
+    })}</div> : <EmptyState title="Aucune annonce pour le moment" description="Créez une annonce pour informer un ou plusieurs clients de l’agence."/>}
+  </div>;
+}
+
 function CampaignModal({
   resources,
   close,

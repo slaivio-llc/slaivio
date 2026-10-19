@@ -281,7 +281,7 @@ def publish(org_id: str, entry_id: str, actor_id: str, actor_name: str, expected
 
 
 def change_state(org_id: str, entry_id: str, actor_id: str, actor_name: str, action: str, expected_version: int) -> dict:
-    if action not in {"unpublish", "archive", "restore"}:
+    if action not in {"unpublish", "request-review", "archive", "restore"}:
         raise HTTPException(422, "pilot_knowledge_action_invalid")
     unchanged = False
     with engine.begin() as conn:
@@ -290,11 +290,12 @@ def change_state(org_id: str, entry_id: str, actor_id: str, actor_name: str, act
             raise HTTPException(409, "pilot_knowledge_version_conflict")
         unchanged = (
             (action == "unpublish" and old["status"] != "PUBLISHED")
+            or (action == "request-review" and old["status"] in {"NEEDS_REVIEW", "EXPIRED", "ARCHIVED"})
             or (action == "archive" and old["status"] == "ARCHIVED")
             or (action == "restore" and old["status"] != "ARCHIVED")
         )
         if not unchanged:
-            target = "DRAFT" if action in {"unpublish", "restore"} else "ARCHIVED"
+            target = {"unpublish": "DRAFT", "request-review": "NEEDS_REVIEW", "archive": "ARCHIVED", "restore": "DRAFT"}[action]
             extra = ",archived_by=:actor_id,archived_at=now()" if action == "archive" else ",archived_by=null,archived_at=null"
             row = conn.execute(text(f"""
               update knowledge_entries set status=:status,version=version+1,updated_by=:actor_id,
@@ -302,6 +303,6 @@ def change_state(org_id: str, entry_id: str, actor_id: str, actor_name: str, act
               where org_id=:org_id and id=:entry_id returning *
             """), {"status": target, "actor_id": actor_id, "actor_name": actor_name, "org_id": org_id, "entry_id": entry_id}).fetchone()
             item = _dict(row)
-            core._snapshot(conn, item, {"unpublish": "Retrait de la publication", "archive": "Archivage", "restore": "Restauration"}[action], actor_id, actor_name)
+            core._snapshot(conn, item, {"unpublish": "Retrait de la publication", "request-review": "Marqué à vérifier", "archive": "Archivage", "restore": "Restauration"}[action], actor_id, actor_name)
             core._audit(conn, org_id, entry_id, action.upper(), actor_id, actor_name, old, item)
     return detail(org_id, entry_id)

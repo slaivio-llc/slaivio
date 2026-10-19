@@ -108,6 +108,15 @@ def test_pilot_accepts_reviewed_files_without_bypassing_publication():
     assert "/knowledge/pilot/files" in service
 
 
+def test_pilot_can_mark_published_knowledge_for_review_without_deleting_it():
+    repository = read("apps/api/app/knowledge/pilot_repository.py")
+    page = read("apps/web/dashboard/components/knowledge/knowledge-page.tsx")
+    assert '"request-review"' in repository
+    assert '"NEEDS_REVIEW"' in repository
+    assert "Marquer à vérifier" in page
+    assert "Archiver" in page
+
+
 def test_whatsapp_uses_a_relevant_chunk_from_imported_documents():
     repository = read("apps/api/app/knowledge/repository.py")
     service = read("apps/api/app/services/knowledge_service.py")

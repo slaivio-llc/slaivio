@@ -112,6 +112,7 @@ export function OperationDrawer({
   footer,
   footerClassName = "",
   bodyClassName = "",
+  panelClassName = "",
   width = "max-w-3xl",
   placement = "center",
 }: {
@@ -128,6 +129,7 @@ export function OperationDrawer({
   footer?: ReactNode;
   footerClassName?: string;
   bodyClassName?: string;
+  panelClassName?: string;
   width?: string;
   placement?: "center" | "right";
 }) {
@@ -183,7 +185,7 @@ export function OperationDrawer({
         ref={panelRef}
         tabIndex={-1}
         data-ui="operation-drawer"
-        className={`flex w-full ${width} flex-col overflow-hidden border border-[#d8dce0] bg-white shadow-[0_24px_72px_rgba(15,23,42,.15)] transition duration-200 ease-out ${placement === "right" ? "h-dvh sm:rounded-l-2xl" : "max-h-[calc(100dvh-24px)] rounded-xl sm:max-h-[calc(100dvh-48px)]"} ${visible ? "scale-100 opacity-100" : "scale-[.98] opacity-0"}`}
+        className={`flex w-full ${width} flex-col overflow-hidden border border-[#d8dce0] bg-white shadow-[0_24px_72px_rgba(15,23,42,.15)] transition duration-200 ease-out ${placement === "right" ? "h-dvh sm:rounded-l-2xl" : "max-h-[calc(100dvh-24px)] rounded-xl sm:max-h-[calc(100dvh-48px)]"} ${panelClassName} ${visible ? "scale-100 opacity-100" : "scale-[.98] opacity-0"}`}
       >
         <header data-ui="operation-drawer-header" className="shrink-0 bg-white px-6 py-5">
           <div className="flex min-h-10 items-center gap-4">

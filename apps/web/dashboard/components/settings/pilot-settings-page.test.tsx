@@ -62,6 +62,8 @@ const settings: adminService.PilotSettingsData = {
   ai: {
     pilot_response_mode: "CONTROLLED_AUTO",
     pilot_require_published_knowledge: true,
+    pilot_handoff_to_human: true,
+    pilot_use_organization_name: true,
     auto_create_qualified_whatsapp_clients: false,
     system_prompt: "Répondre comme le service client.",
     user_prompt_template: "Message : {message}",

@@ -332,11 +332,11 @@ def preview_pilot_response(
     route = _route_customer_message(
         settings,
         message,
-        organization_name=settings.get("organization_name") or "notre entreprise",
+        organization_name=(settings.get("organization_name") or "notre agence") if settings.get("pilot_use_organization_name", True) else "notre agence",
         style=style,
     )
     classification = _classify(message)
-    if (route["kind"] == "HUMAN_REVIEW" or classification["risk"] == "SENSITIVE"
+    if ((route["kind"] == "HUMAN_REVIEW" and settings.get("pilot_handoff_to_human", True)) or classification["risk"] == "SENSITIVE"
             or classification["intent"] == "BUSINESS_ACTION"):
         return {
             "answer": "Cette demande nécessite une vérification par notre équipe.",
@@ -357,7 +357,7 @@ def preview_pilot_response(
     if not knowledge:
         knowledge = search_knowledge(org_id, knowledge_query, "WHATSAPP", language="EN", limit=5)
     knowledge = [*knowledge, *parcel_operational_knowledge(org_id)]
-    if not knowledge:
+    if not knowledge and settings.get("pilot_require_published_knowledge", True):
         return {
             "answer": "Je n’ai trouvé aucune connaissance publiée et visible par les clients pour répondre à cette question.",
             "decision": "NO_KNOWLEDGE",
@@ -376,7 +376,7 @@ def preview_pilot_response(
     generated = _provider_response(
         settings,
         _customer_support_prompt(
-            organization_name=settings.get("organization_name") or "l’entreprise",
+            organization_name=(settings.get("organization_name") or "l’agence") if settings.get("pilot_use_organization_name", True) else "l’agence",
             company_rules=(company_rules or "").strip(),
             style=style,
             sources=source_text,
@@ -387,6 +387,8 @@ def preview_pilot_response(
         raise RuntimeError("ai_provider_unavailable")
     answer = _compact_customer_reply(generated["content"])
     grounded, reason = _grounding_check(answer, knowledge)
+    if not knowledge:
+        grounded, reason = False, "aucune_connaissance_publiee"
     return {
         "answer": answer,
         "decision": "ANSWERED" if grounded else "REVIEW_REQUIRED",
@@ -439,11 +441,11 @@ def prepare_pilot_suggestion(
         route = _route_customer_message(
             settings,
             message,
-            organization_name=context["organization_name"],
+            organization_name=context["organization_name"] if settings.get("pilot_use_organization_name", True) else "l’agence",
             style=style,
             recent_messages=context.get("recent_messages"),
         )
-        if route["kind"] == "HUMAN_REVIEW":
+        if route["kind"] == "HUMAN_REVIEW" and settings.get("pilot_handoff_to_human", True):
             response_text = "Cette demande nécessite une vérification par notre équipe."
             classification.update(intent="HUMAN_REVIEW", risk="REVIEW")
             reason = "prise_en_charge_humaine"
@@ -458,7 +460,7 @@ def prepare_pilot_suggestion(
             if not knowledge and language != "FR":
                 knowledge = search_knowledge(org_id, knowledge_query, "WHATSAPP", language="FR", limit=5)
             knowledge = [*knowledge, *parcel_operational_knowledge(org_id)]
-        if not response_text and (knowledge or operational_context):
+        if not response_text and (knowledge or operational_context or not settings.get("pilot_require_published_knowledge", True)):
             knowledge_sources = "\n\n".join(
                 f"SOURCE {index + 1} — {item['title']}\n{_source_excerpt(item)}"
                 for index, item in enumerate(knowledge)
@@ -469,7 +471,7 @@ def prepare_pilot_suggestion(
             ]))
             company_rules = (settings.get("system_prompt") or "").strip()
             prompt = _customer_support_prompt(
-                organization_name=context["organization_name"],
+                organization_name=context["organization_name"] if settings.get("pilot_use_organization_name", True) else "l’agence",
                 company_rules=company_rules,
                 style=style,
                 sources=sources,
@@ -487,6 +489,8 @@ def prepare_pilot_suggestion(
             if generated.get("success") and generated.get("content"):
                 response_text = _compact_customer_reply(generated["content"])
                 grounded, grounding_reason = _grounding_check(response_text, knowledge, operational_context)
+                if not knowledge and not operational_context:
+                    grounded, grounding_reason = False, "aucune_connaissance_publiee"
                 classification["risk"] = "SAFE" if grounded else "REVIEW"
                 reason = ("donnees_operationnelles" if operational_context else "connaissance_publiee") if grounded else grounding_reason
                 retrieval_score = max((float(item.get("rank") or 0) for item in knowledge), default=1.0 if operational_context else 0.0)

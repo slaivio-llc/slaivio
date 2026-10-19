@@ -16,7 +16,8 @@ def get_pilot_ai_settings(org_id: str) -> dict:
           select settings.enabled, settings.provider, settings.model_name, settings.temperature, settings.max_tokens,
                  auto_reply_min_confidence, pilot_response_mode,system_prompt,
                  user_prompt_template,communication_style,prompt_row_version,
-                 pilot_require_published_knowledge,auto_create_qualified_whatsapp_clients, settings.updated_at,
+                 pilot_require_published_knowledge,pilot_handoff_to_human,
+                 pilot_use_organization_name,auto_create_qualified_whatsapp_clients, settings.updated_at,
                  organization.name organization_name
           from ai_settings settings
           join organizations organization on organization.id=settings.org_id

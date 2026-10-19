@@ -71,6 +71,7 @@ def overview(org_id: str) -> dict:
         """), {"org_id": org_id}).fetchall()]
         ai = _dict(conn.execute(text("""
           select pilot_response_mode,pilot_require_published_knowledge,
+                 pilot_handoff_to_human,pilot_use_organization_name,
                  auto_create_qualified_whatsapp_clients,system_prompt,
                  user_prompt_template,communication_style,prompt_row_version,updated_at
           from ai_settings where org_id=:org_id

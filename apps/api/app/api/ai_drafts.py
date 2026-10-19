@@ -38,6 +38,9 @@ class UpdatePilotPrompt(BaseModel):
     user_prompt_template: str = ""
     communication_style: Literal["PROFESSIONAL", "CONCISE", "FORMAL", "WARM"]
     expected_version: int
+    pilot_require_published_knowledge: bool | None = None
+    pilot_handoff_to_human: bool | None = None
+    pilot_use_organization_name: bool | None = None
 
 
 class TestPilotPrompt(BaseModel):
@@ -91,12 +94,18 @@ def change_pilot_prompt(body: UpdatePilotPrompt, tenant=Depends(get_current_tena
         row = conn.execute(text("""
           update ai_settings set system_prompt=:system_prompt,
             user_prompt_template=:user_prompt_template,communication_style=:style,
+            pilot_require_published_knowledge=coalesce(:require_knowledge,pilot_require_published_knowledge),
+            pilot_handoff_to_human=coalesce(:handoff_to_human,pilot_handoff_to_human),
+            pilot_use_organization_name=coalesce(:use_organization_name,pilot_use_organization_name),
             prompt_row_version=prompt_row_version+1,updated_at=now()
           where org_id=:org_id and prompt_row_version=:expected_version
           returning *
         """), {"org_id":tenant["org_id"],"system_prompt":body.system_prompt.strip(),
                 "user_prompt_template":body.user_prompt_template.strip(),"style":body.communication_style,
-                "expected_version":body.expected_version}).mappings().first()
+                "expected_version":body.expected_version,
+                "require_knowledge":body.pilot_require_published_knowledge,
+                "handoff_to_human":body.pilot_handoff_to_human,
+                "use_organization_name":body.pilot_use_organization_name}).mappings().first()
     if not row: raise HTTPException(409,"pilot_ai_prompt_modified")
     settings=dict(row);settings["prompt_score"]=_prompt_score(settings["system_prompt"],settings["user_prompt_template"])
     return {"status":"ok","settings":settings}

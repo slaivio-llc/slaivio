@@ -694,6 +694,26 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   padding-right: 0;
 }
 
+.slaivio-pilot .knowledge-form-drawer [data-ui="operation-drawer-header"] {
+  padding: 12px;
+}
+
+.slaivio-pilot .knowledge-form-drawer [data-ui="operation-drawer-title"] {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.slaivio-pilot .knowledge-form-drawer [data-ui="operation-drawer-description"] {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.slaivio-pilot .knowledge-form-drawer .operation-drawer-footer button {
+  height: 30px;
+  font-size: 11px;
+}
+
 .slaivio-pilot .communication-announcements-shell > section > div > div {
   padding-left: 0;
   padding-right: 0;

@@ -114,7 +114,22 @@ def test_pilot_can_mark_published_knowledge_for_review_without_deleting_it():
     assert '"request-review"' in repository
     assert '"NEEDS_REVIEW"' in repository
     assert "Marquer à vérifier" in page
-    assert "Archiver" in page
+    assert "Supprimer" in page
+    assert "Archiver</OperationDrawerAction>" not in page
+
+
+def test_pilot_knowledge_delete_is_version_checked_and_retains_audit_history():
+    repository = read("apps/api/app/knowledge/pilot_repository.py")
+    api = read("apps/api/app/api/knowledge.py")
+    page = read("apps/web/dashboard/components/knowledge/knowledge-page.tsx")
+    assert "def delete_entry(" in repository
+    assert "pilot_knowledge_version_conflict" in repository.split("def delete_entry(", 1)[1]
+    assert "update knowledge_audit_events set knowledge_id=null" in repository
+    assert "DELETED" in repository
+    assert 'def pilot_delete(' in api
+    assert "@router.delete(\"/pilot/{entry_id}\"" in api
+    assert 'permission("pilot.knowledge.publish")' in api
+    assert "deletePilotKnowledge(item.id,item.version)" in page
 
 
 def test_whatsapp_uses_a_relevant_chunk_from_imported_documents():

@@ -306,3 +306,17 @@ def change_state(org_id: str, entry_id: str, actor_id: str, actor_name: str, act
             core._snapshot(conn, item, {"unpublish": "Retrait de la publication", "request-review": "Marqué à vérifier", "archive": "Archivage", "restore": "Restauration"}[action], actor_id, actor_name)
             core._audit(conn, org_id, entry_id, action.upper(), actor_id, actor_name, old, item)
     return detail(org_id, entry_id)
+
+
+def delete_entry(org_id: str, entry_id: str, actor_id: str, actor_name: str, expected_version: int) -> None:
+    """Permanently remove an entry while retaining its audit trail without the FK."""
+    with engine.begin() as conn:
+        old = core._entry(conn, org_id, entry_id, True)
+        if old["version"] != expected_version:
+            raise HTTPException(409, "pilot_knowledge_version_conflict")
+        conn.execute(text("update knowledge_audit_events set knowledge_id=null where org_id=:org_id and knowledge_id=:entry_id"), {"org_id": org_id, "entry_id": entry_id})
+        conn.execute(text("update knowledge_feedback set knowledge_id=null where org_id=:org_id and knowledge_id=:entry_id"), {"org_id": org_id, "entry_id": entry_id})
+        conn.execute(text("delete from knowledge_conflicts where org_id=:org_id and (left_knowledge_id=:entry_id or right_knowledge_id=:entry_id)"), {"org_id": org_id, "entry_id": entry_id})
+        conn.execute(text("update knowledge_entries set translated_from_id=null where org_id=:org_id and translated_from_id=:entry_id"), {"org_id": org_id, "entry_id": entry_id})
+        conn.execute(text("insert into knowledge_audit_events(org_id,knowledge_id,event_type,old_values,new_values,actor_id,actor_name) values(:org_id,null,'DELETED',cast(:old_values as jsonb),null,:actor_id,:actor_name)"), {"org_id": org_id, "old_values": json.dumps(old, default=str), "actor_id": actor_id, "actor_name": actor_name})
+        conn.execute(text("delete from knowledge_entries where org_id=:org_id and id=:entry_id"), {"org_id": org_id, "entry_id": entry_id})

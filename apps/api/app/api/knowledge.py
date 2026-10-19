@@ -310,6 +310,12 @@ def pilot_update(entry_id: str, body: PilotKnowledgeUpdate, tenant=Depends(get_c
     return {"status": "ok", "knowledge": pilot_repo.save_draft(tenant["org_id"], entry_id, aid(tenant), aname(tenant), expected_version, data)}
 
 
+@router.delete("/pilot/{entry_id}", dependencies=[Depends(require_permission("pilot.knowledge.publish"))])
+def pilot_delete(entry_id: str, body: PilotKnowledgeAction, tenant=Depends(get_current_tenant)):
+    pilot_repo.delete_entry(tenant["org_id"], entry_id, aid(tenant), aname(tenant), body.expected_version)
+    return {"status": "ok", "deleted": True}
+
+
 @router.post("/pilot/{entry_id}/publish", dependencies=[Depends(require_permission("pilot.knowledge.publish"))])
 def pilot_publish(entry_id: str, body: PilotKnowledgeAction, tenant=Depends(get_current_tenant)):
     return {"status": "ok", "knowledge": pilot_repo.publish(tenant["org_id"], entry_id, aid(tenant), aname(tenant), body.expected_version)}

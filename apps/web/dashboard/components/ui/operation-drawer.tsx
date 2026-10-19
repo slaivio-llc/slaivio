@@ -67,17 +67,19 @@ export function OperationDrawerTabs({
 export function OperationDrawerAction({
   intent = "default",
   icon,
+  showLabel = false,
   className = "",
   children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   intent?: "default" | "primary" | "danger";
   icon?: "edit" | "archive" | "restore" | "delete" | ReactNode;
+  showLabel?: boolean;
 }) {
   const textLabel = typeof children === "string" ? children : undefined;
   const resolvedIcon = icon || (intent === "danger" && textLabel && ["Retirer", "Supprimer"].some(label=>textLabel.startsWith(label)) ? "delete" : undefined);
   const Icon = resolvedIcon === "edit" ? SquarePen : resolvedIcon === "archive" ? Archive : resolvedIcon === "restore" ? RotateCcw : resolvedIcon === "delete" ? Trash2 : null;
-  const iconOnly = Boolean(resolvedIcon && textLabel && ["Modifier", "Retirer", "Archiver", "Restaurer", "Supprimer"].some(label=>textLabel.startsWith(label)));
+  const iconOnly = !showLabel && Boolean(resolvedIcon && textLabel && ["Modifier", "Retirer", "Archiver", "Restaurer", "Supprimer"].some(label=>textLabel.startsWith(label)));
   const colors = intent === "primary"
     ? "border-[#0faf63] bg-[#12c76f] text-white hover:bg-[#0faf63]"
     : intent === "danger"

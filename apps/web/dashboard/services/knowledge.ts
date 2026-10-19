@@ -57,6 +57,7 @@ export async function getPilotKnowledgeStats(){return(await api.get<{stats:Pilot
 export async function getPilotKnowledge(id:string){return(await api.get<{knowledge:PilotKnowledgeItem}>(`/knowledge/pilot/${id}`)).data.knowledge}
 export async function createPilotKnowledge(payload:PilotKnowledgePayload){return(await api.post<{knowledge:PilotKnowledgeItem}>("/knowledge/pilot",payload)).data.knowledge}
 export async function updatePilotKnowledge(id:string,payload:PilotKnowledgePayload&{expected_version:number}){return(await api.patch<{knowledge:PilotKnowledgeItem}>(`/knowledge/pilot/${id}`,payload)).data.knowledge}
+export async function deletePilotKnowledge(id:string,expected_version:number){return(await api.delete(`/knowledge/pilot/${id}`,{data:{expected_version}})).data}
 export async function publishPilotKnowledge(id:string,expected_version:number){return(await api.post<{knowledge:PilotKnowledgeItem}>(`/knowledge/pilot/${id}/publish`,{expected_version})).data.knowledge}
 export async function pilotKnowledgeAction(id:string,action:"unpublish"|"request-review"|"archive"|"restore",expected_version:number){return(await api.post<{knowledge:PilotKnowledgeItem}>(`/knowledge/pilot/${id}/${action}`,{expected_version})).data.knowledge}
 export async function uploadPilotKnowledgeFile(file:File){const form=new FormData();form.append("file",file);return(await api.post<{file:KnowledgeFile}>("/knowledge/pilot/files",form)).data.file}

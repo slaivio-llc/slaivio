@@ -11,9 +11,9 @@ export function CommunicationAnnouncementsReminders() {
   const [headerAction, setHeaderAction] = useState<ReactNode>(null);
 
   return (
-    <div className="min-h-full bg-white">
+    <div className="communication-announcements-shell min-h-full bg-white">
       <section className="w-full bg-white">
-        <header className="flex min-h-[64px] items-center justify-between gap-4 px-6 py-3 sm:px-8">
+        <header className="flex min-h-[64px] items-center justify-between gap-4 py-3">
         <nav aria-label="Annonces et relances" className="grid min-w-0 max-w-[420px] flex-1 grid-cols-2 rounded-full bg-[#f1f2f2] p-1">
           {([
             ["announcements", "Annonces"],

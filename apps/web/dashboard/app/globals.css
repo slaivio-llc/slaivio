@@ -694,6 +694,11 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   padding-right: 0;
 }
 
+.slaivio-pilot .communication-announcements-shell > section > div > div {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 @media (min-width: 1024px) {
   .slaivio-pilot .pilot-settings-content {
     grid-template-columns: 220px minmax(0, 1fr);

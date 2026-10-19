@@ -259,7 +259,7 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
 }
 
 function EmbeddedCampaignList({items,loading,error,q,setQ,stats,open,retry}:{items:Campaign[];loading:boolean;error:string;q:string;setQ:(value:string)=>void;stats:Record<string,number>;open:(item:Campaign)=>void;retry:()=>void}) {
-  return <div className="px-6 pb-7 pt-4 sm:px-8">
+  return <div className="pb-7 pt-4">
     <div className="grid grid-cols-3 gap-4 pb-1">
       {[['Annonces envoyées',stats.sent_month||0],['Programmées',stats.scheduled||0],['Destinataires',stats.recipients||0]].map(([label,value])=><div key={String(label)}><p className="text-[11px] text-[#737d86]">{label}</p><p className="mt-1 text-[18px] font-semibold tabular-nums text-[#25292e]">{Number(value).toLocaleString('fr-FR')}</p></div>)}
     </div>

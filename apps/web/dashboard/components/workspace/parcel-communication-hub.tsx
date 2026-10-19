@@ -61,9 +61,9 @@ export function ParcelCommunicationHub() {
     </div>
 
     {tab === "overview" && <OverviewPanel overview={overview} loading={loading} openTab={setTab} />}
-    {tab === "inbox" && <PermissionGuard permission="inbox.read"><PilotInboxPage embedded /></PermissionGuard>}
-    {tab === "announcements" && <CommunicationAnnouncementsReminders />}
-    {tab === "knowledge" && <PermissionGuard permission="pilot.knowledge.read"><KnowledgePage embedded /></PermissionGuard>}
+    {tab === "inbox" && <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><PermissionGuard permission="inbox.read"><PilotInboxPage embedded /></PermissionGuard></div>}
+    {tab === "announcements" && <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><CommunicationAnnouncementsReminders /></div>}
+    {tab === "knowledge" && <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8"><PermissionGuard permission="pilot.knowledge.read"><KnowledgePage embedded /></PermissionGuard></div>}
     {tab === "notifications" && <PermissionGuard permission="notifications.read"><NotificationCenterPage /></PermissionGuard>}
     {tab === "settings" && <PermissionGuard permission="pilot.settings.read"><PilotSettingsPage scope="communication" embedded /></PermissionGuard>}
   </div>;

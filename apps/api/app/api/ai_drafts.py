@@ -33,6 +33,16 @@ class UpdateQualifiedProspectAutoCreate(BaseModel):
     enabled: bool
 
 
+class UpdateAutomaticReplyMessages(BaseModel):
+    welcome_message_enabled: bool
+    welcome_message: str
+    away_message_enabled: bool
+    away_message: str
+    fallback_reply_enabled: bool
+    fallback_reply: str
+    expected_version: int
+
+
 class UpdatePilotPrompt(BaseModel):
     system_prompt: str
     user_prompt_template: str = ""
@@ -70,6 +80,32 @@ def change_qualified_prospect_auto_create(body: UpdateQualifiedProspectAutoCreat
         tenant["org_id"], body.enabled, str(tenant.get("user_id") or "system"),
     )
     return {"status": "ok", "settings": settings}
+
+
+@router.patch("/inbox/ai/automatic-replies", dependencies=[Depends(require_permission("inbox.ai.manage"))])
+def change_automatic_reply_messages(body: UpdateAutomaticReplyMessages, tenant=Depends(get_current_tenant)):
+    messages = (body.welcome_message, body.away_message, body.fallback_reply)
+    if any(len(message) > 4000 for message in messages):
+        raise HTTPException(422, "automatic_reply_message_too_long")
+    from sqlalchemy import text
+    from app.db.database import engine
+    with engine.begin() as conn:
+        row = conn.execute(text("""
+          update ai_settings set
+            welcome_message_enabled=:welcome_enabled,welcome_message=:welcome_message,
+            away_message_enabled=:away_enabled,away_message=:away_message,
+            fallback_reply_enabled=:fallback_enabled,fallback_reply=:fallback_reply,
+            prompt_row_version=prompt_row_version+1,updated_at=now()
+          where org_id=:org_id and prompt_row_version=:expected_version
+          returning welcome_message_enabled,welcome_message,away_message_enabled,
+                    away_message,fallback_reply_enabled,fallback_reply,prompt_row_version,updated_at
+        """), {"org_id":tenant["org_id"],"welcome_enabled":body.welcome_message_enabled,
+                "welcome_message":body.welcome_message.strip(),"away_enabled":body.away_message_enabled,
+                "away_message":body.away_message.strip(),"fallback_enabled":body.fallback_reply_enabled,
+                "fallback_reply":body.fallback_reply.strip(),"expected_version":body.expected_version}).mappings().first()
+    if not row:
+        raise HTTPException(409, "pilot_ai_prompt_modified")
+    return {"status": "ok", "settings": dict(row)}
 
 
 def _prompt_score(system_prompt: str, user_prompt: str) -> int:

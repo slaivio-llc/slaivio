@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Check, Copy, Loader2, Mail, Music2, ShieldCheck, Smartphone, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { Check, Copy, Eye, Loader2, Mail, MessageSquare, Moon, Music2, Save, ShieldCheck, Smartphone, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -21,6 +21,7 @@ import {
   savePilotNumbering,
   savePilotKnowledgeDefaults,
   savePilotAIPrompt,
+  saveAutomaticReplyMessages,
   savePilotWhatsappPreferences,
   requestDataOperation,
   startPilotWhatsappQR,
@@ -330,22 +331,13 @@ function UnavailableChannel({name,description,icon}:{name:string;description:str
 }
 
 function AutoReplySettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<unknown>,message:string)=>Promise<void>}) {
-  return <>
-    <SectionHeader title="Réponses automatiques" description="Choisissez comment SLAIVIO répond aux conversations WhatsApp entrantes."/>
-    <div className="grid max-w-[760px] gap-4">
-      <SettingsCard framed title="Mode de réponse" description="Le mode choisi s’applique immédiatement à la Boîte de réception.">
-        <div className="grid gap-2">{(Object.keys(modeContent) as InboxAIMode[]).map(mode=><button key={mode} type="button" onClick={()=>mode!==data.ai.pilot_response_mode&&run(()=>updateInboxAIMode(mode),"Le mode de réponse de l’IA a été modifié.")} className={`flex gap-3 rounded-[8px] border p-4 text-left transition ${mode===data.ai.pilot_response_mode?"border-[#12ad64] bg-[#eff9f4]":"border-[#dce1e4] hover:bg-[#fafbfb]"}`}><span className={`mt-0.5 grid h-8 w-8 place-items-center rounded-full ${mode===data.ai.pilot_response_mode?"bg-[#d7f1e4] text-[#087848]":"bg-[#f1f3f4] text-[#66717a]"}`}><Sparkles size={16}/></span><span className="flex-1"><strong className="text-[14px] text-[#303941]">{modeContent[mode].title}</strong><span className="mt-1 block text-[12px] leading-5 text-[#727d86]">{modeContent[mode].description}</span></span>{mode===data.ai.pilot_response_mode&&<Check size={16} className="mt-2 text-[#0b8e51]"/>}</button>)}</div>
-      </SettingsCard>
-      {data.organization.organization_type === "PARCEL_FREIGHT" && <SettingsCard framed title="Création des fiches client" description="Déterminez si une demande WhatsApp qualifiée crée automatiquement une fiche client ou attend la validation de l’agence.">
-        <PermissionGuard permission="inbox.ai.manage" fallback={<p className="text-[13px] text-[#66717a]">{data.ai.auto_create_qualified_whatsapp_clients ? "Création automatique activée" : "Confirmation par l’agence"}</p>}>
-          <label className="flex items-start gap-3 text-[13px] text-[#344149]">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#0b9a5b]" checked={data.ai.auto_create_qualified_whatsapp_clients} onChange={event=>void run(()=>updateQualifiedProspectAutoCreate(event.target.checked),event.target.checked?"La création automatique des clients qualifiés est activée.":"La création des clients attendra désormais la confirmation de l’agence.")}/>
-            <span><strong className="font-semibold">Créer automatiquement une fiche client après qualification</strong><span className="mt-1 block text-[12px] leading-5 text-[#727d86]">L’IA doit détecter une intention explicite d’expédier et recueillir les informations requises. Les cas ambigus restent à valider par l’agence.</span></span>
-          </label>
-        </PermissionGuard>
-      </SettingsCard>}
-    </div>
-  </>;
+  const [welcomeEnabled,setWelcomeEnabled]=useState(data.ai.welcome_message_enabled),[welcome,setWelcome]=useState(data.ai.welcome_message),[awayEnabled,setAwayEnabled]=useState(data.ai.away_message_enabled),[away,setAway]=useState(data.ai.away_message),[fallbackEnabled,setFallbackEnabled]=useState(data.ai.fallback_reply_enabled),[fallback,setFallback]=useState(data.ai.fallback_reply),[preview,setPreview]=useState<"welcome"|"away"|"fallback">("welcome"),[saving,setSaving]=useState(false),[error,setError]=useState("");
+  useEffect(()=>{setWelcomeEnabled(data.ai.welcome_message_enabled);setWelcome(data.ai.welcome_message);setAwayEnabled(data.ai.away_message_enabled);setAway(data.ai.away_message);setFallbackEnabled(data.ai.fallback_reply_enabled);setFallback(data.ai.fallback_reply);},[data.ai.welcome_message_enabled,data.ai.welcome_message,data.ai.away_message_enabled,data.ai.away_message,data.ai.fallback_reply_enabled,data.ai.fallback_reply]);
+  const messages={welcome,away,fallback};
+  async function save(){setSaving(true);setError("");try{await saveAutomaticReplyMessages({welcome_message_enabled:welcomeEnabled,welcome_message:welcome,away_message_enabled:awayEnabled,away_message:away,fallback_reply_enabled:fallbackEnabled,fallback_reply:fallback,expected_version:data.ai.prompt_row_version});await run(async()=>undefined,"Les réponses automatiques ont été enregistrées.");}catch{setError("Les modifications n’ont pas pu être enregistrées. Rechargez la page puis réessayez.");}finally{setSaving(false);}}
+  function MessageRow({name,title,description,enabled,value,changeEnabled,changeValue}:{name:"welcome"|"away"|"fallback";title:string;description:string;enabled:boolean;value:string;changeEnabled:(value:boolean)=>void;changeValue:(value:string)=>void}){return <section className="border-b border-[#eceeef] py-3 last:border-0"><div className="flex items-center gap-3"><span className="text-[#636d74]">{name==="welcome"?<MessageSquare size={14}/>:name==="away"?<Moon size={14}/>:<ShieldCheck size={14}/>}</span><span className="min-w-0 flex-1"><strong className="block text-[12px] font-medium text-[#303941]">{title}</strong><span className="mt-0.5 block text-[10px] text-[#78828a]">{description}</span></span><input aria-label={`Activer ${title.toLowerCase()}`} type="checkbox" checked={enabled} onChange={event=>changeEnabled(event.target.checked)} className="h-4 w-4 accent-[#111111]"/></div>{enabled&&<><textarea aria-label={title} value={value} onChange={event=>changeValue(event.target.value)} maxLength={4000} className="mt-2 min-h-[60px] w-full resize-y rounded-[7px] border border-[#d8dde0] bg-white px-3 py-2 text-[12px] leading-4 text-[#303941] outline-none focus:border-[#aeb8be]"/><div className="mt-1 flex justify-end"><button type="button" onClick={()=>setPreview(name)} className="inline-flex items-center gap-1 rounded-full border border-[#dce1e4] px-2 py-1 text-[10px] text-[#606a71] hover:bg-[#f6f7f7]"><Eye size={11}/>Aperçu</button></div></>}</section>}
+  const previewMessage=messages[preview];
+  return <section className="mx-auto w-full max-w-[850px] rounded-[10px] border border-[#dfe3e6] bg-white p-5"><header className="flex items-start gap-3 border-b border-[#eceeef] pb-4"><div className="min-w-0 flex-1"><h2 className="text-[14px] font-semibold text-[#29323a]">Réponses automatiques</h2><p className="mt-1 text-[11px] text-[#77818a]">Personnalisez les messages envoyés aux clients</p></div><MessageSquare size={15} className="mt-1 text-[#68737b]"/></header><div className="pt-1"><PermissionGuard permission="inbox.ai.manage" fallback={<p className="py-3 text-[11px] text-[#78828a]">Vous pouvez consulter ces messages, mais leur modification nécessite l’autorisation de gérer l’assistant IA.</p>}><MessageRow name="welcome" title="Message de bienvenue" description="Accueillir un client au début d’une conversation" enabled={welcomeEnabled} value={welcome} changeEnabled={setWelcomeEnabled} changeValue={setWelcome}/><MessageRow name="away" title="Message d’absence" description="Informer les clients lorsque l’équipe est indisponible" enabled={awayEnabled} value={away} changeEnabled={setAwayEnabled} changeValue={setAway}/><MessageRow name="fallback" title="Réponse de secours" description="Lorsque l’IA ne peut pas répondre avec fiabilité" enabled={fallbackEnabled} value={fallback} changeEnabled={setFallbackEnabled} changeValue={setFallback}/><div className="pt-3"><div className="flex items-center justify-between"><strong className="text-[12px] font-medium text-[#303941]">Aperçu du message</strong><span className="rounded-full bg-[#f0f2f2] px-2 py-0.5 text-[10px] text-[#555e65]">WhatsApp</span></div><div className="ml-auto mt-2 max-w-[90%] rounded-[9px] rounded-br-[2px] bg-[#e2f1eb] px-3 py-2.5 text-[12px] leading-4 text-[#303941]">{previewMessage||"Le message est vide."}</div><p className="mt-2 text-[10px] text-[#8a9298]">Aperçu uniquement — aucun message envoyé</p></div>{error&&<p role="alert" className="mt-3 text-[11px] text-[#a33b32]">{error}</p>}<div className="mt-4 flex justify-end"><OperationButton variant="primary" disabled={saving} onClick={()=>void save()}><Save size={14}/>{saving?"Enregistrement…":"Enregistrer les modifications"}</OperationButton></div></PermissionGuard></div></section>;
 }
 function CommunicationAssistantSettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<unknown>,message:string)=>Promise<void>}) {
   const [systemPrompt,setSystemPrompt]=useState(data.ai.system_prompt||"");

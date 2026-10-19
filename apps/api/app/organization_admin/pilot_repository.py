@@ -72,6 +72,8 @@ def overview(org_id: str) -> dict:
         ai = _dict(conn.execute(text("""
           select pilot_response_mode,pilot_require_published_knowledge,
                  pilot_handoff_to_human,pilot_use_organization_name,
+                 welcome_message_enabled,welcome_message,away_message_enabled,away_message,
+                 fallback_reply_enabled,fallback_reply,
                  auto_create_qualified_whatsapp_clients,system_prompt,
                  user_prompt_template,communication_style,prompt_row_version,updated_at
           from ai_settings where org_id=:org_id

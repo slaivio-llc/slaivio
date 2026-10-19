@@ -111,7 +111,7 @@ export function ParcelOperationsHub() {
   return <div className="min-h-full bg-white">
     <OperationPageHeader title="Opérations" description={{ overview: "Vue d’ensemble de l’activité cargo", packages: "Gestion des colis de l’agence", shipments: "Préparation et suivi des expéditions", calendar: "Calendrier des départs planifiés", tracking: "Suivi des opérations en cours" }[view]} actions={<button type="button" onClick={() => setRevision(value => value + 1)} aria-label="Actualiser les opérations" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCw size={15}/></button>}/>
     <main className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-8">
-      <nav aria-label="Sections Opérations" className="mb-4 flex flex-wrap gap-1 border-b border-slate-200 pb-2">
+      <nav aria-label="Sections Opérations" className="mb-4 flex flex-wrap gap-1 pb-2">
         <ViewTab active={view === "overview"} onClick={() => selectView("overview")}>Vue d’ensemble</ViewTab>
         {canPackages && <ViewTab active={view === "packages"} onClick={() => selectView("packages")} icon={<Package size={14}/>}>Colis</ViewTab>}
         {canShipments && <ViewTab active={view === "shipments"} onClick={() => selectView("shipments")} icon={<Truck size={14}/>}>Expéditions</ViewTab>}

@@ -54,9 +54,11 @@ export function ParcelCommunicationHub() {
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader title="Communication" description="Gérez les échanges avec vos clients." />
-    <nav aria-label="Sections Communication" className="mb-4 flex flex-wrap gap-1 px-6 sm:px-8">
-      {tabs.map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={`shrink-0 rounded-md px-3 py-1.5 text-xs transition-colors ${tab === key ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>{label}</button>)}
-    </nav>
+    <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8">
+      <nav aria-label="Sections Communication" className="mb-4 flex flex-wrap gap-1">
+        {tabs.map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={`shrink-0 rounded-md px-3 py-1.5 text-xs transition-colors ${tab === key ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>{label}</button>)}
+      </nav>
+    </div>
 
     {tab === "overview" && <OverviewPanel overview={overview} loading={loading} openTab={setTab} />}
     {tab === "inbox" && <PermissionGuard permission="inbox.read"><PilotInboxPage embedded /></PermissionGuard>}

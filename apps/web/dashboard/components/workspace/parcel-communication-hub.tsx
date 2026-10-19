@@ -59,7 +59,7 @@ export function ParcelCommunicationHub() {
     </nav>
 
     {tab === "overview" && <OverviewPanel overview={overview} loading={loading} openTab={setTab} />}
-    {tab === "inbox" && <PermissionGuard permission="inbox.read"><PilotInboxPage /></PermissionGuard>}
+    {tab === "inbox" && <PermissionGuard permission="inbox.read"><PilotInboxPage embedded /></PermissionGuard>}
     {tab === "announcements" && <CommunicationAnnouncementsReminders />}
     {tab === "knowledge" && <PermissionGuard permission="pilot.knowledge.read"><KnowledgePage embedded /></PermissionGuard>}
     {tab === "notifications" && <PermissionGuard permission="notifications.read"><NotificationCenterPage /></PermissionGuard>}

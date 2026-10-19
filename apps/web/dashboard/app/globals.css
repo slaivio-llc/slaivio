@@ -913,7 +913,7 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 }
 
 .slaivio-sidebar [data-ui="cargo-sidebar-link"] {
-  min-height: 42px;
+  min-height: 46px;
 }
 
 .slaivio-pilot .slaivio-sidebar [data-ui="cargo-sidebar-link"][data-active="true"] {

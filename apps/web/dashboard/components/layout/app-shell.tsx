@@ -251,7 +251,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
 
       <aside data-ui="sidebar" className={`slaivio-sidebar fixed inset-y-0 left-0 z-50 flex w-[292px] flex-col ${cargo ? "" : "border-r border-[#e8eaed]"} bg-white transition-[width,transform] duration-200 lg:relative lg:z-auto lg:translate-x-0 ${cargo ? sidebarCollapsed ? "lg:w-[56px]" : "lg:w-[240px]" : pilot ? "lg:w-[232px]" : sidebarCollapsed ? "lg:w-[56px]" : "lg:w-[248px]"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className={`flex h-[60px] shrink-0 items-center border-b border-[#e8eaed] ${cargo ? sidebarCollapsed ? "justify-center px-1" : "justify-between px-4" : pilot ? "h-[72px] border-0 px-3" : `border-[#e3e4e5] ${sidebarCollapsed ? "justify-center px-1" : "px-4"}`}`}>
+        <div className={`flex h-[60px] shrink-0 items-center ${cargo ? sidebarCollapsed ? "justify-center px-1" : "justify-between px-4" : `border-b ${pilot ? "border-0 px-3" : `border-[#e3e4e5] ${sidebarCollapsed ? "justify-center px-1" : "px-4"}`}`}`}>
           {cargo ? <Link href="/app" className={`flex min-w-0 items-center gap-2 ${sidebarCollapsed ? "lg:hidden" : ""}`} onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly /><span className="text-[14px] font-semibold leading-5 text-[#20252b]">Slaivio</span></Link> : pilot ? <div className="min-w-0 flex-1"><OrganizationSwitcher menuPlacement="down" /></div> : <Link href="/app" className={`flex items-center ${sidebarCollapsed?"lg:hidden":""}`} onClick={() => setMobileOpen(false)}><SlaivioBrand compact iconOnly={sidebarCollapsed}/></Link>}
           <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="ml-auto rounded-[4px] p-1.5 text-[#555] hover:bg-[#f0f1f1] lg:hidden">
             <X size={17} />
@@ -261,7 +261,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>}
         </div>
 
-        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot && !cargo ? "px-3 py-3" : `py-2.5 ${cargo ? sidebarCollapsed ? "px-2 pb-5 pt-3" : "px-3 pb-5 pt-3" : sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
+        <nav className={`min-h-0 flex-1 overflow-y-auto ${pilot && !cargo ? "px-3 py-3" : `py-2.5 ${cargo ? sidebarCollapsed ? "px-2 pb-5 pt-5" : "px-3 pb-5 pt-5" : sidebarCollapsed ? "lg:px-2" : "px-3"}`}`} aria-label="Navigation Slaivio">
           {pilot && !cargo ? (
             <div>
               <PilotRailLink href="/app" icon={<Home size={19} />} active={pathname === "/app"} label={dashboardLabel(locale, "Accueil", "/app")} />
@@ -276,7 +276,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               ))}
             </div>
           ) : cargo ? <>
-            <div aria-hidden="true" className="mb-3 border-t border-[#e8eaed]" />
+            <div aria-hidden="true" className="mb-4 border-t border-[#e8eaed]" />
             <CargoSidebarLink href="/app" icon={<LayoutDashboard size={17}/>} active={pathname === "/app"} label="Tableau de bord" collapsed={sidebarCollapsed}/>
             <div className="mt-2 space-y-2">
               {groupedRoutes.flatMap(group => group.routes).map(route => <CargoSidebarLink key={route.href} href={route.href} icon={cargoSidebarIcon(route.href, route.label)} active={isNavigationRouteActive(pathname, searchParams, route.href)} label={dashboardLabel(locale, route.label, route.href)} collapsed={sidebarCollapsed}/>) }
@@ -335,7 +335,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
-        <header data-ui="topbar" className="slaivio-topbar relative z-30 flex h-[60px] shrink-0 items-center border-b border-[#dfe1e3] bg-white px-3 sm:px-5 lg:px-8">
+        <header data-ui="topbar" className={`slaivio-topbar relative z-30 flex h-[60px] shrink-0 items-center ${cargo ? "" : "border-b border-[#dfe1e3]"} bg-white px-3 sm:px-5 lg:px-8`}>
           <button onClick={() => setMobileOpen(true)} aria-label="Ouvrir la navigation" className="mr-2 rounded-[5px] p-2 text-[#5f666e] hover:bg-[#f0f1f1] lg:hidden">
             <Menu size={19} />
           </button>

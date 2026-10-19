@@ -54,8 +54,8 @@ export function ParcelCommunicationHub() {
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader title="Communication" description="Gérez les échanges avec vos clients." />
-    <nav aria-label="Sections Communication" className="flex gap-1 overflow-x-auto border-b border-[#e6e8e9] px-6 sm:px-8">
-      {tabs.map(([key, label]) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key)} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] transition-colors ${tab === key ? "border-[#16855f] font-semibold text-[#126f50]" : "border-transparent text-[#68717d] hover:text-[#17212b]"}`}>{label}</button>)}
+    <nav aria-label="Sections Communication" className="mb-4 flex flex-wrap gap-1 px-6 sm:px-8">
+      {tabs.map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={`shrink-0 rounded-md px-3 py-1.5 text-xs transition-colors ${tab === key ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>{label}</button>)}
     </nav>
 
     {tab === "overview" && <OverviewPanel overview={overview} loading={loading} openTab={setTab} />}

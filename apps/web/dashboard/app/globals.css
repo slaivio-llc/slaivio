@@ -681,6 +681,17 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   row-gap: 28px;
 }
 
+.slaivio-pilot .communication-settings-content {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+.slaivio-pilot .communication-settings-content > * {
+  width: 100%;
+  max-width: none;
+}
+
 .slaivio-pilot .knowledge-embedded [data-ui="operation-metrics"] > div,
 .slaivio-pilot .knowledge-embedded [data-ui="operation-toolbar"] > div {
   max-width: none;
@@ -736,6 +747,10 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
   .slaivio-pilot .pilot-settings-content > [data-ui="settings-notice"] {
     grid-column: 1 / -1;
+  }
+
+  .slaivio-pilot .communication-settings-content > * {
+    grid-column: auto;
   }
 }
 

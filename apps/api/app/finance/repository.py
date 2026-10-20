@@ -170,7 +170,7 @@ def pay(o,d,a,n,p):
       :idempotency_key,:a,:n,:provider,:provider_transaction_id,:provider_amount,
       :provider_fee,:provider_charged,:provider_net_amount,:fee_charge_mode
     ) returning *"""),{
-       **p,"id":pid,"o":o,"d":d,"receipt":receipt,"a":a,"n":n,
+       **{key:value for key,value in p.items() if key != 'internal_note'},"id":pid,"o":o,"d":d,"receipt":receipt,"a":a,"n":n,
        "amount":amount,"currency":currency,
        "provider":p.get('provider'),
        "provider_transaction_id":p.get('provider_transaction_id'),
@@ -188,7 +188,7 @@ def pay(o,d,a,n,p):
   balance=money(doc['balance_due'])-amount
   status='PAID' if balance==0 else 'PARTIALLY_PAID'
   c.execute(text("update finance_documents set amount_paid=:paid,balance_due=:balance,status=:status,row_version=row_version+1,updated_at=now() where id=:d and org_id=:o"),{"paid":paid,"balance":balance,"status":status,"d":d,"o":o})
-  event(c,o,d,'PAYMENT_RECORDED',a,n,{"amount":str(amount),"currency":currency,"receipt":receipt,"source":p.get('provider') or 'AGENCY'},pid)
+  event(c,o,d,'PAYMENT_RECORDED',a,n,{"amount":str(amount),"currency":currency,"receipt":receipt,"source":p.get('provider') or 'AGENCY',"internal_note":p.get('internal_note')},pid)
   return payment
 def receipt(o,d,payment_id):
  with engine.connect() as c:

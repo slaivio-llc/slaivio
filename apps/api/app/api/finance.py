@@ -49,6 +49,7 @@ class Payment(BaseModel):
  currency:str=Field(pattern=r'^[A-Za-z]{3}$')
  method:str=Field(min_length=2,max_length=50)
  reference:str|None=None
+ internal_note:str|None=Field(default=None,max_length=1000)
  paid_at:datetime=Field(default_factory=lambda:datetime.now(timezone.utc))
  idempotency_key:str=Field(min_length=8,max_length=160)
  @field_validator('currency')

@@ -114,6 +114,9 @@ export function FinancePage() {
     [endDate, setEndDate] = useState(() => dateInputValue(new Date())),
     [openPaymentOnDetail, setOpenPaymentOnDetail] = useState(false),
     [paymentChooserOpen, setPaymentChooserOpen] = useState(false),
+    [paymentCandidates, setPaymentCandidates] = useState<FinanceDocument[]>([]),
+    [paymentCandidatesLoading, setPaymentCandidatesLoading] = useState(false),
+    [paymentSelectionId, setPaymentSelectionId] = useState(""),
     [selected, setSelected] = useState<FinanceDocument | null>(null);
   const closeResourceLink = useResourceLink(getFinance, setSelected, setError);
   useEffect(() => {
@@ -194,6 +197,21 @@ export function FinancePage() {
     try { await fn(); await load(); }
     catch (cause) { setError(err(cause)); }
   }
+  async function openPaymentChooser() {
+    setPaymentChooserOpen(true);
+    setPaymentCandidatesLoading(true);
+    try {
+      const result = await listFinance({ document_type: "INVOICE", page_size: 100 });
+      const payable = result.items.filter(item => ["ISSUED", "PARTIALLY_PAID", "OVERDUE"].includes(item.status) && item.balance_due > 0);
+      setPaymentCandidates(payable);
+      setPaymentSelectionId(current => payable.some(item => item.id === current) ? current : payable[0]?.id || "");
+    } catch (cause) {
+      setError(err(cause));
+      setPaymentCandidates([]);
+    } finally {
+      setPaymentCandidatesLoading(false);
+    }
+  }
   async function downloadPaymentReceipt(payment: FinancePaymentRow) {
     await runPaymentAction(async () => {
       const blob = await paymentReceipt(payment.document_id, payment.id);
@@ -210,7 +228,7 @@ export function FinancePage() {
       <OperationPageHeader
         title="Finance"
         description="Factures, paiements reçus et soldes clients."
-        actions={section !== "settings" ? <div className="flex flex-wrap items-center gap-2">{(section === "payments" || section === "balances") && <PermissionGuard permission="finance.export"><button className={button} onClick={download}><Download size={14}/>Exporter</button></PermissionGuard>}<PermissionGuard permission="finance.payments"><button className={primary} onClick={() => setPaymentChooserOpen(true)}><Plus size={15}/>Enregistrer un paiement</button></PermissionGuard></div> : undefined}
+        actions={section !== "settings" ? <div className="flex flex-wrap items-center gap-2">{(section === "payments" || section === "balances") && <PermissionGuard permission="finance.export"><button className={button} onClick={download}><Download size={14}/>Exporter</button></PermissionGuard>}<PermissionGuard permission="finance.payments"><button className={primary} onClick={() => void openPaymentChooser()}><Plus size={15}/>Enregistrer un paiement</button></PermissionGuard></div> : undefined}
       />
       <main>
         <nav aria-label="Sections Finance" className="mx-auto flex w-full max-w-[1200px] gap-2 overflow-x-auto px-6 py-2 sm:px-8">
@@ -227,8 +245,11 @@ export function FinancePage() {
         </OperationContent>
         </>}
       </main>
-      <OperationDrawer open={paymentChooserOpen} close={() => setPaymentChooserOpen(false)} title="Enregistrer un paiement" description="Choisissez une facture avec un solde restant à encaisser." width="max-w-[620px]">
-        {loading ? <TableSkeleton rows={3} columns={2} label="Chargement des factures…"/> : items.filter(item=>item.document_type==="INVOICE"&&["ISSUED","PARTIALLY_PAID","OVERDUE"].includes(item.status)&&item.balance_due>0).length ? <div className="grid gap-2">{items.filter(item=>item.document_type==="INVOICE"&&["ISSUED","PARTIALLY_PAID","OVERDUE"].includes(item.status)&&item.balance_due>0).map(item=><button key={item.id} type="button" onClick={()=>{setPaymentChooserOpen(false);void open(item.id,true);}} className="flex w-full items-center justify-between gap-4 rounded-[8px] bg-[#f7f8f8] p-4 text-left transition hover:bg-[#eef3f0]"><span className="min-w-0"><strong className="block truncate text-[13px] text-[#303941]">{item.client_name}</strong><span className="mt-1 block text-[11px] text-[#77818a]">{item.document_number}</span></span><span className="shrink-0 text-right"><strong className="block text-[13px] text-[#303941]">{cash(item.balance_due,item.currency)}</strong><span className="mt-1 block text-[10px] text-[#77818a]">Solde restant</span></span></button>)}</div> : <EmptyState title="Aucune facture à encaisser" description="Les factures émises avec un solde restant apparaîtront ici."/>}
+      <OperationDrawer open={paymentChooserOpen} close={() => setPaymentChooserOpen(false)} title="Enregistrer un paiement" description="Saisissez le montant reçu et confirmez les détails de l’encaissement manuel." width="max-w-[560px]">
+        {paymentCandidatesLoading ? <TableSkeleton rows={3} columns={2} label="Chargement des factures…"/> : paymentCandidates.length ? <div className="space-y-4 p-4">
+          <label className="grid gap-1.5 text-[12px] font-medium text-[#303941]">Facture concernée *<select className={input} value={paymentSelectionId} onChange={event => setPaymentSelectionId(event.target.value)}>{paymentCandidates.map(item=><option key={item.id} value={item.id}>{item.document_number} — {item.client_name}</option>)}</select></label>
+          {paymentCandidates.find(item=>item.id===paymentSelectionId) ? <RecordPaymentForm key={paymentSelectionId} document={paymentCandidates.find(item=>item.id===paymentSelectionId)!} onCancel={() => setPaymentChooserOpen(false)} onRecorded={async () => { await load(); setPaymentChooserOpen(false); }}/> : null}
+        </div> : <div className="p-4"><EmptyState title="Aucune facture à encaisser" description="Les factures émises avec un solde restant apparaîtront ici."/></div>}
       </OperationDrawer>
       {create && (
         <CreateModal

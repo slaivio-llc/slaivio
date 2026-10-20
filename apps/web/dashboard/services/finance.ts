@@ -16,7 +16,7 @@ export async function listFinanceBalances(params:Record<string,unknown>={}){retu
 export async function createFinance(payload:{document_type:string;client_id:string;currency:string;due_date?:string|null;notes?:string|null;terms?:string|null;lines:FinanceLine[]}){return (await api.post<FinanceDocument>("/finance",payload)).data}
 export async function getFinance(id:string){return (await api.get<FinanceDocument>(`/finance/${id}`)).data}
 export async function issueFinance(id:string,expected_version:number){return (await api.post<FinanceDocument>(`/finance/${id}/issue`,{expected_version})).data}
-export async function payFinance(id:string,payload:{amount:number;currency:string;method:string;reference?:string|null;paid_at:string;idempotency_key:string}){return (await api.post<FinancePayment>(`/finance/${id}/payments`,payload)).data}
+export async function payFinance(id:string,payload:{amount:number;currency:string;method:string;reference?:string|null;internal_note?:string|null;paid_at:string;idempotency_key:string}){return (await api.post<FinancePayment>(`/finance/${id}/payments`,payload)).data}
 export type SasPayAttempt={id:string;status:"CREATING"|"PENDING"|"AMBIGUOUS"|"SUCCEEDED"|"FAILED"|"CANCELLED";requested_amount:string;currency:string;checkout_url:string|null;created_at:string};
 export async function startSasPayCheckout(documentId:string,idempotency_key:string){return (await api.post<SasPayAttempt>(`/finance/${documentId}/saspay-checkout`,{idempotency_key})).data}
 export async function getOpenSasPayAttempt(documentId:string){return (await api.get<SasPayAttempt|null>(`/finance/${documentId}/saspay-attempts`)).data}

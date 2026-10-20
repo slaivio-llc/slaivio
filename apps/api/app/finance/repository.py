@@ -72,10 +72,10 @@ def list_payments(o, q=None, currency=None, status=None, start_date=None, end_da
  if start_date:f.append("p.paid_at >= cast(:start_date as date)");p['start_date']=start_date
  if end_date:f.append("p.paid_at < cast(:end_date as date) + interval '1 day'");p['end_date']=end_date
  where=' and '.join(f)
- joins=" from finance_payments p join finance_documents d on d.org_id=p.org_id and d.id=p.document_id left join clients c on c.org_id=d.org_id and c.id=d.client_id "
+ joins=" from finance_payments p join finance_documents d on d.org_id=p.org_id and d.id=p.document_id left join clients c on c.org_id=d.org_id and c.id=d.client_id left join organization_locations office on office.org_id=d.org_id and office.id=d.office_id "
  with engine.connect() as c:
   total=c.execute(text(f"select count(*){joins} where {where}"),p).scalar_one()
-  items=rows(c.execute(text(f"select p.id,p.receipt_number,p.document_id,d.document_number,d.client_id,coalesce(c.name,c.phone,c.email,'Client') client_name,p.amount,p.currency,p.method,p.reference,p.paid_at,p.status,p.recorded_by_name,d.office_id,(p.receipt_snapshot is not null) receipt_available{joins} where {where} order by p.paid_at desc,p.id desc limit :limit offset :offset"),p))
+  items=rows(c.execute(text(f"select p.id,p.receipt_number,p.document_id,d.document_number,d.client_id,coalesce(c.name,c.phone,c.email,'Client') client_name,p.amount,p.currency,p.method,p.reference,p.paid_at,p.status,p.recorded_by_name,d.office_id,office.name office_name,(p.receipt_snapshot is not null) receipt_available{joins} where {where} order by p.paid_at desc,p.id desc limit :limit offset :offset"),p))
   return {"items":items,"pagination":{"page":page,"page_size":page_size,"total":total,"total_pages":max(1,(total+page_size-1)//page_size)}}
 
 def client_balances(o, q=None, currency=None, page=1, page_size=50, office_ids=None):

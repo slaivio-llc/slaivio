@@ -4,7 +4,7 @@ import { RecordPaymentForm } from "./record-payment-form";
 import { FinanceOfficeAssignment } from "./finance-office-assignment";
 import { FinanceSettingsOverview } from "./finance-settings-overview";
 import { PaymentReverseButton } from "./finance-completion-actions";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CalendarDays, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Search, Share2, Users, Wallet } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -22,6 +22,7 @@ import {
   financeStats,
   financePrint,
   getFinance,
+  getPackageInvoice,
   issueFinance,
   listFinance,
   listFinancePayments,
@@ -331,16 +332,15 @@ function FinanceOverview({loading,stats,payments,onViewAll,onNewInvoice,onBalanc
 
 function CreateModal({ close, done }: { close: () => void; done: (document?: FinanceDocument) => void | Promise<void> }) {
   const [clients, setClients] = useState<ClientRecord[]>([]),
-    [mode, setMode] = useState<"manual" | "package">("manual"),
     [step, setStep] = useState<1 | 2>(1),
     [clientId, setClientId] = useState(""),
-    [association, setAssociation] = useState<"PACKAGE" | "SHIPMENT" | "NONE">("PACKAGE"),
+    [association, setAssociation] = useState<"PACKAGE" | "SHIPMENT" | "NONE">("NONE"),
     [packages, setPackages] = useState<PackageRecord[]>([]),
-    [packageQuery, setPackageQuery] = useState(""),
     [associatedPackageId, setAssociatedPackageId] = useState(""),
-    [packageId, setPackageId] = useState(""),
     [packagesLoading, setPackagesLoading] = useState(false),
     [pricingBusy, setPricingBusy] = useState(false),
+    [existingPackageInvoice, setExistingPackageInvoice] = useState<FinanceDocument|null>(null),
+    [existingInvoiceLoading, setExistingInvoiceLoading] = useState(false),
     [currency, setCurrency] = useState("USD"),
     [dueDate, setDueDate] = useState(""),
     [paymentTerms, setPaymentTerms] = useState("Paiement avant livraison"),
@@ -348,59 +348,63 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
     [lines, setLines] = useState<Array<{description:string;quantity:number;unit_price:number;discount_rate:number;tax_rate:number}>>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const selectedPackageForInvoice = packages.find((item) => item.id === packageId);
+  const pricingRequestRef = useRef(0);
   const selectedAssociatedPackage = packages.find((item) => item.id === associatedPackageId);
   const selectedClient = clients.find((client) => client.id === clientId);
   const today = new Date().toISOString().slice(0, 10);
-  const total = lines.reduce((sum, line) => sum + line.quantity * line.unit_price * (1 - line.discount_rate / 100) * (1 + line.tax_rate / 100), 0);
-  const selectedPackageIsPriced = Boolean(selectedPackageForInvoice?.fees_total != null && selectedPackageForInvoice.pricing_snapshot && Object.keys(selectedPackageForInvoice.pricing_snapshot).length);
+  const packageIsPriced = Boolean(selectedAssociatedPackage?.fees_total != null && selectedAssociatedPackage.pricing_snapshot && Object.keys(selectedAssociatedPackage.pricing_snapshot).length);
+  const packageTotal = association === "NONE" ? 0 : Number(selectedAssociatedPackage?.fees_total || 0);
+  const total = packageTotal + lines.reduce((sum, line) => sum + line.quantity * line.unit_price * (1 - line.discount_rate / 100) * (1 + line.tax_rate / 100), 0);
   useEffect(() => {
     listClients({ page_size: 100 }).then((r) => setClients(r.items)).catch(()=>setError("Chargement des clients impossible. Rouvrez le formulaire pour réessayer."));
   }, []);
   useEffect(() => {
-    if (mode !== "manual" && mode !== "package") return;
-    if (mode === "manual" && (association === "NONE" || !clientId)) { setPackages([]); return; }
+    if (association === "NONE" || !clientId) { setPackages([]); setPackagesLoading(false); return; }
     let active = true;
     const timer = setTimeout(() => {
       setPackagesLoading(true);
-      listPackages({ q: mode === "package" ? packageQuery.trim() || undefined : undefined, client_id: mode === "manual" ? clientId : undefined, page: 1, page_size: 50 })
+      listPackages({ client_id: clientId, page: 1, page_size: 50 })
         .then((result) => { if (active) setPackages(result.items); })
         .catch((cause) => { if (active) setError(err(cause)); })
         .finally(() => { if (active) setPackagesLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [mode, association, clientId, packageQuery]);
-  async function calculateSelectedPackagePrice() {
-    const selectedPackage = packages.find((item) => item.id === packageId);
-    if (!selectedPackage?.shipping_service_id || pricingBusy) return;
-    setPricingBusy(true);
-    setError("");
-    try {
-      const updated = await pricePackage(selectedPackage.id, selectedPackage.shipping_service_id);
-      setPackages(current => current.map(item => item.id === updated.id ? updated : item));
-    } catch (cause) {
-      setError(packageInvoiceError(cause));
-    } finally {
-      setPricingBusy(false);
-    }
-  }
+  }, [association, clientId]);
+  useEffect(() => {
+    const requestId = ++pricingRequestRef.current;
+    if (association === "NONE" || !selectedAssociatedPackage) { setExistingPackageInvoice(null); setExistingInvoiceLoading(false); setPricingBusy(false); return; }
+    let active = true;
+    if (selectedAssociatedPackage.currency) setCurrency(selectedAssociatedPackage.currency);
+    setExistingInvoiceLoading(true);
+    setExistingPackageInvoice(null);
+    getPackageInvoice(selectedAssociatedPackage.id).then(invoice => { if (active) setExistingPackageInvoice(invoice); }).catch(() => { if (active) setError("La facture existante du colis n’a pas pu être vérifiée."); }).finally(() => { if (active) setExistingInvoiceLoading(false); });
+    if (!packageIsPriced && selectedAssociatedPackage.shipping_service_id) {
+      setPricingBusy(true); setError("");
+      pricePackage(selectedAssociatedPackage.id, selectedAssociatedPackage.shipping_service_id)
+        .then(updated => { if (active) { setPackages(current => current.map(item => item.id === updated.id ? updated : item)); setCurrency(updated.currency || "USD"); } })
+        .catch(cause => { if (active) setError(packageInvoiceError(cause)); })
+        .finally(() => { if (pricingRequestRef.current === requestId) setPricingBusy(false); });
+    } else setPricingBusy(false);
+    return () => { active = false; };
+  }, [association, selectedAssociatedPackage?.id, packageIsPriced, selectedAssociatedPackage?.shipping_service_id]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (mode === "manual" && step === 1) {
-      const invalid = !clientId || !dueDate || !lines.length || lines.some((line) => !line.description.trim() || line.quantity <= 0 || line.unit_price < 0);
-      if (invalid) { setError("Sélectionnez un client et ajoutez au moins une prestation complète."); return; }
+    if (step === 1) {
+      const invalid = !clientId || !dueDate || (association === "NONE" && !lines.length) || lines.some((line) => !line.description.trim() || line.quantity <= 0 || line.unit_price < 0);
+      if (invalid) { setError("Sélectionnez un client, indiquez l’échéance et ajoutez une prestation ou un colis tarifé."); return; }
       if (association !== "NONE" && !selectedAssociatedPackage) { setError("Sélectionnez le colis ou l’expédition à associer."); return; }
-      if (association !== "NONE" && !selectedAssociatedPackage?.dossier_id) { setError("Ce colis n’est pas lié à un dossier facturable. Utilisez le parcours sécurisé « Depuis un colis »."); return; }
+      if (association !== "NONE" && !packageIsPriced) { setError("Le tarif du colis doit être calculé et validé avant la vérification."); return; }
+      if (existingPackageInvoice) { setError(`Une facture existe déjà pour ce colis (${existingPackageInvoice.document_number}).`); return; }
       setError(""); setStep(2); return;
     }
     setBusy(true);
     try {
-      if (mode === "package") {
-        const selectedPackage = packages.find((item) => item.id === packageId);
-        if (!selectedPackage || !selectedPackage.row_version) throw new Error("Sélectionnez un colis actualisé avant de préparer sa facture.");
+      if (association !== "NONE") {
+        const selectedPackage = selectedAssociatedPackage;
+        if (!selectedPackage || !selectedPackage.row_version || !packageIsPriced) throw new Error("Sélectionnez un colis dont le tarif est actualisé avant de préparer la facture.");
         let invoice: FinanceDocument;
         try {
-          invoice = await createPackageInvoice(selectedPackage.id, selectedPackage.row_version);
+          invoice = await createPackageInvoice(selectedPackage.id, selectedPackage.row_version, { due_date: dueDate || null, notes: notes || null, terms: paymentTerms, additional_lines: lines });
         } catch (cause) {
           setError(packageInvoiceError(cause));
           setBusy(false);
@@ -409,11 +413,9 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
         await done(invoice);
         return;
       }
-      const f = new FormData(e.currentTarget);
       await createFinance({
         document_type: "INVOICE",
         client_id: clientId,
-        dossier_id: association === "NONE" ? null : selectedAssociatedPackage?.dossier_id || null,
         currency,
         due_date: dueDate || null,
         notes: notes || null,
@@ -435,21 +437,6 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
       width="max-w-[720px]"
     >
       <form onSubmit={submit} className="space-y-4">
-        <div className="flex gap-2 border-b pb-3" role="group" aria-label="Origine de la facture">
-          <button type="button" aria-pressed={mode === "manual"} onClick={() => { setMode("manual"); setError(""); }} className={mode === "manual" ? primary : button}>Facture libre</button>
-          <button type="button" aria-pressed={mode === "package"} onClick={() => { setMode("package"); setError(""); }} className={mode === "package" ? primary : button}>Depuis un colis</button>
-        </div>
-        {mode === "package" ? <section className="space-y-3 rounded-lg border border-slate-200 p-4">
-          <div><b className="text-[13px]">Facturer un colis enregistré</b><p className="mt-1 text-xs text-slate-600">La facture reprend le client, la devise et le tarif validé du colis. Aucun montant n’est saisi manuellement.</p></div>
-          <label className="grid gap-1 text-[13px]">Rechercher un colis<input className={input} type="search" value={packageQuery} onChange={(event) => { setPackageQuery(event.target.value); setPackageId(""); }} placeholder="Référence, suivi ou nom du client" /></label>
-          <label className="grid gap-1 text-[13px]">Colis<select required value={packageId} onChange={(event) => setPackageId(event.target.value)} className={input}>
-            <option value="">{packagesLoading ? "Recherche des colis…" : "Sélectionner un colis"}</option>
-            {packages.map((item) => <option key={item.id} value={item.id}>{item.package_reference || item.tracking_id || item.id} · {item.client_name || "Client non renseigné"}{item.fees_total == null ? " · Tarif à calculer" : ` · ${cash(item.fees_total, item.currency || "USD")}`}</option>)}
-          </select></label>
-          {(() => { const item = packages.find((candidate) => candidate.id === packageId); const priced = Boolean(item?.fees_total != null && item.pricing_snapshot && Object.keys(item.pricing_snapshot).length); return item && !priced && item.shipping_service_id ? <PermissionGuard permission="packages.pricing"><button type="button" disabled={pricingBusy || item.row_version == null} onClick={calculateSelectedPackagePrice} className={button}>{pricingBusy ? "Calcul du tarif…" : "Calculer le tarif du colis"}</button></PermissionGuard> : null; })()}
-          {!packagesLoading && !packages.length && <p className="text-xs text-slate-500">Aucun colis trouvé dans votre périmètre. Vérifiez la référence ou vos droits d’accès aux colis.</p>}
-          {(() => { const item = packages.find((candidate) => candidate.id === packageId); if (!item) return null; const priced = item.fees_total != null && Boolean(item.pricing_snapshot); return <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-700"><p><strong>Client :</strong> {item.client_name || "Non renseigné"}</p><p><strong>Tarif :</strong> {priced ? cash(item.fees_total!, item.currency || "USD") : "À calculer dans le module Colis avant facturation"}</p>{!item.client_id && <p className="mt-2 text-amber-700">Ce colis n’a pas de client associé ; sa facture ne peut pas être préparée.</p>}{priced && <p className="mt-2">Le brouillon sera ouvert après sa création. Émettez-le depuis sa fiche pour qu’il soit pris en compte au départ.</p>}</div>; })()}
-        </section> : <>
         <div className="flex items-center gap-3 px-1" aria-label={`Étape ${step} sur 2`}>
           {[{n:1,label:"Informations"},{n:2,label:"Vérification"}].map((item)=><div key={item.n} className={`flex flex-1 items-center gap-2 py-2 text-[12px] ${step===item.n?"font-semibold text-[#16855f]":"text-[#7b858d]"}`}><span className={`grid h-6 w-6 place-items-center rounded-full ${step>=item.n?"bg-[#16855f] text-white":"bg-[#f0f1f2]"}`}>{step>item.n?"✓":item.n}</span>{item.label}<span className={`h-[2px] flex-1 ${item.n===1?step===2?"bg-[#16855f]":"bg-[#e6e8e9]":"hidden"}`}/></div>)}
         </div>
@@ -460,28 +447,26 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
               <option value="">Sélectionner un client</option>{clients.map((client)=><option key={client.id} value={client.id}>{client.display_name||client.name||client.company_name||client.phone}</option>)}
             </select></label>
             <fieldset className="space-y-1"><legend className="text-[12px]">Associer à</legend><div className="grid grid-cols-3 rounded-full bg-[#f2f3f3] p-1">{([ ["PACKAGE","Colis"],["SHIPMENT","Expédition"],["NONE","Aucun"] ] as const).map(([value,label])=><button key={value} type="button" aria-pressed={association===value} onClick={()=>{setAssociation(value);setAssociatedPackageId("");}} className={`rounded-full px-3 py-1.5 text-[12px] ${association===value?"bg-white font-semibold text-[#20272d] shadow-sm":"text-[#78828a]"}`}>{label}</button>)}</div></fieldset>
-            {association!=="NONE"&&<label className="grid gap-1 text-[12px]">{association==="PACKAGE"?"Colis concerné":"Expédition concernée"}<select value={associatedPackageId} onChange={(event)=>setAssociatedPackageId(event.target.value)} disabled={!clientId||packagesLoading} className={input}><option value="">{!clientId?"Sélectionnez d’abord un client":packagesLoading?"Chargement…":`Sélectionner ${association==="PACKAGE"?"un colis":"une expédition"}`}</option>{packages.filter(item=>association==="PACKAGE"?true:Boolean(item.shipment_id)).map(item=><option key={item.id} value={item.id}>{association==="PACKAGE"?(item.package_reference||item.tracking_id||item.id):(item.shipment_reference||item.shipment_id)} · {item.description||item.package_type}</option>)}</select>{selectedAssociatedPackage&&!selectedAssociatedPackage.dossier_id&&<span className="text-[11px] text-amber-700">Aucun dossier associé : utilisez « Depuis un colis » pour facturer ce colis avec son tarif validé.</span>}</label>}
-            <p className="text-[10px] text-[#78828a]">L’association rattache la facture au dossier du colis ou de l’expédition. Les montants restent saisis dans les prestations ci-dessous.</p>
+            {association!=="NONE"&&<><label className="grid gap-1 text-[12px]">{association==="PACKAGE"?"Colis concerné":"Expédition concernée"}<select value={associatedPackageId} onChange={(event)=>{setAssociatedPackageId(event.target.value);setExistingPackageInvoice(null);}} disabled={!clientId||packagesLoading} className={input}><option value="">{!clientId?"Sélectionnez d’abord un client":packagesLoading?"Chargement…":`Sélectionner ${association==="PACKAGE"?"un colis":"une expédition"}`}</option>{packages.filter(item=>association==="PACKAGE"?true:Boolean(item.shipment_id)).map(item=><option key={item.id} value={item.id}>{association==="PACKAGE"?(item.package_reference||item.tracking_id||item.id):(item.shipment_reference||item.shipment_id)} · {item.description||item.package_type}</option>)}</select></label>{selectedAssociatedPackage&&<div className="rounded-[7px] bg-[#f8f9f9] p-3 text-[12px]">{pricingBusy?<span className="text-[#78828a]">Calcul du tarif selon les règles de tarification…</span>:packageIsPriced?<div className="flex items-center justify-between gap-3"><span><strong className="block">Tarif calculé du colis</strong><span className="text-[10px] text-[#78828a]">Tarif validé · ajouté automatiquement aux prestations</span></span><strong>{cash(packageTotal,selectedAssociatedPackage.currency||currency)}</strong></div>:<span className="text-amber-700">{selectedAssociatedPackage.shipping_service_id?error||"Calcul du tarif en cours…":"Ce colis n’a pas de service tarifable associé."}</span>}{existingPackageInvoice&&<p className="mt-2 text-[11px] text-amber-700">Une facture existe déjà pour ce colis : {existingPackageInvoice.document_number}.</p>}</div>}</>}
+            <p className="text-[10px] text-[#78828a]">Le tarif du colis est calculé automatiquement. Sans colis, ajoutez librement les prestations et leurs montants.</p>
             <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-[12px]">Date de facture<input type="date" value={today} readOnly className={`${input} bg-[#f7f8f8]`} /><span className="text-[10px] text-[#78828a]">La date officielle est fixée à l’émission.</span></label><label className="grid gap-1 text-[12px]">Date d’échéance *<input required type="date" value={dueDate} onChange={(event)=>setDueDate(event.target.value)} className={input}/></label></div>
-            <label className="grid gap-1 text-[12px]">Devise<select value={currency} onChange={(event)=>setCurrency(event.target.value)} className={input}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code} value={code}>{code} — {code==="USD"?"Dollar américain":code==="CDF"?"Franc congolais":code==="EUR"?"Euro":code}</option>)}</select><span className="text-[10px] text-[#78828a]">Changer la devise ne convertit pas automatiquement les montants saisis.</span></label>
+            <label className="grid gap-1 text-[12px]">Devise<select disabled={association!=="NONE"} value={currency} onChange={(event)=>setCurrency(event.target.value)} className={`${input} disabled:bg-[#f7f8f8]`}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code} value={code}>{code} — {code==="USD"?"Dollar américain":code==="CDF"?"Franc congolais":code==="EUR"?"Euro":code}</option>)}</select><span className="text-[10px] text-[#78828a]">{association==="NONE"?"Changer la devise ne convertit pas automatiquement les montants saisis.":"La devise suit automatiquement celle du tarif validé du colis."}</span></label>
           </section>
           <section className="space-y-3">
             <div className="flex items-center justify-between"><h3 className="text-[13px] font-semibold">2. Prestations facturées</h3><span className="rounded-full bg-[#f1f2f2] px-2 py-1 text-[10px]">{lines.length} ligne(s)</span></div>
             {!lines.length?<div className="py-3 text-center text-[12px] text-[#78828a]"><ReceiptText size={16} className="mx-auto mb-1"/><strong className="block font-medium text-[#303941]">Aucune prestation ajoutée</strong><span>Ajoutez les prestations facturées ci-dessous.</span></div>:<div className="space-y-2">{lines.map((line,index)=><div key={index} className="grid gap-2 rounded-[7px] bg-[#f8f9f9] p-3 sm:grid-cols-[minmax(0,2fr)_90px_minmax(120px,1fr)_auto]"><label className="grid gap-1 text-[11px]">Description de la prestation *<input required value={line.description} onChange={(event)=>setLines(lines.map((item,i)=>i===index?{...item,description:event.target.value}:item))} placeholder="Ex. Transport aérien, manutention…" className={input}/></label><label className="grid gap-1 text-[11px]">Quantité *<input required type="number" min="0.001" step="0.001" value={line.quantity} onChange={(event)=>setLines(lines.map((item,i)=>i===index?{...item,quantity:Number(event.target.value)}:item))} className={input}/></label><label className="grid gap-1 text-[11px]">Prix unitaire ({currency}) *<input required type="number" min="0" step="0.01" value={line.unit_price} onChange={(event)=>setLines(lines.map((item,i)=>i===index?{...item,unit_price:Number(event.target.value)}:item))} placeholder="Tarif à définir" className={input}/></label><button type="button" aria-label="Retirer la prestation" className="self-end px-2 py-2 text-[11px] text-red-600" onClick={()=>setLines(lines.filter((_,i)=>i!==index))}>Retirer</button></div>)}</div>}
             <button type="button" className={`${button} w-full rounded-full`} onClick={()=>setLines([...lines,{description:"",quantity:1,unit_price:0,discount_rate:0,tax_rate:0}])}><Plus size={13}/>Ajouter une ligne</button>
-            <div className="flex items-center justify-between rounded-[7px] bg-[#f8f9f9] px-3 py-3 text-[12px]"><strong>Total de la facture</strong><strong>{cash(total,currency)}</strong></div>
+            <div className="flex items-center justify-between rounded-[7px] bg-[#f8f9f9] px-3 py-3 text-[12px]"><strong>Total de la facture</strong><strong>{cash(total,selectedAssociatedPackage?.currency||currency)}</strong></div>
           </section>
           <section className="space-y-3"><h3 className="text-[13px] font-semibold">3. Règlement</h3><label className="grid gap-1 text-[12px]">Conditions applicables<select value={paymentTerms} onChange={(event)=>setPaymentTerms(event.target.value)} className={input}>{["Paiement avant livraison","Paiement à l’arrivée","Paiement à crédit","Paiement à réception","Autre condition"].map(term=><option key={term}>{term}</option>)}</select><span className="text-[10px] text-[#78828a]">La politique de paiement dépend aussi des paramètres financiers du service concerné.</span></label><label className="grid gap-1 text-[12px]">Note sur la facture (facultatif)<textarea value={notes} onChange={(event)=>setNotes(event.target.value)} className="min-h-16 rounded-[5px] border border-[#d8dce0] p-3 text-[12px] outline-none focus:border-[#16855f]" placeholder="Informations ou instructions de règlement…"/></label></section>
         </div> : <div className="space-y-4">
           <h3 className="text-[13px] font-semibold">Vérification de la facture</h3>
           <section className="space-y-2 rounded-[7px] bg-[#f8f9f9] p-3 text-[12px]"><div className="flex justify-between"><span className="text-[#78828a]">Client</span><strong>{selectedClient?.display_name||selectedClient?.name||selectedClient?.company_name||selectedClient?.phone}</strong></div><div className="flex justify-between"><span className="text-[#78828a]">Association</span><strong>{association==="NONE"?"Aucune":`${association==="PACKAGE"?"Colis":"Expédition"} · ${selectedAssociatedPackage?.package_reference||selectedAssociatedPackage?.tracking_id||selectedAssociatedPackage?.shipment_reference||""}`}</strong></div><div className="flex justify-between"><span className="text-[#78828a]">Échéance</span><strong>{dueDate?new Date(`${dueDate}T00:00:00`).toLocaleDateString("fr-FR"):"—"}</strong></div><div className="flex justify-between"><span className="text-[#78828a]">Devise</span><strong>{currency}</strong></div></section>
-          <section className="space-y-2"><h4 className="text-[12px] font-semibold">Prestations</h4>{lines.map((line,index)=><div key={index} className="flex justify-between gap-3 rounded-[7px] px-2 py-2 text-[12px]"><span>{line.description}<span className="block text-[10px] text-[#78828a]">{line.quantity} × {cash(line.unit_price,currency)}</span></span><strong>{cash(line.quantity*line.unit_price*(1-line.discount_rate/100)*(1+line.tax_rate/100),currency)}</strong></div>)}<div className="flex justify-between bg-[#f8f9f9] p-3 text-[13px]"><strong>Total</strong><strong>{cash(total,currency)}</strong></div></section>
+          <section className="space-y-2"><h4 className="text-[12px] font-semibold">Prestations</h4>{selectedAssociatedPackage&&packageIsPriced&&<div className="flex justify-between gap-3 rounded-[7px] px-2 py-2 text-[12px]"><span>Transport du colis {selectedAssociatedPackage.package_reference}<span className="block text-[10px] text-[#78828a]">Tarif validé</span></span><strong>{cash(packageTotal,selectedAssociatedPackage.currency||currency)}</strong></div>}{lines.map((line,index)=><div key={index} className="flex justify-between gap-3 rounded-[7px] px-2 py-2 text-[12px]"><span>{line.description}<span className="block text-[10px] text-[#78828a]">{line.quantity} × {cash(line.unit_price,currency)}</span></span><strong>{cash(line.quantity*line.unit_price*(1-line.discount_rate/100)*(1+line.tax_rate/100),currency)}</strong></div>)}<div className="flex justify-between bg-[#f8f9f9] p-3 text-[13px]"><strong>Total</strong><strong>{cash(total,selectedAssociatedPackage?.currency||currency)}</strong></div></section>
           <section className="space-y-1 text-[12px]"><h4 className="font-semibold">Règlement</h4><p>{paymentTerms}</p>{notes&&<p className="text-[#78828a]">{notes}</p>}</section>
         </div>}
-        </>}
         {error && <p className="text-[13px] text-red-600">{error}</p>}
-        {mode === "package" && !selectedPackageIsPriced ? <p className="text-xs text-slate-500">Calculez d’abord le tarif enregistré du colis. Le bouton de facturation sera activé ensuite.</p> : null}
-        {mode === "package" ? <button disabled={busy || packagesLoading || !packageId || !selectedPackageIsPriced} className={`${primary} w-full`}>{busy?"Création…":"Préparer la facture du colis"}</button> : <div className="flex items-center justify-between gap-3 pt-2"><button type="button" className={button} onClick={()=>step===2?setStep(1):close()}>{step===2?"Retour aux informations":"Annuler"}</button><div className="flex gap-2">{step===1&&<button type="button" disabled={busy} className={button} onClick={()=>void (async()=>{if(!clientId||!dueDate||!lines.length||lines.some(line=>!line.description.trim()||line.quantity<=0)||association!=="NONE"&&(!selectedAssociatedPackage?.dossier_id)){setError("Complétez le client, l’échéance, l’association et au moins une prestation avant d’enregistrer.");return;}setBusy(true);try{await createFinance({document_type:"INVOICE",client_id:clientId,dossier_id:association==="NONE"?null:selectedAssociatedPackage?.dossier_id||null,currency,due_date:dueDate,notes:notes||null,terms:paymentTerms,lines});await done();}catch(cause){setError(err(cause));setBusy(false);}})()}>{busy?"Enregistrement…":"Enregistrer en brouillon"}</button>}<button disabled={busy} className={primary}>{step===1?"Vérifier la facture →":busy?"Enregistrement…":"Confirmer et enregistrer"}</button></div></div>}
+        <div className="flex items-center justify-between gap-3 pt-2"><button type="button" className={button} onClick={()=>step===2?setStep(1):close()}>{step===2?"Retour aux informations":"Annuler"}</button><div className="flex gap-2">{step===1&&<button type="button" disabled={busy||existingInvoiceLoading||pricingBusy} className={button} onClick={()=>void (async()=>{if(!clientId||!dueDate||(association==="NONE"&&!lines.length)||association!=="NONE"&&!packageIsPriced||existingPackageInvoice){setError("Complétez le client, l’échéance et ajoutez une prestation ou choisissez un colis tarifé.");return;}setBusy(true);try{if(association!=="NONE"&&selectedAssociatedPackage?.row_version){await createPackageInvoice(selectedAssociatedPackage.id,selectedAssociatedPackage.row_version,{due_date:dueDate,notes:notes||null,terms:paymentTerms,additional_lines:lines});}else{await createFinance({document_type:"INVOICE",client_id:clientId,currency,due_date:dueDate,notes:notes||null,terms:paymentTerms,lines});}await done();}catch(cause){setError(err(cause));setBusy(false);}})()}>{busy?"Enregistrement…":"Enregistrer en brouillon"}</button>}<button disabled={busy||pricingBusy||packagesLoading||existingInvoiceLoading||(association!=="NONE"&&(!packageIsPriced||Boolean(existingPackageInvoice)))} className={primary}>{step===1?"Vérifier la facture →":busy?"Enregistrement…":"Confirmer et enregistrer"}</button></div></div>
       </form>
     </OperationDrawer>
   );

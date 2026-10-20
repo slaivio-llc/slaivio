@@ -42,6 +42,11 @@ class DocumentCreate(BaseModel):
  @classmethod
  def currency_code(cls,v):return v.upper()
 class Version(BaseModel):expected_version:int=Field(ge=1)
+class PackageInvoiceCreate(Version):
+ due_date:date|None=None
+ notes:str|None=Field(default=None,max_length=2000)
+ terms:str|None=Field(default=None,max_length=2000)
+ additional_lines:list[Line]=Field(default_factory=list,max_length=199)
 class OfficeAssignment(Version):office_id:UUID
 class Void(Version):reason:str=Field(min_length=4,max_length=500)
 class Payment(BaseModel):
@@ -163,11 +168,11 @@ def office_assignment(document_id:UUID,body:OfficeAssignment,tenant=Depends(get_
 def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant)):
  return get_package_invoice(tenant['org_id'],str(package_id))
 @router.post("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_package_office_scope),Depends(require_permission("finance.read"))])
-def package_invoice_create(package_id:UUID,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create")),context=Depends(get_current_office_context)):
+def package_invoice_create(package_id:UUID,body:PackageInvoiceCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create")),context=Depends(get_current_office_context)):
  office_id = context.get('selected_office_id')
  if office_id:
   validate_office_assignment(context, office_id)
- return create_package_invoice(tenant['org_id'],str(package_id),actor(tenant),name(tenant),body.expected_version, office_id=office_id)
+ return create_package_invoice(tenant['org_id'],str(package_id),actor(tenant),name(tenant),body.expected_version, office_id=office_id, extras=[line.model_dump() for line in body.additional_lines], due_date=body.due_date, notes=body.notes, terms=body.terms)
 @router.get("/{document_id}/print")
 def printable(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return Response(repo.printable(tenant['org_id'],document_id),media_type="text/html; charset=utf-8")
 @router.post("/{document_id}/issue")

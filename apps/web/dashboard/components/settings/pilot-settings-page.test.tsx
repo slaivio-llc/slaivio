@@ -163,6 +163,15 @@ describe("PilotSettingsPage navigation", () => {
     expect(screen.getByRole("heading", { name: "Intelligence artificielle" })).toBeVisible();
   });
 
+  it("keeps notification preferences in general settings, not communication settings", async () => {
+    render(<PilotSettingsPage scope="communication" />);
+
+    expect(await screen.findByRole("button", { name: "WhatsApp" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Assistant IA" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Réponses" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Notifications" })).not.toBeInTheDocument();
+  });
+
   it("hides parcel network settings from a vehicle-import agency", async () => {
     vi.mocked(adminService.getPilotSettings).mockResolvedValue({
       ...settings,

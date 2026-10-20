@@ -63,7 +63,7 @@ export function PilotSettingsPage({scope="all",embedded=false}:{scope?:"all"|"co
   const [notice, setNotice] = useState("");
   const parcelFreight = data?.organization.organization_type === "PARCEL_FREIGHT";
   const visibleSections = useMemo(() => scope==="communication"
-    ? sections.filter(([key])=>["channels","ai","responses","notifications"].includes(key))
+    ? sections.filter(([key])=>["channels","ai","responses"].includes(key))
     : sections.filter(([key])=>parcelFreight||!["network","services","routes"].includes(key)),
     [parcelFreight,scope]);
 

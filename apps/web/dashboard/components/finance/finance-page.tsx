@@ -332,40 +332,44 @@ function FinanceOverview({loading,stats,payments,onViewAll,onNewInvoice,onBalanc
 function CreateModal({ close, done }: { close: () => void; done: (document?: FinanceDocument) => void | Promise<void> }) {
   const [clients, setClients] = useState<ClientRecord[]>([]),
     [mode, setMode] = useState<"manual" | "package">("manual"),
+    [step, setStep] = useState<1 | 2>(1),
+    [clientId, setClientId] = useState(""),
+    [association, setAssociation] = useState<"PACKAGE" | "SHIPMENT" | "NONE">("PACKAGE"),
     [packages, setPackages] = useState<PackageRecord[]>([]),
     [packageQuery, setPackageQuery] = useState(""),
+    [associatedPackageId, setAssociatedPackageId] = useState(""),
     [packageId, setPackageId] = useState(""),
     [packagesLoading, setPackagesLoading] = useState(false),
     [pricingBusy, setPricingBusy] = useState(false),
     [currency, setCurrency] = useState("USD"),
-    [lines, setLines] = useState([
-      {
-        description: "Prestation de transport",
-        quantity: 1,
-        unit_price: 0,
-        discount_rate: 0,
-        tax_rate: 0,
-      },
-    ]),
+    [dueDate, setDueDate] = useState(""),
+    [paymentTerms, setPaymentTerms] = useState("Paiement avant livraison"),
+    [notes, setNotes] = useState(""),
+    [lines, setLines] = useState<Array<{description:string;quantity:number;unit_price:number;discount_rate:number;tax_rate:number}>>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const selectedPackageForInvoice = packages.find((item) => item.id === packageId);
+  const selectedAssociatedPackage = packages.find((item) => item.id === associatedPackageId);
+  const selectedClient = clients.find((client) => client.id === clientId);
+  const today = new Date().toISOString().slice(0, 10);
+  const total = lines.reduce((sum, line) => sum + line.quantity * line.unit_price * (1 - line.discount_rate / 100) * (1 + line.tax_rate / 100), 0);
   const selectedPackageIsPriced = Boolean(selectedPackageForInvoice?.fees_total != null && selectedPackageForInvoice.pricing_snapshot && Object.keys(selectedPackageForInvoice.pricing_snapshot).length);
   useEffect(() => {
     listClients({ page_size: 100 }).then((r) => setClients(r.items)).catch(()=>setError("Chargement des clients impossible. Rouvrez le formulaire pour réessayer."));
   }, []);
   useEffect(() => {
-    if (mode !== "package") return;
+    if (mode !== "manual" && mode !== "package") return;
+    if (mode === "manual" && (association === "NONE" || !clientId)) { setPackages([]); return; }
     let active = true;
     const timer = setTimeout(() => {
       setPackagesLoading(true);
-      listPackages({ q: packageQuery.trim() || undefined, page: 1, page_size: 50 })
+      listPackages({ q: mode === "package" ? packageQuery.trim() || undefined : undefined, client_id: mode === "manual" ? clientId : undefined, page: 1, page_size: 50 })
         .then((result) => { if (active) setPackages(result.items); })
         .catch((cause) => { if (active) setError(err(cause)); })
         .finally(() => { if (active) setPackagesLoading(false); });
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [mode, packageQuery]);
+  }, [mode, association, clientId, packageQuery]);
   async function calculateSelectedPackagePrice() {
     const selectedPackage = packages.find((item) => item.id === packageId);
     if (!selectedPackage?.shipping_service_id || pricingBusy) return;
@@ -382,6 +386,13 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
   }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (mode === "manual" && step === 1) {
+      const invalid = !clientId || !dueDate || !lines.length || lines.some((line) => !line.description.trim() || line.quantity <= 0 || line.unit_price < 0);
+      if (invalid) { setError("Sélectionnez un client et ajoutez au moins une prestation complète."); return; }
+      if (association !== "NONE" && !selectedAssociatedPackage) { setError("Sélectionnez le colis ou l’expédition à associer."); return; }
+      if (association !== "NONE" && !selectedAssociatedPackage?.dossier_id) { setError("Ce colis n’est pas lié à un dossier facturable. Utilisez le parcours sécurisé « Depuis un colis »."); return; }
+      setError(""); setStep(2); return;
+    }
     setBusy(true);
     try {
       if (mode === "package") {
@@ -400,12 +411,13 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
       }
       const f = new FormData(e.currentTarget);
       await createFinance({
-        document_type: String(f.get("document_type")),
-        client_id: String(f.get("client_id")),
-        currency: String(f.get("currency")).toUpperCase(),
-        due_date: String(f.get("due_date")) || null,
-        notes: String(f.get("notes")) || null,
-        terms: String(f.get("terms")) || null,
+        document_type: "INVOICE",
+        client_id: clientId,
+        dossier_id: association === "NONE" ? null : selectedAssociatedPackage?.dossier_id || null,
+        currency,
+        due_date: dueDate || null,
+        notes: notes || null,
+        terms: paymentTerms,
         lines,
       });
       await done();
@@ -418,9 +430,9 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
     <OperationDrawer
       open
       title="Créer une facture"
-      description="Facturez les prestations de transport d’un client, puis enregistrez ses paiements et remettez son reçu."
+      description="Préparez la facture, vérifiez son contenu, puis enregistrez-la en brouillon."
       close={close}
-      width="max-w-3xl"
+      width="max-w-[720px]"
     >
       <form onSubmit={submit} className="space-y-4">
         <div className="flex gap-2 border-b pb-3" role="group" aria-label="Origine de la facture">
@@ -438,74 +450,38 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
           {!packagesLoading && !packages.length && <p className="text-xs text-slate-500">Aucun colis trouvé dans votre périmètre. Vérifiez la référence ou vos droits d’accès aux colis.</p>}
           {(() => { const item = packages.find((candidate) => candidate.id === packageId); if (!item) return null; const priced = item.fees_total != null && Boolean(item.pricing_snapshot); return <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-700"><p><strong>Client :</strong> {item.client_name || "Non renseigné"}</p><p><strong>Tarif :</strong> {priced ? cash(item.fees_total!, item.currency || "USD") : "À calculer dans le module Colis avant facturation"}</p>{!item.client_id && <p className="mt-2 text-amber-700">Ce colis n’a pas de client associé ; sa facture ne peut pas être préparée.</p>}{priced && <p className="mt-2">Le brouillon sera ouvert après sa création. Émettez-le depuis sa fiche pour qu’il soit pris en compte au départ.</p>}</div>; })()}
         </section> : <>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input type="hidden" name="document_type" value="INVOICE"/>
-          <label className="grid gap-1 text-[13px]">Client<select required name="client_id" className={input}>
-            <option value="">Sélectionner un client</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.display_name || c.name || c.company_name || c.phone}
-              </option>
-            ))}
-          </select></label>
-          <label className="grid gap-1 text-[13px]">Devise<select required name="currency" value={currency} onChange={event=>setCurrency(event.target.value)} className={input}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code}>{code}</option>)}</select></label>
-          <label className="grid gap-1 text-[13px]">Échéance (optionnelle)<input name="due_date" type="date" className={input} /></label>
+        <div className="flex items-center gap-3 px-1" aria-label={`Étape ${step} sur 2`}>
+          {[{n:1,label:"Informations"},{n:2,label:"Vérification"}].map((item)=><div key={item.n} className={`flex flex-1 items-center gap-2 py-2 text-[12px] ${step===item.n?"font-semibold text-[#16855f]":"text-[#7b858d]"}`}><span className={`grid h-6 w-6 place-items-center rounded-full ${step>=item.n?"bg-[#16855f] text-white":"bg-[#f0f1f2]"}`}>{step>item.n?"✓":item.n}</span>{item.label}<span className={`h-[2px] flex-1 ${item.n===1?step===2?"bg-[#16855f]":"bg-[#e6e8e9]":"hidden"}`}/></div>)}
         </div>
-        <section className="space-y-3 rounded-lg bg-slate-50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <b className="text-[13px]">Prestations facturées</b>
-              <p className="mt-1 text-xs text-slate-600">Pour chaque prestation, indiquez la quantité et le prix par unité. Le montant est calculé automatiquement.</p>
-            </div>
-            <button
-              type="button"
-              className={button}
-              onClick={() =>
-                setLines([
-                  ...lines,
-                  {
-                    description: "",
-                    quantity: 1,
-                    unit_price: 0,
-                    discount_rate: 0,
-                    tax_rate: 0,
-                  },
-                ])
-              }
-            >
-              Ajouter une ligne
-            </button>
-          </div>
-          {lines.map((l, i) => (
-            <div key={i} className="grid gap-3 rounded-lg bg-white p-3 sm:grid-cols-2 lg:grid-cols-[minmax(180px,2fr)_minmax(90px,.7fr)_minmax(120px,1fr)_minmax(100px,.8fr)_auto]">
-              <label className="grid gap-1 text-xs font-medium text-slate-700">Prestation<input required aria-label={`Prestation ${i+1}`} className={input} value={l.description} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,description:e.target.value}:x))} placeholder="Ex. Transport du colis"/></label>
-              <label className="grid gap-1 text-xs font-medium text-slate-700">Quantité<input required aria-label={`Quantité ${i+1}`} type="number" step="0.001" min="0.001" className={input} value={l.quantity} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,quantity:Number(e.target.value)}:x))}/></label>
-              <label className="grid gap-1 text-xs font-medium text-slate-700">Prix unitaire<input required aria-label={`Prix unitaire ${i+1}`} type="number" step="0.01" min="0" className={input} value={l.unit_price} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,unit_price:Number(e.target.value)}:x))}/></label>
-              <label className="grid gap-1 text-xs font-medium text-slate-700">Taxe (%)<input aria-label={`Taxe ${i+1}`} type="number" min="0" max="100" step="0.01" className={input} value={l.tax_rate} onChange={(e)=>setLines(lines.map((x,j)=>j===i?{...x,tax_rate:Number(e.target.value)}:x))}/></label>
-              <div className="flex items-end justify-between gap-3 lg:flex-col lg:items-end lg:justify-center">
-                <span className="text-xs text-slate-500">Montant</span>
-                <strong className="text-sm">{cash(l.quantity*l.unit_price*(1+l.tax_rate/100),currency)}</strong>
-                {lines.length>1&&<button type="button" className="text-xs text-red-600 hover:underline" onClick={()=>setLines(lines.filter((_,j)=>j!==i))}>Retirer</button>}
-              </div>
-            </div>
-          ))}
-        </section>
-        <textarea
-          name="notes"
-          className="min-h-16 w-full rounded bg-slate-50 p-3 text-[13px] outline-none focus:ring-2 focus:ring-emerald-700"
-          placeholder="Notes internes ou visibles sur le document"
-        />
-        <textarea
-          name="terms"
-          className="min-h-16 w-full rounded bg-slate-50 p-3 text-[13px] outline-none focus:ring-2 focus:ring-emerald-700"
-          placeholder="Conditions de règlement"
-        />
+        {step === 1 ? <div className="space-y-5">
+          <section className="space-y-3">
+            <h3 className="text-[13px] font-semibold">1. Informations générales</h3>
+            <label className="grid gap-1 text-[12px]">Client *<select required value={clientId} onChange={(event)=>{setClientId(event.target.value);setAssociatedPackageId("");}} className={input}>
+              <option value="">Sélectionner un client</option>{clients.map((client)=><option key={client.id} value={client.id}>{client.display_name||client.name||client.company_name||client.phone}</option>)}
+            </select></label>
+            <fieldset className="space-y-1"><legend className="text-[12px]">Associer à</legend><div className="grid grid-cols-3 rounded-full bg-[#f2f3f3] p-1">{([ ["PACKAGE","Colis"],["SHIPMENT","Expédition"],["NONE","Aucun"] ] as const).map(([value,label])=><button key={value} type="button" aria-pressed={association===value} onClick={()=>{setAssociation(value);setAssociatedPackageId("");}} className={`rounded-full px-3 py-1.5 text-[12px] ${association===value?"bg-white font-semibold text-[#20272d] shadow-sm":"text-[#78828a]"}`}>{label}</button>)}</div></fieldset>
+            {association!=="NONE"&&<label className="grid gap-1 text-[12px]">{association==="PACKAGE"?"Colis concerné":"Expédition concernée"}<select value={associatedPackageId} onChange={(event)=>setAssociatedPackageId(event.target.value)} disabled={!clientId||packagesLoading} className={input}><option value="">{!clientId?"Sélectionnez d’abord un client":packagesLoading?"Chargement…":`Sélectionner ${association==="PACKAGE"?"un colis":"une expédition"}`}</option>{packages.filter(item=>association==="PACKAGE"?true:Boolean(item.shipment_id)).map(item=><option key={item.id} value={item.id}>{association==="PACKAGE"?(item.package_reference||item.tracking_id||item.id):(item.shipment_reference||item.shipment_id)} · {item.description||item.package_type}</option>)}</select>{selectedAssociatedPackage&&!selectedAssociatedPackage.dossier_id&&<span className="text-[11px] text-amber-700">Aucun dossier associé : utilisez « Depuis un colis » pour facturer ce colis avec son tarif validé.</span>}</label>}
+            <p className="text-[10px] text-[#78828a]">L’association rattache la facture au dossier du colis ou de l’expédition. Les montants restent saisis dans les prestations ci-dessous.</p>
+            <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-[12px]">Date de facture<input type="date" value={today} readOnly className={`${input} bg-[#f7f8f8]`} /><span className="text-[10px] text-[#78828a]">La date officielle est fixée à l’émission.</span></label><label className="grid gap-1 text-[12px]">Date d’échéance *<input required type="date" value={dueDate} onChange={(event)=>setDueDate(event.target.value)} className={input}/></label></div>
+            <label className="grid gap-1 text-[12px]">Devise<select value={currency} onChange={(event)=>setCurrency(event.target.value)} className={input}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code} value={code}>{code} — {code==="USD"?"Dollar américain":code==="CDF"?"Franc congolais":code==="EUR"?"Euro":code}</option>)}</select><span className="text-[10px] text-[#78828a]">Changer la devise ne convertit pas automatiquement les montants saisis.</span></label>
+          </section>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between"><h3 className="text-[13px] font-semibold">2. Prestations facturées</h3><span className="rounded-full bg-[#f1f2f2] px-2 py-1 text-[10px]">{lines.length} ligne(s)</span></div>
+            {!lines.length?<div className="py-3 text-center text-[12px] text-[#78828a]"><ReceiptText size={16} className="mx-auto mb-1"/><strong className="block font-medium text-[#303941]">Aucune prestation ajoutée</strong><span>Ajoutez les prestations facturées ci-dessous.</span></div>:<div className="space-y-2">{lines.map((line,index)=><div key={index} className="grid gap-2 rounded-[7px] bg-[#f8f9f9] p-3 sm:grid-cols-[minmax(0,2fr)_90px_minmax(120px,1fr)_auto]"><label className="grid gap-1 text-[11px]">Description de la prestation *<input required value={line.description} onChange={(event)=>setLines(lines.map((item,i)=>i===index?{...item,description:event.target.value}:item))} placeholder="Ex. Transport aérien, manutention…" className={input}/></label><label className="grid gap-1 text-[11px]">Quantité *<input required type="number" min="0.001" step="0.001" value={line.quantity} onChange={(event)=>setLines(lines.map((item,i)=>i===index?{...item,quantity:Number(event.target.value)}:item))} className={input}/></label><label className="grid gap-1 text-[11px]">Prix unitaire ({currency}) *<input required type="number" min="0" step="0.01" value={line.unit_price} onChange={(event)=>setLines(lines.map((item,i)=>i===index?{...item,unit_price:Number(event.target.value)}:item))} placeholder="Tarif à définir" className={input}/></label><button type="button" aria-label="Retirer la prestation" className="self-end px-2 py-2 text-[11px] text-red-600" onClick={()=>setLines(lines.filter((_,i)=>i!==index))}>Retirer</button></div>)}</div>}
+            <button type="button" className={`${button} w-full rounded-full`} onClick={()=>setLines([...lines,{description:"",quantity:1,unit_price:0,discount_rate:0,tax_rate:0}])}><Plus size={13}/>Ajouter une ligne</button>
+            <div className="flex items-center justify-between rounded-[7px] bg-[#f8f9f9] px-3 py-3 text-[12px]"><strong>Total de la facture</strong><strong>{cash(total,currency)}</strong></div>
+          </section>
+          <section className="space-y-3"><h3 className="text-[13px] font-semibold">3. Règlement</h3><label className="grid gap-1 text-[12px]">Conditions applicables<select value={paymentTerms} onChange={(event)=>setPaymentTerms(event.target.value)} className={input}>{["Paiement avant livraison","Paiement à l’arrivée","Paiement à crédit","Paiement à réception","Autre condition"].map(term=><option key={term}>{term}</option>)}</select><span className="text-[10px] text-[#78828a]">La politique de paiement dépend aussi des paramètres financiers du service concerné.</span></label><label className="grid gap-1 text-[12px]">Note sur la facture (facultatif)<textarea value={notes} onChange={(event)=>setNotes(event.target.value)} className="min-h-16 rounded-[5px] border border-[#d8dce0] p-3 text-[12px] outline-none focus:border-[#16855f]" placeholder="Informations ou instructions de règlement…"/></label></section>
+        </div> : <div className="space-y-4">
+          <h3 className="text-[13px] font-semibold">Vérification de la facture</h3>
+          <section className="space-y-2 rounded-[7px] bg-[#f8f9f9] p-3 text-[12px]"><div className="flex justify-between"><span className="text-[#78828a]">Client</span><strong>{selectedClient?.display_name||selectedClient?.name||selectedClient?.company_name||selectedClient?.phone}</strong></div><div className="flex justify-between"><span className="text-[#78828a]">Association</span><strong>{association==="NONE"?"Aucune":`${association==="PACKAGE"?"Colis":"Expédition"} · ${selectedAssociatedPackage?.package_reference||selectedAssociatedPackage?.tracking_id||selectedAssociatedPackage?.shipment_reference||""}`}</strong></div><div className="flex justify-between"><span className="text-[#78828a]">Échéance</span><strong>{dueDate?new Date(`${dueDate}T00:00:00`).toLocaleDateString("fr-FR"):"—"}</strong></div><div className="flex justify-between"><span className="text-[#78828a]">Devise</span><strong>{currency}</strong></div></section>
+          <section className="space-y-2"><h4 className="text-[12px] font-semibold">Prestations</h4>{lines.map((line,index)=><div key={index} className="flex justify-between gap-3 rounded-[7px] px-2 py-2 text-[12px]"><span>{line.description}<span className="block text-[10px] text-[#78828a]">{line.quantity} × {cash(line.unit_price,currency)}</span></span><strong>{cash(line.quantity*line.unit_price*(1-line.discount_rate/100)*(1+line.tax_rate/100),currency)}</strong></div>)}<div className="flex justify-between bg-[#f8f9f9] p-3 text-[13px]"><strong>Total</strong><strong>{cash(total,currency)}</strong></div></section>
+          <section className="space-y-1 text-[12px]"><h4 className="font-semibold">Règlement</h4><p>{paymentTerms}</p>{notes&&<p className="text-[#78828a]">{notes}</p>}</section>
+        </div>}
         </>}
         {error && <p className="text-[13px] text-red-600">{error}</p>}
         {mode === "package" && !selectedPackageIsPriced ? <p className="text-xs text-slate-500">Calculez d’abord le tarif enregistré du colis. Le bouton de facturation sera activé ensuite.</p> : null}
-        <button disabled={busy || (mode === "package" && (packagesLoading || !packageId || !selectedPackageIsPriced))} className={`${primary} w-full`}>
-          {busy ? "Création…" : mode === "package" ? "Préparer la facture du colis" : "Créer le brouillon"}
-        </button>
+        {mode === "package" ? <button disabled={busy || packagesLoading || !packageId || !selectedPackageIsPriced} className={`${primary} w-full`}>{busy?"Création…":"Préparer la facture du colis"}</button> : <div className="flex items-center justify-between gap-3 pt-2"><button type="button" className={button} onClick={()=>step===2?setStep(1):close()}>{step===2?"Retour aux informations":"Annuler"}</button><div className="flex gap-2">{step===1&&<button type="button" disabled={busy} className={button} onClick={()=>void (async()=>{if(!clientId||!dueDate||!lines.length||lines.some(line=>!line.description.trim()||line.quantity<=0)||association!=="NONE"&&(!selectedAssociatedPackage?.dossier_id)){setError("Complétez le client, l’échéance, l’association et au moins une prestation avant d’enregistrer.");return;}setBusy(true);try{await createFinance({document_type:"INVOICE",client_id:clientId,dossier_id:association==="NONE"?null:selectedAssociatedPackage?.dossier_id||null,currency,due_date:dueDate,notes:notes||null,terms:paymentTerms,lines});await done();}catch(cause){setError(err(cause));setBusy(false);}})()}>{busy?"Enregistrement…":"Enregistrer en brouillon"}</button>}<button disabled={busy} className={primary}>{step===1?"Vérifier la facture →":busy?"Enregistrement…":"Confirmer et enregistrer"}</button></div></div>}
       </form>
     </OperationDrawer>
   );

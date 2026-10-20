@@ -97,7 +97,10 @@ def create_in_transaction(c,o,a,n,payload):
  payload.setdefault('office_id',None)
  lines,sub,disc,tax,total=calculate(payload.pop('lines'))
  if not c.execute(text("select 1 from clients where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['client_id'],"o":o}).first():raise HTTPException(422,'finance_client_not_found')
- if payload.get('dossier_id') and not c.execute(text("select 1 from dossiers where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['dossier_id'],"o":o}).first():raise HTTPException(422,'finance_dossier_not_found')
+ if payload.get('dossier_id'):
+  dossier = c.execute(text("select client_id::text from dossiers where id=cast(:id as uuid) and org_id=:o and deleted_at is null"),{"id":payload['dossier_id'],"o":o}).mappings().first()
+  if not dossier:raise HTTPException(422,'finance_dossier_not_found')
+  if dossier['client_id'] and dossier['client_id'] != payload['client_id']:raise HTTPException(422,'finance_dossier_client_mismatch')
  if payload.get('source_document_id') and not c.execute(text("select 1 from finance_documents where id=cast(:id as uuid) and org_id=:o"),{"id":payload['source_document_id'],"o":o}).first():raise HTTPException(422,'finance_source_document_not_found')
  office_id = payload.get('office_id')
  if office_id is not None:

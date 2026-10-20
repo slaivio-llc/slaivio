@@ -6,13 +6,12 @@ import { FinanceDuePolicySettings } from "./finance-due-policy-settings";
 import { PaymentReverseButton } from "./finance-completion-actions";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { ArrowRight, BarChart3, ChevronRight, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Settings, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronRight, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Users, Wallet } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationContent, OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
+import { OperationContent, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
+import { OperationButton, OperationField, OperationFilterPopover } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients, type ClientRecord } from "@/services/clients";
 import { listPackages, pricePackage, type PackageRecord } from "@/services/packages";
@@ -107,17 +106,18 @@ export function FinancePage() {
     [q, setQ] = useState(""),
     [status, setStatus] = useState(""),
     [kind, setKind] = useState(""),
-    [activeMetric, setActiveMetric] = useState(""),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [create, setCreate] = useState(false),
-    [section, setSection] = useState<"home" | "overview" | "invoices" | "payments" | "balances" | "settings">("home"),
+    [section, setSection] = useState<"overview" | "invoices" | "payments" | "balances" | "settings">("overview"),
     [paymentRows, setPaymentRows] = useState<FinancePaymentRow[]>([]),
     [balanceRows, setBalanceRows] = useState<FinanceBalanceRow[]>([]),
     [currency, setCurrency] = useState(""),
+    [periodPreset, setPeriodPreset] = useState("month"),
     [startDate, setStartDate] = useState(() => dateInputValue(new Date(new Date().getFullYear(), new Date().getMonth(), 1))),
     [endDate, setEndDate] = useState(() => dateInputValue(new Date())),
     [openPaymentOnDetail, setOpenPaymentOnDetail] = useState(false),
+    [paymentChooserOpen, setPaymentChooserOpen] = useState(false),
     [selected, setSelected] = useState<FinanceDocument | null>(null);
   const closeResourceLink = useResourceLink(getFinance, setSelected, setError);
   useEffect(() => {
@@ -125,16 +125,30 @@ export function FinancePage() {
     if (requested === "overview" || requested === "invoices" || requested === "payments" || requested === "balances" || requested === "settings") {
       setSection(requested);
     } else if (requested === null) {
-      setSection("home");
+      setSection("overview");
     }
   }, [searchParams]);
   function selectSection(next: "overview" | "invoices" | "payments" | "balances" | "settings") {
     setSection(next);
-    setStatus(""); setKind(""); setActiveMetric("");
+    setStatus(""); setKind("");
     router.replace(`/app/finance?section=${next}`, { scroll: false });
   }
+  function changePeriod(preset: string) {
+    const now = new Date();
+    let start = new Date(now.getFullYear(), now.getMonth(), 1);
+    let end = now;
+    if (preset === "previous-month") {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      end = new Date(now.getFullYear(), now.getMonth(), 0);
+    } else if (preset === "year") {
+      start = new Date(now.getFullYear(), 0, 1);
+    }
+    setPeriodPreset(preset);
+    setStartDate(dateInputValue(start));
+    setEndDate(dateInputValue(end));
+  }
   const load = useCallback(async () => {
-    if (section === "home" || section === "settings") { setLoading(false); return; }
+    if (section === "settings") { setLoading(false); return; }
     setLoading(true);
     setError("");
     try {
@@ -146,7 +160,7 @@ export function FinancePage() {
           page_size: 100,
         }) : Promise.resolve({items:[] as FinanceDocument[],pagination:{total:0}}),
         financeStats({start_date:startDate||undefined,end_date:endDate||undefined}),
-        section === "payments" ? listFinancePayments({q:q||undefined,currency:currency||undefined,status:status||undefined,start_date:startDate||undefined,end_date:endDate||undefined,page_size:100}) : Promise.resolve({items:[] as FinancePaymentRow[]}),
+        section === "payments" || section === "overview" ? listFinancePayments({q:section === "payments" ? q||undefined : undefined,currency:section === "payments" ? currency||undefined : undefined,status:section === "payments" ? status||undefined : undefined,start_date:startDate||undefined,end_date:endDate||undefined,page_size:100}).catch(() => ({items:[] as FinancePaymentRow[]})) : Promise.resolve({items:[] as FinancePaymentRow[]}),
         section === "balances" ? listFinanceBalances({q:q||undefined,currency:currency||undefined,page_size:100}) : Promise.resolve({items:[] as FinanceBalanceRow[]}),
       ]);
       setItems(a.items);
@@ -197,13 +211,12 @@ export function FinancePage() {
     a.click();
     URL.revokeObjectURL(u);
   }
-  if (section === "settings") return <PermissionGuard permission="finance.settings"><FinanceDuePolicySettings/></PermissionGuard>;
   return (
     <div className="min-h-full bg-white">
       <OperationPageHeader
         title="Finance"
-        description="Suivez les montants à payer, les paiements reçus, les soldes clients, les factures et les reçus."
-        actions={section !== "home" ? (
+        description="Factures, paiements reçus et soldes clients."
+        actions={section === "overview" ? <PermissionGuard permission="finance.payments"><button className={primary} onClick={() => setPaymentChooserOpen(true)}><Plus size={15}/>Enregistrer un paiement</button></PermissionGuard> : section !== "settings" ? (
           <>
             <PermissionGuard permission="finance.export">
               <button className={button} onClick={download}>
@@ -220,33 +233,16 @@ export function FinancePage() {
           </>
         ) : undefined}
       />
-      {section === "home" ? <FinanceModuleHome/> : <main>
-        <nav aria-label="Sections Finance" className="flex gap-1 overflow-x-auto border-b border-[#e6e8e9] px-6">
-          {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>selectSection(key)} className={`shrink-0 border-b-2 px-3 py-3 text-[13px] ${section===key?"border-[#16855f] font-semibold text-[#126f50]":"border-transparent text-[#68717d] hover:text-[#17212b]"}`}>{label}</button>)}
+      <main>
+        <nav aria-label="Sections Finance" className="mx-auto flex w-full max-w-[1200px] gap-2 overflow-x-auto px-6 py-2 sm:px-8">
+          {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"],["settings","Paramètres"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>selectSection(key)} className={`shrink-0 rounded-full px-3 py-2 text-[12px] transition-colors ${section===key?"bg-[#111111] font-semibold text-white":"text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"}`}>{label}</button>)}
         </nav>
-        {section === "overview" && <OperationMetrics>
-        <OperationMetricGrid>
-          {[
-            ["Facturé sur la période", stats.period.by_currency.map(row => cash(row.invoiced, row.currency)).join(" · ") || "—"],
-            ["Encaissé sur la période", stats.period.by_currency.map(row => cash(row.collected, row.currency)).join(" · ") || "—"],
-            ["Solde restant dû", stats.by_currency.map(row => cash(row.outstanding, row.currency)).join(" · ") || "—"],
-            ["Exigible aujourd’hui", stats.by_currency.map(row => cash(row.due_now, row.currency)).join(" · ") || "—"],
-            ["Factures impayées", stats.unpaid_invoice_count],
-            ["Factures partiellement payées", stats.partially_paid_invoice_count],
-          ].map(([l, v]) => (
-            <OperationMetric key={String(l)} label={String(l)} value={v} active={activeMetric === l} onClick={() => { selectSection("invoices"); setActiveMetric(String(l)); setKind("INVOICE"); setStatus(String(l).includes("partiellement") ? "PARTIALLY_PAID" : ""); }} />
-          ))}
-        </OperationMetricGrid>
-        </OperationMetrics>}
-        {section === "overview" && <div className="flex flex-wrap items-end gap-3 px-6 pt-4">
-          <label className="grid gap-1 text-[11px] text-[#68717d]">Période — du<input aria-label="Début de la période" className={input} type="date" value={startDate} max={endDate || undefined} onChange={event=>setStartDate(event.target.value)} /></label>
-          <label className="grid gap-1 text-[11px] text-[#68717d]">Au<input aria-label="Fin de la période" className={input} type="date" value={endDate} min={startDate || undefined} onChange={event=>setEndDate(event.target.value)} /></label>
-        </div>}
+        {section === "overview" ? <FinanceOverview loading={loading} stats={stats} payments={paymentRows.slice(0,4)} onViewAll={() => selectSection("payments")} onNewInvoice={() => setCreate(true)} onBalances={() => selectSection("balances")} onOpenPayment={id => void open(id,true)} periodPreset={periodPreset} onPeriodChange={changePeriod} error={error}/> : section === "settings" ? <PermissionGuard permission="finance.settings"><FinanceDuePolicySettings/></PermissionGuard> : <>
         {(section === "payments" || section === "balances") && <div className="flex flex-wrap items-end gap-3 px-6 pt-4">
           <label className="grid gap-1 text-[11px] text-[#68717d]">Devise<select className={input} value={currency} onChange={event=>setCurrency(event.target.value)}><option value="">Toutes les devises</option>{stats.by_currency.map(row=><option key={row.currency} value={row.currency}>{row.currency}</option>)}</select></label>
           {section === "payments" && <><label className="grid gap-1 text-[11px] text-[#68717d]">Du<input className={input} type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">Au<input className={input} type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">État<select className={input} value={status} onChange={event=>setStatus(event.target.value)}><option value="">Tous</option><option value="CONFIRMED">Confirmés</option><option value="REVERSED">Annulés</option></select></label></>}
         </div>}
-        <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Numéro, client, téléphone…" />} filters={<><OperationFilterPopover activeCount={(status ? 1 : 0) + (kind ? 1 : 0)} onReset={() => { setKind(""); setStatus(""); setActiveMetric(""); }} title="Filtrer la finance"><OperationField label="Type de document"><select className={`${input} w-full`} value={kind} onChange={(event) => { setKind(event.target.value); setActiveMetric(""); }}><option value="">Tous les documents</option><option value="QUOTE">Devis</option><option value="INVOICE">Factures</option><option value="CREDIT_NOTE">Avoirs</option></select></OperationField><OperationField label="État du document"><select className={`${input} w-full`} value={status} onChange={(e) => { setStatus(e.target.value); setActiveMetric(""); }}><option value="">Tous les états</option>{["DRAFT","ISSUED","PARTIALLY_PAID","PAID","OVERDUE","VOID"].map((x) => <option key={x} value={x}>{labels[x]}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0">
+        <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Numéro, client, téléphone…" />} filters={<><OperationFilterPopover activeCount={(status ? 1 : 0) + (kind ? 1 : 0)} onReset={() => { setKind(""); setStatus(""); }} title="Filtrer la finance"><OperationField label="Type de document"><select className={`${input} w-full`} value={kind} onChange={(event) => setKind(event.target.value)}><option value="">Tous les documents</option><option value="QUOTE">Devis</option><option value="INVOICE">Factures</option><option value="CREDIT_NOTE">Avoirs</option></select></OperationField><OperationField label="État du document"><select className={`${input} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Tous les états</option>{["DRAFT","ISSUED","PARTIALLY_PAID","PAID","OVERDUE","VOID"].map((x) => <option key={x} value={x}>{labels[x]}</option>)}</select></OperationField></OperationFilterPopover><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0">
               <RefreshCcw size={14} />
             </OperationButton></>} />
         <OperationContent className="pt-4">
@@ -310,7 +306,11 @@ export function FinancePage() {
           )}
         </OperationTable>
         </OperationContent>
-      </main>}
+        </>}
+      </main>
+      <OperationDrawer open={paymentChooserOpen} close={() => setPaymentChooserOpen(false)} title="Enregistrer un paiement" description="Choisissez une facture avec un solde restant à encaisser." width="max-w-[620px]">
+        {loading ? <TableSkeleton rows={3} columns={2} label="Chargement des factures…"/> : items.filter(item=>item.document_type==="INVOICE"&&["ISSUED","PARTIALLY_PAID","OVERDUE"].includes(item.status)&&item.balance_due>0).length ? <div className="grid gap-2">{items.filter(item=>item.document_type==="INVOICE"&&["ISSUED","PARTIALLY_PAID","OVERDUE"].includes(item.status)&&item.balance_due>0).map(item=><button key={item.id} type="button" onClick={()=>{setPaymentChooserOpen(false);void open(item.id,true);}} className="flex w-full items-center justify-between gap-4 rounded-[8px] bg-[#f7f8f8] p-4 text-left transition hover:bg-[#eef3f0]"><span className="min-w-0"><strong className="block truncate text-[13px] text-[#303941]">{item.client_name}</strong><span className="mt-1 block text-[11px] text-[#77818a]">{item.document_number}</span></span><span className="shrink-0 text-right"><strong className="block text-[13px] text-[#303941]">{cash(item.balance_due,item.currency)}</strong><span className="mt-1 block text-[10px] text-[#77818a]">Solde restant</span></span></button>)}</div> : <EmptyState title="Aucune facture à encaisser" description="Les factures émises avec un solde restant apparaîtront ici."/>}
+      </OperationDrawer>
       {create && (
         <CreateModal
           close={() => setCreate(false)}
@@ -337,16 +337,35 @@ export function FinancePage() {
   );
 }
 
-function FinanceModuleHome() {
-  const cards = [
-    { label: "Vue d’ensemble", description: "Indicateurs, activité récente et filtres de période.", href: "/app/finance?section=overview", icon: BarChart3, permission: "finance.read" },
-    { label: "Factures", description: "Créer, émettre et consulter les factures de l’agence.", href: "/app/finance?section=invoices", icon: ReceiptText, permission: "finance.read" },
-    { label: "Paiements", description: "Enregistrer et suivre les paiements manuels reçus.", href: "/app/finance?section=payments", icon: HandCoins, permission: "finance.read" },
-    { label: "Soldes clients", description: "Consulter les montants facturés, réglés et exigibles.", href: "/app/finance?section=balances", icon: Users, permission: "finance.read" },
-    { label: "Paramètres financiers", description: "Règles d’exigibilité et conditions de paiement.", href: "/app/finance?section=settings", icon: Settings, permission: "finance.settings" },
+function FinanceOverview({loading,stats,payments,onViewAll,onNewInvoice,onBalances,onOpenPayment,periodPreset,onPeriodChange,error}:{loading:boolean;stats:FinanceStats;payments:FinancePaymentRow[];onViewAll:()=>void;onNewInvoice:()=>void;onBalances:()=>void;onOpenPayment:(id:string)=>void;periodPreset:string;onPeriodChange:(value:string)=>void;error:string}) {
+  const billed = stats.period.by_currency.map(row=>cash(row.invoiced,row.currency)).join(" · ") || cash(0,"USD");
+  const collected = stats.period.by_currency.map(row=>cash(row.collected,row.currency)).join(" · ") || cash(0,"USD");
+  const outstanding = stats.by_currency.map(row=>cash(row.outstanding,row.currency)).join(" · ") || cash(0,"USD");
+  const unpaid = stats.unpaid_invoice_count + stats.partially_paid_invoice_count;
+  const methodName:Record<string,string>={MOBILE_MONEY:"Mobile Money",CASH:"Espèces",BANK_TRANSFER:"Virement",CARD:"Carte",MANUAL:"Manuel"};
+  const cards=[
+    {label:"Montant facturé",value:billed,icon:ReceiptText},
+    {label:"Paiements reçus",value:collected,icon:HandCoins},
+    {label:"Restant à encaisser",value:outstanding,icon:Wallet},
+    {label:"Factures impayées ou partielles",value:String(unpaid),icon:CalendarDays},
   ];
-  return <OperationContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(({label,description,href,icon:Icon,permission})=><PermissionGuard key={href} permission={permission}><Link href={href} className="group min-h-[138px] rounded-[9px] border border-[#dfe3e7] p-5 transition-colors hover:border-[#b9c6c0] hover:bg-[#fbfcfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ccdb8]"><div className="flex items-center justify-between"><span className="grid h-9 w-9 place-items-center rounded-[8px] bg-[#eef6f2] text-[#16704b]"><Icon size={18}/></span><ArrowRight size={16} className="text-[#9aa2a9] group-hover:text-[#16704b]"/></div><h2 className="mt-4 text-[14px] font-semibold text-[#30373d]">{label}</h2><p className="mt-1 text-[12px] leading-5 text-[#747e86]">{description}</p></Link></PermissionGuard>)}</OperationContent>;
+  return <OperationContent className="pt-3">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <h2 className="text-[13px] font-semibold text-[#303941]">Aperçu financier</h2>
+      <label className="flex min-w-[190px] items-center gap-2 text-[11px] text-[#68717d]"><span className="sr-only">Période</span><select aria-label="Période" value={periodPreset} onChange={event=>onPeriodChange(event.target.value)} className={`${input} min-w-[190px]`}><option value="month">Ce mois</option><option value="previous-month">Le mois dernier</option><option value="year">Cette année</option></select></label>
+    </div>
+    {error&&<div role="alert" className="mb-3 rounded-[8px] bg-[#fff5f4] p-3 text-[12px] text-[#9d352d]">La synthèse n’a pas pu être actualisée. {error}</div>}
+    <div className="grid gap-2 sm:grid-cols-2">
+      {cards.map(({label,value,icon:Icon})=><article key={label} className="min-w-0 rounded-[8px] border border-[#dfe3e6] bg-white p-4"><div className="flex items-center justify-between gap-3"><p className="text-[11px] text-[#717b83]">{label}</p><Icon size={13} className="shrink-0 text-[#727d84]"/></div><p className="mt-2 truncate text-[18px] font-semibold tabular-nums text-[#20272e]">{loading?"…":value}</p></article>)}
+    </div>
+    <section className="mt-2 rounded-[8px] border border-[#dfe3e6] bg-white p-4">
+      <div className="mb-2 flex items-center justify-between gap-3"><h2 className="text-[13px] font-semibold text-[#303941]">Derniers paiements</h2><button type="button" onClick={onViewAll} className="inline-flex items-center gap-1 text-[11px] font-medium text-[#59646c] hover:text-[#111827]">Voir tout <ArrowRight size={13}/></button></div>
+      {loading?<TableSkeleton rows={3} columns={2} label="Chargement des paiements…"/>:payments.length? <div className="grid gap-1">{payments.map(payment=><button key={payment.id} type="button" onClick={()=>onOpenPayment(payment.document_id)} className="flex w-full items-center justify-between gap-4 rounded-[7px] px-2 py-2 text-left transition hover:bg-[#f7f8f8]"><span className="flex min-w-0 items-center gap-3"><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#e9f7ef] text-[#15945b]">✓</span><span className="min-w-0"><strong className="block truncate text-[12px] font-medium text-[#303941]">{payment.client_name}</strong><span className="mt-0.5 block truncate text-[10px] text-[#78828a]">{methodName[payment.method]||payment.method} · {new Date(payment.paid_at).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})}</span></span></span><span className="shrink-0 text-right"><strong className="block text-[12px] font-medium text-[#303941]">+ {cash(payment.amount,payment.currency)}</strong><span className="mt-0.5 block text-[10px] text-[#78828a]">{payment.document_number}</span></span></button>)}</div>:<p className="py-5 text-center text-[12px] text-[#78828a]">Aucun paiement récent pour cette période.</p>}
+    </section>
+    <div className="mt-2 flex flex-wrap gap-2"><PermissionGuard permission="finance.create"><button type="button" onClick={onNewInvoice} className={button}><Plus size={13}/>Nouvelle facture</button></PermissionGuard><button type="button" onClick={onBalances} className={button}><Users size={13}/>Soldes clients</button></div>
+  </OperationContent>;
 }
+
 function CreateModal({ close, done }: { close: () => void; done: (document?: FinanceDocument) => void | Promise<void> }) {
   const [clients, setClients] = useState<ClientRecord[]>([]),
     [mode, setMode] = useState<"manual" | "package">("manual"),

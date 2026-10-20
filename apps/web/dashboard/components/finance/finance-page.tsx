@@ -6,7 +6,7 @@ import { FinanceDuePolicySettings } from "./finance-due-policy-settings";
 import { PaymentReverseButton } from "./finance-completion-actions";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CalendarDays, ChevronRight, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Users, Wallet } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronRight, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Search, Users, Wallet } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -147,6 +147,15 @@ export function FinancePage() {
     setStartDate(dateInputValue(start));
     setEndDate(dateInputValue(end));
   }
+  async function download() {
+    const blob = await exportFinance();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "slaivio-facturation.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
   const load = useCallback(async () => {
     if (section === "settings") { setLoading(false); return; }
     setLoading(true);
@@ -202,42 +211,18 @@ export function FinancePage() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
   }
-  async function download() {
-    const b = await exportFinance(),
-      u = URL.createObjectURL(b),
-      a = document.createElement("a");
-    a.href = u;
-    a.download = "slaivio-facturation.csv";
-    a.click();
-    URL.revokeObjectURL(u);
-  }
   return (
     <div className="min-h-full bg-white">
       <OperationPageHeader
         title="Finance"
         description="Factures, paiements reçus et soldes clients."
-        actions={section === "overview" ? <PermissionGuard permission="finance.payments"><button className={primary} onClick={() => setPaymentChooserOpen(true)}><Plus size={15}/>Enregistrer un paiement</button></PermissionGuard> : section !== "settings" ? (
-          <>
-            <PermissionGuard permission="finance.export">
-              <button className={button} onClick={download}>
-                <Download size={15} />
-                Exporter
-              </button>
-            </PermissionGuard>
-            <PermissionGuard permission="finance.create">
-              <button className={primary} onClick={() => setCreate(true)}>
-                <Plus size={15} />
-                Créer une facture
-              </button>
-            </PermissionGuard>
-          </>
-        ) : undefined}
+        actions={section !== "settings" ? <div className="flex flex-wrap items-center gap-2">{(section === "payments" || section === "balances") && <PermissionGuard permission="finance.export"><button className={button} onClick={download}><Download size={14}/>Exporter</button></PermissionGuard>}<PermissionGuard permission="finance.payments"><button className={primary} onClick={() => setPaymentChooserOpen(true)}><Plus size={15}/>Enregistrer un paiement</button></PermissionGuard></div> : undefined}
       />
       <main>
         <nav aria-label="Sections Finance" className="mx-auto flex w-full max-w-[1200px] gap-2 overflow-x-auto px-6 py-2 sm:px-8">
           {([["overview","Vue d’ensemble"],["invoices","Factures"],["payments","Paiements"],["balances","Soldes clients"],["settings","Paramètres"]] as const).map(([key,label])=><button key={key} type="button" aria-current={section===key?"page":undefined} onClick={()=>selectSection(key)} className={`shrink-0 rounded-full px-3 py-2 text-[12px] transition-colors ${section===key?"bg-[#111111] font-semibold text-white":"text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"}`}>{label}</button>)}
         </nav>
-        {section === "overview" ? <FinanceOverview loading={loading} stats={stats} payments={paymentRows.slice(0,4)} onViewAll={() => selectSection("payments")} onNewInvoice={() => setCreate(true)} onBalances={() => selectSection("balances")} onOpenPayment={id => void open(id,true)} periodPreset={periodPreset} onPeriodChange={changePeriod} error={error}/> : section === "settings" ? <PermissionGuard permission="finance.settings"><FinanceDuePolicySettings/></PermissionGuard> : <>
+        {section === "overview" ? <FinanceOverview loading={loading} stats={stats} payments={paymentRows.slice(0,4)} onViewAll={() => selectSection("payments")} onNewInvoice={() => setCreate(true)} onBalances={() => selectSection("balances")} onOpenPayment={id => void open(id,true)} periodPreset={periodPreset} onPeriodChange={changePeriod} error={error}/> : section === "invoices" ? <FinanceInvoices loading={loading} error={error} items={items} query={q} setQuery={setQ} onCreate={() => setCreate(true)} onOpen={id => void open(id)}/> : section === "settings" ? <PermissionGuard permission="finance.settings"><FinanceDuePolicySettings/></PermissionGuard> : <>
         {(section === "payments" || section === "balances") && <div className="flex flex-wrap items-end gap-3 px-6 pt-4">
           <label className="grid gap-1 text-[11px] text-[#68717d]">Devise<select className={input} value={currency} onChange={event=>setCurrency(event.target.value)}><option value="">Toutes les devises</option>{stats.by_currency.map(row=><option key={row.currency} value={row.currency}>{row.currency}</option>)}</select></label>
           {section === "payments" && <><label className="grid gap-1 text-[11px] text-[#68717d]">Du<input className={input} type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">Au<input className={input} type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label><label className="grid gap-1 text-[11px] text-[#68717d]">État<select className={input} value={status} onChange={event=>setStatus(event.target.value)}><option value="">Tous</option><option value="CONFIRMED">Confirmés</option><option value="REVERSED">Annulés</option></select></label></>}
@@ -335,6 +320,16 @@ export function FinancePage() {
       )}
     </div>
   );
+}
+
+function FinanceInvoices({loading,error,items,query,setQuery,onCreate,onOpen}:{loading:boolean;error:string;items:FinanceDocument[];query:string;setQuery:(value:string)=>void;onCreate:()=>void;onOpen:(id:string)=>void}) {
+  const statusStyle:Record<string,string>={PAID:"bg-[#dcf5e6] text-[#148344]",PARTIALLY_PAID:"bg-[#fff0dc] text-[#d87320]",OVERDUE:"bg-[#fde7e7] text-[#b43e3e]",ISSUED:"bg-[#f0f1f2] text-[#505a62]",DRAFT:"bg-[#f0f1f2] text-[#68727a]",VOID:"bg-[#f0f1f2] text-[#68727a]"};
+  return <OperationContent className="pt-3">
+    <div className="flex items-center justify-between gap-3"><h2 className="text-[13px] font-semibold text-[#303941]">Factures</h2><PermissionGuard permission="finance.create"><button type="button" onClick={onCreate} className={primary}><Plus size={14}/>Nouvelle facture</button></PermissionGuard></div>
+    <label className="mt-3 flex h-10 w-full items-center gap-2 rounded-full border border-[#d8dde0] bg-white px-4 focus-within:border-[#aeb8be]"><Search size={15} className="shrink-0 text-[#7b858c]"/><input aria-label="Rechercher un client ou une facture" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Rechercher un client ou une facture…" className="min-w-0 flex-1 bg-transparent text-[12px] outline-none placeholder:text-[#8b949a]"/></label>
+    {error&&<div role="alert" className="mt-3 rounded-[8px] bg-[#fff5f4] p-3 text-[12px] text-[#9d352d]">{error}</div>}
+    {loading?<div className="mt-3"><TableSkeleton rows={4} columns={2} label="Chargement des factures…"/></div>:items.length?<div className="mt-2 grid gap-1.5">{items.map(item=><button key={item.id} type="button" onClick={()=>onOpen(item.id)} className="flex min-h-[62px] w-full items-center justify-between gap-4 rounded-[8px] border border-[#dfe3e6] bg-white px-3 py-2.5 text-left transition hover:bg-[#fafbfb]"><span className="min-w-0"><strong className="block truncate text-[12px] font-medium text-[#303941]">{item.client_name}</strong><span className="mt-1 block truncate text-[10px] text-[#7a848b]">{item.document_number} · Total {cash(item.total,item.currency)}</span></span><span className="shrink-0 text-right"><strong className="block text-[11px] font-medium text-[#303941]">{cash(item.balance_due,item.currency)} restant</strong><span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[9px] font-medium ${statusStyle[item.status]||statusStyle.ISSUED}`}>{labels[item.status]||item.status}</span></span></button>)}</div>:<div className="mt-3 rounded-[8px] border border-[#e2e5e7] p-5"><EmptyState title="Aucune facture" description="Les factures correspondant à votre recherche apparaîtront ici."/></div>}
+  </OperationContent>;
 }
 
 function FinanceOverview({loading,stats,payments,onViewAll,onNewInvoice,onBalances,onOpenPayment,periodPreset,onPeriodChange,error}:{loading:boolean;stats:FinanceStats;payments:FinancePaymentRow[];onViewAll:()=>void;onNewInvoice:()=>void;onBalances:()=>void;onOpenPayment:(id:string)=>void;periodPreset:string;onPeriodChange:(value:string)=>void;error:string}) {

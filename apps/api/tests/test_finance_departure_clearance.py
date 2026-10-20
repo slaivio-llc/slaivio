@@ -15,7 +15,7 @@ def result(value):
 
 
 def conn(monkeypatch, values):
-    c = MagicMock(); c.execute.side_effect = [result(v) for v in values]
+    c = MagicMock(); c.execute.side_effect = [result({'block_departure_confirmation': True, 'block_delivery_release': True}), *[result(v) for v in values]]
     return c
 
 
@@ -35,7 +35,7 @@ def test_arrival_policy_allows_departure_without_prepayment():
     assert decision['allowed'] is True
     assert decision['due_at'] == 'ARRIVAL'
     assert decision['policy'] == 'Paiement à l’arrivée'
-    assert c.execute.call_count == 5
+    assert c.execute.call_count == 6
 
 
 def test_arrival_policy_allows_departure_even_before_invoice():
@@ -73,7 +73,7 @@ def test_departure_uses_invoice_policy_snapshot_after_rule_changes():
     assert decision['required'] == '100.00'
     assert decision['policy'] == 'Acompte 50 %'
     assert decision['remaining'] == '50.00'
-    assert c.execute.call_count == 3
+    assert c.execute.call_count == 4
 
 
 def test_full_payment_policy_returns_explainable_block(monkeypatch):
@@ -107,7 +107,7 @@ def test_currency_mismatch_blocks_without_reading_payments(monkeypatch):
     ])
     decision = departure_clearance(c, 'org', package())
     assert decision['code'] == 'FINANCE_POLICY_CURRENCY_MISMATCH'
-    assert c.execute.call_count == 3
+    assert c.execute.call_count == 4
 
 
 def test_delivery_without_financial_policy_does_not_add_a_global_payment_gate():
@@ -115,7 +115,7 @@ def test_delivery_without_financial_policy_does_not_add_a_global_payment_gate():
     decision = delivery_clearance(c, 'org', package())
     assert decision['allowed'] is True
     assert decision['policy_configured'] is False
-    assert c.execute.call_count == 2
+    assert c.execute.call_count == 3
 
 
 def test_delivery_policy_blocks_release_with_explainable_balance():

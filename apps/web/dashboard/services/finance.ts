@@ -24,7 +24,7 @@ export async function getSasPayAttempt(documentId:string,attemptId:string){retur
 export async function reconcileSasPayCheckout(documentId:string,attemptId:string){return (await api.post<{status:string;payment_id?:string}>(`/finance/${documentId}/saspay-attempts/${attemptId}/reconcile`)).data}
 export async function voidFinance(id:string,expected_version:number,reason:string){return (await api.post<FinanceDocument>(`/finance/${id}/void`,{expected_version,reason})).data}
 export async function exportFinance(){return (await api.get<Blob>("/finance/export",{responseType:"blob"})).data}
-export type FinanceSettings={legal_name:string|null;tax_identifier:string|null;billing_address:string|null;default_currency:string;default_tax_rate:number;default_payment_terms_days:number;document_footer:string|null};
+export type FinanceSettings={legal_name:string|null;tax_identifier:string|null;billing_address:string|null;default_currency:string;default_tax_rate:number;default_payment_terms_days:number;document_footer:string|null;block_departure_confirmation?:boolean;block_delivery_release?:boolean;payment_reminders_enabled?:boolean};
 export type FinanceDuePolicy={id?:string;name:string;shipping_service_id?:string|null;trigger_event:"DEPARTURE"|"RECEPTION"|"ARRIVAL"|"DELIVERY"|"MANUAL";rule_type:"PERCENTAGE"|"FIXED_AMOUNT";percentage?:number|null;fixed_amount?:number|null;currency:string;is_active:boolean;row_version?:number};
 export async function getFinanceSettings(){return (await api.get<FinanceSettings>("/finance/settings")).data}
 export async function saveFinanceSettings(p:FinanceSettings){return (await api.put<FinanceSettings>("/finance/settings",p)).data}

@@ -81,9 +81,15 @@ def _clearance(connection, org_id, package, trigger_event, *, missing_policy_all
 
 
 def departure_clearance(connection, org_id, package):
+    controls = connection.execute(text("select block_departure_confirmation from finance_settings where org_id=:o"), {'o': org_id}).mappings().first()
+    if controls and not controls['block_departure_confirmation']:
+        return {'allowed': True, 'code': None, 'reference': package.get('package_reference'), 'message': None}
     return _clearance(connection, org_id, package, 'DEPARTURE', missing_policy_allowed=False)
 
 
 def delivery_clearance(connection, org_id, package):
     """A delivery rule is enforced when configured; absence does not block release."""
+    controls = connection.execute(text("select block_delivery_release from finance_settings where org_id=:o"), {'o': org_id}).mappings().first()
+    if controls and not controls['block_delivery_release']:
+        return {'allowed': True, 'code': None, 'reference': package.get('package_reference'), 'message': None}
     return _clearance(connection, org_id, package, 'DELIVERY', missing_policy_allowed=True)

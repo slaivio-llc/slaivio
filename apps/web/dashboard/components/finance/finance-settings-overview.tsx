@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Check } from "lucide-react";
-import { FinanceDuePolicySettings } from "./finance-due-policy-settings";
+import { FinancePaymentConditions } from "./finance-payment-conditions";
 import { OperationContent } from "@/components/ui/operation-primitives";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { getFinanceSettings, listFinanceDuePolicies, saveFinanceSettings, type FinanceDuePolicy, type FinanceSettings } from "@/services/finance";
@@ -82,7 +82,7 @@ export function FinanceSettingsOverview() {
       <div className="space-y-1 p-4">{Object.entries(methodLabels).map(([code, label]) => <div key={code} className="flex items-center justify-between rounded-[6px] px-3 py-3 text-[13px] text-[#303941]"><span>{label}</span><Check size={16} className="text-[#16855f]" aria-label="Disponible"/></div>)}<p className="px-3 pt-2 text-[11px] leading-5 text-[#78828a]">Ces moyens sont saisis lors de l’enregistrement du paiement. Leur activation individuelle n’est pas encore configurable.</p></div>
     </OperationDrawer>
     <OperationDrawer open={panel === "conditions"} close={() => { setPanel(null); void load(); }} title="Conditions de règlement" description="Configurez les échéances et les montants exigibles selon les étapes opérationnelles." width="max-w-[760px]">
-      <FinanceDuePolicySettings embedded />
+      <FinancePaymentConditions />
     </OperationDrawer>
   </OperationContent>;
 }

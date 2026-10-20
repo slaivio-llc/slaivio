@@ -25,6 +25,7 @@ export function FinanceSettingsModal({close}:{close:()=>void}){
     const f=new FormData(e.currentTarget);
     try{
       await saveFinanceSettings({
+        ...(data || {}),
         legal_name:String(f.get("legal_name"))||null,
         tax_identifier:String(f.get("tax_identifier"))||null,
         billing_address:String(f.get("billing_address"))||null,

@@ -359,7 +359,7 @@ def detect_candidates(org_id):
         candidates=rows=[]
         candidates+=_rows(c.execute(text("""select f.client_id,f.dossier_id,f.id subject_id,f.document_number subject_reference,'PAYMENT_DUE' followup_type,'INVOICE' subject_type,
           'Solde de facture arrivé à échéance' reason,f.balance_due amount_context,f.currency,coalesce(cl.display_name,cl.name,'Client') client_name
-          from finance_documents f join clients cl on cl.id=f.client_id and cl.org_id=f.org_id where f.org_id=:o and f.document_type='INVOICE' and f.balance_due>0 and f.due_date<=current_date and f.status in('ISSUED','PARTIALLY_PAID','OVERDUE')"""),{'o':org_id}))
+          from finance_documents f join clients cl on cl.id=f.client_id and cl.org_id=f.org_id where f.org_id=:o and f.document_type='INVOICE' and f.balance_due>0 and f.due_date<=current_date and f.status in('ISSUED','PARTIALLY_PAID','OVERDUE') and coalesce((select payment_reminders_enabled from finance_settings where org_id=f.org_id),true)"""),{'o':org_id}))
         candidates+=_rows(c.execute(text("""select cl.id client_id,null::uuid dossier_id,cl.id subject_id,
           coalesce(cl.client_reference,cl.phone,cl.id::text) subject_reference,
           'CLIENT_PAYMENT_DUE' followup_type,'CLIENT' subject_type,

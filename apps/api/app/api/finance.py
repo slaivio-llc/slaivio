@@ -59,7 +59,7 @@ class Decision(Version):accepted:bool;reason:str|None=Field(default=None,max_len
 class Convert(Version):due_date:date|None=None
 class Credit(Version):invoice_id:str
 class Reverse(BaseModel):reason:str=Field(min_length=4,max_length=500)
-class Settings(BaseModel):legal_name:str|None=None;tax_identifier:str|None=None;billing_address:str|None=None;default_currency:str=Field(min_length=3,max_length=3);default_tax_rate:float=Field(ge=0,le=100);default_payment_terms_days:int=Field(ge=0,le=365);document_footer:str|None=None
+class Settings(BaseModel):legal_name:str|None=None;tax_identifier:str|None=None;billing_address:str|None=None;default_currency:str=Field(min_length=3,max_length=3);default_tax_rate:float=Field(ge=0,le=100);default_payment_terms_days:int=Field(ge=0,le=365);document_footer:str|None=None;block_departure_confirmation:bool=True;block_delivery_release:bool=False;payment_reminders_enabled:bool=True
 class DuePolicy(BaseModel):
  name:str=Field(min_length=1,max_length=120)
  trigger_event:str=Field(pattern=r'^(DEPARTURE|RECEPTION|ARRIVAL|DELIVERY|MANUAL)$')

@@ -6,7 +6,7 @@ import { FinanceSettingsOverview } from "./finance-settings-overview";
 import { PaymentReverseButton } from "./finance-completion-actions";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CalendarDays, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Search, Users, Wallet } from "lucide-react";
+import { ArrowRight, CalendarDays, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Search, Share2, Users, Wallet } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -20,6 +20,7 @@ import {
   createFinance,
   exportFinance,
   financeStats,
+  financePrint,
   getFinance,
   issueFinance,
   listFinance,
@@ -519,6 +520,7 @@ function Detail({
   startPayment?: boolean;
 }) {
   const [paymentOpen, setPaymentOpen] = useState(startPayment);
+  const [activeTab, setActiveTab] = useState<"details" | "payments" | "history">("details");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function run(fn: () => Promise<unknown>) {
@@ -533,115 +535,59 @@ function Detail({
       setBusy(false);
     }
   }
+  async function downloadPdf() {
+    const popup = window.open("", "_blank");
+    if (!popup) { setError("Autorisez les fenêtres contextuelles pour ouvrir le document PDF."); return; }
+    try {
+      const markup = await financePrint(item.id);
+      popup.document.open(); popup.document.write(markup); popup.document.close();
+      window.setTimeout(() => popup.print(), 300);
+    } catch { popup.close(); setError("La facture n’a pas pu être préparée pour l’impression."); }
+  }
+  async function shareInvoice() {
+    const shareText = `Facture ${item.document_number} · ${item.client_name} · ${cash(item.total,item.currency)} · Solde : ${cash(item.balance_due,item.currency)}`;
+    try {
+      if (navigator.share) await navigator.share({ title: `Facture ${item.document_number}`, text: shareText });
+      else { await navigator.clipboard.writeText(shareText); setError("Résumé de la facture copié."); }
+    } catch (cause) {
+      if ((cause as {name?:string})?.name !== "AbortError") setError("Le partage n’a pas pu être ouvert.");
+    }
+  }
+  const paymentRatio = item.total > 0 ? Math.min(100, Math.max(0, item.amount_paid / item.total * 100)) : 0;
+  const invoiceStatus = labels[item.status] || item.status;
+  const methodNames: Record<string,string> = { CASH:"Espèces", MOBILE_MONEY:"Mobile Money", BANK_TRANSFER:"Virement bancaire", CARD:"Carte", MANUAL:"Manuel" };
+  const tabs = <div className="flex flex-wrap gap-1.5 py-2">{([ ["details","Détails"], ["payments","Paiements"], ["history","Historique"] ] as const).map(([key,label])=><button key={key} type="button" onClick={()=>setActiveTab(key)} aria-current={activeTab===key?"page":undefined} className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${activeTab===key?"bg-[#111] text-white":"text-[#606a72] hover:bg-[#f2f3f3]"}`}>{label}</button>)}</div>;
   return (
     <OperationDrawer
       open
-      title={item.document_number}
-      description={`${labels[item.document_type]} · ${item.client_name} · ${labels[item.status]}`}
+      title={`${item.document_type === "INVOICE" ? "Facture" : labels[item.document_type]} ${item.document_number}`}
+      description={`Créée le ${new Date(item.created_at).toLocaleDateString("fr-FR")} · ${(item as FinanceDocument & {office_name?:string|null}).office_name || "Bureau"}`}
       close={close}
+      width="max-w-[680px]"
+      tabs={tabs}
+      headerMeta={<><span className="rounded-full bg-[#fff0dc] px-2 py-1 text-[10px] font-medium text-[#c76d20]">{invoiceStatus}</span><span className="rounded-full bg-[#f0f1f2] px-2 py-1 text-[10px] font-medium text-[#505a62]">{item.currency}</span></>}
     >
-      <div className="space-y-4 p-5">
+      <div className="space-y-4">
         {!(item as FinanceDocument & {office_id?:string|null}).office_id && <PermissionGuard permission="finance.settings"><FinanceOfficeAssignment documentId={item.id} version={item.row_version} onSaved={reload} /></PermissionGuard>}
-        <section className="grid grid-cols-3 gap-3">
-          {[
-            ["Montant facturé", cash(item.total, item.currency)],
-            ["Payé", cash(item.amount_paid, item.currency)],
-            ["Solde restant", cash(item.balance_due, item.currency)],
-          ].map(([l, v]) => (
-            <div key={l} className="rounded bg-white p-4">
-              <small>{l}</small>
-              <b className="block text-lg">{v}</b>
-            </div>
-          ))}
-        </section>
-        <section className="rounded bg-white p-4">
-          <h3 className="mb-3 font-semibold">Détail</h3>
-          {item.document_type === "INVOICE" && item.status === "DRAFT" && <p className="mb-3 rounded-[5px] bg-slate-50 p-3 text-[12px] text-slate-600">Le tarif facturé est déjà fixé dans ce brouillon. L’émission rend la facture officielle; elle n’enregistre pas un paiement. Enregistrez séparément l’argent réellement reçu.</p>}
-          {item.lines?.map((l, i) => (
-            <div
-              key={i}
-              className="flex justify-between border-t py-3 text-[13px]"
-            >
-              <span>
-                {l.description}{l.quantity !== 1 ? ` · ${l.quantity} × ${cash(l.unit_price, item.currency)}` : ""}
-              </span>
-              <b>{cash(l.line_total || 0, item.currency)}</b>
-            </div>
-          ))}
+        <section className="space-y-2">
+          <div className="grid grid-cols-3 gap-3"><div><span className="block text-[10px] text-[#78828a]">Total facture</span><strong className="text-[14px] font-semibold">{cash(item.total,item.currency)}</strong></div><div><span className="block text-[10px] text-[#78828a]">Déjà payé</span><strong className="text-[14px] font-semibold">{cash(item.amount_paid,item.currency)}</strong></div><div><span className="block text-[10px] text-[#78828a]">Solde restant</span><strong className="text-[14px] font-semibold">{cash(item.balance_due,item.currency)}</strong></div></div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#eef0f1]"><div className="h-full rounded-full bg-[#16855f]" style={{width:`${paymentRatio}%`}}/></div><p className="text-[10px] text-[#78828a]">{Math.round(paymentRatio)} % réglé</p>
         </section>
         <div className="flex flex-wrap gap-2">
-          {item.status === "DRAFT" && (
-            <PermissionGuard permission="finance.issue">
-              <button
-                disabled={busy}
-                className={primary}
-                onClick={() =>
-                  run(() => issueFinance(item.id, item.row_version))
-                }
-              >
-                Émettre
-              </button>
-            </PermissionGuard>
-          )}
-          {item.document_type === "INVOICE" &&
-            ["ISSUED", "PARTIALLY_PAID", "OVERDUE"].includes(item.status) && (
-              <PermissionGuard permission="finance.payments">
-                <button
-                  disabled={busy}
-                  className={primary}
-                  onClick={() => setPaymentOpen(true)}
-                >
-                  Enregistrer un paiement
-                </button>
-              </PermissionGuard>
-            )}
-          {["DRAFT", "ISSUED"].includes(item.status) &&
-            item.amount_paid === 0 && (
-              <PermissionGuard permission="finance.void">
-                <button
-                  disabled={busy}
-                  className={button}
-                  onClick={() => {
-                    const reason = window.prompt(
-                      "Motif obligatoire de l’annulation",
-                    );
-                    if (reason)
-                      run(() => voidFinance(item.id, item.row_version, reason));
-                  }}
-                >
-                  Annuler
-                </button>
-              </PermissionGuard>
-            )}
+          {item.document_type === "INVOICE" && ["ISSUED","PARTIALLY_PAID","OVERDUE"].includes(item.status) && item.balance_due > 0 && <PermissionGuard permission="finance.payments"><button type="button" className={`${primary} rounded-full`} onClick={()=>setPaymentOpen(value=>!value)}><Plus size={14}/>Enregistrer un paiement</button></PermissionGuard>}
+          {item.status === "DRAFT" && <PermissionGuard permission="finance.issue"><button type="button" disabled={busy} className={`${primary} rounded-full`} onClick={()=>run(()=>issueFinance(item.id,item.row_version))}>Émettre</button></PermissionGuard>}
+          <button type="button" className={`${button} rounded-full`} onClick={()=>void downloadPdf()}><Download size={14}/>PDF</button>
+          <button type="button" className={`${button} rounded-full`} onClick={()=>void shareInvoice()}><Share2 size={14}/>Partager</button>
+          {["DRAFT","ISSUED"].includes(item.status) && item.amount_paid===0 && <PermissionGuard permission="finance.void"><button type="button" disabled={busy} className={`${button} rounded-full`} onClick={()=>{const reason=window.prompt("Motif obligatoire de l’annulation");if(reason)run(()=>voidFinance(item.id,item.row_version,reason));}}>Annuler</button></PermissionGuard>}
         </div>
-        {paymentOpen && <PermissionGuard permission="finance.payments"><RecordPaymentForm document={item} onCancel={() => setPaymentOpen(false)} onRecorded={async () => { await reload(); setPaymentOpen(false); }} /></PermissionGuard>}
-        {item.payments?.length ? (
-          <section className="rounded bg-white p-4">
-            <h3 className="mb-2 font-semibold">Paiements et reçus</h3>
-            {item.payments.map((p) => (
-              <div
-                key={p.id}
-                className="flex justify-between border-t py-3 text-[13px]"
-              >
-                <span>
-                  {p.receipt_number} · {p.method === "MANUAL" ? "Enregistré par l’agence" : p.method}
-                  {p.status === "REVERSED" && <span className="ml-2 text-red-700">Annulé</span>}
-                  {p.provider === "SASPAY" && <small className="block text-slate-500">
-                    Débité client {p.provider_charged == null ? "—" : cash(p.provider_charged, p.currency)} · frais {p.provider_fee == null ? "—" : cash(p.provider_fee, p.currency)} · net agence {p.provider_net_amount == null ? "—" : cash(p.provider_net_amount, p.currency)} ({p.fee_charge_mode || "—"})
-                  </small>}
-                </span>
-                <b>{cash(p.amount, p.currency)}</b>
-                {p.status === "CONFIRMED" && p.receipt_snapshot ? <button type="button" disabled={busy} className={button} onClick={() => run(async () => {
-                  const blob = await paymentReceipt(item.id, p.id);
-                  const url = URL.createObjectURL(blob);
-                  const anchor = document.createElement("a");
-                  anchor.href = url; anchor.download = `${p.receipt_number}.html`; anchor.click();
-                  setTimeout(() => URL.revokeObjectURL(url), 1000);
-                })}>Télécharger le reçu</button> : p.status === "CONFIRMED" ? <span className="text-xs text-slate-500">Reçu historique non disponible</span> : null}
-              </div>
-            ))}
-          </section>
-        ) : null}
+        {paymentOpen && <PermissionGuard permission="finance.payments"><RecordPaymentForm document={item} onCancel={()=>setPaymentOpen(false)} onRecorded={async()=>{await reload();setPaymentOpen(false);}}/></PermissionGuard>}
+        {activeTab === "details" && <div className="space-y-5">
+          <section className="space-y-2"><h3 className="text-[13px] font-semibold">Informations client</h3>{[["Client",item.client_name],["Téléphone",item.client_phone || "Non renseigné"],["Colis lié",item.dossier_reference || "Aucun colis lié"]].map(([label,value])=><div key={label} className="flex justify-between gap-4 text-[12px]"><span className="text-[#78828a]">{label}</span><span className="text-right text-[#303941]">{value}</span></div>)}</section>
+          <section className="space-y-2"><h3 className="text-[13px] font-semibold">Détail de la facturation</h3><div className="flex justify-between text-[10px] text-[#78828a]"><span>Description</span><span>Montant</span></div>{item.lines?.map((line,index)=><div key={`${line.description}-${index}`} className="flex justify-between gap-4 border-t border-[#edf0f1] py-2 text-[12px]"><span className="min-w-0">{line.description}{line.quantity!==1&&<small className="block text-[#78828a]">{line.quantity} × {cash(line.unit_price,item.currency)}</small>}</span><span className="shrink-0">{cash(line.line_total ?? line.quantity*line.unit_price,item.currency)}</span></div>)}<div className="flex justify-between border-t border-[#e1e4e6] pt-2 text-[12px] font-semibold"><span>Total</span><span>{cash(item.total,item.currency)}</span></div></section>
+          <section className="space-y-2"><h3 className="text-[13px] font-semibold">Conditions de règlement</h3><div className="flex justify-between gap-4 text-[12px]"><span className="text-[#78828a]">Politique</span><span>{item.terms || "Selon les conditions de la facture"}</span></div><div className="flex justify-between gap-4 text-[12px]"><span className="text-[#78828a]">Échéance</span><span>{item.due_date ? new Date(`${item.due_date}T12:00:00`).toLocaleDateString("fr-FR") : "Non définie"}</span></div></section>
+        </div>}
+        {activeTab === "payments" && <section className="space-y-2"><h3 className="text-[13px] font-semibold">Paiements et reçus</h3>{item.payments?.length ? item.payments.map(payment=><div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[7px] border border-[#e1e4e6] p-3 text-[12px]"><div><strong className="block">{payment.receipt_number}</strong><span className="text-[10px] text-[#78828a]">{methodNames[payment.method]||payment.method} · {new Date(payment.paid_at).toLocaleDateString("fr-FR")}{payment.reference?` · ${payment.reference}`:""}</span>{payment.provider === "SASPAY" && <small className="block text-slate-500">Frais {payment.provider_fee==null?"—":cash(payment.provider_fee,payment.currency)} · net agence {payment.provider_net_amount==null?"—":cash(payment.provider_net_amount,payment.currency)}</small>}</div><div className="flex items-center gap-2"><strong>{cash(payment.amount,payment.currency)}</strong><span className={`rounded-full px-2 py-0.5 text-[10px] ${payment.status==="CONFIRMED"?"bg-[#e0f5e9] text-[#16834d]":"bg-[#fce8e6] text-[#b42318]"}`}>{payment.status==="CONFIRMED"?"Confirmé":"Annulé"}</span>{payment.status==="CONFIRMED"&&payment.receipt_snapshot&&<button type="button" disabled={busy} className="text-[11px] text-[#59636b] hover:underline" onClick={()=>run(async()=>{const blob=await paymentReceipt(item.id,payment.id);const url=URL.createObjectURL(blob);const anchor=document.createElement("a");anchor.href=url;anchor.download=`${payment.receipt_number}.html`;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);})}>Reçu</button>}{payment.status==="CONFIRMED"&&<PaymentReverseButton documentId={item.id} paymentId={payment.id} onRun={fn=>{void run(fn);}}/>}</div></div>):<EmptyState title="Aucun paiement enregistré" description="Les paiements reçus sur cette facture apparaîtront ici."/>}</section>}
+        {activeTab === "history" && <section className="space-y-2"><h3 className="text-[13px] font-semibold">Historique</h3>{item.events?.length ? item.events.map(event=><div key={event.id} className="flex justify-between gap-4 rounded-[7px] bg-[#f8f9f9] px-3 py-2.5 text-[12px]"><div><strong>{event.event_type.replaceAll("_"," ")}</strong>{event.actor_name&&<span className="ml-2 text-[10px] text-[#78828a]">par {event.actor_name}</span>}</div><time className="shrink-0 text-[10px] text-[#78828a]">{new Date(event.created_at).toLocaleString("fr-FR")}</time></div>):<EmptyState title="Aucun historique disponible" description="Les événements associés à cette facture apparaîtront ici."/>}</section>}
         {error && <p className="rounded bg-red-50 p-3 text-red-700">{error}</p>}
       </div>
     </OperationDrawer>

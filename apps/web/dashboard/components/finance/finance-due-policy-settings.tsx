@@ -13,7 +13,7 @@ const eventLabels: Record<FinanceDuePolicy["trigger_event"], string> = {
   DELIVERY: "Avant la remise", MANUAL: "Déclenchement manuel",
 };
 
-export function FinanceDuePolicySettings() {
+export function FinanceDuePolicySettings({ embedded = false }: { embedded?: boolean }) {
   const [policies, setPolicies] = useState<FinanceDuePolicy[]>([]);
   const [currency, setCurrency] = useState("USD");
   const [ruleType, setRuleType] = useState<FinanceDuePolicy["rule_type"]>("PERCENTAGE");
@@ -73,7 +73,7 @@ export function FinanceDuePolicySettings() {
     finally { setBusy(false); }
   }
 
-  return <div className="min-h-full bg-white"><OperationPageHeader backHref="/app/finance" title="Paramètres financiers" description="Configurez les conditions financières de l’agence. Les modifications ne changent pas les factures déjà émises."/><OperationContent>
+  return <div className="min-h-full bg-white">{!embedded && <OperationPageHeader backHref="/app/finance" title="Paramètres financiers" description="Configurez les conditions financières de l’agence. Les modifications ne changent pas les factures déjà émises."/>}<OperationContent className={embedded ? "pt-0" : undefined}>
     <section className="max-w-[900px] space-y-3 rounded-[8px] border border-[#e4e7e9] p-5">
       <div><h3 className="text-[14px] font-semibold">{activeScopePolicy ? "Modifier la condition active" : "Ajouter une condition"}</h3><p className="mt-1 text-[12px] text-[#68717d]">Une seule condition active est autorisée par étape et par service. Ici, la règle s’applique par défaut à l’agence; une règle de service configurée séparément reste prioritaire.</p></div>
       <form onSubmit={submit} className="space-y-3">

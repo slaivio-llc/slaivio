@@ -90,8 +90,9 @@ export function ReportsAnalyticsPage() {
     ? [["Nouveaux clients", data.kpis.clients], ["Colis reçus", data.kpis.packages], ["Expéditions", data.kpis.shipments], ["Retraits", data.kpis.pickups], ["Poids traité", `${Number(data.kpis.weight_kg).toLocaleString("fr-FR")} kg`]]
     : [];
   return (
-    <div className="reports-page min-h-full bg-white px-3 py-5 sm:px-5 [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
+    <div className="reports-page min-h-full w-full bg-white px-3 py-5 sm:px-5 [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
       <OperationPageHeader
+        wide
         title="Rapports & analyses"
         description="Suivez les performances de votre activité Cargo."
         actions={
@@ -138,19 +139,19 @@ export function ReportsAnalyticsPage() {
         </OperationMetricGrid>
       </OperationMetrics>
       <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
-      <div className="reports-tabs-shell mx-auto w-full max-w-[760px] px-4 sm:px-4">
+      <div className="reports-tabs-shell w-full px-0">
         <nav aria-label="Sections des rapports" className="flex flex-nowrap items-center gap-1 overflow-x-auto py-2">
           {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]"}`}>{label}</button>)}
         </nav>
       </div>
-      <main className={`reports-layout-main mx-auto w-full max-w-[760px] px-4 py-4 sm:px-4 ${tab === "overview" ? "reports-overview" : ""}`}>
+      <main className={`reports-layout-main w-full px-0 py-4 ${tab === "overview" ? "reports-overview" : ""}`}>
         <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <label className="text-[11px] text-[#697178]">Période<select aria-label="Période" className={`${input} mt-1 w-full`} value={`${start}|${end}`} onChange={(event) => { const [s, e] = event.target.value.split("|"); setStart(s); setEnd(e); }}>
             <option value={`${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)}|${today}`}>Ce mois</option><option value={`${monthAgo}|${today}`}>30 derniers jours</option><option value={`${new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1).toISOString().slice(0, 10)}|${today}`}>3 derniers mois</option><option value={`${new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)}|${today}`}>Cette année</option>
           </select></label>
           <label className="text-[11px] text-[#697178]">Bureau<select aria-label="Bureau" className={`${input} mt-1 w-full`} value={officeId} onChange={(event) => setOfficeId(event.target.value)}><option value="">Tous les bureaux autorisés</option>{(officeContext?.offices || []).map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}</select></label>
         </div>
-        {data && tab === "overview" && <div className="mb-3 grid grid-cols-2 gap-2"><Kpi title="Colis enregistrés" value={data.kpis.packages} change={change(data.kpis.packages, data.kpis.previous_packages)} /><Kpi title="Expéditions" value={data.kpis.shipments} change={change(data.kpis.shipments, data.kpis.previous_shipments)} /><Kpi title="Clients actifs" value={data.kpis.active_clients} change={change(data.kpis.active_clients, data.kpis.previous_active_clients)} /><Kpi title="Paiements reçus" value={data.finance.length ? data.finance.map((row) => `${Number(row.collected).toLocaleString("fr-FR")} ${row.currency}`).join(" · ") : "0"} change={data.finance.length === 1 ? change(Number(data.finance[0].collected), Number(data.finance[0].previous_collected)) : null} /></div>}
+        {data && tab === "overview" && <div className="mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4"><Kpi title="Colis enregistrés" value={data.kpis.packages} change={change(data.kpis.packages, data.kpis.previous_packages)} /><Kpi title="Expéditions" value={data.kpis.shipments} change={change(data.kpis.shipments, data.kpis.previous_shipments)} /><Kpi title="Clients actifs" value={data.kpis.active_clients} change={change(data.kpis.active_clients, data.kpis.previous_active_clients)} /><Kpi title="Paiements reçus" value={data.finance.length ? data.finance.map((row) => `${Number(row.collected).toLocaleString("fr-FR")} ${row.currency}`).join(" · ") : "0"} change={data.finance.length > 1 ? null : change(Number(data.finance[0]?.collected || 0), Number(data.finance[0]?.previous_collected || 0))} /></div>}
         {error && data ? (
           <div className="mb-4 border border-[#e7c98d] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#75530b]" role="alert">
             {error} Les derniers indicateurs disponibles restent affichés.
@@ -212,13 +213,14 @@ function analyticsErrorMessage(error: unknown) {
   }
   return "Le serveur n’a pas pu calculer les indicateurs. Réessayez après le redéploiement de l’API.";
 }
-function change(current: number, previous: number): number | null {
+function change(current: number, previous: number): number | "new" | null {
   if (!previous && !current) return 0;
-  if (!previous) return null;
+  if (!previous) return "new";
   return Math.round(((current - previous) / previous) * 100);
 }
-function Kpi({ title, value, change: delta }: { title: string; value: React.ReactNode; change: number | null }) {
-  return <section className="rounded-[8px] border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">{title}</p><p className="mt-2 text-[20px] font-semibold text-[#25292e]">{value}</p><p className={`mt-1 text-[11px] ${delta !== null && delta >= 0 ? "text-[#16855f]" : "text-[#bd5b3a]"}`}>{delta === null ? "Comparaison indisponible" : `${delta > 0 ? "+" : ""}${delta}% vs période précédente`}</p></section>;
+function Kpi({ title, value, change: delta }: { title: string; value: React.ReactNode; change: number | "new" | null }) {
+  const detail = delta === "new" ? "Nouveau sur la période" : delta === null ? "Plusieurs devises" : `${delta > 0 ? "+" : ""}${delta}% vs période précédente`;
+  return <section className="rounded-[8px] border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">{title}</p><p className="mt-2 text-[20px] font-semibold text-[#25292e]">{value}</p><p className={`mt-1 text-[11px] ${delta === null ? "text-[#697178]" : delta === "new" || delta >= 0 ? "text-[#16855f]" : "text-[#bd5b3a]"}`}>{detail}</p></section>;
 }
 function Clients({ data }: { data: Analytics }) {
   const active = Number(data.kpis.active_clients || 0);
@@ -227,30 +229,23 @@ function Clients({ data }: { data: Analytics }) {
 function Overview({ data }: { data: Analytics }) {
   return (
     <div className="grid gap-4">
-      <Card
-        title="Activité quotidienne"
-        subtitle="Nouveaux clients, colis et expéditions sur la période"
-      >
+      <Card title="Évolution de l’activité" subtitle="Colis et expéditions — 6 derniers mois">
         <MonthlyTrend data={data.monthly_trend || []} />
       </Card>
-      <div className="grid gap-4 lg:grid-cols-3">
-        {Object.entries(data.statuses).filter(([key])=>key!="dossiers").map(([key, items]) => (
-          <Card
-            key={key}
-            title={`Statuts · ${key}`}
-            subtitle="Opérations créées sur la période sélectionnée"
-          >
-            <Bars items={items} />
-          </Card>
-        ))}
-      </div>
     </div>
   );
 }
 function MonthlyTrend({ data }: { data: Analytics["monthly_trend"] }) {
-  const max = Math.max(1, ...data.flatMap((item) => [item.packages, item.shipments]));
-  const points = (key: "packages" | "shipments") => data.map((item, index) => `${35 + index * 126},${210 - (item[key] / max) * 185}`).join(" ");
-  return <div className="rounded-[8px] border border-[#dfe3e4] bg-white p-4"><div className="mb-2 flex items-center justify-between"><h2 className="text-[14px] font-semibold">Évolution de l’activité</h2><span className="rounded-full bg-[#f1f2f1] px-2 py-1 text-[10px] text-[#59636b]">6 mois</span></div><svg className="h-[260px] w-full" viewBox="0 0 700 250" role="img" aria-label="Évolution mensuelle des colis et expéditions"><path d="M30 210H680M30 150H680M30 90H680M30 30H680" stroke="#edf0ef" strokeDasharray="2 4"/><polyline fill="none" stroke="#ff784c" strokeWidth="2" points={points("packages")}/><polyline fill="none" stroke="#f0c742" strokeWidth="2" points={points("shipments")}/>{data.map((item,index)=><g key={item.month}><circle cx={35+index*126} cy={210-(item.packages/max)*185} r="3" fill="#ff784c"/><circle cx={35+index*126} cy={210-(item.shipments/max)*185} r="3" fill="#f0c742"/><text x={35+index*126} y="232" textAnchor="middle" fontSize="10" fill="#687178">{new Date(`${item.month}T12:00:00`).toLocaleDateString("fr-FR",{month:"short"})}</text></g>)}</svg><div className="mt-1 flex justify-center gap-5 text-[11px]"><span className="text-[#ff784c]">● Colis</span><span className="text-[#d2a900]">● Expéditions</span></div></div>;
+  const maxValue = Math.max(0, ...data.flatMap((item) => [item.packages, item.shipments]));
+  const max = Math.max(4, Math.ceil(maxValue / 40) * 40);
+  const left = 52, right = 680, top = 22, bottom = 210;
+  const x = (index: number) => data.length <= 1 ? (left + right) / 2 : left + (index * (right - left)) / (data.length - 1);
+  const y = (value: number) => bottom - (value / max) * (bottom - top);
+  const points = (key: "packages" | "shipments") => data.map((item, index) => `${x(index)},${y(item[key])}`).join(" ");
+  return <div className="bg-white p-4"><svg className="h-[300px] w-full" viewBox="0 0 700 250" role="img" aria-label="Évolution mensuelle du nombre de colis et d’expéditions sur les six derniers mois"><g>{Array.from({ length: 5 }, (_, index) => {
+    const value = (max / 4) * (4 - index), lineY = top + index * ((bottom - top) / 4);
+    return <g key={index}><line x1={left} y1={lineY} x2={right} y2={lineY} stroke="#edf0ef" strokeDasharray="2 4"/><text x={left - 10} y={lineY + 4} textAnchor="end" fontSize="10" fill="#687178">{Math.round(value)}</text></g>;
+  })}</g><polyline fill="none" stroke="#ff784c" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={points("packages")}/><polyline fill="none" stroke="#f0c742" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={points("shipments")}/>{data.map((item,index)=><g key={item.month}><circle cx={x(index)} cy={y(item.packages)} r="3.5" fill="#ff784c"/><circle cx={x(index)} cy={y(item.shipments)} r="3.5" fill="#f0c742"/><text x={x(index)} y="232" textAnchor="middle" fontSize="10" fill="#687178">{new Date(`${item.month}T12:00:00`).toLocaleDateString("fr-FR",{month:"short"})}</text></g>)}</svg>{!data.length && <p className="text-center text-[12px] text-[#697178]">Aucune activité à afficher sur les six derniers mois.</p>}<div className="mt-1 flex justify-center gap-5 text-[11px]"><span className="text-[#ff784c]">● Colis</span><span className="text-[#d2a900]">● Expéditions</span></div></div>;
 }
 function Trend({ data }: { data: Analytics["trend"] }) {
   const max = Math.max(
@@ -286,7 +281,7 @@ function Operations({ data }: { data: Analytics }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {Object.entries(data.statuses).filter(([key])=>key!="dossiers").map(([key, items]) => (
-        <Card key={key} title={key} subtitle="Opérations créées sur la période sélectionnée">
+        <Card key={key} title={key === "packages" ? "État des colis" : key === "shipments" ? "État des expéditions" : key} subtitle="">
           <Bars items={items} />
         </Card>
       ))}
@@ -476,14 +471,14 @@ function Card({
   children,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="overflow-hidden border border-[#dfe3e4] bg-white">
       <header className="border-b border-[#e5e8e9] bg-[#fafbfb] px-4 py-3">
         <h2 className="text-[14px] font-semibold text-[#293034]">{title}</h2>
-        <p className="text-[11px] text-[#697178]">{subtitle}</p>
+        {subtitle && <p className="text-[11px] text-[#697178]">{subtitle}</p>}
       </header>
       <div className="p-4">{children}</div>
     </section>

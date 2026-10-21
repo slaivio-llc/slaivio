@@ -7,6 +7,7 @@ import { OperationButton } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { FormGeographyFields } from "@/components/ui/geography-fields";
+import { getOfficeContext, type OfficeContext } from "@/services/organization-admin";
 import {
   catalog,
   createRoute,
@@ -22,6 +23,19 @@ import {
 
 type CatalogData = { routes: Route[]; services: Service[] };
 type SettingSection = "services" | "routes";
+type ServiceDraft = {
+  service_name: string;
+  shipping_mode: string;
+  description: string;
+  eta_min_days: number | null;
+  eta_max_days: number | null;
+  billing_unit: string;
+  office_id: string;
+  restrictions: string;
+  customer_instructions: string;
+  service_active: boolean;
+  public_visible: boolean;
+};
 
 const field =
   "h-11 w-full rounded-lg border border-[#d9e1dd] bg-white px-3.5 text-[14px] text-[#26332d] outline-none transition focus:border-[#16855f] focus:ring-2 focus:ring-[#16855f]/10";
@@ -48,6 +62,9 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   const [actionError, setActionError] = useState("");
   const [saving, setSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
+  const [officeContext, setOfficeContext] = useState<OfficeContext | null>(null);
+  const [serviceDraft, setServiceDraft] = useState<ServiceDraft | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,28 +79,90 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { getOfficeContext().then(setOfficeContext).catch(() => setOfficeContext(null)); }, []);
 
   async function saveService(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (createStep === 2) {
+      if (!serviceDraft) return;
+      await createServiceRecord(serviceDraft, serviceDraft.service_active ? "ACTIVE" : "INACTIVE");
+      return;
+    }
     const form = new FormData(event.currentTarget);
+    const intent = String((event.nativeEvent as SubmitEvent).submitter && ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement).value || "continue");
+    const minimum = String(form.get("eta_min_days") || ""), maximum = String(form.get("eta_max_days") || "");
+    const draft: ServiceDraft = {
+      service_name: String(form.get("service_name") || "").trim(),
+      shipping_mode: String(form.get("shipping_mode") || "AIR"),
+      description: String(form.get("description") || "").trim(),
+      eta_min_days: minimum ? Number(minimum) : null,
+      eta_max_days: maximum ? Number(maximum) : null,
+      billing_unit: String(form.get("billing_unit") || "KG"),
+      office_id: String(form.get("office_id") || ""),
+      restrictions: String(form.get("restrictions") || "").trim(),
+      customer_instructions: String(form.get("customer_instructions") || "").trim(),
+      service_active: form.get("service_active") === "on",
+      public_visible: form.get("public_visible") === "on",
+    };
+    if (draft.eta_min_days !== null && draft.eta_max_days !== null && draft.eta_min_days > draft.eta_max_days) {
+      setActionError("Le délai minimum doit être inférieur ou égal au délai maximum.");
+      return;
+    }
+    if (intent === "draft") {
+      await createServiceRecord(draft, "DRAFT");
+      return;
+    }
+    if (createStep === 1) {
+      setServiceDraft(draft);
+      setCreateStep(2);
+      setActionError("");
+      return;
+    }
+    await createServiceRecord(serviceDraft || draft, draft.service_active ? "ACTIVE" : "INACTIVE");
+  }
+
+  async function createServiceRecord(draft: ServiceDraft, status: "DRAFT" | "ACTIVE" | "INACTIVE") {
     setSaving(true);
     setActionError("");
     try {
       await createCatalogService({
-        service_name: String(form.get("service_name") || "").trim(),
-        shipping_mode: String(form.get("shipping_mode") || "AIR"),
-        description: String(form.get("description") || "").trim() || null,
+        service_name: draft.service_name,
+        shipping_mode: draft.shipping_mode,
+        description: draft.description || null,
         category: "TRANSPORT",
         service_type: "TRANSPORT",
+        eta_min_days: draft.eta_min_days,
+        eta_max_days: draft.eta_max_days,
+        owner_name: officeContext?.offices.find((office) => office.location_id === draft.office_id)?.name || null,
+        public_visible: draft.public_visible,
+        public_description: draft.public_visible ? draft.customer_instructions || null : null,
+        status,
+        metadata: {
+          billing_unit: draft.billing_unit,
+          responsible_office_id: draft.office_id || null,
+          restrictions: draft.restrictions || null,
+          customer_instructions: draft.customer_instructions || null,
+        },
       });
       setCreateOpen(false);
-      setNotice("Service créé. Associez-le à une route pour le proposer lors de la réception d’un colis.");
+      setCreateStep(1);
+      setServiceDraft(null);
+      setNotice(status === "DRAFT"
+        ? "Brouillon enregistré. Vous pourrez le reprendre et l’activer après vérification."
+        : "Service enregistré. Associez-le à une route pour le proposer lors de la réception d’un colis.");
       await load();
     } catch (exception) {
       setActionError(errorMessage(exception));
     } finally {
       setSaving(false);
     }
+  }
+
+  function openCreateService() {
+    setActionError("");
+    setCreateStep(1);
+    setServiceDraft(null);
+    setCreateOpen(true);
   }
 
   async function saveRoute(event: FormEvent<HTMLFormElement>) {
@@ -118,7 +197,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   async function toggleService(service: Service) {
     setActionError("");
     try {
-      const next = ["INACTIVE", "SUSPENDED"].includes(service.status) ? "ACTIVE" : "INACTIVE";
+      const next = ["DRAFT", "INACTIVE", "SUSPENDED"].includes(service.status) ? "ACTIVE" : "INACTIVE";
       await transitionService(service.id, next, "Modification depuis les paramètres de l’agence");
       setNotice(next === "ACTIVE" ? "Service réactivé." : "Service désactivé. Son historique est conservé.");
       await load();
@@ -174,7 +253,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
             </div>
           </div>
           <PermissionGuard permission={isServices ? "services.create" : "routes.manage"}>
-            <OperationButton variant="primary" className="h-10 shrink-0 px-4" onClick={() => { setActionError(""); setCreateOpen(true); }}>
+            <OperationButton variant="primary" className="h-10 shrink-0 px-4" onClick={openCreateService}>
               <Plus size={16} />{isServices ? "Ajouter un service" : "Ajouter une route"}
             </OperationButton>
           </PermissionGuard>
@@ -232,33 +311,35 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
       <OperationDrawer
         open={createOpen}
         close={() => { if (!saving) setCreateOpen(false); }}
-        title={isServices ? "Ajouter un service" : "Ajouter une route"}
-        description={isServices ? "Créez une prestation sans la lier à un seul trajet." : "Associez un ou plusieurs services à cette liaison commerciale."}
+        title={isServices ? createStep === 1 ? "Nouveau service" : "Vérifier le service" : "Nouvelle route"}
+        description={isServices ? "Configurez une prestation proposée par l’agence." : "Associez un ou plusieurs services à cette liaison commerciale."}
         placement="center"
-        width="max-w-2xl"
-        bodyClassName="!bg-[#f5f8f6] p-4 sm:p-6"
-        footer={<div className="flex justify-end gap-2">
-          <OperationButton type="button" disabled={saving} onClick={() => setCreateOpen(false)}>Annuler</OperationButton>
-          <OperationButton form={isServices ? "create-transport-service" : "create-commercial-route"} type="submit" variant="primary" disabled={saving}>
-            {saving ? "Enregistrement…" : isServices ? "Créer le service" : "Créer la route"}
-          </OperationButton>
+        width="max-w-[760px]"
+        variant="form"
+        bodyClassName="p-5 sm:p-7"
+        footer={<div className="flex flex-wrap justify-end gap-2">
+          {isServices ? createStep === 1 ? <>
+            <OperationButton type="button" disabled={saving} onClick={() => setCreateOpen(false)}>Annuler</OperationButton>
+            <OperationButton form="create-transport-service" type="submit" name="intent" value="draft" disabled={saving}>Enregistrer en brouillon</OperationButton>
+            <OperationButton form="create-transport-service" type="submit" name="intent" value="continue" variant="primary" disabled={saving}>Continuer <ArrowRight size={14}/></OperationButton>
+          </> : <>
+            <OperationButton type="button" disabled={saving} onClick={() => setCreateStep(1)}>Retour</OperationButton>
+            <OperationButton type="submit" form="create-transport-service" variant="primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer le service"}</OperationButton>
+          </> : <>
+            <OperationButton type="button" disabled={saving} onClick={() => setCreateOpen(false)}>Annuler</OperationButton>
+            <OperationButton form="create-commercial-route" type="submit" variant="primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer la route"}</OperationButton>
+          </>}
         </div>}
       >
         {isServices
-          ? <form id="create-transport-service" onSubmit={saveService} className="mx-auto grid w-full max-w-xl gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-5 sm:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">Prestation de l’agence</p>
-            <label className={label}>Nom du service *
-              <input className={field} name="service_name" required minLength={2} maxLength={160} placeholder="Ex. Fret aérien express" />
-            </label>
-            <label className={label}>Mode de transport *
-              <select className={field} name="shipping_mode" required defaultValue="AIR">
-                <option value="AIR">Aérien</option><option value="SEA">Maritime</option><option value="ROAD">Routier</option><option value="RAIL">Ferroviaire</option><option value="OTHER">Autre</option>
-              </select>
-            </label>
-            <label className={label}>Description <span className="font-normal text-[#87928b]">· facultatif</span>
-              <textarea className={`${field} min-h-24 py-3`} name="description" maxLength={1000} placeholder="Précisez la prestation proposée." />
-            </label>
-          </form>
+          ? <ServiceCreationForm
+              onSubmit={saveService}
+              step={createStep}
+              draft={serviceDraft}
+              offices={officeContext?.offices || []}
+              selectedOfficeId={officeContext?.selected_office_id || ""}
+              actionError={actionError}
+            />
           : <form id="create-commercial-route" onSubmit={saveRoute} className="mx-auto grid w-full max-w-xl gap-5">
             <section className="grid gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-5 sm:p-6">
               <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">Liaison commerciale</p>
@@ -296,7 +377,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
               {!activeServices.length && <p className="text-[12px] leading-5 text-[#758078]">Créez d’abord un service actif dans Paramètres → Services.</p>}
             </fieldset>
           </form>}
-        {actionError && <p role="alert" className="mx-auto mt-3 max-w-xl rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
+        {!isServices && actionError && <p role="alert" className="mx-auto mt-3 max-w-xl rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
       </OperationDrawer>
     </div>
   );
@@ -304,6 +385,113 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
 
 function modeLabel(mode: string) {
   return ({ AIR: "Aérien", SEA: "Maritime", ROAD: "Routier", RAIL: "Ferroviaire", EXPRESS: "Express", OTHER: "Autre", MULTIMODAL: "Multimodal" } as Record<string, string>)[mode] || mode;
+}
+
+function ServiceCreationForm({
+  onSubmit,
+  step,
+  draft,
+  offices,
+  selectedOfficeId,
+  actionError,
+}: {
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  step: 1 | 2;
+  draft: ServiceDraft | null;
+  offices: OfficeContext["offices"];
+  selectedOfficeId: string;
+  actionError: string;
+}) {
+  return <form id="create-transport-service" onSubmit={onSubmit} className="mx-auto grid w-full max-w-[680px] gap-4">
+    <div className="grid grid-cols-2 text-[12px]">
+      <div className={`border-b-2 pb-2 ${step === 1 ? "border-[#16855f] font-semibold text-[#25292e]" : "border-[#e5e8e9] text-[#7a8288]"}`}><span className="mr-2">1</span>Configuration</div>
+      <div className={`border-b-2 pb-2 text-right ${step === 2 ? "border-[#16855f] font-semibold text-[#25292e]" : "border-[#e5e8e9] text-[#7a8288]"}`}><span className="mr-2">2</span>Vérification</div>
+    </div>
+
+    {step === 1 ? <>
+      <section className="grid gap-3">
+        <h3 className="text-[14px] font-semibold text-[#25292e]">Informations générales</h3>
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Nom du service *
+          <input className={field} name="service_name" required minLength={2} maxLength={160} defaultValue={draft?.service_name || ""} placeholder="Ex. : Cargo aérien standard" />
+        </label>
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Type de service *
+          <select className={field} name="shipping_mode" required defaultValue={draft?.shipping_mode || "AIR"}>
+            <option value="AIR">Transport aérien</option><option value="SEA">Transport maritime</option><option value="EXPRESS">Express</option><option value="ROAD">Transport routier</option><option value="RAIL">Transport ferroviaire</option><option value="OTHER">Autre</option>
+          </select>
+        </label>
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Description
+          <textarea className={`${field} h-auto min-h-[76px] py-2.5`} name="description" maxLength={1000} defaultValue={draft?.description || ""} placeholder="Décrivez le service et les marchandises concernées…" />
+        </label>
+      </section>
+
+      <section className="grid gap-3 border-t border-[#e8ebec] pt-4">
+        <h3 className="text-[14px] font-semibold text-[#25292e]">Délais de transport</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Minimum (jours)
+            <input className={field} type="number" name="eta_min_days" min="0" max="365" defaultValue={draft?.eta_min_days ?? ""} placeholder="Ex. : 8" />
+          </label>
+          <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Maximum (jours)
+            <input className={field} type="number" name="eta_max_days" min="0" max="365" defaultValue={draft?.eta_max_days ?? ""} placeholder="Ex. : 12" />
+          </label>
+        </div>
+        <p className="text-[11px] leading-4 text-[#78828a]">Ces délais sont indicatifs. Ils ne constituent pas une date d’arrivée garantie ni un ETA de suivi.</p>
+      </section>
+
+      <section className="grid gap-3 border-t border-[#e8ebec] pt-4">
+        <h3 className="text-[14px] font-semibold text-[#25292e]">Organisation et facturation</h3>
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Unité de facturation habituelle
+          <select className={field} name="billing_unit" defaultValue={draft?.billing_unit || "KG"}><option value="KG">Kilogramme (kg)</option><option value="CBM">Volume (m³)</option><option value="PACKAGE">Colis</option><option value="FLAT">Forfait</option></select>
+        </label>
+        <p className="-mt-2 text-[11px] text-[#78828a]">Les montants et paliers seront configurés dans Gestion → Tarification.</p>
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Bureau responsable
+          <select className={field} name="office_id" defaultValue={draft?.office_id || selectedOfficeId}><option value="">Tous les bureaux autorisés</option>{offices.map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}</select>
+        </label>
+      </section>
+
+      <section className="grid gap-3 border-t border-[#e8ebec] pt-4">
+        <h3 className="text-[14px] font-semibold text-[#25292e]">Conditions du service</h3>
+        <p className="-mt-2 text-[11px] text-[#78828a]">Restrictions et marchandises non acceptées</p>
+        <label className="sr-only" htmlFor="service-restrictions">Restrictions et marchandises non acceptées</label>
+        <textarea id="service-restrictions" className={`${field} h-auto min-h-[72px] py-2.5`} name="restrictions" maxLength={2000} defaultValue={draft?.restrictions || ""} placeholder="Définir les restrictions applicables…" />
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">Instructions pour les clients
+          <textarea className={`${field} h-auto min-h-[72px] py-2.5`} name="customer_instructions" maxLength={2000} defaultValue={draft?.customer_instructions || ""} placeholder="Ex. : consignes de dépôt et préparation des colis…" />
+        </label>
+      </section>
+
+      <section className="grid gap-1 border-t border-[#e8ebec] pt-4">
+        <h3 className="mb-1 text-[14px] font-semibold text-[#25292e]">Disponibilité</h3>
+        <ToggleRow name="service_active" defaultChecked={draft?.service_active ?? true} title="Service actif" detail="Disponible pour les nouvelles opérations internes." />
+        <ToggleRow name="public_visible" defaultChecked={draft?.public_visible ?? false} title="Visible dans les informations clients" detail="L’IA peut utiliser uniquement les informations publiées et vérifiées." />
+      </section>
+    </> : <section className="grid gap-4">
+      <h3 className="text-[14px] font-semibold text-[#25292e]">Vérifiez les informations du service</h3>
+      {draft ? <>
+        <ReviewRow label="Nom du service" value={draft.service_name} />
+        <ReviewRow label="Type de service" value={modeLabel(draft.shipping_mode)} />
+        <ReviewRow label="Description" value={draft.description || "Non renseignée"} />
+        <ReviewRow label="Délai indicatif" value={draft.eta_min_days === null && draft.eta_max_days === null ? "Non renseigné" : `${draft.eta_min_days ?? "…"} à ${draft.eta_max_days ?? "…"} jours`} />
+        <ReviewRow label="Unité de facturation" value={{ KG: "Kilogramme (kg)", CBM: "Volume (m³)", PACKAGE: "Colis", FLAT: "Forfait" }[draft.billing_unit] || draft.billing_unit} />
+        <ReviewRow label="Bureau responsable" value={offices.find((office) => office.location_id === draft.office_id)?.city || offices.find((office) => office.location_id === draft.office_id)?.name || "Tous les bureaux autorisés"} />
+        <ReviewRow label="Restrictions" value={draft.restrictions || "Aucune restriction précisée"} />
+        <ReviewRow label="Instructions clients" value={draft.customer_instructions || "Aucune instruction précisée"} />
+        <ReviewRow label="Disponibilité" value={draft.service_active ? "Service actif" : "Inactif"} />
+        <ReviewRow label="Visibilité client" value={draft.public_visible ? "Visible" : "Interne uniquement"} />
+        <p className="border border-[#dfe3e4] bg-[#f8f9f9] px-3 py-3 text-[12px] leading-5 text-[#697178]">Les tarifs détaillés et les routes associées se configurent ensuite dans Gestion. La création du service ne crée pas automatiquement de prix.</p>
+      </> : <p className="text-[13px] text-[#697178]">Revenez à la configuration puis vérifiez les champs saisis.</p>}
+    </section>}
+    {actionError && <p role="alert" className="border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
+  </form>;
+}
+
+function ToggleRow({ name, title, detail, defaultChecked = false }: { name: string; title: string; detail: string; defaultChecked?: boolean }) {
+  return <label className="flex cursor-pointer items-center justify-between gap-4 py-2">
+    <span><span className="block text-[12px] font-medium text-[#30363a]">{title}</span><span className="mt-1 block text-[11px] leading-4 text-[#78828a]">{detail}</span></span>
+    <input type="checkbox" name={name} defaultChecked={defaultChecked} className="h-4 w-4 shrink-0 accent-[#111111]" />
+  </label>;
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return <div className="grid gap-1 border-b border-[#edf0f1] pb-3 sm:grid-cols-[190px_minmax(0,1fr)] sm:gap-4"><span className="text-[12px] text-[#78828a]">{label}</span><span className="break-words text-[13px] font-medium text-[#30363a]">{value}</span></div>;
 }
 
 function StatusPill({ label, active }: { label: string; active: boolean }) {

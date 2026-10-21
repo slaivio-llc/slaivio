@@ -69,6 +69,8 @@ def create_route(o,a,n,p):
  with engine.begin() as c:
   destination_org_id=p.get('destination_org_id') or o
   if p.get('destination_org_id') and not _network_organization(c,o,destination_org_id):raise HTTPException(422,'destination_office_outside_organization_network')
+  if p.get('origin_warehouse_id') and not c.execute(text("select 1 from warehouses where org_id=:o and id=cast(:id as uuid) and active"),{'o':o,'id':p['origin_warehouse_id']}).first():raise HTTPException(422,'origin_warehouse_not_found')
+  if p.get('destination_office_id') and not c.execute(text("select 1 from agency_offices where org_id=:o and id=cast(:id as uuid) and is_active"),{'o':destination_org_id,'id':p['destination_office_id']}).first():raise HTTPException(422,'destination_office_not_found')
   location_owners={'origin_location_id':(o,'origin_country','origin_city'),'destination_location_id':(destination_org_id,'destination_country','destination_city')}
   for key,(owner,country_key,city_key) in location_owners.items():
    if p.get(key):
@@ -94,7 +96,7 @@ def create_route(o,a,n,p):
   eta_max=max(eta_values) if eta_values else 0
   p={**p,'destination_org_id':destination_org_id,'transport_mode':p.get('transport_mode') or mode,'eta_min_days':p.get('eta_min_days') if p.get('eta_min_days') is not None else eta_min,'eta_max_days':p.get('eta_max_days') if p.get('eta_max_days') is not None else eta_max}
   if p['eta_min_days']>p['eta_max_days']:raise HTTPException(422,'invalid_route_eta_range')
-  duplicate=c.execute(text("select id from shipping_routes where org_id=:o and lower(origin_country)=lower(:oc) and lower(origin_city)=lower(:oci) and lower(destination_country)=lower(:dc) and lower(destination_city)=lower(:dci) and archived_at is null and active order by created_at limit 1"),{"o":o,"oc":p['origin_country'],"oci":p['origin_city'],"dc":p['destination_country'],"dci":p['destination_city']}).first()
+  duplicate=c.execute(text("select id from shipping_routes where org_id=:o and lower(origin_country)=lower(:oc) and lower(origin_city)=lower(:oci) and lower(destination_country)=lower(:dc) and lower(destination_city)=lower(:dci) and archived_at is null and active order by created_at limit 1"),{"o":o,"oc":p['origin_country'],"oci":p['origin_city'],"dc":p['destination_country'],"dci":p['destination_city']}).first() if p.get('status','ACTIVE')=='ACTIVE' else None
   if duplicate:
    row=c.execute(text("select * from shipping_routes where id=:r and org_id=:o"),{"r":duplicate.id,"o":o}).mappings().one()
    for service in services:
@@ -105,7 +107,7 @@ def create_route(o,a,n,p):
    event(c,o,'ROUTE_SERVICES_UPDATED',a,n,str(row['id']),p={"service_ids":[str(service['id']) for service in services]})
    return {**dict(row),"service_ids":[str(service['id']) for service in services],"already_exists":True}
   p={**p,'route_name':p.get('route_name') or f"{p['origin_city']} → {p['destination_city']}"}
-  row=dict(c.execute(text("insert into shipping_routes(org_id,route_code,route_name,origin_location_id,destination_location_id,destination_org_id,origin_country,origin_city,destination_country,destination_city,transport_mode,eta_min_days,eta_max_days,expected_duration_days,timezone,metadata) values(:o,:route_code,:route_name,cast(:origin_location_id as uuid),cast(:destination_location_id as uuid),:destination_org_id,:origin_country,:origin_city,:destination_country,:destination_city,:transport_mode,:eta_min_days,:eta_max_days,:eta_max_days,:timezone,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"metadata":json.dumps(p.get('metadata') or {})}).mappings().one())
+  row=dict(c.execute(text("insert into shipping_routes(org_id,route_code,route_name,description,origin_location_id,destination_location_id,destination_org_id,origin_warehouse_id,destination_office_id,origin_country,origin_city,destination_country,destination_city,transport_mode,eta_min_days,eta_max_days,expected_duration_days,timezone,status,active,metadata) values(:o,:route_code,:route_name,:description,cast(:origin_location_id as uuid),cast(:destination_location_id as uuid),:destination_org_id,cast(:origin_warehouse_id as uuid),cast(:destination_office_id as uuid),:origin_country,:origin_city,:destination_country,:destination_city,:transport_mode,:eta_min_days,:eta_max_days,:eta_max_days,:timezone,:status,:active,cast(:metadata as jsonb)) returning *"),{"o":o,**p,"description":p.get('description'),"status":p.get('status','ACTIVE'),"active":p.get('status','ACTIVE')=='ACTIVE',"metadata":json.dumps(p.get('metadata') or {})}).mappings().one())
   for service in services:
    c.execute(text("""insert into service_route_offerings(org_id,service_id,route_id,workspace_id,availability,eta_min_days,eta_max_days)
      values(:o,:s,:r,'ORGANIZATION','AVAILABLE',:eta_min,:eta_max)

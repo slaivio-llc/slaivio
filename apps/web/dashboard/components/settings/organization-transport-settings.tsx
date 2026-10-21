@@ -20,7 +20,9 @@ import {
   createService as createCatalogService,
   addServiceRoute,
   serviceDetail as getServiceDetail,
+  serviceCatalog as getServiceCatalog,
   transitionService,
+  type Catalog as ServiceCatalog,
   updateService,
 } from "@/services/service-catalog";
 
@@ -46,6 +48,21 @@ type ServiceRecord = Service & Record<string, any> & {
   audit?: Array<Record<string, any>>;
 };
 type ServiceTab = "details" | "routes" | "conditions" | "history";
+type RouteDraft = {
+  route_name: string;
+  origin_country: string;
+  origin_city: string;
+  destination_country: string;
+  destination_city: string;
+  service_id: string;
+  origin_warehouse_id: string;
+  destination_office_id: string;
+  eta_min_days: number | null;
+  eta_max_days: number | null;
+  frequency: string;
+  instructions: string;
+  route_active: boolean;
+};
 
 const field =
   "h-11 w-full rounded-lg border border-[#d9e1dd] bg-white px-3.5 text-[14px] text-[#26332d] outline-none transition focus:border-[#16855f] focus:ring-2 focus:ring-[#16855f]/10";
@@ -84,6 +101,8 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   const [editingService, setEditingService] = useState(false);
   const [detailSaving, setDetailSaving] = useState(false);
   const detailRequest = useRef(0);
+  const [routeDraft, setRouteDraft] = useState<RouteDraft | null>(null);
+  const [serviceCatalogData, setServiceCatalogData] = useState<ServiceCatalog | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -181,30 +200,66 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
     setActionError("");
     setCreateStep(1);
     setServiceDraft(null);
+    setRouteDraft(null);
     setCreateOpen(true);
+    if (!isServices) getServiceCatalog().then(setServiceCatalogData).catch(() => setServiceCatalogData(null));
   }
 
   async function saveRoute(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const serviceIds = form.getAll("service_ids").map(String);
-    if (!serviceIds.length) {
-      setActionError("Associez au moins un service actif à cette route.");
+    if (createStep === 2) {
+      if (routeDraft) await createRouteRecord(routeDraft, routeDraft.route_active ? "ACTIVE" : "INACTIVE");
       return;
     }
+    const minimum = String(form.get("eta_min_days") || ""), maximum = String(form.get("eta_max_days") || "");
+    const draft: RouteDraft = {
+      route_name: String(form.get("route_name") || "").trim(),
+      origin_country: String(form.get("origin_country") || "").trim(),
+      origin_city: String(form.get("origin_city") || "").trim(),
+      destination_country: String(form.get("destination_country") || "").trim(),
+      destination_city: String(form.get("destination_city") || "").trim(),
+      service_id: String(form.get("service_id") || ""),
+      origin_warehouse_id: String(form.get("origin_warehouse_id") || ""),
+      destination_office_id: String(form.get("destination_office_id") || ""),
+      eta_min_days: minimum ? Number(minimum) : null,
+      eta_max_days: maximum ? Number(maximum) : null,
+      frequency: String(form.get("frequency") || "PROGRAMMED"),
+      instructions: String(form.get("instructions") || "").trim(),
+      route_active: form.get("route_active") === "on",
+    };
+    if (!draft.service_id) { setActionError("Sélectionnez un service de transport actif."); return; }
+    if (draft.eta_min_days !== null && draft.eta_max_days !== null && draft.eta_min_days > draft.eta_max_days) { setActionError("Le délai minimum doit être inférieur ou égal au délai maximum."); return; }
+    if (String((event.nativeEvent as SubmitEvent).submitter && ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement).value || "continue") === "draft") {
+      await createRouteRecord(draft, "DRAFT"); return;
+    }
+    setRouteDraft(draft);
+    setCreateStep(2);
+    setActionError("");
+  }
+
+  async function createRouteRecord(draft: RouteDraft, status: "DRAFT" | "ACTIVE" | "INACTIVE") {
     setSaving(true);
     setActionError("");
     try {
       await createRoute({
-        route_name: String(form.get("route_name") || "").trim() || null,
-        origin_country: String(form.get("origin_country") || "").trim(),
-        origin_city: String(form.get("origin_city") || "").trim(),
-        destination_country: String(form.get("destination_country") || "").trim(),
-        destination_city: String(form.get("destination_city") || "").trim(),
-        service_ids: serviceIds,
+        route_name: draft.route_name || null,
+        origin_country: draft.origin_country,
+        origin_city: draft.origin_city,
+        destination_country: draft.destination_country,
+        destination_city: draft.destination_city,
+        service_ids: [draft.service_id],
+        origin_warehouse_id: draft.origin_warehouse_id || null,
+        destination_office_id: draft.destination_office_id || null,
+        eta_min_days: draft.eta_min_days,
+        eta_max_days: draft.eta_max_days,
+        description: draft.instructions || null,
+        status,
+        metadata: { departure_frequency: draft.frequency, operating_instructions: draft.instructions || null },
       });
       setCreateOpen(false);
-      setNotice("Route enregistrée. Les services associés sont maintenant disponibles pour les nouvelles opérations.");
+      setCreateStep(1); setRouteDraft(null);
+      setNotice(status === "DRAFT" ? "Brouillon de route enregistré. Vous pourrez l’activer après vérification." : status === "INACTIVE" ? "Route enregistrée comme inactive. Elle pourra être activée quand elle sera prête." : "Route enregistrée et associée au service sélectionné.");
       await load();
     } catch (exception) {
       setActionError(errorMessage(exception));
@@ -441,8 +496,8 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
       <OperationDrawer
         open={createOpen}
         close={() => { if (!saving) setCreateOpen(false); }}
-        title={isServices ? createStep === 1 ? "Nouveau service" : "Vérifier le service" : "Nouvelle route"}
-        description={isServices ? "Configurez une prestation proposée par l’agence." : "Associez un ou plusieurs services à cette liaison commerciale."}
+        title={isServices ? createStep === 1 ? "Nouveau service" : "Vérifier le service" : createStep === 1 ? "Nouvelle route" : "Vérifier la route"}
+        description={isServices ? "Configurez une prestation proposée par l’agence." : "Configuration d’un corridor Cargo · Données de l’agence"}
         placement="center"
         width="max-w-[760px]"
         variant="form"
@@ -455,9 +510,13 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
           </> : <>
             <OperationButton type="button" disabled={saving} onClick={() => setCreateStep(1)}>Retour</OperationButton>
             <OperationButton type="submit" form="create-transport-service" variant="primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer le service"}</OperationButton>
-          </> : <>
+          </> : createStep === 1 ? <>
             <OperationButton type="button" disabled={saving} onClick={() => setCreateOpen(false)}>Annuler</OperationButton>
-            <OperationButton form="create-commercial-route" type="submit" variant="primary" disabled={saving}>{saving ? "Enregistrement…" : "Créer la route"}</OperationButton>
+            <OperationButton form="create-commercial-route" type="submit" name="intent" value="draft" disabled={saving}>Enregistrer en brouillon</OperationButton>
+            <OperationButton form="create-commercial-route" type="submit" name="intent" value="continue" variant="primary" disabled={saving}>Continuer <ArrowRight size={14}/></OperationButton>
+          </> : <>
+            <OperationButton type="button" disabled={saving} onClick={() => setCreateStep(1)}>Retour</OperationButton>
+            <OperationButton type="button" variant="primary" disabled={saving || !routeDraft} onClick={() => routeDraft && void createRouteRecord(routeDraft, routeDraft.route_active ? "ACTIVE" : "INACTIVE")}>{saving ? "Enregistrement…" : "Créer la route"}</OperationButton>
           </>}
         </div>}
       >
@@ -470,43 +529,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
               selectedOfficeId={officeContext?.selected_office_id || ""}
               actionError={actionError}
             />
-          : <form id="create-commercial-route" onSubmit={saveRoute} className="mx-auto grid w-full max-w-xl gap-5">
-            <section className="grid gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-5 sm:p-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">Liaison commerciale</p>
-              <label className={label}>Nom personnalisé <span className="font-normal text-[#87928b]">· facultatif</span>
-                <input className={field} name="route_name" maxLength={160} placeholder="Ex. Chine → Kinshasa" />
-              </label>
-              <div className="grid gap-4 rounded-xl bg-[#f7faf8] p-4 sm:grid-cols-2">
-                <FormGeographyFields
-                  countryName="origin_country"
-                  cityName="origin_city"
-                  countryLabel="Pays d’origine"
-                  cityLabel="Ville d’origine"
-                  required
-                  className={field}
-                  fieldClassName={label}
-                />
-                <FormGeographyFields
-                  countryName="destination_country"
-                  cityName="destination_city"
-                  countryLabel="Pays de destination"
-                  cityLabel="Ville de destination"
-                  required
-                  className={field}
-                  fieldClassName={label}
-                />
-              </div>
-            </section>
-            <fieldset className="grid gap-2 rounded-2xl border border-[#e2e9e5] bg-white p-5 sm:p-6">
-              <legend className="px-1 text-[13px] font-semibold text-[#414d46]">Services proposés sur cette route *</legend>
-              {activeServices.map(service => <label key={service.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#e8eeea] px-3 py-2.5 text-[13px] hover:bg-[#f8fbf9]">
-                <input className="h-4 w-4 accent-[#16855f]" type="checkbox" name="service_ids" value={service.id} />
-                <span className="min-w-0 flex-1 font-medium text-[#303b34]">{service.service_name}</span>
-                <span className="text-[11px] text-[#7b867f]">{modeLabel(service.shipping_mode)}</span>
-              </label>)}
-              {!activeServices.length && <p className="text-[12px] leading-5 text-[#758078]">Créez d’abord un service actif dans Paramètres → Services.</p>}
-            </fieldset>
-          </form>}
+          : createStep === 1 ? <RouteCreationForm services={activeServices} catalog={serviceCatalogData} onSubmit={saveRoute} draft={routeDraft} /> : <RouteReview draft={routeDraft} services={activeServices} catalog={serviceCatalogData} />}
         {!isServices && actionError && <p role="alert" className="mx-auto mt-3 max-w-xl rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
       </OperationDrawer>
     </div>
@@ -653,6 +676,43 @@ function ServiceCreationForm({
     </section>}
     {actionError && <p role="alert" className="border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
   </form>;
+}
+
+function RouteCreationForm({ services, catalog, onSubmit, draft }: { services: Service[]; catalog: ServiceCatalog | null; onSubmit: (event: FormEvent<HTMLFormElement>) => void; draft: RouteDraft | null }) {
+  const routeService = services.find(service => service.id === draft?.service_id);
+  return <form id="create-commercial-route" onSubmit={onSubmit} className="mx-auto grid w-full max-w-[680px] gap-4">
+    <div className="grid grid-cols-2 text-[12px]"><div className="border-b-2 border-[#16855f] pb-2 font-semibold text-[#25292e]">1　Configuration</div><div className="border-b-2 border-[#e5e8e9] pb-2 text-right text-[#7a8288]">2　Vérification</div></div>
+    <section className="grid gap-3"><h3 className="text-[14px] font-semibold text-[#25292e]">1. Itinéraire</h3>
+      <p className="text-[12px] font-semibold text-[#414950]">◎　Origine</p>
+      <FormGeographyFields countryName="origin_country" cityName="origin_city" countryLabel="Pays de départ *" cityLabel="Ville de départ *" initialCountry={draft?.origin_country || ""} initialCity={draft?.origin_city || ""} required className={field} fieldClassName={label}/>
+      <div className="py-1 text-center text-[#87928b]">↓</div>
+      <p className="text-[12px] font-semibold text-[#414950]">◎　Destination</p>
+      <FormGeographyFields countryName="destination_country" cityName="destination_city" countryLabel="Pays de destination *" cityLabel="Ville de destination *" initialCountry={draft?.destination_country || ""} initialCity={draft?.destination_city || ""} required className={field} fieldClassName={label}/>
+      <label className={label}>Nom de la route <span className="font-normal text-[#87928b]">(facultatif)</span><input className={field} name="route_name" maxLength={160} defaultValue={draft?.route_name || ""} placeholder="Ex. Guangzhou → Kinshasa"/><span className="text-[11px] font-normal text-[#78828a]">Si vide, le nom sera généré à partir des villes.</span></label>
+    </section>
+    <section className="grid gap-3 border-t border-[#e8ebec] pt-4"><h3 className="text-[14px] font-semibold text-[#25292e]">2. Service de transport</h3>
+      <label className={label}>Service associé *<select className={field} name="service_id" required defaultValue={draft?.service_id || ""}><option value="">Sélectionner un service actif</option>{services.map(service=><option key={service.id} value={service.id}>{service.service_name} · {modeLabel(service.shipping_mode)}</option>)}</select><span className="text-[11px] font-normal text-[#78828a]">Seuls les services actifs et autorisés apparaissent ici.</span></label>
+      {!services.length && <p className="text-[12px] text-amber-700">Aucun service actif disponible. Activez ou créez un service avant de configurer sa route.</p>}
+    </section>
+    <section className="grid gap-3 border-t border-[#e8ebec] pt-4"><h3 className="text-[14px] font-semibold text-[#25292e]">3. Points opérationnels</h3>
+      <label className={label}>Entrepôt de départ<select className={field} name="origin_warehouse_id" defaultValue={draft?.origin_warehouse_id || ""}><option value="">Aucun entrepôt sélectionné</option>{(catalog?.warehouses || []).map(item=><option key={item.id} value={item.id}>{item.name}{item.city ? ` · ${item.city}` : ""}</option>)}</select></label>
+      <label className={label}>Bureau de destination<select className={field} name="destination_office_id" defaultValue={draft?.destination_office_id || ""}><option value="">Aucun bureau sélectionné</option>{(catalog?.offices || []).map(item=><option key={item.id} value={item.id}>{item.name}{item.city ? ` · ${item.city}` : ""}</option>)}</select><span className="text-[11px] font-normal text-[#78828a]">Les choix sont limités aux implantations autorisées de l’agence.</span></label>
+    </section>
+    <section className="grid gap-3 border-t border-[#e8ebec] pt-4"><h3 className="text-[14px] font-semibold text-[#25292e]">4. Délais et fréquence</h3>
+      <div className="grid grid-cols-2 gap-3"><label className={label}>Délai min. (jours)<input className={field} type="number" name="eta_min_days" min="0" max="365" defaultValue={draft?.eta_min_days ?? routeService?.eta_min_days ?? ""} placeholder="Ex. : 8"/></label><label className={label}>Délai max. (jours)<input className={field} type="number" name="eta_max_days" min="0" max="365" defaultValue={draft?.eta_max_days ?? routeService?.eta_max_days ?? ""} placeholder="Ex. : 12"/></label></div>
+      <label className={label}>Fréquence habituelle des départs<select className={field} name="frequency" defaultValue={draft?.frequency || "PROGRAMMED"}><option value="PROGRAMMED">Selon programmation</option><option value="DAILY">Quotidienne</option><option value="WEEKLY">Hebdomadaire</option><option value="MONTHLY">Mensuelle</option></select><span className="text-[11px] font-normal leading-4 text-[#78828a]">La fréquence ne crée pas automatiquement de départs. Ils se gèrent dans Opérations → Calendrier des départs.</span></label>
+    </section>
+    <section className="grid gap-3 border-t border-[#e8ebec] pt-4"><h3 className="text-[14px] font-semibold text-[#25292e]">5. Informations complémentaires</h3><label className={label}>Instructions et conditions<textarea className={`${field} h-auto min-h-[86px] py-2.5`} name="instructions" maxLength={2000} defaultValue={draft?.instructions || ""} placeholder="Ex. : informations de dépôt, conditions de transport…"/></label><ToggleRow name="route_active" title="Route active" detail="Autoriser son utilisation pour de nouvelles opérations." defaultChecked={draft?.route_active ?? true}/></section>
+  </form>;
+}
+
+function RouteReview({ draft, services, catalog }: { draft: RouteDraft | null; services: Service[]; catalog: ServiceCatalog | null }) {
+  if (!draft) return <p className="text-[13px] text-[#697178]">Revenez à la configuration puis vérifiez les champs saisis.</p>;
+  const service=services.find(item=>item.id===draft.service_id);
+  const warehouse=catalog?.warehouses.find(item=>item.id===draft.origin_warehouse_id);
+  const office=catalog?.offices.find(item=>item.id===draft.destination_office_id);
+  const frequency=({PROGRAMMED:"Selon programmation",DAILY:"Quotidienne",WEEKLY:"Hebdomadaire",MONTHLY:"Mensuelle"} as Record<string,string>)[draft.frequency] || draft.frequency;
+  return <div className="mx-auto grid w-full max-w-[680px] gap-4"><div className="grid grid-cols-2 text-[12px]"><div className="border-b-2 border-[#16855f] pb-2 text-[#637068]">1　Configuration</div><div className="border-b-2 border-[#16855f] pb-2 text-right font-semibold text-[#25292e]">2　Vérification</div></div><h3 className="text-[14px] font-semibold">Vérifiez les informations de la route</h3><section className="grid gap-3 rounded-lg border border-[#e5e9e7] p-4"><h4 className="text-[12px] font-semibold">Itinéraire</h4><ReviewRow label="Origine" value={`${draft.origin_city}, ${draft.origin_country}`}/><ReviewRow label="Destination" value={`${draft.destination_city}, ${draft.destination_country}`}/><ReviewRow label="Nom de la route" value={draft.route_name || `${draft.origin_city} → ${draft.destination_city}`}/></section><section className="grid gap-3 rounded-lg border border-[#e5e9e7] p-4"><h4 className="text-[12px] font-semibold">Service et points opérationnels</h4><ReviewRow label="Service associé" value={service?.service_name || "Service non trouvé"}/><ReviewRow label="Entrepôt de départ" value={warehouse?.name || "Non précisé"}/><ReviewRow label="Bureau de destination" value={office?.name || "Non précisé"}/></section><section className="grid gap-3 rounded-lg border border-[#e5e9e7] p-4"><h4 className="text-[12px] font-semibold">Délais et fonctionnement</h4><ReviewRow label="Délai indicatif" value={draft.eta_min_days == null && draft.eta_max_days == null ? "À préciser" : `${draft.eta_min_days ?? "…"} à ${draft.eta_max_days ?? "…"} jours`}/><ReviewRow label="Fréquence habituelle" value={frequency}/><ReviewRow label="Disponibilité" value={draft.route_active ? "Active" : "Inactive, non disponible aux opérations"}/><ReviewRow label="Instructions" value={draft.instructions || "Aucune instruction particulière"}/></section><p className="bg-[#f8f9f9] px-3 py-3 text-[12px] leading-5 text-[#697178]">La route organise le corridor et le service associé. Les départs réels restent gérés séparément dans le calendrier des opérations.</p></div>;
 }
 
 function ToggleRow({ name, title, detail, defaultChecked = false }: { name: string; title: string; detail: string; defaultChecked?: boolean }) {

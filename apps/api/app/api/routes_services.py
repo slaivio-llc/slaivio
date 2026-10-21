@@ -1,6 +1,7 @@
 from datetime import datetime,timezone
 from fastapi import APIRouter,Depends,Query,Response
 from pydantic import BaseModel,Field,field_validator
+from typing import Literal
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.core.office_context import require_package_office_scope
@@ -14,6 +15,8 @@ class RouteCreate(BaseModel):
  origin_location_id:str|None=None
  destination_location_id:str|None=None
  destination_org_id:str|None=None
+ origin_warehouse_id:str|None=None
+ destination_office_id:str|None=None
  origin_country:str=Field(min_length=2,max_length=120)
  origin_city:str=Field(min_length=2,max_length=120)
  destination_country:str=Field(min_length=2,max_length=120)
@@ -22,6 +25,8 @@ class RouteCreate(BaseModel):
  eta_min_days:int|None=Field(default=None,ge=0,le=365)
  eta_max_days:int|None=Field(default=None,ge=0,le=365)
  service_ids:list[str]=Field(min_length=1)
+ description:str|None=None
+ status:Literal['DRAFT','ACTIVE','INACTIVE']='ACTIVE'
  timezone:str|None=None
  metadata:dict={}
 

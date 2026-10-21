@@ -1059,7 +1059,6 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 }
 
 nav[aria-label="Sections Finance"] > button,
-nav[aria-label="Sections des rapports"] > button,
 nav[aria-label="Paramètres de communication"] > button,
 [data-ui="operation-drawer"] div:has(> button[aria-current="page"]) > button {
   border-radius: 0 !important;
@@ -1090,7 +1089,6 @@ nav[aria-label="Sections Finance"] > button {
 }
 
 .slaivio-pilot nav[aria-label="Sections Finance"] > button:first-child,
-.slaivio-pilot nav[aria-label="Sections des rapports"] > button:first-child,
 nav[aria-label="Sections Finance"] > button:first-child {
   margin-left: -12px;
   padding-left: 12px;
@@ -1116,51 +1114,9 @@ nav[aria-label="Sections Finance"] > button:first-child {
   max-width: none;
 }
 
-.reports-page > [data-ui="operation-page-header"] h1 {
-  font-size: 16px !important;
-  line-height: 22px;
-}
-
-.reports-page > [data-ui="operation-page-header"] p {
-  font-size: 11px !important;
-  line-height: 16px;
-}
-
 .reports-page > [data-ui="operation-page-header"] .operation-actions button[data-variant="primary"] {
   border-radius: 999px;
   background: #111111;
-}
-
-.reports-page .reports-tabs-shell {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-}
-
-.reports-page .reports-tabs-shell nav {
-  width: 100%;
-  min-width: 0;
-}
-
-.reports-page nav[aria-label="Sections des rapports"] > button {
-  border-radius: 0 !important;
-  text-align: center;
-  min-height: 36px;
-  padding: 8px 12px;
-  font-size: var(--operation-text-tab, 14px) !important;
-  font-weight: var(--operation-weight-medium, 520);
-  line-height: 16px;
-  transition: background-color 150ms ease, color 150ms ease;
-}
-
-.reports-page nav[aria-label="Sections des rapports"] > button[class*="bg-[#111]"] {
-  color: #ffffff !important;
-  font-weight: var(--operation-weight-semibold, 620);
-}
-
-.reports-page nav[aria-label="Sections des rapports"] > button:first-child {
-  margin-left: 0;
-  padding-left: 12px;
 }
 
 .reports-page > main {

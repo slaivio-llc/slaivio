@@ -3,7 +3,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { API_BASE_URL } from "@/services/api";
-import { ChevronRight, Download, RefreshCcw, Save } from "lucide-react";
+import { ChevronRight, Download, Save } from "lucide-react";
 import {
   exportReport,
   getAnalytics,
@@ -13,8 +13,7 @@ import {
 } from "@/services/reports";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationMetrics, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationTab } from "@/components/ui/operation-controls";
+import { OperationButton, OperationTab } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { getOfficeContext, type OfficeContext } from "@/services/organization-admin";
 const button =
@@ -40,7 +39,6 @@ export function ReportsAnalyticsPage() {
     [tab, setTab] = useState("overview"),
     [officeContext, setOfficeContext] = useState<OfficeContext | null>(null),
     [officeId, setOfficeId] = useState(""),
-    [activeMetric, setActiveMetric] = useState<string | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [report, setReport] = useState("packages"),
@@ -131,63 +129,26 @@ export function ReportsAnalyticsPage() {
     a.click();
     URL.revokeObjectURL(url);
   }
+  function exportCurrentView() {
+    if (tab === "warehouses" && data) {
+      exportOffices(data.offices, start, end);
+      return;
+    }
+    const key = tab === "operations" ? "packages" : tab === "reports" ? report : tab;
+    void download(["clients", "shipments", "finance"].includes(key) ? key : "packages");
+  }
   const hasPeriodActivity = Boolean(data && (
     ["clients", "packages", "shipments", "pickups", "weight_kg"].some((key) => data.kpis[key] > 0) ||
     data.finance.some((row) => row.invoices > 0 || !/^0+(?:\.0+)?$/.test(row.collected))
   ));
-  const metricCards = data
-    ? [["Nouveaux clients", data.kpis.clients], ["Colis reçus", data.kpis.packages], ["Expéditions", data.kpis.shipments], ["Retraits", data.kpis.pickups], ["Poids traité", `${Number(data.kpis.weight_kg).toLocaleString("fr-FR")} kg`]]
-    : [];
   return (
-    <div className="reports-page min-h-full min-w-0 w-full overflow-x-clip bg-white [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
+    <div className="reports-page min-h-full min-w-0 w-full overflow-x-clip bg-white">
       <OperationPageHeader
         wide
         title="Rapports & analyses"
         description="Suivez les performances de votre activité Cargo."
-        actions={
-          <>
-            <label className="text-[11px] text-[#697178]">
-              Du
-              <input
-                type="date"
-                className={`${input} ml-2`}
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </label>
-            <label className="text-[11px] text-[#697178]">
-              Au
-              <input
-                type="date"
-                className={`${input} ml-2`}
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </label>
-            <OperationButton onClick={load}>
-              <RefreshCcw size={14} />
-              Actualiser
-            </OperationButton>
-            {tab !== "operations" && tab !== "shipments" && tab !== "finance" && tab !== "clients" && tab !== "warehouses" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download("packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
-          </>
-        }
+        actions={<PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={exportCurrentView}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
       />
-      <OperationMetrics className="hidden">
-        <OperationMetricGrid>
-          {(loading
-            ? Array.from({ length: 4 }, (_, index) => [String(index), ""])
-            : metricCards
-          ).map(([label, value]) => loading ? (
-            <div key={String(label)} className="min-h-[72px] px-4 py-3.5">
-              <div className="h-3 w-24 animate-pulse rounded bg-[#e8ecea]" />
-              <div className="mt-3 h-7 w-16 animate-pulse rounded bg-[#e8ecea]" />
-            </div>
-          ) : (
-            <OperationMetric key={String(label)} label={String(label)} value={value} active={activeMetric === String(label)} onClick={() => { setActiveMetric(String(label)); setTab(String(label).includes("Colis") || String(label).includes("Expéditions") ? "operations" : "overview"); }} />
-          ))}
-        </OperationMetricGrid>
-      </OperationMetrics>
-      <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
       <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8">
         <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
           {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <OperationTab key={key} active={tab === key} onClick={() => setTab(key)}>{label}</OperationTab>)}

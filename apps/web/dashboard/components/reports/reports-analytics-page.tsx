@@ -168,7 +168,7 @@ export function ReportsAnalyticsPage() {
               <RefreshCcw size={14} />
               Actualiser
             </OperationButton>
-            {tab !== "operations" && tab !== "shipments" && tab !== "finance" && tab !== "clients" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "shipments" ? "shipments" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
+            {tab !== "operations" && tab !== "shipments" && tab !== "finance" && tab !== "clients" && tab !== "warehouses" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download("packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
           </>
         }
       />
@@ -215,7 +215,7 @@ export function ReportsAnalyticsPage() {
             {tab === "operations" && <PackagesReport data={data} rows={packageRows} loading={packageRowsLoading} onExport={() => download("packages")} />} {" "}
             {tab === "finance" && <FinanceReport data={data} rows={financeRows} loading={financeRowsLoading} onExport={() => download("finance")} />}{" "}
             {tab === "routes" && <Routes data={data} />}{" "}
-            {tab === "warehouses" && <Warehouses data={data} />}{" "}
+            {tab === "warehouses" && <OfficesReport data={data} onExport={() => exportOffices(data.offices, start, end)} />}{" "}
             {tab === "clients" && <ClientsReport data={data} rows={clientRows} loading={clientRowsLoading} onExport={() => download("clients")} />}
             {tab === "shipments" && <ShipmentsReport data={data} rows={shipmentRows} loading={shipmentRowsLoading} onExport={() => download("shipments")} />}
             {tab === "reports" && (
@@ -522,15 +522,26 @@ function Routes({ data }: { data: Analytics }) {
     </Card>
   );
 }
-function Warehouses({ data }: { data: Analytics }) {
-  return (
-    <Card
-      title="Inventaire par entrepôt"
-      subtitle="Stock physique actuellement enregistré."
-    >
-      <Table rows={data.warehouses} />
-    </Card>
-  );
+function OfficesReport({ data, onExport }: { data: Analytics; onExport: () => void }) {
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="text-[16px] font-semibold text-[#25292e]">Performances bureaux</h2><p className="mt-1 text-[12px] text-[#697178]">Activité et résultats par bureau</p></div>
+      <PermissionGuard permission="reports.export"><OperationButton onClick={onExport}><Download size={14} />Exporter</OperationButton></PermissionGuard>
+    </div>
+    {data.offices.length ? <div className="space-y-2">{data.offices.map((office) => <section key={office.id} className="border border-[#dfe3e4] bg-white px-3 py-3">
+      <div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-[13px] font-semibold text-[#25292e]">{office.name || office.city}</h3><span className="bg-[#f1f2f1] px-2 py-1 text-[10px] text-[#59636b]">{Number(office.packages).toLocaleString("fr-FR")} colis</span></div>
+      <div className="space-y-2 text-[11px]"><div className="flex items-center justify-between gap-3 text-[#697178]"><span>Expéditions</span><span className="font-medium text-[#25292e]">{Number(office.expeditions).toLocaleString("fr-FR")}</span></div><div className="flex items-start justify-between gap-3 text-[#697178]"><span>Paiements reçus</span><span className="text-right font-medium text-[#25292e]">{office.payments.length ? office.payments.map((payment) => financeMoney(payment.amount, payment.currency)).join(" · ") : "0"}</span></div></div>
+    </section>)}</div> : <p className="border border-[#dfe3e4] bg-white px-3 py-4 text-[12px] text-[#697178]">Aucun bureau accessible pour cette sélection.</p>}
+    <section aria-labelledby="office-report-data"><h3 id="office-report-data" className="mb-2 text-[14px] font-semibold text-[#25292e]">Données du rapport</h3>{data.offices.length ? <div className="space-y-2">{data.offices.map((office) => <div key={office.id} className="flex items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3"><span><span className="block text-[12px] font-medium text-[#25292e]">{office.name || office.city}</span><span className="mt-1 block text-[11px] text-[#697178]">{office.city}</span></span><span className="flex items-center gap-2 text-[11px] text-[#59636b]"><span className="bg-[#f1f2f1] px-2 py-1">{office.status === "ACTIVE" ? "Actif" : "Inactif"}</span><ChevronRight size={14} /></span></div>)}</div> : <p className="border border-[#dfe3e4] bg-white px-3 py-4 text-[12px] text-[#697178]">Aucun bureau accessible pour cette sélection.</p>}</section>
+  </div>;
+}
+function exportOffices(offices: Analytics["offices"], start: string, end: string) {
+  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`,
+    lines = [["Bureau", "Ville", "Statut", "Colis", "Expéditions", "Paiements reçus"], ...offices.map((office) => [office.name, office.city, office.status, String(office.packages), String(office.expeditions), office.payments.map((payment) => `${payment.amount} ${payment.currency}`).join(" | ")])],
+    csv = `\uFEFF${lines.map((line) => line.map((value) => quote(String(value || ""))).join(",")).join("\r\n")}`,
+    url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })),
+    link = document.createElement("a");
+  link.href = url; link.download = `slaivio-bureaux-${start}-${end}.csv`; link.click(); URL.revokeObjectURL(url);
 }
 function Reports({
   report,

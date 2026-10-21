@@ -41,6 +41,7 @@ describe("ReportsAnalyticsPage", () => {
       trend: [],
       monthly_trend: [],
       monthly_finance: [],
+      offices: [],
       statuses: { packages: [], shipments: [] },
       routes: [],
       finance: [],

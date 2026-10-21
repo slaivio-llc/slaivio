@@ -294,6 +294,40 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                 p,
             )
         )
+        offices = _rows(
+            connection.execute(
+                text(
+                    """select office.id,office.name,office.city,office.status,
+                      (select count(distinct package.id)::int from cargo_packages package
+                        where package.org_id=office.org_id and package.deleted_at is null
+                          and package.created_at>=:start and package.created_at<:end
+                          and office.id in (package.origin_location_id,package.destination_location_id)) packages,
+                      (select count(distinct expedition.id)::int from cargo_expeditions expedition
+                        where expedition.org_id=office.org_id and expedition.archived_at is null and expedition.deleted_at is null
+                          and expedition.created_at>=:start and expedition.created_at<:end
+                          and (expedition.destination_office_id=office.agency_office_id or exists (
+                            select 1 from expedition_packages link
+                            join cargo_packages package on package.org_id=link.org_id and package.id=link.package_id
+                            where link.org_id=expedition.org_id and link.expedition_id=expedition.id and link.removed_at is null
+                              and package.deleted_at is null
+                              and office.id in (package.origin_location_id,package.destination_location_id)
+                          ))) expeditions,
+                      coalesce((select jsonb_agg(jsonb_build_object('currency',paid.currency,'amount',paid.amount) order by paid.currency)
+                        from (select payment.currency,coalesce(sum(payment.amount),0)::text amount
+                          from finance_payments payment
+                          join finance_documents document on document.org_id=payment.org_id and document.id=payment.document_id
+                          where payment.org_id=office.org_id and payment.status='CONFIRMED'
+                            and payment.paid_at>=:start and payment.paid_at<:end
+                            and document.document_type='INVOICE' and document.office_id=office.id
+                          group by payment.currency) paid),'[]'::jsonb) payments
+                    from organization_locations office
+                    where office.org_id=:o and office.location_type='OFFICE'
+                      and (:office_ids is null or office.id=any(cast(:office_ids as uuid[])))
+                    order by office.name"""
+                ),
+                {**p, "office_ids": office_ids},
+            )
+        )
         warehouses = _rows(
             connection.execute(
                 text(
@@ -315,6 +349,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
         "routes": routes,
         "finance": finance_rows,
         "monthly_finance": monthly_finance,
+        "offices": offices,
         "warehouses": warehouses,
     }
 

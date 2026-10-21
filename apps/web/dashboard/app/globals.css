@@ -1052,6 +1052,15 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   font-weight: var(--operation-weight-semibold, 620) !important;
 }
 
+.slaivio-operations [data-ui="operation-tab"][aria-current="page"],
+.slaivio-operations nav[aria-label^="Sections"] > button[aria-current="page"],
+.slaivio-operations nav[aria-label^="Vues"] > button[aria-current="page"],
+[data-ui="operation-drawer"] [data-ui="operation-tab"][aria-current="page"] {
+  background: #111111 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
 .operation-tabs > button.font-semibold {
   background: #111111 !important;
   color: #ffffff !important;

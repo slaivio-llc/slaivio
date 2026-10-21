@@ -139,7 +139,7 @@ export function ReportsAnalyticsPage() {
     ? [["Nouveaux clients", data.kpis.clients], ["Colis reçus", data.kpis.packages], ["Expéditions", data.kpis.shipments], ["Retraits", data.kpis.pickups], ["Poids traité", `${Number(data.kpis.weight_kg).toLocaleString("fr-FR")} kg`]]
     : [];
   return (
-    <div className="reports-page min-h-full min-w-0 w-full overflow-x-clip bg-white px-3 py-5 sm:px-5 [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
+    <div className="reports-page min-h-full min-w-0 w-full overflow-x-clip bg-white [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
       <OperationPageHeader
         wide
         title="Rapports & analyses"
@@ -189,8 +189,8 @@ export function ReportsAnalyticsPage() {
       </OperationMetrics>
       <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
       <div className="reports-tabs-shell min-w-0 w-full px-0">
-        <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
-          {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]"}`}>{label}</button>)}
+        <nav aria-label="Sections des rapports" className="operation-tabs mx-auto mb-4 flex w-full max-w-[1200px] flex-nowrap items-center gap-0 overflow-x-auto px-6 pb-2 sm:px-8">
+          {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <OperationTab key={key} active={tab === key} onClick={() => setTab(key)}>{label}</OperationTab>)}
         </nav>
       </div>
       <main className={`reports-layout-main min-w-0 w-full px-0 pt-0 pb-4 ${tab === "overview" ? "reports-overview" : ""}`}>

@@ -1114,7 +1114,6 @@ nav[aria-label="Sections Finance"] > button:first-child {
 
 .reports-page > [data-ui="operation-page-header"] > div {
   max-width: none;
-  padding: 0 0 24px !important;
 }
 
 .reports-page > [data-ui="operation-page-header"] h1 {

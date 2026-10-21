@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, BadgeDollarSign, Boxes, Building2, Plane, Plus, Route, Ship, Warehouse, Zap } from "lucide-react";
 import Link from "next/link";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
+import { OperationTab } from "@/components/ui/operation-controls";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { catalog as getRouteCatalog } from "@/services/route-catalog";
@@ -48,8 +49,11 @@ export function ParcelManagementHub() {
   return <div className="min-h-full min-w-0 bg-white">
     <OperationPageHeader title="Gestion" description="Structure, services, tarifs et collaborateurs de votre agence."
       actions={<label className="grid gap-1 text-[11px] text-[#697178]">Bureau actif<select className="h-9 min-w-[160px] rounded-full border border-[#d8dddf] bg-white px-3 text-[12px] text-[#30363a]" value={office?.selected_office_id || ""} onChange={(event) => void selectOffice(event.target.value)}><option value="">Tous les bureaux autorisés</option>{(office?.offices || []).map((item) => <option key={item.location_id} value={item.location_id}>{item.city || item.name}</option>)}</select></label>}
-      tabs={tabs.map(([key, label]) => <button key={key} type="button" onClick={() => setSection(key)} className={"h-9 shrink-0 rounded-none px-3 text-[12px] font-medium " + (section === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]")}>{label}</button>)} />
+      />
     <main className="mx-auto w-full min-w-0 max-w-[1200px] px-6 py-4 sm:px-8">
+      <nav aria-label="Sections Gestion" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
+        {tabs.map(([key, label]) => <OperationTab key={key} active={section === key} onClick={() => setSection(key)}>{label}</OperationTab>)}
+      </nav>
       <div className="w-full min-w-0 bg-white">
         <div className="min-w-0 space-y-4 py-4">
           {section === "organization" && <><div className="flex flex-wrap items-center justify-between gap-3"><Heading title="Organisation" subtitle="Gérez vos implantations et vos entrepôts." /><PermissionGuard permission="locations.manage"><Link href="/app/settings?section=locations" className={primary}><Plus size={14}/>Nouveau bureau</Link></PermissionGuard></div>

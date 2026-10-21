@@ -48,7 +48,9 @@ export function ReportsAnalyticsPage() {
     [packageRows, setPackageRows] = useState<Array<Record<string, unknown>>>([]),
     [packageRowsLoading, setPackageRowsLoading] = useState(false),
     [shipmentRows, setShipmentRows] = useState<Array<Record<string, unknown>>>([]),
-    [shipmentRowsLoading, setShipmentRowsLoading] = useState(false);
+    [shipmentRowsLoading, setShipmentRowsLoading] = useState(false),
+    [clientRows, setClientRows] = useState<Array<Record<string, unknown>>>([]),
+    [clientRowsLoading, setClientRowsLoading] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -81,6 +83,16 @@ export function ReportsAnalyticsPage() {
       .then((result) => { if (active) setPackageRows(result); })
       .catch(() => { if (active) setPackageRows([]); })
       .finally(() => { if (active) setPackageRowsLoading(false); });
+    return () => { active = false; };
+  }, [tab, start, end, officeId]);
+  useEffect(() => {
+    if (tab !== "clients") return;
+    let active = true;
+    setClientRowsLoading(true);
+    previewReport("clients", start, end, officeId || undefined)
+      .then((result) => { if (active) setClientRows(result); })
+      .catch(() => { if (active) setClientRows([]); })
+      .finally(() => { if (active) setClientRowsLoading(false); });
     return () => { active = false; };
   }, [tab, start, end, officeId]);
   useEffect(() => {
@@ -192,7 +204,7 @@ export function ReportsAnalyticsPage() {
             {tab === "finance" && <Finance data={data} />}{" "}
             {tab === "routes" && <Routes data={data} />}{" "}
             {tab === "warehouses" && <Warehouses data={data} />}{" "}
-            {tab === "clients" && <Clients data={data} />}
+            {tab === "clients" && <ClientsReport data={data} rows={clientRows} loading={clientRowsLoading} onExport={() => download("clients")} />}
             {tab === "shipments" && <ShipmentsReport data={data} rows={shipmentRows} loading={shipmentRowsLoading} onExport={() => download("shipments")} />}
             {tab === "reports" && (
               <Reports
@@ -247,9 +259,42 @@ function Kpi({ title, value, change: delta }: { title: string; value: React.Reac
   const detail = delta === "new" ? "Nouveau sur la période" : delta === null ? "Plusieurs devises" : `${delta > 0 ? "+" : ""}${delta}% vs période précédente`;
   return <section className="rounded-[8px] border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">{title}</p><p className="mt-2 text-[20px] font-semibold text-[#25292e]">{value}</p><p className={`mt-1 text-[11px] ${delta === null ? "text-[#697178]" : delta === "new" || delta >= 0 ? "text-[#16855f]" : "text-[#bd5b3a]"}`}>{detail}</p></section>;
 }
-function Clients({ data }: { data: Analytics }) {
-  const active = Number(data.kpis.active_clients || 0);
-  return <Card title="Clients actifs" subtitle="Clients ayant eu au moins un colis créé pendant la période sélectionnée"><p className="text-[24px] font-semibold">{active.toLocaleString("fr-FR")}</p></Card>;
+function ClientsReport({ data, rows, loading, onExport }: { data: Analytics; rows: Array<Record<string, unknown>>; loading: boolean; onExport: () => void }) {
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="text-[16px] font-semibold text-[#25292e]">Rapport des clients</h2><p className="mt-1 text-[12px] text-[#697178]">Nouveaux clients et activité</p></div>
+      <PermissionGuard permission="reports.export"><OperationButton onClick={onExport}><Download size={14} />Exporter</OperationButton></PermissionGuard>
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+      <section className="border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">Clients actifs</p><p className="mt-2 text-[20px] font-semibold text-[#25292e]">{Number(data.kpis.active_clients || 0).toLocaleString("fr-FR")}</p></section>
+      <section className="border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">Nouveaux clients</p><p className="mt-2 text-[20px] font-semibold text-[#25292e]">{Number(data.kpis.clients || 0).toLocaleString("fr-FR")}</p></section>
+    </div>
+    <section className="border border-[#dfe3e4] bg-white p-4" aria-label="Évolution mensuelle des nouveaux clients">
+      <ClientTrend data={data.monthly_trend || []} />
+    </section>
+    <section aria-labelledby="client-report-data">
+      <h3 id="client-report-data" className="mb-2 text-[14px] font-semibold text-[#25292e]">Données du rapport</h3>
+      {loading ? <LoadingState label="Chargement des clients…" /> : rows.length ? <div className="space-y-2">{rows.slice(0, 8).map((row, index) => {
+        const reference = String(row.client_reference || `CLI-${String(index + 1).padStart(3, "0")}`),
+          name = String(row.name || "Client"),
+          status = row.lifecycle_status === "active" ? "Actif" : row.lifecycle_status ? String(row.lifecycle_status).replaceAll("_", " ") : "Nouveau";
+        return <div key={String(row.id || `${reference}-${index}`)} className="flex items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3"><span><span className="block text-[12px] font-medium text-[#25292e]">{reference}</span><span className="mt-1 block text-[11px] text-[#697178]">{name}</span></span><span className="flex items-center gap-2 text-[11px] text-[#59636b]"><span className="bg-[#f1f2f1] px-2 py-1">{status}</span><ChevronRight size={14} /></span></div>;
+      })}</div> : <p className="border border-[#dfe3e4] bg-white px-3 py-4 text-[12px] text-[#697178]">Aucun nouveau client sur cette période.</p>}
+    </section>
+  </div>;
+}
+function ClientTrend({ data }: { data: Analytics["monthly_trend"] }) {
+  const maxValue = Math.max(0, ...data.map((item) => item.clients));
+  const max = Math.max(6, Math.ceil(maxValue / 30) * 30);
+  const left = 52, right = 680, top = 22, bottom = 230;
+  const x = (index: number) => data.length <= 1 ? (left + right) / 2 : left + (index * (right - left)) / (data.length - 1);
+  const y = (value: number) => bottom - (value / max) * (bottom - top);
+  const points = data.map((item, index) => `${x(index)},${y(item.clients)}`).join(" ");
+  return <><div className="mb-2 flex items-center justify-between"><h3 className="text-[14px] font-semibold text-[#25292e]">Nouveaux clients par mois</h3><span className="bg-[#f1f2f1] px-2 py-1 text-[10px] text-[#59636b]">6 mois</span></div><svg className="h-[320px] w-full" viewBox="0 0 700 270" role="img" aria-label="Nombre de nouveaux clients sur les six derniers mois">
+    {Array.from({ length: 6 }, (_, index) => { const value = (max / 5) * (5 - index), lineY = top + index * ((bottom - top) / 5); return <g key={index}><line x1={left} y1={lineY} x2={right} y2={lineY} stroke="#edf0ef" strokeDasharray="2 4"/><text x={left - 10} y={lineY + 4} textAnchor="end" fontSize="10" fill="#687178">{Math.round(value)}</text></g>; })}
+    <polyline fill="none" stroke="#ff784c" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={points}/>
+    {data.map((item,index)=><g key={item.month}><circle cx={x(index)} cy={y(item.clients)} r="3.5" fill="#ff784c"/><text x={x(index)} y="252" textAnchor="middle" fontSize="10" fill="#687178">{new Date(`${item.month}T12:00:00`).toLocaleDateString("fr-FR",{month:"short"})}</text></g>)}
+  </svg>{!data.length && <p className="text-center text-[12px] text-[#697178]">Aucune activité à afficher sur les six derniers mois.</p>}</>;
 }
 function Overview({ data }: { data: Analytics }) {
   return (

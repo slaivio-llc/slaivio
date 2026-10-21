@@ -161,8 +161,13 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                         date_trunc('month',cast(:end as date) - interval '1 day'), interval '1 month')::date as month_start
                     )
                     select m.month_start as month,
-                      coalesce(p.packages,0)::int packages,coalesce(s.shipments,0)::int shipments
+                      coalesce(c.clients,0)::int clients,coalesce(p.packages,0)::int packages,coalesce(s.shipments,0)::int shipments
                     from months m
+                    left join (select date_trunc('month',c.created_at)::date month_start,count(*) clients
+                      from clients c where c.org_id=:o
+                      and c.created_at>=date_trunc('month',cast(:end as date)-interval '1 day')-interval '5 months'
+                      and c.created_at<date_trunc('month',cast(:end as date)-interval '1 day')+interval '1 month'{client}
+                      group by 1) c using(month_start)
                     left join (select date_trunc('month',p.created_at)::date month_start,count(*) packages
                       from cargo_packages p where p.org_id=:o and p.deleted_at is null
                       and p.created_at>=date_trunc('month',cast(:end as date)-interval '1 day')-interval '5 months'
@@ -276,7 +281,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
 
 
 REPORT_SQL = {
-    "clients": "select c.id,c.name,c.phone,c.email,c.country,c.created_at from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end",
+    "clients": "select c.id,c.client_reference,coalesce(c.display_name,c.company_name,c.name) name,c.lifecycle_status,c.phone,c.email,c.country,c.created_at from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end",
     "packages": "select p.id,p.package_reference,p.tracking_id,p.status,p.client_id,p.warehouse_name,p.weight_kg,p.volume_cbm,p.destination_country,p.created_at from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end",
     "shipments": "select e.id,e.expedition_reference,e.status,e.route_label,e.origin_city,e.destination_city,e.mode shipping_mode,e.total_weight_kg weight_kg,e.total_volume_cbm volume_cbm,e.billed_total,e.cost_total,e.profit_total,e.currency,e.created_at,e.updated_at from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end",
     "finance": "select fd.document_number,fd.document_type,fd.status,fd.currency,fd.total,fd.amount_paid,fd.balance_due,fd.issue_date,fd.due_date,fd.created_at from finance_documents fd where fd.org_id=:o and fd.created_at>=:start and fd.created_at<:end",

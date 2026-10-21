@@ -223,6 +223,88 @@ export function PricingEnginePage() {
     </div>
   );
 }
+
+export function PricingManagementSection() {
+  const [data, setData] = useState<Dashboard | null>(null);
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createTarget, setCreateTarget] = useState<Catalog["services"][number] | null>(null);
+  const [selected, setSelected] = useState<Awaited<ReturnType<typeof gridDetail>> | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [dashboard, serviceCatalog] = await Promise.all([pricingDashboard(), pricingCatalog()]);
+      setData(dashboard);
+      setCatalog(serviceCatalog);
+      setError("");
+    } catch {
+      setError("Les tarifs et les services de l’agence n’ont pas pu être chargés.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const services = useMemo(() => {
+    const unique = new Map<string, Catalog["services"][number]>();
+    for (const service of catalog?.services || []) if (!unique.has(service.id)) unique.set(service.id, service);
+    return Array.from(unique.values());
+  }, [catalog]);
+  const hasUnpricedService = services.some((service) => !(data?.grids || []).some((grid) =>
+    grid.shipping_service_id === service.id && grid.status === "ACTIVE" && (grid.base_price != null || grid.tier_count > 0),
+  ));
+
+  async function openService(service: Catalog["services"][number]) {
+    const related = (data?.grids || []).filter((grid) => grid.shipping_service_id === service.id)
+      .sort((left, right) => Number(right.status === "ACTIVE") - Number(left.status === "ACTIVE") || right.version - left.version);
+    const existing = related[0];
+    if (existing) {
+      try { setSelected(await gridDetail(existing.id)); }
+      catch { setError("La fiche tarifaire n’a pas pu être chargée."); }
+      return;
+    }
+    setCreateTarget(service);
+    setCreateOpen(true);
+  }
+
+  function unitText(grid?: Grid, service?: Catalog["services"][number]) {
+    const method = grid?.base_price_method || grid?.calculation_method || (service?.shipping_mode === "SEA" ? "PER_CBM" : "PER_KG");
+    const unit = method === "PER_CBM" ? "CBM" : method === "PER_PACKAGE" ? "colis" : method === "PER_UNIT" ? "unité" : method === "FIXED" ? "forfait" : "kg";
+    return `${grid?.currency_code || "USD"} / ${unit}`;
+  }
+
+  return <section className="min-w-0 space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="text-[14px] font-semibold text-[#25292e]">Tarification</h2><p className="mt-1 text-[11px] text-[#697178]">Configurez les prix applicables à vos services.</p></div>
+      <PermissionGuard permission="pricing.create"><button type="button" className="inline-flex h-9 items-center gap-2 bg-[#111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]" onClick={() => { setCreateTarget(null); setCreateOpen(true); }}><Plus size={14}/>Ajouter un tarif</button></PermissionGuard>
+    </div>
+    <div className="space-y-2">
+      {hasUnpricedService && <div className="flex items-start gap-2 border border-[#e2e5e5] bg-[#fafbfb] p-3">
+        <span aria-hidden="true" className="mt-0.5 text-[#59636b]">ⓘ</span>
+        <div><p className="text-[12px] font-semibold text-[#25292e]">Tarifs non renseignés</p><p className="mt-1 text-[11px] leading-5 text-[#697178]">Aucun prix ne doit être proposé aux clients ou utilisé dans une facture tant qu’un tarif applicable n’est pas configuré et validé.</p></div>
+      </div>}
+      {error && <p role="alert" className="text-[12px] text-red-700">{error}</p>}
+      {loading ? <TableSkeleton rows={3} columns={1} label="Chargement des tarifs…" /> : services.length ? services.map((service) => {
+        const related = (data?.grids || []).filter((grid) => grid.shipping_service_id === service.id)
+          .sort((left, right) => Number(right.status === "ACTIVE") - Number(left.status === "ACTIVE") || right.version - left.version);
+        const current = related[0];
+        const configured = current?.status === "ACTIVE" && (current.base_price != null || current.tier_count > 0);
+        return <button key={service.id} type="button" onClick={() => void openService(service)} className="flex w-full min-w-0 items-center justify-between gap-3 border border-[#dfe3e4] px-3 py-3 text-left transition-colors hover:bg-[#fafbfb]">
+          <span className="min-w-0"><span className="block truncate text-[12px] font-medium text-[#25292e]">{service.service_name}</span><span className="mt-1 block text-[11px] text-[#697178]">{unitText(current, service)}</span></span>
+          <span className="flex shrink-0 items-center gap-2"><span className={`px-2 py-1 text-[10px] ${configured ? "bg-[#dcf5e5] text-[#14804a]" : "bg-[#fff0e8] text-[#c75b23]"}`}>{configured ? "Tarif configuré" : current ? "À valider" : "Tarif à définir"}</span><ChevronRight size={14} className="text-[#697178]"/></span>
+        </button>;
+      }) : <EmptyState title="Aucun service configuré" description="Créez d’abord un service de transport avant de définir son tarif." />}
+    </div>
+    {createOpen && catalog && <OperationDrawer open title="Configuration du tarif" description="Configurez le prix applicable à un service et une route." close={() => { setCreateOpen(false); setCreateTarget(null); }} width="max-w-[620px]" variant="form" bodyClassName="p-0">
+      <CreateGrid key={`${createTarget?.id || "all"}:${createTarget?.route_id || ""}`} catalog={catalog} initialServiceId={createTarget?.id} initialRouteId={createTarget?.route_id} done={async (id) => { setCreateOpen(false); setCreateTarget(null); await load(); setSelected(await gridDetail(id)); }}/>
+    </OperationDrawer>}
+    {selected && <GridDrawer detail={selected} close={() => setSelected(null)} versionCreated={async (id) => setSelected(await gridDetail(id))} changed={async () => { setSelected(await gridDetail(selected.grid.id)); await load(); }} />}
+  </section>;
+}
+
 function GridTable({
   grids,
   open,
@@ -334,9 +416,13 @@ function PricingCategories({catalog,saved}:{catalog:Catalog|null;saved:()=>Promi
 function CreateGrid({
   catalog,
   done,
+  initialServiceId,
+  initialRouteId,
 }: {
   catalog: Catalog;
   done: (gridId: string) => Promise<void>;
+  initialServiceId?: string;
+  initialRouteId?: string;
 }) {
   type TierInput = { min: string; max: string; price: string };
   type Draft = {
@@ -347,8 +433,8 @@ function CreateGrid({
   };
   const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const [step, setStep] = useState<1 | 2>(1);
-  const [route, setRoute] = useState("");
-  const [service, setService] = useState("");
+  const [route, setRoute] = useState(initialRouteId || "");
+  const [service, setService] = useState(initialServiceId || "");
   const [unit, setUnit] = useState<Draft["unit"]>("PER_KG");
   const [currency, setCurrency] = useState("USD");
   const [priceMode, setPriceMode] = useState<Draft["priceMode"]>("single");

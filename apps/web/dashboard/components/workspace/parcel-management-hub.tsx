@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, BadgeDollarSign, Building2, Plus, Warehouse } from "lucide-react";
+import { ArrowRight, Building2, Plus, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationTab } from "@/components/ui/operation-controls";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
-import { pricingDashboard } from "@/services/pricing-engine";
 import { getAdmin, getOfficeContext, setOfficeContext, type AdminData, type OfficeContext } from "@/services/organization-admin";
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
+import { PricingManagementSection } from "@/components/pricing/pricing-engine-page";
 
 type Section = "organization" | "services" | "pricing" | "team";
 const tabs: Array<[Section, string]> = [["organization", "Organisation"], ["services", "Services & Routes"], ["pricing", "Tarification"], ["team", "Équipe & Accès"]];
@@ -20,7 +20,6 @@ export function ParcelManagementHub() {
   const [data, setData] = useState<AdminData | null>(null);
   const [office, setOffice] = useState<OfficeContext | null>(null);
   const [section, setSection] = useState<Section>("organization");
-  const [pricing, setPricing] = useState<Awaited<ReturnType<typeof pricingDashboard>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -32,9 +31,6 @@ export function ParcelManagementHub() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => {
-    if (section === "pricing" && !pricing) pricingDashboard().then((value) => setPricing(value)).catch(() => setPricing({grids: [], alerts: [], stats: {}, settings: {}}));
-  }, [section, pricing]);
   const locations = data?.locations || [];
   const offices = locations.filter((item) => item.location_type === "OFFICE");
   const warehouses = locations.filter((item) => item.location_type === "WAREHOUSE");
@@ -61,7 +57,7 @@ export function ParcelManagementHub() {
             <LocationGroup title="Entrepôts" action={<PermissionGuard permission="locations.manage"><Link href="/app/settings?section=locations" className={button}><Plus size={13}/>Ajouter</Link></PermissionGuard>}>{warehouses.map((item) => <LocationRow key={String(item.id)} name={String(item.name || "Entrepôt")} detail={[item.city, item.country].filter(Boolean).join(" · ")} icon="warehouse"/>)}</LocationGroup>
             {!warehouses.length && <Empty label="Aucun entrepôt n’est configuré."/>}</>}
           {section === "services" && <ServicesRoutesSection />}
-          {section === "pricing" && <><Heading title="Tarification" subtitle="Grilles et règles utilisées pour calculer les prix des prestations."/><div className="grid gap-2 sm:grid-cols-3"><Metric label="Grilles tarifaires" value={pricing?.grids.length ?? "—"}/><Metric label="Grilles actives" value={pricing?.grids.filter((grid) => grid.status === "ACTIVE").length ?? "—"}/><Metric label="Alertes" value={pricing?.alerts.length ?? "—"}/></div>{pricing?.grids.slice(0, 6).map((grid, index) => <div key={String(grid.id || index)} className="flex justify-between gap-3 border border-[#dfe3e4] px-3 py-3"><span className="text-[12px] font-medium">{String(grid.name || "Grille")}</span><span className="text-[11px] text-[#697178]">{String(grid.status || "")}</span></div>)}<Summary href="/app/pricing" permission="pricing.read" icon={<BadgeDollarSign size={17}/>} title="Ouvrir la tarification" detail="Gérer les grilles, les règles et les frais."/></>}
+          {section === "pricing" && <PricingManagementSection />}
           {section === "team" && <><div className="flex flex-wrap items-center justify-between gap-3"><Heading title="Équipe & Accès" subtitle="Collaborateurs, rôles et accès aux bureaux."/><PermissionGuard permission="organization.manage"><Link href="/app/settings?section=team" className={primary}><Plus size={14}/>Inviter un membre</Link></PermissionGuard></div><div className="grid gap-2 sm:grid-cols-3"><Metric label="Membres" value={data.members.length}/><Metric label="Actifs" value={activeMembers.length}/><Metric label="Invités" value={data.members.filter((member) => member.status === "INVITED").length}/></div>{data.members.map((member) => <div key={member.id} className="flex justify-between gap-3 border border-[#dfe3e4] px-3 py-3"><span><b className="block text-[12px] font-medium">{member.member_display_name || member.member_email || "Membre"}</b><span className="mt-1 block text-[11px] text-[#697178]">{member.role_name || member.role_code}</span></span><span className="bg-[#f1f2f1] px-2 py-1 text-[10px]">{member.status === "ACTIVE" ? "Actif" : member.status}</span></div>)}</>}
           <p className="text-[10px] text-[#8a9297]">Les éléments affichés proviennent des paramètres et des données de votre agence.</p>
         </div>
@@ -85,5 +81,4 @@ function Heading({title,subtitle}:{title:string;subtitle:string}) { return <div>
 function Metric({label,value}:{label:string;value:string|number}) { return <div className="border border-[#dfe3e4] px-3 py-3"><p className="text-[10px] text-[#697178]">{label}</p><p className="mt-1 text-[16px] font-semibold text-[#25292e]">{value}</p></div>; }
 function LocationGroup({title,action,children}:{title:string;action?:React.ReactNode;children:React.ReactNode}) { return <section><div className="mb-2 flex items-center justify-between gap-3"><h3 className="text-[12px] font-semibold text-[#25292e]">{title}</h3>{action}</div><div className="space-y-2">{children}</div></section>; }
 function LocationRow({name,detail,icon,badge}:{name:string;detail:string;icon:"office"|"warehouse";badge?:string}) { const Icon = icon === "office" ? Building2 : Warehouse; return <Link href="/app/settings?section=locations" className="flex min-w-0 items-center justify-between gap-3 border border-[#dfe3e4] px-3 py-3 hover:bg-[#fafbfb]"><span className="flex min-w-0 items-center gap-3"><Icon size={15} className="shrink-0 text-[#697178]"/><span className="min-w-0"><b className="block truncate text-[12px] font-medium text-[#25292e]">{name}</b><span className="mt-1 block truncate text-[11px] text-[#697178]">{detail || "Implantation"}</span></span></span><span className="flex shrink-0 items-center gap-2">{badge && <span className="bg-[#f1f2f1] px-2 py-1 text-[10px] text-[#59636b]">{badge}</span>}<ArrowRight size={14} className="text-[#697178]"/></span></Link>; }
-function Summary({href,permission,icon,title,detail}:{href:string;permission:string;icon:React.ReactNode;title:string;detail:string}) { return <PermissionGuard permission={permission}><Link href={href} className="flex items-center justify-between gap-3 border border-[#dfe3e4] p-4 hover:bg-[#fafbfb]"><span className="flex items-center gap-3"><span className="text-[#59636b]">{icon}</span><span><b className="block text-[12px] font-medium text-[#25292e]">{title}</b><span className="mt-1 block text-[11px] text-[#697178]">{detail}</span></span></span><ArrowRight size={14} className="text-[#697178]"/></Link></PermissionGuard>; }
 function Empty({label}:{label:string}) { return <p className="border border-dashed border-[#dfe3e4] px-3 py-5 text-center text-[11px] text-[#697178]">{label}</p>; }

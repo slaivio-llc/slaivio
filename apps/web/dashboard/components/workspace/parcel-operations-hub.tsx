@@ -6,6 +6,7 @@ import { CalendarDays, Package, RefreshCw, Truck } from "lucide-react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { OperationTab } from "@/components/ui/operation-controls";
+import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { businessLabel } from "@/components/ui/business-labels";
 import { getPackageStats, type PackageStats } from "@/services/packages";
 import { getShipmentDepartureCalendar, getShipmentStats, type ExpeditionStats, type ShipmentDepartureCalendarItem } from "@/services/shipments";
@@ -109,6 +110,7 @@ export function ParcelOperationsHub() {
   }, [canPackages, canShipments, canTracking, permissionsLoading, revision]);
 
   return <div className="min-h-full bg-white">
+    <OperationPageHeader title="Opérations" description="Vue d’ensemble de l’activité cargo" actions={<button type="button" onClick={() => setRevision(value => value + 1)} aria-label="Actualiser les opérations" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCw size={15}/></button>}/>
     <main className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-8">
       <nav aria-label="Sections Opérations" className="mb-4 flex flex-nowrap items-center gap-1 overflow-x-auto pb-2">
         <ViewTab active={view === "overview"} onClick={() => selectView("overview")}>Vue d’ensemble</ViewTab>
@@ -116,7 +118,6 @@ export function ParcelOperationsHub() {
         {canShipments && <ViewTab active={view === "shipments"} onClick={() => selectView("shipments")}>Expéditions</ViewTab>}
         {canShipments && <ViewTab active={view === "calendar"} onClick={() => selectView("calendar")}>Calendrier</ViewTab>}
         {canTracking && <ViewTab active={view === "tracking"} onClick={() => selectView("tracking")}>Tracking</ViewTab>}
-        <button type="button" onClick={() => setRevision(value => value + 1)} aria-label="Actualiser les opérations" className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCw size={15}/></button>
       </nav>
 
       {view === "overview" && <>

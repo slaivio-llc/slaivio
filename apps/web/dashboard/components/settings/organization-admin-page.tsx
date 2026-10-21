@@ -99,7 +99,7 @@ settingGroups.push(
 const visibleSettings = settingGroups.slice(4).flatMap(([, sections]) => sections);
 const sectionTitles: Partial<Record<Section, [string, string]>> = {
   visual: ["Identité visuelle", "Configurez les règles applicables à votre agence."],
-  tracking: ["Page publique de tracking", "Cette section sera complétée avec sa maquette dédiée."],
+  tracking: ["Page publique de tracking", "Personnalisez l’expérience de suivi de vos clients."],
   hours: ["Horaires & disponibilité", "Cette section sera complétée avec sa maquette dédiée."],
   packages: ["Colis & réception", "Cette section sera complétée avec sa maquette dédiée."],
   delivery: ["Expéditions & livraison", "Cette section sera complétée avec sa maquette dédiée."],
@@ -227,8 +227,9 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "visual", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            {!["general", "agency", "visual", "tracking", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
+            <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
           </div>
         </main>
         </div>
@@ -399,6 +400,96 @@ function NotificationsSettings() {
     </Card>
   );
 }
+function PublicTrackingSettings({
+  data,
+  run,
+  active,
+}: {
+  data: AdminData;
+  run: (action: () => Promise<unknown>, message: string) => void;
+  active: boolean;
+}) {
+  const rawSettings = data.settings?.settings;
+  const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
+    ? rawSettings as Record<string, unknown>
+    : {};
+  const storedPage = storedSettings.public_tracking_page && typeof storedSettings.public_tracking_page === "object"
+    ? storedSettings.public_tracking_page as Record<string, unknown>
+    : {};
+  const fallbackSlug = String(data.organization.organization_name || "agence")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agence";
+  const [enabled, setEnabled] = useState(storedPage.enabled !== false);
+  const [slug, setSlug] = useState(String(storedPage.slug || fallbackSlug));
+  const [welcome, setWelcome] = useState(String(storedPage.welcome_message || "Suivez votre colis en temps réel grâce à sa référence."));
+  const [showBrand, setShowBrand] = useState(storedPage.show_brand !== false);
+  const [showSupport, setShowSupport] = useState(storedPage.show_support !== false);
+  const [showHistory, setShowHistory] = useState(storedPage.show_history !== false);
+  const [showPricing, setShowPricing] = useState(storedPage.show_pricing === true);
+  if (!active) return null;
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nextPage = {
+      enabled,
+      slug: String(form.get("slug") || "").trim().toLowerCase(),
+      welcome_message: String(form.get("welcome") || "").trim(),
+      show_brand: showBrand,
+      show_support: showSupport,
+      show_history: showHistory,
+      show_pricing: showPricing,
+    };
+    run(() => updateSettings({
+      expected_version: Number(data.settings?.row_version || 1),
+      settings: { ...storedSettings, public_tracking_page: nextPage },
+    }), "Paramètres de tracking public enregistrés.");
+  }
+
+  const publicUrl = `tracking.slaivio.com/${slug || "identifiant-agence"}`;
+  const agencyName = String(data.organization.organization_name || "Votre agence");
+  const supportPhone = String(data.organization.phone || "");
+  return <section className="grid gap-5">
+    <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+      <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
+        <h3 className="text-[15px] font-semibold text-[#25292e]">Suivi public</h3>
+        <label className="flex items-center justify-between gap-4 py-1 text-[14px] font-medium text-[#30363a]">
+          <span><span className="block">Activer le suivi public</span><span className="mt-1 block text-[12px] font-normal text-[#697178]">Les clients peuvent consulter leurs colis sans compte.</span></span>
+          <input aria-label="Activer le suivi public" type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} className="h-5 w-5 accent-[#137c56]" />
+        </label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Identifiant public de l’agence<input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={event => setSlug(event.target.value.toLowerCase())} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <div className="pt-1"><p className="text-[12px] text-[#697178]">Adresse illustrative</p><p className="mt-1 text-[13px] font-medium text-[#30363a]">{publicUrl}</p><p className="mt-1 text-[11px] text-[#858d93]">La disponibilité et l’unicité de l’identifiant doivent être vérifiées côté serveur.</p></div>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Message d’accueil<textarea name="welcome" rows={3} maxLength={300} value={welcome} onChange={event => setWelcome(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+      </section>
+      <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
+        <h3 className="text-[15px] font-semibold text-[#25292e]">Éléments visibles sur la page</h3>
+        <VisibilityToggle label="Afficher le logo et le nom de l’agence" checked={showBrand} onChange={setShowBrand}/>
+        <VisibilityToggle label="Afficher les coordonnées du support" checked={showSupport} onChange={setShowSupport}/>
+        <VisibilityToggle label="Afficher l’historique de suivi" checked={showHistory} onChange={setShowHistory}/>
+        <VisibilityToggle label="Afficher les informations tarifaires" checked={showPricing} onChange={setShowPricing}/>
+      </section>
+      <section>
+        <h3 className="text-[15px] font-semibold text-[#25292e]">Aperçu de la page client</h3>
+        <div className="mt-3 rounded-lg border border-[#d8dddf] p-4">
+          {showBrand && <div className="flex items-center gap-2 text-[13px] font-medium text-[#30363a]"><span className="grid h-8 w-8 place-items-center rounded-md bg-[#f4f6f5]"><Building2 size={16}/></span>{agencyName}</div>}
+          <h4 className="mt-4 text-[15px] font-semibold text-[#25292e]">Suivez votre colis</h4>
+          <p className="mt-1 text-[13px] leading-5 text-[#697178]">{welcome}</p>
+          <div className="mt-4 flex gap-2"><span className="h-10 flex-1 rounded-lg border border-[#d8dddf] px-3 py-2 text-[13px] text-[#9aa1a6]">Référence du colis</span><span className="rounded-lg bg-[#172b4d] px-4 py-2 text-[13px] font-medium text-white">Suivre</span></div>
+          {showSupport && supportPhone && <p className="mt-3 text-[12px] text-[#697178]">Support : {supportPhone}</p>}
+          {!enabled && <p className="mt-3 text-[12px] font-medium text-amber-700">Le suivi public est désactivé.</p>}
+          {!showHistory && <p className="mt-2 text-[11px] text-[#899197]">L’historique de suivi est masqué.</p>}
+          {showPricing && <p className="mt-2 text-[11px] text-[#899197]">Les informations tarifaires ne seront visibles que si elles existent et sont autorisées.</p>}
+        </div>
+      </section>
+      <p className="text-[12px] leading-5 text-[#697178]">La consultation réelle doit protéger les données personnelles et limiter les informations accessibles avec une simple référence.</p>
+      <PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div></PermissionGuard>
+    </form>
+  </section>;
+}
+
+function VisibilityToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+  return <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]">{label}<input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>;
+}
+
 function VisualIdentitySettings({
   data,
   run,

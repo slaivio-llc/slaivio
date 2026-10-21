@@ -896,9 +896,12 @@ def public_package_tracking(reference: str) -> dict | None:
                    package.delivered_at, package.last_scan_location,
                    package.updated_at,
                    coalesce(nullif(organization.organization_name,''), nullif(organization.name,''), 'Agence') agency_name,
-                   organization.logo_url agency_logo_url
+                   organization.logo_url agency_logo_url,
+                   organization.phone agency_support_phone,
+                   coalesce(org_settings.settings->'public_tracking_page', '{}'::jsonb) tracking_page_settings
             from cargo_packages package
             join organizations organization on organization.id=package.org_id
+            left join organization_settings org_settings on org_settings.org_id=organization.id
             where package.deleted_at is null and package.public_tracking_enabled=true
               and (upper(package.tracking_id)=upper(:reference) or upper(package.package_reference)=upper(:reference))
             order by package.updated_at desc
@@ -908,7 +911,24 @@ def public_package_tracking(reference: str) -> dict | None:
         if len(matches) != 1:
             return None
         package = _safe(dict(matches[0]._mapping))
-        package["events"] = [_safe(dict(row._mapping)) for row in conn.execute(text("""
+        page_settings = package.pop("tracking_page_settings", None) or {}
+        if page_settings.get("enabled") is False:
+            return None
+        show_brand = page_settings.get("show_brand", True) is not False
+        show_support = page_settings.get("show_support", True) is not False
+        show_history = page_settings.get("show_history", True) is not False
+        if not show_brand:
+            package["agency_name"] = None
+            package["agency_logo_url"] = None
+        if not show_support:
+            package["agency_support_phone"] = None
+        package["tracking_page"] = {
+            "welcome_message": page_settings.get("welcome_message") or "Suivez votre colis en temps réel grâce à sa référence.",
+            "show_brand": show_brand,
+            "show_support": show_support,
+            "show_history": show_history,
+        }
+        event_rows = conn.execute(text("""
             select event_type, title, null::text description, new_status, created_at occurred_at
             from package_events
             where org_id=:org_id and package_id=cast(:package_id as uuid)
@@ -917,7 +937,8 @@ def public_package_tracking(reference: str) -> dict | None:
                 'DEPARTURE_ARRIVED','DEPARTURE_CANCELLED','DELIVERED')
             order by created_at desc
             limit 50
-        """), {"org_id": package["org_id"], "package_id": package["id"]}).fetchall()]
+        """), {"org_id": package["org_id"], "package_id": package["id"]}).fetchall() if show_history else []
+        package["events"] = [_safe(dict(row._mapping)) for row in event_rows]
         package.pop("id", None)
         return package
 

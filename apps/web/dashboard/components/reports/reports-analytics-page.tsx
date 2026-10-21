@@ -1,8 +1,9 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import Link from "next/link";
 import { API_BASE_URL } from "@/services/api";
-import { Download, RefreshCcw, Save } from "lucide-react";
+import { ChevronRight, Download, RefreshCcw, Save } from "lucide-react";
 import {
   exportReport,
   getAnalytics,
@@ -43,7 +44,9 @@ export function ReportsAnalyticsPage() {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [report, setReport] = useState("packages"),
-    [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
+    [rows, setRows] = useState<Array<Record<string, unknown>>>([]),
+    [packageRows, setPackageRows] = useState<Array<Record<string, unknown>>>([]),
+    [packageRowsLoading, setPackageRowsLoading] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -68,6 +71,16 @@ export function ReportsAnalyticsPage() {
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
+  useEffect(() => {
+    if (tab !== "operations") return;
+    let active = true;
+    setPackageRowsLoading(true);
+    previewReport("packages", start, end, officeId || undefined)
+      .then((result) => { if (active) setPackageRows(result); })
+      .catch(() => { if (active) setPackageRows([]); })
+      .finally(() => { if (active) setPackageRowsLoading(false); });
+    return () => { active = false; };
+  }, [tab, start, end, officeId]);
   async function openReport(key: string) {
     setReport(key);
     setRows(await previewReport(key, start, end, officeId || undefined));
@@ -119,7 +132,7 @@ export function ReportsAnalyticsPage() {
               <RefreshCcw size={14} />
               Actualiser
             </OperationButton>
-            <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "finance" ? "finance" : tab === "shipments" ? "shipments" : tab === "clients" ? "clients" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>
+            {tab !== "operations" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "finance" ? "finance" : tab === "shipments" ? "shipments" : tab === "clients" ? "clients" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
           </>
         }
       />
@@ -163,7 +176,7 @@ export function ReportsAnalyticsPage() {
           <>
             {!hasPeriodActivity && <div role="status" className="mb-4 border border-[#dfe3e4] bg-white px-4 py-3 text-[12px] text-[#697178]">Aucune opération n’a été enregistrée sur la période sélectionnée. Les vues d’état courant peuvent toutefois afficher le stock existant.</div>}
             {tab === "overview" && <Overview data={data} />}{" "}
-            {tab === "operations" && <Operations data={data} />}{" "}
+            {tab === "operations" && <PackagesReport data={data} rows={packageRows} loading={packageRowsLoading} onExport={() => download("packages")} />} {" "}
             {tab === "finance" && <Finance data={data} />}{" "}
             {tab === "routes" && <Routes data={data} />}{" "}
             {tab === "warehouses" && <Warehouses data={data} />}{" "}
@@ -277,16 +290,52 @@ function Trend({ data }: { data: Analytics["trend"] }) {
     </div>
   );
 }
-function Operations({ data }: { data: Analytics }) {
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {Object.entries(data.statuses).filter(([key])=>key!="dossiers").map(([key, items]) => (
-        <Card key={key} title={key === "packages" ? "État des colis" : key === "shipments" ? "État des expéditions" : key} subtitle="">
-          <Bars items={items} />
-        </Card>
-      ))}
+function PackagesReport({ data, rows, loading, onExport }: { data: Analytics; rows: Array<Record<string, unknown>>; loading: boolean; onExport: () => void }) {
+  const counts = new Map((data.statuses.packages || []).map((item) => [String(item.label).toUpperCase(), Number(item.value)]));
+  const total = (statuses: string[]) => statuses.reduce((sum, status) => sum + (counts.get(status) || 0), 0);
+  const bars = [
+    { label: "Reçus", value: Number(data.kpis.packages || 0) },
+    { label: "Expédiés", value: total(["SHIPPED", "DEPARTED", "IN_TRANSIT", "CUSTOMS", "ARRIVED", "ARRIVED_DESTINATION", "CLEARED", "READY_FOR_PICKUP", "AVAILABLE_FOR_PICKUP", "OUT_FOR_DELIVERY", "DELIVERED"]) },
+    { label: "Arrivés", value: total(["ARRIVED", "ARRIVED_DESTINATION", "CLEARED", "READY_FOR_PICKUP", "AVAILABLE_FOR_PICKUP", "OUT_FOR_DELIVERY", "DELIVERED"]) },
+    { label: "Livrés", value: total(["DELIVERED"]) },
+  ];
+  const max = Math.max(4, Math.ceil(Math.max(...bars.map((item) => item.value), 0) / 4 / 10) * 10 * 4);
+  const chartTop = 22, chartBottom = 230, chartHeight = chartBottom - chartTop;
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="text-[16px] font-semibold text-[#25292e]">Rapport des colis</h2><p className="mt-1 text-[12px] text-[#697178]">Réception, expédition, arrivée et livraison</p></div>
+      <PermissionGuard permission="reports.export"><OperationButton onClick={onExport}><Download size={14} />Exporter</OperationButton></PermissionGuard>
     </div>
-  );
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {bars.map((item) => <section key={item.label} className="border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">{item.label}</p><p className="mt-2 text-[20px] font-semibold text-[#25292e]">{item.value.toLocaleString("fr-FR")}</p></section>)}
+    </div>
+    <section className="border border-[#dfe3e4] bg-white p-4" aria-label="Graphique des colis par étape">
+      <svg className="h-[340px] w-full" viewBox="0 0 700 280" role="img" aria-label="Nombre de colis reçus, expédiés, arrivés et livrés">
+        {Array.from({ length: 5 }, (_, index) => {
+          const value = (max / 4) * (4 - index), y = chartTop + index * (chartHeight / 4);
+          return <g key={index}><line x1="58" y1={y} x2="680" y2={y} stroke="#edf0ef" strokeDasharray="2 4"/><text x="48" y={y + 4} textAnchor="end" fontSize="11" fill="#687178">{Math.round(value)}</text></g>;
+        })}
+        {bars.map((item, index) => {
+          const width = 104, x = 92 + index * 148, height = (item.value / max) * chartHeight, y = chartBottom - height;
+          return <g key={item.label}><rect x={x} y={y} width={width} height={height} rx="8" fill="#f28b55"><title>{`${item.label} : ${item.value}`}</title></rect><text x={x + width / 2} y="252" textAnchor="middle" fontSize="11" fill="#687178">{item.label}</text></g>;
+        })}
+      </svg>
+    </section>
+    <section aria-labelledby="package-report-data">
+      <h3 id="package-report-data" className="mb-2 text-[14px] font-semibold text-[#25292e]">Données du rapport</h3>
+      {loading ? <LoadingState label="Chargement des colis…" /> : rows.length ? <div className="space-y-2">{rows.slice(0, 8).map((row, index) => {
+        const reference = String(row.package_reference || row.tracking_id || `Colis ${index + 1}`),
+          status = packageStatusLabel(String(row.status || "")),
+          href = row.id ? `/app/packages?open=${encodeURIComponent(String(row.id))}` : null,
+          content = <><span><span className="block text-[12px] font-medium text-[#25292e]">{reference}</span><span className="mt-1 block text-[11px] text-[#697178]">{String(row.destination_country || row.warehouse_name || "Colis")}</span></span><span className="flex items-center gap-2 text-[11px] text-[#59636b]"><span className="bg-[#f1f2f1] px-2 py-1">{status}</span><ChevronRight size={14} /></span></>;
+        return href ? <Link key={String(row.id)} href={href} className="flex items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3 hover:bg-[#fafbfb]">{content}</Link> : <div key={`${reference}-${index}`} className="flex items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3">{content}</div>;
+      })}</div> : <p className="border border-[#dfe3e4] bg-white px-3 py-4 text-[12px] text-[#697178]">Aucun colis enregistré sur cette période.</p>}
+    </section>
+  </div>;
+}
+function packageStatusLabel(status: string) {
+  const labels: Record<string, string> = { CREATED: "Créé", PENDING_VALIDATION: "À valider", CONFIRMED: "Confirmé", RECEIVED: "Reçu", RECEIVED_AT_ORIGIN: "Reçu", WAREHOUSED: "En entrepôt", WAREHOUSE_PROCESSING: "En traitement", READY_FOR_DISPATCH: "Prêt à expédier", READY_FOR_BATCH: "Prêt au groupage", BATCHED: "Groupé", SHIPPED: "Expédié", DEPARTED: "Expédié", IN_TRANSIT: "En transit", CUSTOMS: "En douane", ARRIVED: "Arrivé", ARRIVED_DESTINATION: "Arrivé", CLEARED: "Dédouané", READY_FOR_PICKUP: "Prêt au retrait", AVAILABLE_FOR_PICKUP: "Prêt au retrait", OUT_FOR_DELIVERY: "En livraison", DELIVERED: "Livré", BLOCKED: "Bloqué", CANCELLED: "Annulé", RETURNED: "Retourné" };
+  return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase();
 }
 function Finance({ data }: { data: Analytics }) {
   return (

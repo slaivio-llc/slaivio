@@ -1067,7 +1067,16 @@ nav[aria-label="Paramètres de communication"] > button,
   padding-left: 0;
 }
 
+.slaivio-pilot nav[aria-label="Sections Finance"] > button:first-child {
+  padding-left: 0;
+}
+
 .slaivio-operations nav[aria-label="Sections Communication"] > button:first-child {
+  padding-left: 0;
+}
+
+.slaivio-pilot nav > [data-ui="operation-tab"]:first-child,
+.slaivio-pilot nav[aria-label="Sections des rapports"] > button:first-child {
   padding-left: 0;
 }
 

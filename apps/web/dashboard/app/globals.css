@@ -1083,8 +1083,7 @@ nav[aria-label="Sections Finance"] > button {
 }
 
 .slaivio-pilot nav > [data-ui="operation-tab"]:first-child,
-.slaivio-operations nav > [data-ui="operation-tab"]:first-child,
-.slaivio-pilot nav[aria-label="Sections des rapports"] > button:first-child {
+.slaivio-operations nav > [data-ui="operation-tab"]:first-child {
   margin-left: -12px;
   padding-left: 12px;
 }
@@ -1101,21 +1100,6 @@ nav[aria-label="Sections Finance"] > button:first-child {
 .operation-tabs > [data-ui="operation-tab"]:first-child {
   margin-left: 0 !important;
   padding-left: 12px !important;
-}
-
-.reports-page > [data-ui="operation-page-header"] .operation-actions button[data-variant="primary"] {
-  border-radius: 999px;
-  background: #111111;
-}
-
-.reports-page > main {
-  min-width: 0;
-  min-height: 0;
-}
-
-.reports-page > main svg {
-  display: block;
-  max-width: 100%;
 }
 
 nav[aria-label="Annonces et relances"] > button {

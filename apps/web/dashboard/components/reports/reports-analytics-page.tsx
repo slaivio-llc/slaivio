@@ -144,7 +144,6 @@ export function ReportsAnalyticsPage() {
   return (
     <div className="reports-page flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-white">
       <OperationPageHeader
-        wide
         title="Rapports & analyses"
         description="Suivez les performances de votre activité Cargo."
         actions={<PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={exportCurrentView}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
@@ -154,7 +153,7 @@ export function ReportsAnalyticsPage() {
           {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <OperationTab key={key} active={tab === key} onClick={() => setTab(key)}>{label}</OperationTab>)}
         </nav>
       </div>
-      <main className={`reports-layout-main min-h-0 min-w-0 w-full flex-1 overflow-y-auto overflow-x-hidden px-0 pt-0 pb-4 ${tab === "overview" ? "reports-overview" : ""}`}>
+      <main className={`reports-layout-main mx-auto min-h-0 min-w-0 w-full max-w-[1200px] flex-1 overflow-y-auto overflow-x-hidden px-6 pt-0 pb-4 sm:px-8 ${tab === "overview" ? "reports-overview" : ""}`}>
         <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <label className="text-[11px] text-[#697178]">Période<select aria-label="Période" className={`${input} mt-1 w-full`} value={`${start}|${end}`} onChange={(event) => { const [s, e] = event.target.value.split("|"); setStart(s); setEnd(e); }}>
             <option value={`${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)}|${today}`}>Ce mois</option><option value={`${monthAgo}|${today}`}>30 derniers jours</option><option value={`${new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1).toISOString().slice(0, 10)}|${today}`}>3 derniers mois</option><option value={`${new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)}|${today}`}>Cette année</option>

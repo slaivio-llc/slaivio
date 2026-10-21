@@ -1102,40 +1102,17 @@ nav[aria-label="Sections Finance"] > button:first-child {
   padding-left: 12px !important;
 }
 
-.reports-page > [data-ui="operation-page-header"] {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-}
-
-.reports-page > [data-ui="operation-page-header"] > div {
-  max-width: none;
-}
-
 .reports-page > [data-ui="operation-page-header"] .operation-actions button[data-variant="primary"] {
   border-radius: 999px;
   background: #111111;
 }
 
 .reports-page > main {
-  width: 100%;
-  max-width: none;
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  margin-inline: 0;
-  border: 0;
-  border-radius: 0;
-}
-
-.reports-page > main > * {
-  width: 100%;
-  max-width: none;
-  min-width: 0;
 }
 
 .reports-page > main svg {

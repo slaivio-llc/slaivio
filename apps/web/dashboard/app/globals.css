@@ -1030,29 +1030,51 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   font: inherit;
 }
 
-/* The baseline belongs below the tabs. Active tab borders sit on that same
-   baseline, instead of creating a second dark line above the navigation. */
+/* Module navigation follows Finance: compact, directly visible rounded tabs. */
 .operation-tabs > button,
 .operation-tabs > div > button {
-  margin-bottom: -1px;
-  min-height: 44px;
-  border-bottom-width: 2px;
-  border-top: 0 !important;
-  border-left: 0;
-  border-right: 0;
-  border-radius: 0;
+  min-height: 36px;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 8px 12px;
   background: transparent;
-  font-size: var(--operation-text-tab, 14px);
+  color: #68717d;
+  font-size: 12px !important;
   font-weight: var(--operation-weight-medium, 520);
-  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+  line-height: 16px;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.operation-tabs [aria-current="page"] {
+  background: #111111 !important;
+  color: #ffffff !important;
+  font-weight: var(--operation-weight-semibold, 620) !important;
+}
+
+.operation-tabs > button:not([aria-current="page"]):hover,
+.operation-tabs > div > button:not([aria-current="page"]):hover {
+  background: #f2f3f3;
+  color: #17212b;
 }
 
 /* Drawer navigation follows the same type role as page navigation while
    retaining its compact segmented shape. */
 .operation-drawer-segmented-tabs > button {
-  font-size: var(--operation-text-tab, 14px) !important;
-  line-height: 20px;
+  min-height: 36px;
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 8px 12px;
+  background: transparent;
+  color: #68717d;
+  font-size: 12px !important;
+  line-height: 16px;
   font-weight: var(--operation-weight-medium, 520) !important;
+}
+
+.operation-drawer-segmented-tabs > button[aria-current="page"] {
+  background: #111111 !important;
+  color: #ffffff !important;
 }
 
 .operation-drawer-segmented-tabs > button span {
@@ -1299,6 +1321,28 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 .operation-form-surface form {
   display: grid;
   gap: 1.5rem;
+}
+
+/* Creation and edit forms share the invoice composer rail on every module. */
+[data-ui="operation-drawer"]:has(.operation-form-surface form) {
+  max-width: min(720px, calc(100vw - 24px));
+}
+
+[data-ui="operation-search"] {
+  min-height: 36px;
+  border-radius: 6px;
+  border-color: #d4d9df;
+  font-size: 13px;
+}
+
+[data-ui="operation-search"] input {
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding-inline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 13px !important;
 }
 
 .operation-form-surface [data-ui="operation-field"] {

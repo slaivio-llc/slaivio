@@ -47,7 +47,7 @@ describe("OperationDrawer", () => {
     expect(change).toHaveBeenCalledWith("operations");
   });
 
-  it("moves surplus detail tabs into the three-dot menu", () => {
+  it("keeps all detail tabs visible in a horizontally scrollable row", () => {
     render(
       <OperationDrawerTabs
         items={[
@@ -62,8 +62,7 @@ describe("OperationDrawer", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Audit" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Autres" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Audit" })).toBeInTheDocument();
   });
 
   it("shares professional action buttons and human business labels", () => {

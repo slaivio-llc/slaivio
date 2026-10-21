@@ -310,7 +310,7 @@ function RouteDetail({
       width="max-w-[920px]"
       headerMeta={<><Badge value={item.status} /><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-700">{businessLabel(item.transport_mode)}</span></>}
       tabsVariant="segmented"
-      tabs={<OperationDrawerTabs items={detailTabs.map(([key, label]) => ({ key, label }))} value={tab} primaryKeys={["overview", "services", "departures", "shipments", "performance"]} onChange={setTab} />}
+      tabs={<OperationDrawerTabs items={detailTabs.map(([key, label]) => ({ key, label }))} value={tab} onChange={setTab} />}
     >
       <main>
         {tab === "overview" ? (

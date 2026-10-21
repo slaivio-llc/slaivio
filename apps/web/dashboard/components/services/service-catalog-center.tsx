@@ -419,7 +419,7 @@ function DetailDrawer({
         <PermissionGuard permission="services.create"><OperationDrawerAction icon={<Copy size={15} />} onClick={async () => { await duplicateService(item.id); await changed(); }}>Dupliquer</OperationDrawerAction></PermissionGuard>
       </>}
       tabsVariant="segmented"
-      tabs={<OperationDrawerTabs items={detailTabs.map(([key, label]) => ({ key, label }))} value={tab} primaryKeys={["overview", "routes", "pricing", "conditions", "performance"]} onChange={setTab} />}
+      tabs={<OperationDrawerTabs items={detailTabs.map(([key, label]) => ({ key, label }))} value={tab} onChange={setTab} />}
     >
       <main>
         {tab === "overview" ? (

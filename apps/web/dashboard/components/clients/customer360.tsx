@@ -83,7 +83,7 @@ export function Customer360({ client, close, edit, archive, busy }: { client: Cl
           {permissions.includes("finance.read") && <Metric label="Solde dû" value={formatMoney(client.current_balance, currency)} danger={client.current_balance > 0}/>}
         </div>
 
-        {tabs.length > 0 && <nav aria-label="Sections de la fiche client" className="flex items-center gap-4 overflow-x-auto border-b border-slate-200"><OperationDrawerTabs items={tabs.map(tab => ({ ...tab }))} value={activeSection} primaryCount={6} onChange={value => { setSection(value as Section); setPage(1); }}/></nav>}
+        {tabs.length > 0 && <nav aria-label="Sections de la fiche client" className="flex items-center gap-1 overflow-x-auto"><OperationDrawerTabs items={tabs.map(tab => ({ ...tab }))} value={activeSection} onChange={value => { setSection(value as Section); setPage(1); }}/></nav>}
         {activeSection === "packages" && <h2 className="text-sm font-semibold text-slate-800">Colis du client</h2>}
         {loading ? <p role="status" className="p-5 text-sm text-slate-500">Chargement de la fiche…</p> : error ? <div role="alert" className="p-5 text-sm"><p>Impossible de charger cette section. Vos droits ont peut-être changé.</p><button type="button" className="mt-3 underline" onClick={() => setRetry(value => value + 1)}>Réessayer</button></div> : <SectionContent section={activeSection} result={result} total={total} page={page} pages={pages} setPage={setPage}/>}
       </div>

@@ -3,7 +3,6 @@
 import { Archive, RotateCcw, SquarePen, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { OperationTabMenu } from "@/components/ui/operation-controls";
 
 export type OperationDrawerTabItem = {
   key: string;
@@ -15,33 +14,23 @@ export function OperationDrawerTabs({
   items,
   value,
   onChange,
-  primaryKeys,
-  primaryCount = 4,
 }: {
   items: OperationDrawerTabItem[];
   value: string;
   onChange: (value: string) => void;
-  primaryKeys?: string[];
-  primaryCount?: number;
 }) {
-  const visible = primaryKeys?.length
-    ? items.filter((item) => primaryKeys.includes(item.key)).slice(0, primaryCount)
-    : items.slice(0, primaryCount);
-  const overflow = items.filter((item) => !visible.some((entry) => entry.key === item.key));
-  const overflowActive = overflow.some((item) => item.key === value);
-
   return (
     <>
-      {visible.map((item) => (
+      {items.map((item) => (
         <button
           key={item.key}
           type="button"
           aria-current={value === item.key ? "page" : undefined}
           onClick={() => onChange(item.key)}
-          className={`relative inline-flex h-10 items-center gap-1.5 whitespace-nowrap border-b-2 px-1 text-[14px] font-[580] transition-colors ${
+          className={`relative inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-medium transition-colors ${
             value === item.key
-              ? "border-[#12ad64] text-[#126847]"
-              : "border-transparent text-[#6b747d] hover:border-[#cbd2d6] hover:text-[#20262c]"
+              ? "bg-[#111111] text-white"
+              : "text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"
           }`}
         >
           {item.label}
@@ -52,14 +41,6 @@ export function OperationDrawerTabs({
           )}
         </button>
       ))}
-      {overflow.length > 0 && (
-        <OperationTabMenu
-          items={overflow.map((item) => [item.key, item.label] as const)}
-          value={overflowActive ? value : ""}
-          onChange={onChange}
-          className="self-center"
-        />
-      )}
     </>
   );
 }
@@ -115,7 +96,7 @@ export function OperationDrawer({
   footerClassName = "",
   bodyClassName = "",
   panelClassName = "",
-  width = "max-w-3xl",
+  width = "max-w-[720px]",
   placement = "center",
 }: {
   open: boolean;
@@ -220,7 +201,7 @@ export function OperationDrawer({
         </header>
         {tabs && (
           <div className={tabsVariant === "segmented"
-            ? "operation-drawer-segmented-tabs flex min-h-[52px] shrink-0 items-end gap-6 overflow-visible flex-wrap bg-white px-6"
+            ? "operation-drawer-segmented-tabs flex min-h-[48px] shrink-0 items-center gap-1.5 overflow-x-auto bg-white px-6"
             : "operation-tabs flex min-h-[42px] shrink-0 items-end gap-6 overflow-visible flex-wrap px-5"}
           >
             {tabs}

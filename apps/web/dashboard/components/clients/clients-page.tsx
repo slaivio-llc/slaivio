@@ -1009,8 +1009,6 @@ function ClientDetails({
             count: tab.key === "duplicates" ? duplicates.length : undefined,
           }))}
           value={activeTab}
-          primaryCount={5}
-          primaryKeys={["summary", "operations", "messages", "payments", "history"]}
           onChange={(value) => onTabChange(value as DetailTab)}
         />
       }

@@ -1405,7 +1405,6 @@ function PackageDetails({
     { key: "history", label: "Historique" },
     { key: "settings", label: "Paramètres" },
   ];
-  const primaryTabKeys: DetailTab[] = ["summary", "shipment", "payment", "dossier"];
 
   async function refreshPackage(next: PackageRecord) {
     onUpdated(next);
@@ -1438,7 +1437,6 @@ function PackageDetails({
         <OperationDrawerTabs
           items={tabs}
           value={activeTab}
-          primaryKeys={primaryTabKeys}
           onChange={(value) => onTabChange(value as DetailTab)}
         />
       }

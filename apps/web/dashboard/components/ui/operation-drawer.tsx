@@ -27,7 +27,7 @@ export function OperationDrawerTabs({
           type="button"
           aria-current={value === item.key ? "page" : undefined}
           onClick={() => onChange(item.key)}
-          className={`relative inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-medium transition-colors ${
+          className={`relative inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-none px-3 py-2 text-[12px] font-medium transition-colors ${
             value === item.key
               ? "bg-[#111111] text-white"
               : "text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"

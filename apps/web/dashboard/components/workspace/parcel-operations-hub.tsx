@@ -155,7 +155,7 @@ export function ParcelOperationsHub() {
 }
 
 function ViewTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return <OperationTab active={active} onClick={onClick} className="!rounded-none">{children}</OperationTab>;
+  return <OperationTab active={active} onClick={onClick}>{children}</OperationTab>;
 }
 
 function MetricCard({ onClick, permission, icon, label, value, loading, error, detail }: { onClick: () => void; permission: string; icon: ReactNode; label: string; value?: number | string; loading: boolean; error: boolean; detail: string }) {

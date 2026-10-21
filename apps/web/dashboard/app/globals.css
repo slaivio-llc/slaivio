@@ -1034,13 +1034,13 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   font: inherit;
 }
 
-/* Module navigation follows Finance: compact, directly visible rounded tabs. */
+/* Module navigation uses compact, directly visible rectangular tabs. */
 .operation-tabs > button,
 .operation-tabs > div > button {
   min-height: 36px;
   margin: 0;
   border: 0 !important;
-  border-radius: 999px !important;
+  border-radius: 0 !important;
   padding: 8px 12px;
   background: transparent;
   color: #68717d;
@@ -1054,6 +1054,13 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   background: #111111 !important;
   color: #ffffff !important;
   font-weight: var(--operation-weight-semibold, 620) !important;
+}
+
+nav[aria-label="Sections Finance"] > button,
+nav[aria-label="Sections des rapports"] > button,
+nav[aria-label="Paramètres de communication"] > button,
+[data-ui="operation-drawer"] div:has(> button[aria-current="page"]) > button {
+  border-radius: 0 !important;
 }
 
 .slaivio-operations [data-ui="operation-tab"][aria-current="page"],

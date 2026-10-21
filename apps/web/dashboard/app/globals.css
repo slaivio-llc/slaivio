@@ -1148,7 +1148,15 @@ nav[aria-label="Sections Finance"] > button:first-child {
   text-align: center;
   min-height: 36px;
   padding: 8px 12px;
+  font-size: var(--operation-text-tab, 14px) !important;
+  font-weight: var(--operation-weight-medium, 520);
+  line-height: 16px;
   transition: background-color 150ms ease, color 150ms ease;
+}
+
+.reports-page nav[aria-label="Sections des rapports"] > button[class*="bg-[#111]"] {
+  color: #ffffff !important;
+  font-weight: var(--operation-weight-semibold, 620);
 }
 
 .reports-page nav[aria-label="Sections des rapports"] > button:first-child {

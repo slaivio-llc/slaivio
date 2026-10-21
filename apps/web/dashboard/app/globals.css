@@ -1063,6 +1063,36 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   color: #17212b;
 }
 
+/* Every sidebar-module tab/filter rail keeps Finance's horizontal mobile
+   behavior instead of wrapping into multiple rows or squeezing its labels. */
+.slaivio-operations nav[aria-label^="Sections"],
+.slaivio-operations nav[aria-label^="Vues"],
+.slaivio-operations nav[aria-label^="Paramètres de communication"],
+.slaivio-operations nav[aria-label^="Filtrer"],
+[data-ui="operation-drawer"] nav[aria-label^="Sections de la fiche"] {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-padding-inline: 1rem;
+}
+
+.slaivio-operations nav[aria-label^="Sections"]::-webkit-scrollbar,
+.slaivio-operations nav[aria-label^="Vues"]::-webkit-scrollbar,
+.slaivio-operations nav[aria-label^="Paramètres de communication"]::-webkit-scrollbar,
+.slaivio-operations nav[aria-label^="Filtrer"]::-webkit-scrollbar,
+[data-ui="operation-drawer"] nav[aria-label^="Sections de la fiche"]::-webkit-scrollbar {
+  display: none;
+}
+
+.slaivio-operations nav[aria-label^="Sections"] > button,
+.slaivio-operations nav[aria-label^="Vues"] > button,
+.slaivio-operations nav[aria-label^="Paramètres de communication"] > button,
+.slaivio-operations nav[aria-label^="Filtrer"] > button,
+[data-ui="operation-drawer"] nav[aria-label^="Sections de la fiche"] > button {
+  flex: 0 0 auto;
+}
+
 nav[aria-label="Paramètres de communication"] > button[aria-current="page"] {
   background: #111111 !important;
   color: #ffffff !important;

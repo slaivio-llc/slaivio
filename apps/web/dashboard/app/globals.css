@@ -1048,6 +1048,8 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   font-weight: var(--operation-weight-medium, 520);
   line-height: 16px;
   transition: color 150ms ease, background 150ms ease;
+  justify-content: center;
+  text-align: center;
 }
 
 .operation-tabs [aria-current="page"] {
@@ -1081,8 +1083,21 @@ nav[aria-label="Sections Finance"] > button {
 }
 
 .slaivio-pilot nav > [data-ui="operation-tab"]:first-child,
+.slaivio-operations nav > [data-ui="operation-tab"]:first-child,
 .slaivio-pilot nav[aria-label="Sections des rapports"] > button:first-child {
-  padding-left: 0;
+  margin-left: -12px;
+  padding-left: 12px;
+}
+
+.slaivio-pilot nav[aria-label="Sections Finance"] > button:first-child,
+.slaivio-pilot nav[aria-label="Sections des rapports"] > button:first-child,
+nav[aria-label="Sections Finance"] > button:first-child {
+  margin-left: -12px;
+  padding-left: 12px;
+}
+
+nav[aria-label="Annonces et relances"] > button {
+  text-align: center;
 }
 
 .slaivio-operations nav[aria-label="Sections Opérations"] > [data-ui="operation-tab"] {

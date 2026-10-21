@@ -74,7 +74,7 @@ export function OperationTab({
       type="button"
       aria-current={active ? "page" : undefined}
       data-ui="operation-tab"
-      className={`inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-none px-3 py-2 text-[12px] font-medium transition-colors ${active ? "bg-[#111111] text-white" : "text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"} ${className}`}
+      className={`inline-flex min-h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-none px-3 py-2 text-center text-[12px] font-medium transition-colors ${active ? "bg-[#111111] text-white" : "text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"} ${className}`}
       {...props}
     >
       {children}

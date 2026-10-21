@@ -105,7 +105,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   delivery: ["Expéditions & livraison", "Configurez les confirmations de livraison et les délais de retrait."],
   numbering: ["Références & numérotation", "Configurez le format des références générées pour vos colis."],
   goods: ["Marchandises & restrictions", "Définissez les contrôles et consignes applicables aux marchandises."],
-  clients: ["Clients & conditions", "Cette section sera complétée avec sa maquette dédiée."],
+  clients: ["Clients & conditions", "Définissez les conditions de crédit et les règles applicables aux clients."],
   assistant: ["Assistant IA", "Cette section sera complétée avec sa maquette dédiée."],
   subscription: ["Abonnement Slaivio", "Plan et usage de votre abonnement à la plateforme."],
   general: ["Général", "Préférences régionales et unités du workspace actif."],
@@ -227,7 +227,7 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "goods", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "goods", "clients", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
             <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
@@ -235,6 +235,7 @@ export function OrganizationAdminPage() {
             <ShipmentDeliverySettings data={data} run={run} active={tab === "delivery"} />
             <PackageNumberingSettings data={data} run={run} active={tab === "numbering"} />
             <GoodsRestrictionsSettings data={data} run={run} active={tab === "goods"} />
+            <ClientConditionsSettings data={data} run={run} active={tab === "clients"} />
           </div>
         </main>
         </div>
@@ -743,6 +744,49 @@ function GoodsRestrictionsSettings({
         <VisibilityToggle label="Vérification des marchandises réglementées" checked={regulatedGoodsCheck} onChange={setRegulatedGoodsCheck}/>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Conditions et restrictions communiquées aux agents<textarea rows={4} maxLength={2000} required value={instructions} onChange={event => setInstructions(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
         <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Les règles doivent pouvoir varier selon le pays, le corridor et le service, avec validation humaine pour les marchandises sensibles.</p>
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+      </form>
+    </PermissionGuard>
+  </section>;
+}
+
+function ClientConditionsSettings({
+  data,
+  run,
+  active,
+}: {
+  data: AdminData;
+  run: (action: () => Promise<unknown>, message: string) => void;
+  active: boolean;
+}) {
+  const rawSettings = data.settings?.settings;
+  const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
+    ? rawSettings as Record<string, unknown>
+    : {};
+  const storedConditions = storedSettings.client_conditions && typeof storedSettings.client_conditions === "object"
+    ? storedSettings.client_conditions as Record<string, unknown>
+    : {};
+  const [allowCredit, setAllowCredit] = useState(storedConditions.allow_customer_credit === true);
+  if (!active) return null;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    run(() => updateSettings({
+      ...data.settings,
+      expected_version: Number(data.settings?.row_version || 1),
+      settings: {
+        ...storedSettings,
+        client_conditions: { ...storedConditions, allow_customer_credit: allowCredit },
+      },
+    }), "Conditions clients enregistrées.");
+  }
+
+  return <section className="grid gap-5">
+    <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+        <VisibilityToggle label="Autoriser le crédit client" checked={allowCredit} onChange={setAllowCredit}/>
+        <p className="-mt-3 text-[12px] leading-5 text-[#697178]">Uniquement pour les clients explicitement approuvés.</p>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Autres règles à prévoir : conditions générales, consentements, réclamations, données obligatoires, gestion des comptes entreprises.</p>
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>

@@ -54,7 +54,7 @@ export function CargoTrackingView({ revision, open, embedded = false }: { revisi
     { key: "arrived", label: "Arrivées", count: stats.arrived_shipments },
   ];
 
-  return <section aria-label="Tracking des expéditions" className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
+  return <section aria-label="Tracking des expéditions" className="w-full bg-white">
     {!embedded && <header className="px-5 pt-5 sm:px-7">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1"><h2 className="text-lg font-semibold text-slate-900">Tracking</h2><p className="mt-0.5 text-sm text-slate-500">Suivi des expéditions et des colis</p></div>

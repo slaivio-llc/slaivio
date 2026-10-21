@@ -111,14 +111,14 @@ export function ParcelRegisterPage({ embedded = false }: { embedded?: boolean })
     {!embedded && <OperationPageHeader title="Colis" description="De la réception à la remise au client." backHref="/app/operations" backLabel="Retour aux opérations"
       actions={<PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={15} />Enregistrer un colis</OperationButton></PermissionGuard>} />}
     <section aria-label="Registre des colis" className={`mx-auto w-full pb-8 ${embedded ? "max-w-full px-0" : "max-w-[1200px] px-6 sm:px-8"}`}>
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        {embedded && <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">Colis</h2><p className="mt-1 text-[11px] text-slate-500">Gestion des colis de l’agence</p></div><PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={14} />Nouveau colis</OperationButton></PermissionGuard></header>}
-        {embedded && <div className="grid grid-cols-4 gap-2 border-b border-slate-100 px-4 py-3" aria-label="Indicateurs colis">
+      <div>
+        {embedded && <div className="grid grid-cols-4 gap-2 py-3" aria-label="Indicateurs colis">
           {[["Total", stats?.total], ["Reçus", stats?.received], ["Expédiés", stats?.in_transit], ["Arrivés", stats?.arrived]].map(([label, value]) => <div key={String(label)} className="min-w-0"><span className="block truncate text-[10px] text-slate-500">{label}</span><strong className="mt-1 block text-sm font-semibold text-slate-900">{statsError ? "—" : value ?? "—"}</strong></div>)}
         </div>}
-        <div className={`flex flex-wrap items-center gap-2 ${embedded ? "px-3 pt-3" : "p-4"}`}>
-          <label className={`relative mr-auto w-full ${embedded ? "" : "sm:max-w-xs"}`}><Search size={15} className="absolute left-3 top-3 text-slate-400" aria-hidden="true" />
+        <div className={`flex flex-wrap items-center gap-2 ${embedded ? "py-2" : "p-4"}`}>
+          <label className={`relative ${embedded ? "w-full sm:flex-1" : "mr-auto w-full sm:max-w-xs"}`}><Search size={15} className="absolute left-3 top-3 text-slate-400" aria-hidden="true" />
             <input type="search" aria-label="Rechercher un colis" placeholder={embedded ? "Rechercher un colis ou un client…" : "Référence, client ou téléphone…"} maxLength={120} className={`${field} pl-9`} value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
+          {embedded && <PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={14} />Nouveau colis</OperationButton></PermissionGuard>}
           {!embedded && <>
           <OperationFilterPopover title="Filtrer les colis" activeCount={Number(Boolean(stage)) + Number(Boolean(dates.start || dates.end))} onReset={reset}>
             <label className="grid gap-1.5 text-xs font-medium">État<select className={field} value={stage} onChange={event => { setStage(event.target.value); setPage(1); }}><option value="">Tous les états</option>{stages.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>

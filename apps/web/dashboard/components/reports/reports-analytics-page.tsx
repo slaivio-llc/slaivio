@@ -188,8 +188,8 @@ export function ReportsAnalyticsPage() {
         </OperationMetricGrid>
       </OperationMetrics>
       <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
-      <div className="reports-tabs-shell min-w-0 w-full px-0">
-        <nav aria-label="Sections des rapports" className="operation-tabs mx-auto mb-4 flex w-full max-w-[1200px] flex-nowrap items-center gap-0 overflow-x-auto px-6 pb-2 sm:px-8">
+      <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8">
+        <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
           {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <OperationTab key={key} active={tab === key} onClick={() => setTab(key)}>{label}</OperationTab>)}
         </nav>
       </div>

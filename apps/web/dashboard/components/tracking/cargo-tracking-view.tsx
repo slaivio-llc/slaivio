@@ -10,7 +10,7 @@ const emptyStats: TrackingStats = { packages_in_transit: 0, active_shipments: 0,
 const date = (value: string | null, empty: string) => value ? new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value)) : empty;
 const route = (item: TrackingItem) => item.route_label || `${item.origin_city || item.origin_country || "Origine non renseignée"} → ${item.destination_city || item.destination_country || "Destination non renseignée"}`;
 
-export function CargoTrackingView({ revision, open }: { revision: number; open: (id: string) => void }) {
+export function CargoTrackingView({ revision, open, embedded = false }: { revision: number; open: (id: string) => void; embedded?: boolean }) {
   const [items, setItems] = useState<TrackingItem[]>([]);
   const [stats, setStats] = useState<TrackingStats>(emptyStats);
   const [phase, setPhase] = useState<Phase>("all");
@@ -55,12 +55,12 @@ export function CargoTrackingView({ revision, open }: { revision: number; open: 
   ];
 
   return <section aria-label="Tracking des expéditions" className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white">
-    <header className="px-5 pt-5 sm:px-7">
+    {!embedded && <header className="px-5 pt-5 sm:px-7">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1"><h2 className="text-lg font-semibold text-slate-900">Tracking</h2><p className="mt-0.5 text-sm text-slate-500">Suivi des expéditions et des colis</p></div>
         <Radar size={17} aria-hidden="true" className="mt-1 text-slate-500" />
       </div>
-    </header>
+    </header>}
 
     <div className="grid grid-cols-3 gap-3 px-5 py-5 sm:px-7">
       <Metric label="En transit" value={stats.in_transit_shipments} tone="default" loading={loading} />

@@ -2,11 +2,10 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { CalendarDays, Package, Radar, RefreshCw, Truck } from "lucide-react";
+import { CalendarDays, Package, RefreshCw, Truck } from "lucide-react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { OperationTab } from "@/components/ui/operation-controls";
-import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { businessLabel } from "@/components/ui/business-labels";
 import { getPackageStats, type PackageStats } from "@/services/packages";
 import { getShipmentDepartureCalendar, getShipmentStats, type ExpeditionStats, type ShipmentDepartureCalendarItem } from "@/services/shipments";
@@ -110,14 +109,14 @@ export function ParcelOperationsHub() {
   }, [canPackages, canShipments, canTracking, permissionsLoading, revision]);
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader title="Opérations" description={{ overview: "Vue d’ensemble de l’activité cargo", packages: "Gestion des colis de l’agence", shipments: "Préparation et suivi des expéditions", calendar: "Calendrier des départs planifiés", tracking: "Suivi des opérations en cours" }[view]} actions={<button type="button" onClick={() => setRevision(value => value + 1)} aria-label="Actualiser les opérations" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCw size={15}/></button>}/>
     <main className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-8">
-      <nav aria-label="Sections Opérations" className="mb-4 flex flex-wrap gap-1 pb-2">
+      <nav aria-label="Sections Opérations" className="mb-4 flex flex-nowrap items-center gap-1 overflow-x-auto pb-2">
         <ViewTab active={view === "overview"} onClick={() => selectView("overview")}>Vue d’ensemble</ViewTab>
-        {canPackages && <ViewTab active={view === "packages"} onClick={() => selectView("packages")} icon={<Package size={14}/>}>Colis</ViewTab>}
-        {canShipments && <ViewTab active={view === "shipments"} onClick={() => selectView("shipments")} icon={<Truck size={14}/>}>Expéditions</ViewTab>}
-        {canShipments && <ViewTab active={view === "calendar"} onClick={() => selectView("calendar")} icon={<CalendarDays size={14}/>}>Calendrier</ViewTab>}
-        {canTracking && <ViewTab active={view === "tracking"} onClick={() => selectView("tracking")} icon={<Radar size={14}/>}>Tracking</ViewTab>}
+        {canPackages && <ViewTab active={view === "packages"} onClick={() => selectView("packages")}>Colis</ViewTab>}
+        {canShipments && <ViewTab active={view === "shipments"} onClick={() => selectView("shipments")}>Expéditions</ViewTab>}
+        {canShipments && <ViewTab active={view === "calendar"} onClick={() => selectView("calendar")}>Calendrier</ViewTab>}
+        {canTracking && <ViewTab active={view === "tracking"} onClick={() => selectView("tracking")}>Tracking</ViewTab>}
+        <button type="button" onClick={() => setRevision(value => value + 1)} aria-label="Actualiser les opérations" className="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCw size={15}/></button>
       </nav>
 
       {view === "overview" && <>
@@ -148,14 +147,14 @@ export function ParcelOperationsHub() {
       {visited.has("packages") && <div hidden={view !== "packages"}><PackagesPage embedded /></div>}
       {visited.has("shipments") && <div hidden={view !== "shipments"}><ShipmentsPage embedded /></div>}
       {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage /></div>}
-      {visited.has("tracking") && <div hidden={view !== "tracking"}><CargoTrackingView revision={revision} open={setSelectedShipment} /></div>}
+      {visited.has("tracking") && <div hidden={view !== "tracking"}><CargoTrackingView revision={revision} open={setSelectedShipment} embedded /></div>}
     </main>
     {selectedShipment && <FreightShipmentDetail shipmentId={selectedShipment} onClose={() => setSelectedShipment(null)} />}
   </div>;
 }
 
-function ViewTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon?: ReactNode; children: ReactNode }) {
-  return <OperationTab active={active} onClick={onClick}>{icon}{children}</OperationTab>;
+function ViewTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return <OperationTab active={active} onClick={onClick} className="!rounded-none">{children}</OperationTab>;
 }
 
 function MetricCard({ onClick, permission, icon, label, value, loading, error, detail }: { onClick: () => void; permission: string; icon: ReactNode; label: string; value?: number | string; loading: boolean; error: boolean; detail: string }) {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Boxes, ChevronLeft, ChevronRight, History, MapPin, Pencil, Plane, Plus, Route as RouteIcon, Search, ShieldCheck, Truck } from "lucide-react";
+import Link from "next/link";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { OperationDrawer, OperationDrawerTabs } from "@/components/ui/operation-drawer";
@@ -12,7 +13,9 @@ import {
   catalog,
   createRoute,
   reactivateRoute,
+  routeDetail as getRouteDetail,
   suspendRoute,
+  updateRoute,
   type Route,
   type Service,
 } from "@/services/route-catalog";
@@ -41,12 +44,13 @@ type ServiceDraft = {
   service_active: boolean;
   public_visible: boolean;
 };
-type ServiceRecord = Service & Record<string, any> & {
-  routes?: Array<Record<string, any>>;
-  pricing?: Array<Record<string, any>>;
-  conditions?: Array<Record<string, any>>;
-  audit?: Array<Record<string, any>>;
-};
+type ServiceMetadata = { billing_unit?: string; responsible_office_id?: string | null; restrictions?: string | null; customer_instructions?: string | null };
+type RouteAssociation = { id?: string; route_id?: string; route_name?: string; route_code?: string; origin_city?: string; destination_city?: string; availability?: string; status?: string };
+type PricingRecord = { status?: string; amount_minor?: number | string | null; currency_code?: string | null };
+type AuditEvent = { id?: string; event_type?: string; created_at?: string | null; actor_name?: string | null; reason?: string | null };
+type RouteServiceRecord = { id?: string; service_name?: string; shipping_mode?: string; status?: string; currency_code?: string | null; base_price_minor?: number | string | null; metadata?: ServiceMetadata };
+type RouteExpeditionRecord = { id?: string; expedition_reference?: string; status?: string; departure_actual_at?: string | null; eta_at?: string | null; arrived_at?: string | null; created_at?: string | null; packages_count?: number | null };
+type ServiceRecord = Service & { created_at?: string | null; description?: string | null; owner_name?: string | null; public_visible?: boolean; metadata?: ServiceMetadata; routes?: RouteAssociation[]; pricing?: PricingRecord[]; conditions?: RouteAssociation[]; audit?: AuditEvent[] };
 type ServiceTab = "details" | "routes" | "conditions" | "history";
 type RouteDraft = {
   route_name: string;
@@ -63,6 +67,8 @@ type RouteDraft = {
   instructions: string;
   route_active: boolean;
 };
+type RouteRecord = Route & { created_at?: string | null; description?: string | null; origin_warehouse_id?: string | null; destination_office_id?: string | null; destination_office_name?: string | null; metadata?: { departure_frequency?: string; operating_instructions?: string | null }; packages_count?: number; shipments?: RouteExpeditionRecord[]; services?: RouteServiceRecord[]; departures?: Array<{ id?: string; scheduled_at?: string | null; status?: string }>; events?: AuditEvent[] };
+type RouteTab = "details" | "expeditions" | "pricing" | "history";
 
 const field =
   "h-11 w-full rounded-lg border border-[#d9e1dd] bg-white px-3.5 text-[14px] text-[#26332d] outline-none transition focus:border-[#16855f] focus:ring-2 focus:ring-[#16855f]/10";
@@ -75,6 +81,7 @@ function errorMessage(error: unknown) {
 }
 
 function statusLabel(status?: string, active?: boolean) {
+  if (status === "DRAFT") return "Brouillon";
   if (active === false || ["INACTIVE", "SUSPENDED", "ARCHIVED"].includes(status || "")) {
     return "Inactif";
   }
@@ -103,6 +110,13 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   const detailRequest = useRef(0);
   const [routeDraft, setRouteDraft] = useState<RouteDraft | null>(null);
   const [serviceCatalogData, setServiceCatalogData] = useState<ServiceCatalog | null>(null);
+  const [routeDetail, setRouteDetail] = useState<RouteRecord | null>(null);
+  const [routeDetailLoading, setRouteDetailLoading] = useState(false);
+  const [routeTab, setRouteTab] = useState<RouteTab>("details");
+  const [routeEditing, setRouteEditing] = useState(false);
+  const [routeSearch, setRouteSearch] = useState("");
+  const [routeDetailPage, setRouteDetailPage] = useState(0);
+  const routeDetailRequest = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -296,6 +310,42 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
     setDetail(fresh); await load();
   }
 
+  async function openRoute(route: Route) {
+    setRouteTab("details"); setRouteEditing(false); setRouteSearch(""); setRouteDetailPage(0);
+    const request=++routeDetailRequest.current;
+    setRouteDetailLoading(true); setRouteDetail(null); setActionError("");
+    if(!serviceCatalogData)getServiceCatalog().then(setServiceCatalogData).catch(()=>setServiceCatalogData(null));
+    try { const result=await getRouteDetail(route.id) as unknown as RouteRecord; if(request===routeDetailRequest.current)setRouteDetail(result); }
+    catch(exception) { if(request===routeDetailRequest.current)setActionError(errorMessage(exception)); }
+    finally { if(request===routeDetailRequest.current)setRouteDetailLoading(false); }
+  }
+
+  async function refreshRouteDetail() {
+    if(!routeDetail)return;
+    setRouteDetail(await getRouteDetail(routeDetail.id) as unknown as RouteRecord);
+    await load();
+  }
+
+  async function saveRouteChanges(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if(!routeDetail)return;
+    const form=new FormData(event.currentTarget);
+    const min=String(form.get("eta_min_days")||""),max=String(form.get("eta_max_days")||"");
+    if(min&&max&&Number(min)>Number(max)){setActionError("Le délai minimum doit être inférieur ou égal au maximum.");return;}
+    const metadata={...(routeDetail.metadata||{}),departure_frequency:String(form.get("frequency")||"PROGRAMMED"),operating_instructions:String(form.get("instructions")||"").trim()||null};
+    setDetailSaving(true);setActionError("");
+    try {
+      await updateRoute(routeDetail.id,{row_version:routeDetail.row_version,route_name:String(form.get("route_name")||"").trim(),origin_country:String(form.get("origin_country")||"").trim(),origin_city:String(form.get("origin_city")||"").trim(),destination_country:String(form.get("destination_country")||"").trim(),destination_city:String(form.get("destination_city")||"").trim(),origin_warehouse_id:String(form.get("origin_warehouse_id")||"")||null,destination_office_id:String(form.get("destination_office_id")||"")||null,eta_min_days:min?Number(min):null,eta_max_days:max?Number(max):null,description:String(form.get("instructions")||"").trim()||null,status:form.get("route_active")==="on"?"ACTIVE":"INACTIVE",metadata,change_reason:"Modification depuis la fiche route"});
+      setRouteEditing(false);setNotice("Route mise à jour. Les expéditions existantes et leur itinéraire historique sont conservés.");await refreshRouteDetail();
+    } catch(exception) { setActionError(errorMessage(exception)); }
+    finally { setDetailSaving(false); }
+  }
+
+  async function toggleSelectedRoute() {
+    if(!routeDetail)return;
+    await toggleRoute(routeDetail);
+    try { setRouteDetail(await getRouteDetail(routeDetail.id) as unknown as RouteRecord); } catch { /* la liste conserve le retour de transition */ }
+  }
+
   async function saveServiceChanges(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!detail) return;
     const form = new FormData(event.currentTarget);
@@ -404,7 +454,8 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
               </article>
             ))
             : data.routes.map(route => (
-              <article key={route.id} className="flex flex-col gap-4 rounded-xl border border-[#e8eeea] p-4 transition hover:border-[#c8ddd1] sm:flex-row sm:items-center">
+              <article key={route.id} className="flex flex-col gap-3 rounded-xl border border-[#e8eeea] p-3 transition hover:border-[#c8ddd1] sm:flex-row sm:items-center">
+                <button type="button" onClick={() => void openRoute(route)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f1f6f3] text-[#416b56]"><MapPin size={18} /></div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -415,9 +466,9 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
                     <span>{route.origin_city}, {route.origin_country}</span><ArrowRight size={12} /><span>{route.destination_city}, {route.destination_country}</span>
                   </p>
                   <p className="mt-1 text-[12px] text-[#748078]">{route.service_names?.length ? route.service_names.join(" · ") : "Aucun service associé"}</p>
-                </div>
+                </div><ArrowRight size={16} className="mr-1 shrink-0 text-[#89948d]" /></button>
                 <PermissionGuard permission="routes.suspend">
-                  <button type="button" onClick={() => void toggleRoute(route)} className="h-9 rounded-lg border border-[#dbe3de] px-3 text-[12px] font-semibold text-[#48574e] hover:bg-[#f5f8f6]">
+                  <button type="button" onClick={() => void toggleRoute(route)} className="h-9 shrink-0 rounded-lg border border-[#dbe3de] px-3 text-[12px] font-semibold text-[#48574e] hover:bg-[#f5f8f6]">
                     {route.active === false || ["INACTIVE", "SUSPENDED", "ARCHIVED"].includes(route.status) ? "Réactiver" : "Désactiver"}
                   </button>
                 </PermissionGuard>
@@ -494,6 +545,44 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
       </OperationDrawer>
 
       <OperationDrawer
+        open={Boolean(routeDetail) || routeDetailLoading}
+        close={() => { routeDetailRequest.current += 1; setRouteDetail(null); setRouteDetailLoading(false); setRouteEditing(false); }}
+        title={routeDetail?.route_name || "Fiche route"}
+        description={routeDetail ? `${routeDetail.route_code || "Route"} · ${routeDetail.origin_city} → ${routeDetail.destination_city}` : "Chargement des informations de la route…"}
+        placement="center"
+        width="max-w-[640px]"
+        variant="detail"
+        panelClassName="max-sm:!fixed max-sm:!inset-0 max-sm:!h-dvh max-sm:!w-screen max-sm:!max-w-none max-sm:!max-h-none max-sm:!rounded-none"
+        bodyClassName="p-5 sm:p-6"
+        headerMeta={routeDetail ? <><StatusPill label={statusLabel(routeDetail.status,routeDetail.active)} active={routeDetail.active}/><span className="text-[11px] text-[#748078]">{routeDetail.route_code}</span></> : undefined}
+        headerActions={routeDetail ? <RouteIcon size={18} className="text-[#637269]"/> : undefined}
+        tabs={routeDetail ? <OperationDrawerTabs items={[{key:"details",label:"Détails"},{key:"expeditions",label:"Expéditions",count:routeDetail.shipments?.length||0},{key:"pricing",label:"Tarification"},{key:"history",label:"Historique"}]} value={routeTab} onChange={value=>{setRouteTab(value as RouteTab);setRouteEditing(false);setActionError("");}}/> : undefined}
+        footer={routeDetail ? <div className="flex w-full flex-wrap items-center justify-between gap-2"><PermissionGuard permission="routes.suspend"><OperationButton onClick={()=>void toggleSelectedRoute()}>{routeDetail.active===false||["INACTIVE","SUSPENDED","ARCHIVED"].includes(routeDetail.status)?"Réactiver":"Désactiver"}</OperationButton></PermissionGuard><PermissionGuard permission="routes.update"><OperationButton variant="primary" onClick={()=>{setRouteEditing(v=>!v);setActionError("");}}><Pencil size={14}/>{routeEditing?"Annuler la modification":"Modifier la route"}</OperationButton></PermissionGuard></div> : undefined}
+      >
+        {routeDetailLoading&&!routeDetail?<LoadingState label="Chargement de la fiche route…"/>:routeDetail?<div className="grid gap-5">
+          <div className="grid grid-cols-3 gap-3 rounded-lg bg-[#f8faf9] p-3"><Metric label="Expéditions" value={String(routeDetail.shipments_count||routeDetail.shipments?.length||0)}/><Metric label="Colis associés" value={String(routeDetail.packages_count||0)}/><Metric label="Délai indicatif" value={routeDetail.eta_min_days==null&&routeDetail.eta_max_days==null?"À définir":`${routeDetail.eta_min_days??"…"}–${routeDetail.eta_max_days??"…"} j`}/></div>
+          {routeEditing?<form id="edit-route" onSubmit={saveRouteChanges} className="grid gap-4"><h3 className="text-[14px] font-semibold">Modifier la route</h3>
+            <label className={label}>Nom de la route<input className={field} name="route_name" required defaultValue={routeDetail.route_name}/></label>
+            <FormGeographyFields countryName="origin_country" cityName="origin_city" countryLabel="Pays de départ *" cityLabel="Ville de départ *" initialCountry={routeDetail.origin_country||""} initialCity={routeDetail.origin_city||""} required className={field} fieldClassName={label}/>
+            <FormGeographyFields countryName="destination_country" cityName="destination_city" countryLabel="Pays de destination *" cityLabel="Ville de destination *" initialCountry={routeDetail.destination_country||""} initialCity={routeDetail.destination_city||""} required className={field} fieldClassName={label}/>
+            <div className="grid grid-cols-2 gap-3"><label className={label}>Délai minimum (jours)<input className={field} type="number" min="0" name="eta_min_days" defaultValue={routeDetail.eta_min_days??""}/></label><label className={label}>Délai maximum (jours)<input className={field} type="number" min="0" name="eta_max_days" defaultValue={routeDetail.eta_max_days??""}/></label></div>
+            <label className={label}>Entrepôt de départ<select className={field} name="origin_warehouse_id" defaultValue={routeDetail.origin_warehouse_id||""}><option value="">Aucun entrepôt sélectionné</option>{(serviceCatalogData?.warehouses||[]).map(w=><option key={w.id} value={w.id}>{w.name}{w.city?` · ${w.city}`:""}</option>)}</select></label>
+            <label className={label}>Bureau de destination<select className={field} name="destination_office_id" defaultValue={routeDetail.destination_office_id||""}><option value="">Aucun bureau sélectionné</option>{(serviceCatalogData?.offices||[]).map(o=><option key={o.id} value={o.id}>{o.name}{o.city?` · ${o.city}`:""}</option>)}</select></label>
+            <label className={label}>Fréquence habituelle<select className={field} name="frequency" defaultValue={routeDetail.metadata?.departure_frequency||"PROGRAMMED"}><option value="PROGRAMMED">Selon programmation</option><option value="DAILY">Quotidienne</option><option value="WEEKLY">Hebdomadaire</option><option value="MONTHLY">Mensuelle</option></select></label>
+            <label className={label}>Instructions opérationnelles<textarea className={`${field} h-auto min-h-[80px] py-2.5`} name="instructions" defaultValue={routeDetail.metadata?.operating_instructions||routeDetail.description||""}/></label>
+            <ToggleRow name="route_active" title="Route active" detail="Autoriser les nouvelles opérations sur cette route." defaultChecked={routeDetail.active}/>
+            <div className="flex justify-end"><OperationButton type="submit" form="edit-route" variant="primary" disabled={detailSaving}>{detailSaving?"Enregistrement…":"Enregistrer les modifications"}</OperationButton></div>
+          </form>:<>
+            {routeTab==="details"&&<RouteDetailPanel route={routeDetail} catalog={serviceCatalogData}/>}
+            {routeTab==="expeditions"&&<RouteExpeditionsPanel route={routeDetail} query={routeSearch} setQuery={value=>{setRouteSearch(value);setRouteDetailPage(0);}} page={routeDetailPage} setPage={setRouteDetailPage}/>}
+            {routeTab==="pricing"&&<RoutePricingPanel route={routeDetail}/>}
+            {routeTab==="history"&&<RouteHistoryPanel events={routeDetail.events||[]}/>}
+          </>}
+          {actionError&&<p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
+        </div>:null}
+      </OperationDrawer>
+
+      <OperationDrawer
         open={createOpen}
         close={() => { if (!saving) setCreateOpen(false); }}
         title={isServices ? createStep === 1 ? "Nouveau service" : "Vérifier le service" : createStep === 1 ? "Nouvelle route" : "Vérifier la route"}
@@ -543,11 +632,12 @@ function Metric({ label: title, value }: { label: string; value: string }) {
 function ServiceDetailPanel({ detail, officeName }: { detail: ServiceRecord; officeName: string }) {
   const metadata = detail.metadata && typeof detail.metadata === "object" ? detail.metadata : {};
   const eta = detail.eta_min_days == null && detail.eta_max_days == null ? "À définir" : `${detail.eta_min_days ?? "…"} à ${detail.eta_max_days ?? "…"} jours`;
-  const billing = ({ KG: "Kilogramme (kg)", CBM: "Volume (m³)", PACKAGE: "Colis", FLAT: "Forfait" } as Record<string,string>)[metadata.billing_unit] || metadata.billing_unit || "À définir";
+  const billingUnits: Record<string,string> = { KG: "Kilogramme (kg)", CBM: "Volume (m³)", PACKAGE: "Colis", FLAT: "Forfait" };
+  const billing = metadata.billing_unit ? billingUnits[metadata.billing_unit] || metadata.billing_unit : "À définir";
   return <div className="grid gap-5">
     <div className="flex items-center gap-3 rounded-lg bg-[#f8faf9] p-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-[#303b34]"><Plane size={19}/></div><div className="min-w-0"><p className="text-[13px] font-semibold">{detail.service_name}</p><p className="mt-1 text-[11px] text-[#748078]">{modeLabel(detail.shipping_mode)} · Facturation au {billing.toLowerCase()}</p></div></div>
-    <section className="grid gap-3"><div className="flex items-center justify-between"><h3 className="text-[14px] font-semibold">Informations générales</h3></div>{metadata.description && <p className="text-[12px] text-[#748078]">Description</p>}<p className="text-[13px] leading-5 text-[#303b34]">{detail.description || "Aucune description renseignée."}</p><div className="grid gap-2 border-t border-[#edf0ee] pt-3">{[["Type de transport",modeLabel(detail.shipping_mode)],["Délai indicatif",eta],["Unité de facturation",billing],["Bureau responsable",officeName],["Date de création",formatDate(detail.created_at)]].map(([k,v])=><InfoRow key={k} label={k} value={v}/>)}</div></section>
-    <section className="grid gap-2 rounded-lg border border-[#e4e9e6] p-3"><div className="flex items-center justify-between"><h3 className="text-[13px] font-semibold">Tarification</h3><StatusPill label={hasActivePricing(detail) ? "Configurée" : "À définir"} active={hasActivePricing(detail)}/></div><p className="text-[11px] text-[#748078]">{hasActivePricing(detail) ? "Une tarification est disponible pour ce service." : "Aucun tarif actif n’est renseigné pour le moment."}</p><a className="flex h-9 items-center justify-center rounded-full border border-[#dce2de] text-[12px] font-medium text-[#48574e] hover:bg-[#f6f8f7]" href="/app/pricing">Gérer la tarification ↗</a></section>
+    <section className="grid gap-3"><div className="flex items-center justify-between"><h3 className="text-[14px] font-semibold">Informations générales</h3></div><p className="text-[12px] text-[#748078]">Description</p><p className="text-[13px] leading-5 text-[#303b34]">{detail.description || "Aucune description renseignée."}</p><div className="grid gap-2 border-t border-[#edf0ee] pt-3">{[["Type de transport",modeLabel(detail.shipping_mode)],["Délai indicatif",eta],["Unité de facturation",billing],["Bureau responsable",officeName],["Date de création",formatDate(detail.created_at)]].map(([k,v])=><InfoRow key={k} label={k} value={v}/>)}</div></section>
+    <section className="grid gap-2 rounded-lg border border-[#e4e9e6] p-3"><div className="flex items-center justify-between"><h3 className="text-[13px] font-semibold">Tarification</h3><StatusPill label={hasActivePricing(detail) ? "Configurée" : "À définir"} active={hasActivePricing(detail)}/></div><p className="text-[11px] text-[#748078]">{hasActivePricing(detail) ? "Une tarification est disponible pour ce service." : "Aucun tarif actif n’est renseigné pour le moment."}</p><Link className="flex h-9 items-center justify-center rounded-full border border-[#dce2de] text-[12px] font-medium text-[#48574e] hover:bg-[#f6f8f7]" href="/app/pricing">Gérer la tarification ↗</Link></section>
   </div>;
 }
 
@@ -556,8 +646,57 @@ function ServiceConditionsPanel({ detail }: { detail: ServiceRecord }) {
   return <div className="grid gap-5"><h3 className="text-[14px] font-semibold">Conditions du service</h3><section className="grid gap-2"><p className="text-[12px] text-[#748078]">Restrictions et marchandises concernées</p><p className="text-[13px] leading-5">{metadata.restrictions || "Aucune restriction particulière renseignée."}</p></section><section className="grid gap-2 border-t border-[#edf0ee] pt-4"><p className="text-[12px] text-[#748078]">Instructions aux clients</p><p className="text-[13px] leading-5">{metadata.customer_instructions || "Aucune instruction particulière renseignée."}</p></section><section className="grid gap-2 border-t border-[#edf0ee] pt-4"><div className="flex items-center gap-2 text-[13px] font-semibold"><ShieldCheck size={15}/> Utilisation par l’IA</div><p className="text-[11px] leading-5 text-[#748078]">Seules les informations client publiées et vérifiées peuvent être utilisées pour les réponses automatiques. Les changements doivent être vérifiés avant publication.</p><p className="text-[11px] font-medium">{detail.public_visible ? "Informations visibles pour les clients." : "Informations internes, non visibles pour les clients."}</p></section></div>;
 }
 
-function ServiceHistoryPanel({ events }: { events: Array<Record<string, any>> }) {
+function ServiceHistoryPanel({ events }: { events: AuditEvent[] }) {
   return <div className="grid gap-2"><h3 className="mb-1 text-[14px] font-semibold">Historique des modifications</h3>{events.map((event,i)=><div key={String(event.id||i)} className="flex gap-3 border-b border-[#edf0ee] py-3"><History size={14} className="mt-0.5 shrink-0 text-[#748078]"/><div><p className="text-[12px] font-medium">{eventLabel(String(event.event_type || "Modification"))}</p><p className="mt-1 text-[11px] text-[#748078]">{formatDate(event.created_at)} · {String(event.actor_name || "Membre de l’agence")}</p>{event.reason&&<p className="mt-1 text-[11px] text-[#748078]">{String(event.reason)}</p>}</div></div>)}{!events.length&&<p className="py-8 text-center text-[13px] text-[#758078]">Aucune modification enregistrée.</p>}</div>;
+}
+
+function RouteDetailPanel({route,catalog}:{route:RouteRecord;catalog:ServiceCatalog|null}) {
+  const service=route.services?.[0];
+  const warehouse=catalog?.warehouses.find(item=>item.id===route.origin_warehouse_id);
+  const office=catalog?.offices.find(item=>item.id===route.destination_office_id);
+  const frequencies: Record<string,string> = {PROGRAMMED:"Selon programmation",DAILY:"Quotidienne",WEEKLY:"Hebdomadaire",MONTHLY:"Mensuelle"};
+  const frequencyKey=route.metadata?.departure_frequency || "";
+  const frequency=frequencies[frequencyKey]||"Non précisée";
+  return <div className="grid gap-5">
+    <div className="flex items-center gap-3 rounded-lg bg-[#f8faf9] p-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-[#303b34]"><RouteIcon size={18}/></div><div className="min-w-0"><p className="text-[13px] font-semibold">{route.route_name}</p><p className="mt-1 truncate text-[11px] text-[#748078]">{service?.service_name||route.transport_mode}</p></div></div>
+    <section className="grid gap-2"><h3 className="text-[14px] font-semibold">Configuration de la route</h3><InfoRow label="Origine" value={[route.origin_city,route.origin_country].filter(Boolean).join(", ")||"—"}/><InfoRow label="Destination" value={[route.destination_city,route.destination_country].filter(Boolean).join(", ")||"—"}/><div className="border-t border-[#edf0ee] pt-3"/><InfoRow label="Service associé" value={service?.service_name||"Aucun service associé"}/><InfoRow label="Entrepôt de départ" value={warehouse?.name||route.origin_warehouse_name||"—"}/><InfoRow label="Bureau de destination" value={office?.name||route.destination_office_name||route.destination_office_city||"—"}/><div className="border-t border-[#edf0ee] pt-3"/><InfoRow label="Délai indicatif" value={route.eta_min_days==null&&route.eta_max_days==null?"À définir":`${route.eta_min_days??"…"} à ${route.eta_max_days??"…"} jours`}/><InfoRow label="Fréquence habituelle" value={frequency}/><InfoRow label="Date de création" value={formatDate(route.created_at)}/></section>
+    <section className="grid gap-2 border-t border-[#edf0ee] pt-4"><h3 className="text-[12px] font-medium text-[#748078]">Instructions opérationnelles</h3><p className="text-[13px] leading-5">{route.metadata?.operating_instructions||route.description||"Aucune instruction renseignée."}</p></section>
+    <section className="grid gap-2 border-t border-[#edf0ee] pt-4"><div className="flex items-center gap-2 text-[13px] font-semibold"><Truck size={15}/> Programmation des départs</div><p className="text-[11px] leading-5 text-[#748078]">La fréquence indiquée ne crée pas automatiquement de départs ni d’expéditions. Leur planification se fait dans le calendrier.</p><Link className="flex h-9 items-center justify-center rounded-full border border-[#dce2de] text-[12px] font-medium text-[#48574e] hover:bg-[#f6f8f7]" href="/app/operations?view=calendar">Voir le calendrier des départs ↗</Link></section>
+  </div>;
+}
+
+function RouteExpeditionsPanel({route,query,setQuery,page,setPage}:{route:RouteRecord;query:string;setQuery:(value:string)=>void;page:number;setPage:(value:number)=>void}) {
+  const rows=(route.shipments||[]).filter(item=>String(item.expedition_reference||"").toLowerCase().includes(query.toLowerCase())||String(item.status||"").toLowerCase().includes(query.toLowerCase()));
+  const pages=Math.max(1,Math.ceil(rows.length/2));
+  return <div className="grid gap-3"><div className="flex items-center justify-between"><h3 className="text-[14px] font-semibold">Expéditions associées</h3><span className="text-[11px] text-[#748078]">{route.shipments_count||rows.length} au total</span></div><div className="relative"><Search size={15} className="absolute left-3 top-3 text-[#8b9690]"/><input className={`${field} h-10 rounded-full pl-9`} placeholder="Rechercher une expédition…" value={query} onChange={event=>setQuery(event.target.value)}/></div><div className="grid gap-2">{rows.slice(page*2,page*2+2).map((item,index)=><PermissionGuard key={String(item.id||index)} permission="shipments.read" fallback={<div className="rounded-lg border border-[#e5e9e7] px-3 py-3"><RouteExpeditionRow item={item}/></div>}><Link href={`/app/shipments/${encodeURIComponent(String(item.id))}`} className="flex items-center justify-between gap-3 rounded-lg border border-[#e5e9e7] px-3 py-3 hover:bg-[#fafbfa]"><RouteExpeditionRow item={item}/><ArrowRight size={15} className="shrink-0 text-[#87928b]"/></Link></PermissionGuard>)}{!rows.length&&<p className="py-8 text-center text-[13px] text-[#758078]">Aucune expédition associée ne correspond à la recherche.</p>}</div><div className="flex items-center justify-between border-t border-[#edf0ee] pt-3 text-[12px] text-[#748078]"><span>{route.shipments_count||rows.length} expédition(s)</span><div className="flex items-center gap-2"><button type="button" className="rounded-full border p-1.5 disabled:opacity-40" disabled={page===0} onClick={()=>setPage(Math.max(0,page-1))} aria-label="Page précédente"><ChevronLeft size={15}/></button><span>{page+1} / {pages}</span><button type="button" className="rounded-full border p-1.5 disabled:opacity-40" disabled={page>=pages-1} onClick={()=>setPage(Math.min(pages-1,page+1))} aria-label="Page suivante"><ChevronRight size={15}/></button></div></div></div>;
+}
+
+function RouteExpeditionRow({item}:{item:RouteExpeditionRecord}) {
+  const status=String(item.status||"Prévue");
+  return <div className="min-w-0 flex-1"><p className="truncate text-[12px] font-semibold text-[#303b34]">{item.expedition_reference||"Expédition"}</p><p className="mt-1 text-[11px] text-[#748078]">{formatDate(item.departure_actual_at||item.eta_at||item.created_at)}{item.packages_count?` · ${item.packages_count} colis`:""}</p><span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.toLowerCase().includes("transit")||status==="IN_TRANSIT"?"bg-sky-50 text-sky-700":"bg-slate-100 text-slate-600"}`}>{expeditionStatusLabel(status)}</span></div>;
+}
+
+function RoutePricingPanel({route}:{route:RouteRecord}) {
+  const services=route.services||[];
+  const configured=services.some(service=>service.base_price_minor!==null&&service.base_price_minor!==undefined);
+  return <div className="grid gap-4"><div className="flex items-center justify-between"><h3 className="text-[14px] font-semibold">Tarification de la route</h3><StatusPill label={configured?"Configurée":"À définir"} active={configured}/></div>{!configured&&<div className="grid gap-2 rounded-lg bg-[#fafbfa] p-3"><p className="text-[13px] font-medium">ⓘ　Aucun tarif validé</p><p className="text-[11px] leading-5 text-[#748078]">Aucun montant n’a été configuré pour ce corridor et son service. Slaivio ne doit pas générer automatiquement un prix à partir d’une estimation.</p></div>}<div className="grid gap-3 rounded-lg border border-[#e5e9e7] p-3"><InfoRow label="Route" value={route.route_name}/>{services.length?services.map((service,index)=><div key={String(service.id||index)} className="grid gap-1 border-t border-[#edf0ee] pt-3"><InfoRow label="Service" value={String(service.service_name||"Service")}/><InfoRow label="Unité habituelle" value={`${service.currency_code||route.currency_code||"USD"} / ${String(service.metadata?.billing_unit||"kg").toLowerCase()}`}/><InfoRow label="Prix" value={service.base_price_minor==null?"Tarif à définir":formatMinor(service.base_price_minor,String(service.currency_code||route.currency_code||"USD"))}/></div>):<InfoRow label="Service" value="Aucun service associé"/>}</div><Link className="flex h-10 items-center justify-center rounded-full bg-[#111] text-[12px] font-semibold text-white hover:bg-[#303030]" href="/app/pricing"><Plus size={14} className="mr-2"/>Configurer un tarif</Link></div>;
+}
+
+function RouteHistoryPanel({events}:{events:AuditEvent[]}) {
+  return <div className="grid gap-2"><h3 className="mb-1 text-[14px] font-semibold">Historique de la route</h3>{events.map((event,index)=><div key={String(event.id||index)} className="flex gap-3 border-b border-[#edf0ee] py-3"><History size={14} className="mt-0.5 shrink-0 text-[#748078]"/><div><p className="text-[12px] font-medium">{routeEventLabel(String(event.event_type||"Modification"))}</p><p className="mt-1 text-[11px] text-[#748078]">{formatDate(event.created_at)} · {String(event.actor_name||"Membre de l’agence")}</p></div></div>)}{!events.length&&<p className="py-8 text-center text-[13px] text-[#758078]">Aucune modification enregistrée.</p>}</div>;
+}
+
+function routeEventLabel(value:string) {
+  return ({ROUTE_CREATED:"Route créée",ROUTE_UPDATED:"Configuration de la route modifiée",ROUTE_SUSPENDED:"Route désactivée",ROUTE_REACTIVATED:"Route réactivée",ROUTE_SERVICES_UPDATED:"Services associés mis à jour"} as Record<string,string>)[value]||value.replaceAll("_"," ").toLowerCase().replace(/^./,letter=>letter.toUpperCase());
+}
+
+function expeditionStatusLabel(value:string) {
+  return ({PLANNED:"Prévue",SCHEDULED:"Prévue",IN_TRANSIT:"En transit",DEPARTED:"Partie",ARRIVED:"Arrivée",COMPLETED:"Terminée",CANCELLED:"Annulée"} as Record<string,string>)[value]||value;
+}
+
+function formatMinor(value:unknown,currency:string) {
+  const amount=Number(value); if(!Number.isFinite(amount))return "Tarif à définir";
+  return new Intl.NumberFormat("fr-FR",{style:"currency",currency,maximumFractionDigits:2}).format(amount/100);
 }
 
 function InfoRow({ label: title, value }: { label: string; value: string }) {

@@ -55,9 +55,8 @@ export function FinanceSettingsOverview() {
     : "Aucune condition configurée";
 
   return <OperationContent className="pt-3">
-    <h2 className="text-[13px] font-semibold text-[#303941]">Paramètres financiers</h2>
     {error && <p role="alert" className="mt-3 rounded-[7px] bg-[#fff5f4] p-3 text-[12px] text-[#9d352d]">{error}</p>}
-    <section className="mt-2 rounded-[8px] border border-[#e0e3e5] px-3 sm:px-4">
+    <section className="rounded-[8px] border border-[#e0e3e5] px-3 sm:px-4">
       <div className="flex min-h-[62px] items-center justify-between gap-3 border-b border-[#e8eaec] py-3">
         <div><h3 className="text-[12px] font-medium text-[#303941]">Devise de référence</h3><p className="mt-1 text-[10px] text-[#78828a]">Utilisée dans les rapports financiers</p></div>
         <div className="flex items-center gap-3"><span className="rounded-full bg-[#f0f1f2] px-2 py-1 text-[10px] font-medium text-[#505a62]">{settings?.default_currency || "…"}</span><button type="button" className={button} onClick={() => setPanel("currency")}>Configurer</button></div>

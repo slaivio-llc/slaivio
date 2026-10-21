@@ -1,1 +1,0 @@
-import{RouteAccessGuard}from"@/components/permissions/route-access-guard";import{ServiceCatalogCenter}from"@/components/services/service-catalog-center";export const dynamic="force-dynamic";export default function Page(){return <RouteAccessGuard permission="services.read"><ServiceCatalogCenter/></RouteAccessGuard>}

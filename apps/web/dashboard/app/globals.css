@@ -1063,6 +1063,11 @@ nav[aria-label="Paramètres de communication"] > button,
   border-radius: 0 !important;
 }
 
+nav[aria-label="Sections Finance"] > button {
+  font-size: var(--operation-text-tab, 14px) !important;
+  line-height: 16px;
+}
+
 .slaivio-operations nav[aria-label="Sections Opérations"] > button:first-child {
   padding-left: 0;
 }

@@ -118,7 +118,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   roles: ["Rôles & permissions", "Responsabilités et droits accordés à chaque rôle."],
   notifications: ["Notifications", "Événements importants et canaux utilisés pour prévenir l’équipe."],
   integrations: ["Canaux & intégrations", "Comptes externes connectés aux opérations de l’agence."],
-  documents: ["Documents & numérotation", "Formats de références utilisés sur les documents métier."],
+  documents: ["Documents & étiquettes", "Configurez l’apparence et le format des documents de l’agence."],
   billing: ["Abonnement Slaivio", "Plan, usage et facturation de votre abonnement à la plateforme."],
   security: ["Sécurité", "Protection des comptes, sessions et règles d’authentification."],
   data: ["Données & confidentialité", "Export, conservation et demandes sensibles sur les données."],
@@ -1615,63 +1615,44 @@ function DocumentsSettings({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
-  return (
-    <Card
-      title="Documents & numérotation"
-      description="Formats versionnés, jamais codés en dur."
-    >
-      <div className="grid gap-3 md:grid-cols-2">
-        {data.numbering.filter((item) => String(item.document_type).toUpperCase() !== "PACKAGE").map((x) => (
-          <form
-            key={String(x.id)}
-            className="rounded-[7px] border border-[#e3e7ea] bg-[#fafbfb] p-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              run(
-                () =>
-                  saveNumbering(
-                    String(x.document_type),
-                    String(f.get("format")),
-                    Number(x.row_version),
-                  ),
-                "Format enregistré.",
-              );
-            }}
-          >
-            <div className="mb-3"><b className="text-[13px]">{documentTypeLabel(String(x.document_type))}</b><p className="mt-0.5 text-[11px] text-[#74808c]">Exemple généré automatiquement : {numberingExample(String(x.prefix_format))}</p></div>
-            <label>Format du numéro
-              <input name="format" className={`${input} mt-1 font-mono`} defaultValue={String(x.prefix_format)} />
-            </label>
-            <OperationButton type="submit" className="mt-3">Enregistrer ce format</OperationButton>
-          </form>
-        ))}
-      </div>
-    </Card>
-  );
-}
-function documentTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    INVOICE: "Factures clients",
-    QUOTE: "Devis",
-    RECEIPT: "Reçus de paiement",
-    CLIENT: "Clients des dossiers",
-    DOSSIER: "Dossiers",
-    PACKAGE: "Colis",
-    SHIPMENT: "Expéditions",
-    PAYMENT: "Paiements",
-    MANIFEST: "Manifestes",
-    DELIVERY_NOTE: "Bons de livraison",
-    SHIPPING_LABEL: "Étiquettes colis",
-  };
-  return labels[type] || type.toLowerCase().replaceAll("_", " ");
-}
-function numberingExample(format: string) {
-  return format
-    .replaceAll("{YYYY}", "2026")
-    .replaceAll("{YEAR}", "2026")
-    .replaceAll("{SEQUENCE}", "184")
-    .replace(/\{0+\}/g, "000184");
+  const rawSettings = data.settings?.settings;
+  const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
+    ? rawSettings as Record<string, unknown>
+    : {};
+  const storedPreferences = storedSettings.document_preferences && typeof storedSettings.document_preferences === "object"
+    ? storedSettings.document_preferences as Record<string, unknown>
+    : {};
+  const [labelFormat, setLabelFormat] = useState(String(storedPreferences.label_format || "THERMAL_100_150"));
+  const [showLogo, setShowLogo] = useState(storedPreferences.show_agency_logo !== false);
+  const [showOfficeDetails, setShowOfficeDetails] = useState(storedPreferences.show_office_details !== false);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    run(() => updateSettings({
+      ...data.settings,
+      expected_version: Number(data.settings?.row_version || 1),
+      settings: {
+        ...storedSettings,
+        document_preferences: {
+          label_format: labelFormat,
+          show_agency_logo: showLogo,
+          show_office_details: showOfficeDetails,
+        },
+      },
+    }), "Préférences des documents et étiquettes enregistrées.");
+  }
+
+  return <section className="grid gap-5">
+    <PermissionGuard permission="documents.settings" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Format d’étiquette par défaut<select value={labelFormat} onChange={event => setLabelFormat(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]"><option value="THERMAL_100_150">Thermique 100 × 150 mm</option><option value="A4">A4</option><option value="THERMAL_100_100">Thermique 100 × 100 mm</option></select></label>
+        <VisibilityToggle label="Afficher le logo de l’agence" checked={showLogo} onChange={setShowLogo}/>
+        <VisibilityToggle label="Afficher les coordonnées du bureau" checked={showOfficeDetails} onChange={setShowOfficeDetails}/>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Modèles à personnaliser : étiquette colis, reçu de dépôt, facture, manifeste, bon de livraison.</p>
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+      </form>
+    </PermissionGuard>
+  </section>;
 }
 function BillingSettings({ data }: { data: AdminData }) {
   const b = data.billing || {};

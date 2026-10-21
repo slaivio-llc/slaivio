@@ -101,7 +101,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   visual: ["Identité visuelle", "Configurez les règles applicables à votre agence."],
   tracking: ["Page publique de tracking", "Personnalisez l’expérience de suivi de vos clients."],
   hours: ["Horaires & disponibilité", "Configurez les horaires d’ouverture et le fuseau horaire de votre agence."],
-  packages: ["Colis & réception", "Cette section sera complétée avec sa maquette dédiée."],
+  packages: ["Colis & réception", "Configurez les règles d’enregistrement et de réception des colis."],
   delivery: ["Expéditions & livraison", "Cette section sera complétée avec sa maquette dédiée."],
   numbering: ["Références & numérotation", "Cette section sera complétée avec sa maquette dédiée."],
   goods: ["Marchandises & restrictions", "Cette section sera complétée avec sa maquette dédiée."],
@@ -227,10 +227,11 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "visual", "tracking", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            {!["general", "agency", "visual", "tracking", "packages", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
             <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
+            <ParcelReceiptRulesSettings data={data} run={run} active={tab === "packages"} />
           </div>
         </main>
         </div>
@@ -441,6 +442,7 @@ function PublicTrackingSettings({
       show_pricing: showPricing,
     };
     run(() => updateSettings({
+      ...data.settings,
       expected_version: Number(data.settings?.row_version || 1),
       settings: { ...storedSettings, public_tracking_page: nextPage },
     }), "Paramètres de tracking public enregistrés.");
@@ -531,6 +533,69 @@ function AgencyHoursSettings({
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Horaires de l’agence<textarea name="agency_hours" rows={3} maxLength={300} required value={hours} onChange={event => setHours(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Fuseau horaire<select name="agency_timezone" value={timezone} onChange={event => setTimezone(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]">{[["Africa/Kinshasa", "Kinshasa"], ["Africa/Lubumbashi", "Lubumbashi"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Africa/Lagos", "Lagos"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">En production : horaires par jour, pauses, jours fériés, fermetures exceptionnelles et horaires distincts par bureau.</p>
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+      </form>
+    </PermissionGuard>
+  </section>;
+}
+
+function ParcelReceiptRulesSettings({
+  data,
+  run,
+  active,
+}: {
+  data: AdminData;
+  run: (action: () => Promise<unknown>, message: string) => void;
+  active: boolean;
+}) {
+  const rawSettings = data.settings?.settings;
+  const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
+    ? rawSettings as Record<string, unknown>
+    : {};
+  const storedRules = storedSettings.parcel_receipt_rules && typeof storedSettings.parcel_receipt_rules === "object"
+    ? storedSettings.parcel_receipt_rules as Record<string, unknown>
+    : {};
+  const [categoryRequired, setCategoryRequired] = useState(storedRules.category_required !== false);
+  const [packagingRequired, setPackagingRequired] = useState(storedRules.packaging_required !== false);
+  const [allowUnmeasured, setAllowUnmeasured] = useState(storedRules.allow_unmeasured !== false);
+  const [allowPhotos, setAllowPhotos] = useState(storedRules.allow_photos !== false);
+  const [autoRateLookup, setAutoRateLookup] = useState(storedRules.auto_rate_lookup !== false);
+  if (!active) return null;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    run(() => updateSettings({
+      ...data.settings,
+      expected_version: Number(data.settings?.row_version || 1),
+      settings: {
+        ...storedSettings,
+        parcel_receipt_rules: {
+          category_required: categoryRequired,
+          packaging_required: packagingRequired,
+          allow_unmeasured: allowUnmeasured,
+          allow_photos: allowPhotos,
+          auto_rate_lookup: autoRateLookup,
+        },
+      },
+    }), "Règles de réception des colis enregistrées.");
+  }
+
+  return <section className="grid gap-5">
+    <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+        <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
+          <h3 className="text-[15px] font-semibold text-[#25292e]">Règles d’enregistrement</h3>
+          <VisibilityToggle label="Catégorie de marchandise obligatoire" checked={categoryRequired} onChange={setCategoryRequired}/>
+          <VisibilityToggle label="Type de conditionnement obligatoire" checked={packagingRequired} onChange={setPackagingRequired}/>
+          <VisibilityToggle label="Autoriser la réception sans mesure" checked={allowUnmeasured} onChange={setAllowUnmeasured}/>
+          <VisibilityToggle label="Autoriser les photos du colis" checked={allowPhotos} onChange={setAllowPhotos}/>
+          <VisibilityToggle label="Recherche automatique du tarif" checked={autoRateLookup} onChange={setAutoRateLookup}/>
+        </section>
+        <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
+          <h3 className="text-[15px] font-semibold text-[#25292e]">Mesures selon le service</h3>
+          {[ ["Transport aérien", "KG"], ["Transport maritime", "CBM"], ["Transport express", "KG"] ].map(([service, unit]) => <div key={service} className="flex items-center justify-between px-2 py-1 text-[13px] text-[#30363a]"><span>{service}</span><span className="rounded-full bg-[#f0f1f2] px-2.5 py-1 text-[11px] font-semibold text-[#424a50]">{unit}</span></div>)}
+          <p className="text-[12px] leading-5 text-[#697178]">L’unité de facturation est déterminée automatiquement par la configuration du service, jamais choisie par l’agent.</p>
+        </section>
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>

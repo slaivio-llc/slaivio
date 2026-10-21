@@ -50,12 +50,12 @@ export function ParcelManagementHub() {
     <OperationPageHeader title="Gestion" description="Structure, services, tarifs et collaborateurs de votre agence."
       actions={<label className="grid gap-1 text-[11px] text-[#697178]">Bureau actif<select className="h-9 min-w-[160px] rounded-full border border-[#d8dddf] bg-white px-3 text-[12px] text-[#30363a]" value={office?.selected_office_id || ""} onChange={(event) => void selectOffice(event.target.value)}><option value="">Tous les bureaux autorisés</option>{(office?.offices || []).map((item) => <option key={item.location_id} value={item.location_id}>{item.city || item.name}</option>)}</select></label>}
       />
-    <main className="mx-auto w-full min-w-0 max-w-[1200px] px-6 py-4 sm:px-8">
+    <main className="mx-auto w-full min-w-0 max-w-[1200px] px-6 pb-10 sm:px-8">
       <nav aria-label="Sections Gestion" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
         {tabs.map(([key, label]) => <OperationTab key={key} active={section === key} onClick={() => setSection(key)}>{label}</OperationTab>)}
       </nav>
       <div className="w-full min-w-0 bg-white">
-        <div className="min-w-0 space-y-4 py-4">
+        <div className="min-w-0 space-y-4 pt-0">
           {section === "organization" && <><div className="flex flex-wrap items-center justify-between gap-3"><Heading title="Organisation" subtitle="Gérez vos implantations et vos entrepôts." /><PermissionGuard permission="locations.manage"><Link href="/app/settings?section=locations" className={primary}><Plus size={14}/>Nouveau bureau</Link></PermissionGuard></div>
             <div className="grid gap-2 sm:grid-cols-3"><Metric label="Bureaux" value={offices.length}/><Metric label="Entrepôts" value={warehouses.length}/><Metric label="Membres" value={activeMembers.length}/></div>
             <LocationGroup title="Bureaux">{offices.map((item) => <LocationRow key={String(item.id)} name={String(item.name || item.city || "Bureau")} detail={[item.city, item.address].filter(Boolean).join(" · ")} icon="office" badge={activeMembers.filter((member) => member.office_access_scope === "ALL_OFFICES" || member.office_ids.includes(String(item.id))).length + " membres"}/>)}</LocationGroup>

@@ -1208,6 +1208,7 @@ nav[aria-label="Annonces et relances"] > button {
 /* Every sidebar-module tab/filter rail keeps Finance's horizontal mobile
    behavior instead of wrapping into multiple rows or squeezing its labels. */
 .slaivio-operations nav[aria-label^="Sections"],
+.slaivio-operations nav[aria-label="Sections Gestion"],
 .slaivio-operations nav[aria-label^="Vues"],
 .slaivio-operations nav[aria-label^="Paramètres de communication"],
 .slaivio-operations nav[aria-label^="Filtrer"],
@@ -1220,6 +1221,7 @@ nav[aria-label="Annonces et relances"] > button {
 }
 
 .slaivio-operations nav[aria-label^="Sections"]::-webkit-scrollbar,
+.slaivio-operations nav[aria-label="Sections Gestion"]::-webkit-scrollbar,
 .slaivio-operations nav[aria-label^="Vues"]::-webkit-scrollbar,
 .slaivio-operations nav[aria-label^="Paramètres de communication"]::-webkit-scrollbar,
 .slaivio-operations nav[aria-label^="Filtrer"]::-webkit-scrollbar,
@@ -1737,4 +1739,8 @@ html[data-theme="dark"] .operation-form-surface :is(input, select, textarea) {
 
 @media (prefers-reduced-motion: reduce) {
   .slaivio-logo-loader { animation: none; }
+}
+nav[aria-label="Sections Gestion"] > [data-ui="operation-tab"] {
+  font-size: var(--operation-text-tab, 14px) !important;
+  line-height: 16px;
 }

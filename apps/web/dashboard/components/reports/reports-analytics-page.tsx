@@ -139,7 +139,7 @@ export function ReportsAnalyticsPage() {
     ? [["Nouveaux clients", data.kpis.clients], ["Colis reçus", data.kpis.packages], ["Expéditions", data.kpis.shipments], ["Retraits", data.kpis.pickups], ["Poids traité", `${Number(data.kpis.weight_kg).toLocaleString("fr-FR")} kg`]]
     : [];
   return (
-    <div className="reports-page min-h-full w-full bg-white px-3 py-5 sm:px-5 [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
+    <div className="reports-page min-h-full min-w-0 w-full overflow-x-clip bg-white px-3 py-5 sm:px-5 [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
       <OperationPageHeader
         wide
         title="Rapports & analyses"
@@ -188,12 +188,12 @@ export function ReportsAnalyticsPage() {
         </OperationMetricGrid>
       </OperationMetrics>
       <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
-      <div className="reports-tabs-shell w-full px-0">
+      <div className="reports-tabs-shell min-w-0 w-full px-0">
         <nav aria-label="Sections des rapports" className="flex flex-nowrap items-center gap-1 overflow-x-auto py-2">
           {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]"}`}>{label}</button>)}
         </nav>
       </div>
-      <main className={`reports-layout-main w-full px-0 py-4 ${tab === "overview" ? "reports-overview" : ""}`}>
+      <main className={`reports-layout-main min-w-0 w-full px-0 py-4 ${tab === "overview" ? "reports-overview" : ""}`}>
         <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <label className="text-[11px] text-[#697178]">Période<select aria-label="Période" className={`${input} mt-1 w-full`} value={`${start}|${end}`} onChange={(event) => { const [s, e] = event.target.value.split("|"); setStart(s); setEnd(e); }}>
             <option value={`${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)}|${today}`}>Ce mois</option><option value={`${monthAgo}|${today}`}>30 derniers jours</option><option value={`${new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1).toISOString().slice(0, 10)}|${today}`}>3 derniers mois</option><option value={`${new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)}|${today}`}>Cette année</option>

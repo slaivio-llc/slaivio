@@ -1114,7 +1114,7 @@ nav[aria-label="Sections Finance"] > button:first-child {
 
 .reports-page > [data-ui="operation-page-header"] > div {
   max-width: none;
-  padding: 16px 16px 12px !important;
+  padding: 0 0 12px !important;
 }
 
 .reports-page > [data-ui="operation-page-header"] h1 {
@@ -1134,7 +1134,13 @@ nav[aria-label="Sections Finance"] > button:first-child {
 
 .reports-page .reports-tabs-shell {
   width: 100%;
+  min-width: 0;
   border: 0;
+}
+
+.reports-page .reports-tabs-shell nav {
+  width: 100%;
+  min-width: 0;
 }
 
 .reports-page nav[aria-label="Sections des rapports"] > button {
@@ -1149,8 +1155,22 @@ nav[aria-label="Sections Finance"] > button:first-child {
 
 .reports-page > main {
   width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin-inline: 0;
   border: 0;
   border-radius: 0;
+}
+
+.reports-page > main > * {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.reports-page > main svg {
+  display: block;
+  max-width: 100%;
 }
 
 nav[aria-label="Annonces et relances"] > button {

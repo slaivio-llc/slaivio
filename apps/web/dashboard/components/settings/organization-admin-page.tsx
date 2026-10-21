@@ -104,7 +104,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   packages: ["Colis & réception", "Configurez les règles d’enregistrement et de réception des colis."],
   delivery: ["Expéditions & livraison", "Configurez les confirmations de livraison et les délais de retrait."],
   numbering: ["Références & numérotation", "Configurez le format des références générées pour vos colis."],
-  goods: ["Marchandises & restrictions", "Cette section sera complétée avec sa maquette dédiée."],
+  goods: ["Marchandises & restrictions", "Définissez les contrôles et consignes applicables aux marchandises."],
   clients: ["Clients & conditions", "Cette section sera complétée avec sa maquette dédiée."],
   assistant: ["Assistant IA", "Cette section sera complétée avec sa maquette dédiée."],
   subscription: ["Abonnement Slaivio", "Plan et usage de votre abonnement à la plateforme."],
@@ -227,13 +227,14 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "goods", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
             <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
             <ParcelReceiptRulesSettings data={data} run={run} active={tab === "packages"} />
             <ShipmentDeliverySettings data={data} run={run} active={tab === "delivery"} />
             <PackageNumberingSettings data={data} run={run} active={tab === "numbering"} />
+            <GoodsRestrictionsSettings data={data} run={run} active={tab === "goods"} />
           </div>
         </main>
         </div>
@@ -695,6 +696,53 @@ function PackageNumberingSettings({
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Réinitialisation<select disabled value="never" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="never">Jamais</option></select></label>
         <div className="grid gap-1"><span className="text-[12px] text-[#697178]">Exemple fictif</span><strong className="text-[14px] font-semibold text-[#25292e]">{preview}</strong></div>
         <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Les paramètres doivent être validés contre les collisions de références avant activation. Les références existantes sont immuables.</p>
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+      </form>
+    </PermissionGuard>
+  </section>;
+}
+
+function GoodsRestrictionsSettings({
+  data,
+  run,
+  active,
+}: {
+  data: AdminData;
+  run: (action: () => Promise<unknown>, message: string) => void;
+  active: boolean;
+}) {
+  const rawSettings = data.settings?.settings;
+  const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
+    ? rawSettings as Record<string, unknown>
+    : {};
+  const storedRules = storedSettings.goods_restrictions && typeof storedSettings.goods_restrictions === "object"
+    ? storedSettings.goods_restrictions as Record<string, unknown>
+    : {};
+  const [regulatedGoodsCheck, setRegulatedGoodsCheck] = useState(storedRules.regulated_goods_check !== false);
+  const [instructions, setInstructions] = useState(String(storedRules.agent_instructions || "Batteries et produits dangereux : acceptation soumise à vérification préalable."));
+  if (!active) return null;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    run(() => updateSettings({
+      ...data.settings,
+      expected_version: Number(data.settings?.row_version || 1),
+      settings: {
+        ...storedSettings,
+        goods_restrictions: {
+          regulated_goods_check: regulatedGoodsCheck,
+          agent_instructions: instructions.trim(),
+        },
+      },
+    }), "Règles marchandises et restrictions enregistrées.");
+  }
+
+  return <section className="grid gap-5">
+    <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+        <VisibilityToggle label="Vérification des marchandises réglementées" checked={regulatedGoodsCheck} onChange={setRegulatedGoodsCheck}/>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Conditions et restrictions communiquées aux agents<textarea rows={4} maxLength={2000} required value={instructions} onChange={event => setInstructions(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Les règles doivent pouvoir varier selon le pays, le corridor et le service, avec validation humaine pour les marchandises sensibles.</p>
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>

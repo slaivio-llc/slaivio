@@ -1071,6 +1071,11 @@ nav[aria-label="Paramètres de communication"] > button,
   padding-left: 0;
 }
 
+.slaivio-operations nav[aria-label="Sections Opérations"] > [data-ui="operation-tab"] {
+  font-size: var(--operation-text-tab, 14px) !important;
+  line-height: 16px;
+}
+
 .slaivio-operations [data-ui="operation-tab"][aria-current="page"],
 .slaivio-operations nav[aria-label^="Sections"] > button[aria-current="page"],
 .slaivio-operations nav[aria-label^="Vues"] > button[aria-current="page"],

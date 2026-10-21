@@ -69,7 +69,7 @@ export function OperationTabs({ children, className = "" }: { children: ReactNod
     <nav
       data-ui="operation-tabs"
       aria-label="Vues du module"
-      className={`operation-tabs mx-auto flex w-full max-w-[1200px] items-center gap-1 overflow-x-auto bg-white px-6 py-2 sm:px-8 ${className}`}
+      className={`operation-tabs mx-auto flex w-full max-w-[1200px] items-center gap-2 overflow-x-auto bg-white px-6 py-2 sm:px-8 ${className}`}
     >
       {children}
     </nav>

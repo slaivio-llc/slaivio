@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Settings2 } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
+import { OperationTab } from "@/components/ui/operation-controls";
 import { FormGeographyFields } from "@/components/ui/geography-fields";
 import {
   addAdjustment,
@@ -84,7 +85,7 @@ export function ServiceConfigurationCenter({inline=false}:{inline?:boolean}) {
         ) : (
           <div className="p-5">
             <div className="mb-5 flex overflow-x-auto border-b border-[#dfe3e4]">
-              {sections.map(([id, label]) => <button key={id} type="button" className={`h-10 shrink-0 border-b-2 px-3 text-[12px] ${kind === id ? "border-[#167d57] font-semibold text-[#145c43]" : "border-transparent text-[#687077] hover:text-[#2e3439]"}`} onClick={() => setKind(id)}>{label}</button>)}
+              {sections.map(([id, label]) => <OperationTab key={id} active={kind === id} onClick={() => setKind(id)}>{label}</OperationTab>)}
             </div>
             {summary && <div className="mb-5 grid grid-cols-2 border border-[#e0e3e4] bg-white sm:grid-cols-4">{Object.entries(summary).map(([key, items], index) => <div key={key} className={`p-3 ${index ? "border-l border-[#e0e3e4]" : ""}`}><b className="block text-[18px] text-[#242a2e]">{items.length}</b><span className="text-[11px] capitalize text-[#737b81]">{key}</span></div>)}</div>}
             <form onSubmit={submit} className="grid gap-3 border border-[#dfe3e4] bg-white p-4">

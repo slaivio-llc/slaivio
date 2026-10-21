@@ -45,5 +45,6 @@ describe("Pilot visual foundation", () => {
 
     fireEvent.change(screen.getByRole("textbox", { name: "Rechercher un dossier" }), { target: { value: "DOS" } });
     expect(change).toHaveBeenCalledWith("DOS");
+    expect(screen.getByRole("textbox", { name: "Rechercher un dossier" }).closest('[data-ui="operation-search"]')).toHaveClass("h-10", "rounded-full");
   });
 });

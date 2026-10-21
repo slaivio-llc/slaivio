@@ -12,6 +12,7 @@ describe("OperationDrawer", () => {
     expect(dialog.parentElement).toBe(document.body);
     expect(dialog).toHaveClass("justify-end");
     expect(dialog.querySelector('section')).toHaveClass("h-dvh");
+    expect(dialog.querySelector('[data-ui="operation-drawer"]')).toHaveClass("max-w-[720px]");
     screen.getByRole("button", { name: "Enregistrer" }).focus();
     fireEvent.keyDown(window, { key: "Tab" });
     expect(screen.getByRole("button", { name: "Fermer" })).toHaveFocus();

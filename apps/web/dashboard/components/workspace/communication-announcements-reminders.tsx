@@ -24,7 +24,7 @@ export function CommunicationAnnouncementsReminders() {
               type="button"
               aria-current={section === key ? "page" : undefined}
               onClick={() => setSection(key)}
-              className={`min-h-8 rounded-full px-3 text-[12px] transition-colors ${section === key ? "bg-white font-semibold text-[#25292e] shadow-sm" : "font-medium text-[#777f86] hover:text-[#25292e]"}`}
+              className={`min-h-8 rounded-full px-3 text-[12px] transition-colors ${section === key ? "bg-[#111111] font-semibold text-white" : "font-medium text-[#777f86] hover:text-[#25292e]"}`}
             >
               {label}
             </button>

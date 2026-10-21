@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Bell, BookOpen, Clock3, MessageCircle, Megaphone, Settings2, UserRound } from "lucide-react";
 import { OperationContent } from "@/components/ui/operation-primitives";
+import { OperationTab } from "@/components/ui/operation-controls";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { PilotInboxPage } from "@/components/inbox/pilot-inbox-page";
@@ -54,7 +55,7 @@ export function ParcelCommunicationHub() {
     <OperationPageHeader title="Communication" description="Gérez les échanges avec vos clients." />
     <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8">
       <nav aria-label="Sections Communication" className="mb-4 flex flex-wrap gap-1">
-        {tabs.map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key} onClick={() => setTab(key)} className={`shrink-0 rounded-md px-3 py-1.5 text-xs transition-colors ${tab === key ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>{label}</button>)}
+        {tabs.map(([key, label]) => <OperationTab key={key} active={tab === key} onClick={() => setTab(key)}>{label}</OperationTab>)}
       </nav>
     </div>
 

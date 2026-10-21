@@ -1052,10 +1052,20 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   font-weight: var(--operation-weight-semibold, 620) !important;
 }
 
+.operation-tabs > button.font-semibold {
+  background: #111111 !important;
+  color: #ffffff !important;
+}
+
 .operation-tabs > button:not([aria-current="page"]):hover,
 .operation-tabs > div > button:not([aria-current="page"]):hover {
   background: #f2f3f3;
   color: #17212b;
+}
+
+nav[aria-label="Paramètres de communication"] > button[aria-current="page"] {
+  background: #111111 !important;
+  color: #ffffff !important;
 }
 
 /* Drawer navigation follows the same type role as page navigation while
@@ -1113,13 +1123,6 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 
 .operation-tabs [aria-current="page"] {
   font-weight: var(--operation-weight-semibold, 620);
-}
-
-.operation-tabs > div {
-  display: flex;
-  min-height: 44px;
-  align-items: flex-end;
-  gap: 0.25rem;
 }
 
 /* Page views use one compact selector instead of permanent tab rows. */
@@ -1329,10 +1332,10 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 }
 
 [data-ui="operation-search"] {
-  min-height: 36px;
-  border-radius: 6px;
-  border-color: #d4d9df;
-  font-size: 13px;
+  min-height: 40px;
+  border-radius: 999px;
+  border-color: #d8dde0;
+  font-size: 12px;
 }
 
 [data-ui="operation-search"] input {
@@ -1342,7 +1345,20 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   padding-inline: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  font-size: 13px !important;
+  font-size: 12px !important;
+}
+
+.slaivio-operations input[type="search"] {
+  height: 40px;
+  border-radius: 999px;
+  border-color: #d8dde0;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.slaivio-operations input[type="search"]:focus {
+  border-color: #aeb8be;
+  --tw-ring-color: rgb(174 184 190 / 18%);
 }
 
 .operation-form-surface [data-ui="operation-field"] {

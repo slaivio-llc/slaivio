@@ -8,7 +8,7 @@ import Link from "next/link";
 
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
-import { OperationButton, OperationStatus } from "@/components/ui/operation-controls";
+import { OperationButton, OperationStatus, OperationTab } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { FormGeographyFields, PhoneField } from "@/components/ui/geography-fields";
 import { dashboardLabel, useDashboardLocale } from "@/components/i18n/dashboard-language";
@@ -127,13 +127,11 @@ export function PilotSettingsPage({scope="all",embedded=false}:{scope?:"all"|"co
         <nav aria-label={dashboardLabel(locale, "Sections des paramètres")} className="mb-8 flex gap-1 overflow-x-auto pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {visibleSections.map(([key, label]) => {
             const active = section === key;
-            return <button
+            return <OperationTab
               key={key}
-              type="button"
-              aria-current={active ? "page" : undefined}
+              active={active}
               onClick={() => choose(key)}
-              className={`relative shrink-0 px-3 py-3 text-[13px] transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full ${active ? "font-semibold text-[#087a46] after:bg-[#0b9a5b]" : "font-medium text-[#69747d] after:bg-transparent hover:text-[#303941]"}`}
-            >{dashboardLabel(locale, label)}</button>;
+            >{dashboardLabel(locale, label)}</OperationTab>;
           })}
         </nav>
         </>}

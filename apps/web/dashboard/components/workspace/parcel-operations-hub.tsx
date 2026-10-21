@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarDays, Package, Radar, RefreshCw, Truck } from "lucide-react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { OperationTab } from "@/components/ui/operation-controls";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { businessLabel } from "@/components/ui/business-labels";
 import { getPackageStats, type PackageStats } from "@/services/packages";
@@ -154,7 +155,7 @@ export function ParcelOperationsHub() {
 }
 
 function ViewTab({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon?: ReactNode; children: ReactNode }) {
-  return <button type="button" aria-pressed={active} onClick={onClick} className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs ${active ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}>{icon}{children}</button>;
+  return <OperationTab active={active} onClick={onClick}>{icon}{children}</OperationTab>;
 }
 
 function MetricCard({ onClick, permission, icon, label, value, loading, error, detail }: { onClick: () => void; permission: string; icon: ReactNode; label: string; value?: number | string; loading: boolean; error: boolean; detail: string }) {

@@ -1114,7 +1114,7 @@ nav[aria-label="Sections Finance"] > button:first-child {
 
 .reports-page > [data-ui="operation-page-header"] > div {
   max-width: none;
-  padding: 0 0 12px !important;
+  padding: 0 0 24px !important;
 }
 
 .reports-page > [data-ui="operation-page-header"] h1 {
@@ -1146,6 +1146,9 @@ nav[aria-label="Sections Finance"] > button:first-child {
 .reports-page nav[aria-label="Sections des rapports"] > button {
   border-radius: 0 !important;
   text-align: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 .reports-page nav[aria-label="Sections des rapports"] > button:first-child {

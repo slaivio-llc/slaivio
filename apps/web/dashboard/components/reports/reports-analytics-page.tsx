@@ -14,7 +14,7 @@ import {
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationMetrics, OperationToolbar } from "@/components/ui/operation-primitives";
-import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
+import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid, OperationTab } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { getOfficeContext, type OfficeContext } from "@/services/organization-admin";
 const button =
@@ -189,7 +189,7 @@ export function ReportsAnalyticsPage() {
       </OperationMetrics>
       <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
       <div className="reports-tabs-shell min-w-0 w-full px-0">
-        <nav aria-label="Sections des rapports" className="flex flex-nowrap items-center gap-1 overflow-x-auto py-2">
+        <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
           {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]"}`}>{label}</button>)}
         </nav>
       </div>

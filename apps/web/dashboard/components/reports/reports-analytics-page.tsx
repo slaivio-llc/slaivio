@@ -17,11 +17,11 @@ import { OperationButton, OperationField, OperationFilterPopover, OperationMetri
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { getOfficeContext, type OfficeContext } from "@/services/organization-admin";
 const button =
-    "inline-flex h-9 items-center gap-2 rounded-[5px] border border-[#d8dddf] bg-white px-3 text-[13px] font-medium text-[#30363a] hover:bg-[#f5f7f6]",
+    "inline-flex h-9 items-center gap-2 rounded-full border border-[#d8dddf] bg-white px-3 text-[12px] font-medium text-[#30363a] hover:bg-[#f5f7f6]",
   primary =
-    "inline-flex h-9 items-center gap-2 rounded-[5px] bg-[#167d57] px-3 text-[13px] font-semibold text-white hover:bg-[#116b49]",
+    "inline-flex h-9 items-center gap-2 rounded-full bg-[#111111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]",
   input =
-    "h-9 rounded-[5px] border border-[#cfd4d6] bg-white px-3 text-[13px] outline-none focus:border-[#167d57]";
+    "h-9 rounded-full border border-[#cfd4d6] bg-white px-3 text-[12px] outline-none focus:border-[#aeb8be]";
 const today = new Date().toISOString().slice(0, 10),
   currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
   monthAgo = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10),
@@ -82,24 +82,15 @@ export function ReportsAnalyticsPage() {
     a.click();
     URL.revokeObjectURL(url);
   }
-  const metricCards = data
-    ? [
-        ["Nouveaux clients", data.kpis.clients],
-        ["Colis reçus", data.kpis.packages],
-        ["Expéditions", data.kpis.shipments],
-        ["Retraits", data.kpis.pickups],
-        [
-          "Poids traité",
-          `${Number(data.kpis.weight_kg).toLocaleString("fr-FR")} kg`,
-        ],
-      ]
-    : [];
   const hasPeriodActivity = Boolean(data && (
     ["clients", "packages", "shipments", "pickups", "weight_kg"].some((key) => data.kpis[key] > 0) ||
     data.finance.some((row) => row.invoices > 0 || !/^0+(?:\.0+)?$/.test(row.collected))
   ));
+  const metricCards = data
+    ? [["Nouveaux clients", data.kpis.clients], ["Colis reçus", data.kpis.packages], ["Expéditions", data.kpis.shipments], ["Retraits", data.kpis.pickups], ["Poids traité", `${Number(data.kpis.weight_kg).toLocaleString("fr-FR")} kg`]]
+    : [];
   return (
-    <div className="min-h-full bg-[#f6f7f7] [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
+    <div className="reports-page min-h-full bg-white px-3 py-5 sm:px-5 [&_[data-ui=operation-metrics]]:hidden [&_[data-ui=operation-toolbar]]:hidden [&_.operation-actions>label]:hidden [&_.operation-actions>button:first-of-type]:hidden">
       <OperationPageHeader
         title="Rapports & analyses"
         description="Suivez les performances de votre activité Cargo."
@@ -127,7 +118,7 @@ export function ReportsAnalyticsPage() {
               <RefreshCcw size={14} />
               Actualiser
             </OperationButton>
-            <PermissionGuard permission="reports.export"><OperationButton onClick={() => download(tab === "finance" ? "finance" : tab === "shipments" ? "shipments" : tab === "clients" ? "clients" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>
+            <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "finance" ? "finance" : tab === "shipments" ? "shipments" : tab === "clients" ? "clients" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>
           </>
         }
       />
@@ -147,19 +138,19 @@ export function ReportsAnalyticsPage() {
         </OperationMetricGrid>
       </OperationMetrics>
       <OperationToolbar filters={<OperationFilterPopover activeCount={tab === "overview" ? 0 : 1} onReset={() => setTab("overview")} title="Filtrer les rapports"><OperationField label="Vue"><select className={`${input} w-full`} value={tab} onChange={(event) => setTab(event.target.value)}><option value="overview">Vue exécutive</option><option value="operations">Opérations</option><option value="finance">Finance</option><option value="routes">Routes</option><option value="warehouses">Entrepôts</option><option value="reports">Rapports exportables</option></select></OperationField></OperationFilterPopover>} />
-      <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8">
-        <nav aria-label="Sections des rapports" className="operation-tabs flex flex-nowrap items-center gap-0 overflow-x-auto py-2">
+      <div className="reports-tabs-shell mx-auto w-full max-w-[760px] px-4 sm:px-4">
+        <nav aria-label="Sections des rapports" className="flex flex-nowrap items-center gap-1 overflow-x-auto py-2">
           {[["overview", "Vue d’ensemble"], ["operations", "Colis"], ["shipments", "Expéditions"], ["clients", "Clients"], ["finance", "Finances"], ["warehouses", "Bureaux"]].map(([key, label]) => <button key={key} type="button" onClick={() => setTab(key)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]"}`}>{label}</button>)}
         </nav>
       </div>
-      <main className="mx-auto w-full max-w-[1200px] px-6 py-5 sm:px-8">
-        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+      <main className={`reports-layout-main mx-auto w-full max-w-[760px] px-4 py-4 sm:px-4 ${tab === "overview" ? "reports-overview" : ""}`}>
+        <div className="mb-3 grid gap-2 sm:grid-cols-2">
           <label className="text-[11px] text-[#697178]">Période<select aria-label="Période" className={`${input} mt-1 w-full`} value={`${start}|${end}`} onChange={(event) => { const [s, e] = event.target.value.split("|"); setStart(s); setEnd(e); }}>
             <option value={`${new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)}|${today}`}>Ce mois</option><option value={`${monthAgo}|${today}`}>30 derniers jours</option><option value={`${new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1).toISOString().slice(0, 10)}|${today}`}>3 derniers mois</option><option value={`${new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)}|${today}`}>Cette année</option>
           </select></label>
           <label className="text-[11px] text-[#697178]">Bureau<select aria-label="Bureau" className={`${input} mt-1 w-full`} value={officeId} onChange={(event) => setOfficeId(event.target.value)}><option value="">Tous les bureaux autorisés</option>{(officeContext?.offices || []).map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}</select></label>
         </div>
-        {data && tab === "overview" && <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Kpi title="Colis enregistrés" value={data.kpis.packages} change={change(data.kpis.packages, data.kpis.previous_packages)} /><Kpi title="Expéditions" value={data.kpis.shipments} change={change(data.kpis.shipments, data.kpis.previous_shipments)} /><Kpi title="Clients actifs" value={data.kpis.active_clients} change={change(data.kpis.active_clients, data.kpis.previous_active_clients)} /><Kpi title="Paiements reçus" value={data.finance.length ? data.finance.map((row) => `${Number(row.collected).toLocaleString("fr-FR")} ${row.currency}`).join(" · ") : "0"} change={data.finance.length === 1 ? change(Number(data.finance[0].collected), Number(data.finance[0].previous_collected)) : null} /></div>}
+        {data && tab === "overview" && <div className="mb-3 grid grid-cols-2 gap-2"><Kpi title="Colis enregistrés" value={data.kpis.packages} change={change(data.kpis.packages, data.kpis.previous_packages)} /><Kpi title="Expéditions" value={data.kpis.shipments} change={change(data.kpis.shipments, data.kpis.previous_shipments)} /><Kpi title="Clients actifs" value={data.kpis.active_clients} change={change(data.kpis.active_clients, data.kpis.previous_active_clients)} /><Kpi title="Paiements reçus" value={data.finance.length ? data.finance.map((row) => `${Number(row.collected).toLocaleString("fr-FR")} ${row.currency}`).join(" · ") : "0"} change={data.finance.length === 1 ? change(Number(data.finance[0].collected), Number(data.finance[0].previous_collected)) : null} /></div>}
         {error && data ? (
           <div className="mb-4 border border-[#e7c98d] bg-[#fffaf0] px-4 py-3 text-[12px] text-[#75530b]" role="alert">
             {error} Les derniers indicateurs disponibles restent affichés.

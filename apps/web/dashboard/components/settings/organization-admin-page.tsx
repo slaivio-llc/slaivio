@@ -103,7 +103,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   hours: ["Horaires & disponibilité", "Configurez les horaires d’ouverture et le fuseau horaire de votre agence."],
   packages: ["Colis & réception", "Configurez les règles d’enregistrement et de réception des colis."],
   delivery: ["Expéditions & livraison", "Configurez les confirmations de livraison et les délais de retrait."],
-  numbering: ["Références & numérotation", "Cette section sera complétée avec sa maquette dédiée."],
+  numbering: ["Références & numérotation", "Configurez le format des références générées pour vos colis."],
   goods: ["Marchandises & restrictions", "Cette section sera complétée avec sa maquette dédiée."],
   clients: ["Clients & conditions", "Cette section sera complétée avec sa maquette dédiée."],
   assistant: ["Assistant IA", "Cette section sera complétée avec sa maquette dédiée."],
@@ -227,12 +227,13 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "visual", "tracking", "packages", "delivery", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
             <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
             <ParcelReceiptRulesSettings data={data} run={run} active={tab === "packages"} />
             <ShipmentDeliverySettings data={data} run={run} active={tab === "delivery"} />
+            <PackageNumberingSettings data={data} run={run} active={tab === "numbering"} />
           </div>
         </main>
         </div>
@@ -649,6 +650,51 @@ function ShipmentDeliverySettings({
           <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Délai indicatif de retrait (jours)<input type="number" min={0} max={365} step={1} required value={pickupDays} onChange={event => setPickupDays(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
           <p className="text-[12px] leading-5 text-[#697178]">Les calendriers de départ, routes et expéditions se gèrent dans les modules opérationnels.</p>
         </div>
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+      </form>
+    </PermissionGuard>
+  </section>;
+}
+
+function PackageNumberingSettings({
+  data,
+  run,
+  active,
+}: {
+  data: AdminData;
+  run: (action: () => Promise<unknown>, message: string) => void;
+  active: boolean;
+}) {
+  const numbering = data.numbering.find(item => String(item.document_type).toUpperCase() === "PACKAGE");
+  if (!active) return null;
+  if (!numbering) return <p role="alert" className="max-w-[640px] rounded-lg border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-900">Le compteur de références colis n’est pas configuré pour cette agence.</p>;
+  const packageNumbering = numbering;
+
+  const currentFormat = String(packageNumbering.prefix_format || "COL-{YYYY}-{000001}");
+  const initialPrefix = currentFormat.split("{")[0].replace(/[-_]+$/, "") || "COL";
+  const preview = currentFormat
+    .replaceAll("{YYYY}", String(new Date().getFullYear()))
+    .replaceAll("{YEAR}", String(new Date().getFullYear()))
+    .replace(/\{(0+)\}/g, (_, zeros: string) => String(packageNumbering.next_number || 1).padStart(zeros.length, "0"))
+    .replaceAll("{SEQUENCE}", String(packageNumbering.next_number || 1));
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const prefix = String(form.get("agency_prefix") || "").trim().toUpperCase();
+    run(() => saveNumbering("PACKAGE", `${prefix}-{YYYY}-{000001}`, Number(packageNumbering.row_version)), "Format de référence des colis enregistré.");
+  }
+
+  return <section className="grid gap-5">
+    <PermissionGuard permission="documents.settings" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Modèle de référence colis<select disabled value="prefix-year-sequence" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="prefix-year-sequence">Préfixe + année + séquence</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Préfixe agence<input name="agency_prefix" required minLength={2} maxLength={12} pattern="[A-Za-z0-9-]+" defaultValue={initialPrefix} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Longueur de la séquence<select disabled value="6" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="6">6 chiffres</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Compteur<select disabled value="global" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="global">Global à l’agence</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Réinitialisation<select disabled value="never" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="never">Jamais</option></select></label>
+        <div className="grid gap-1"><span className="text-[12px] text-[#697178]">Exemple fictif</span><strong className="text-[14px] font-semibold text-[#25292e]">{preview}</strong></div>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Les paramètres doivent être validés contre les collisions de références avant activation. Les références existantes sont immuables.</p>
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
@@ -1527,7 +1573,7 @@ function DocumentsSettings({
       description="Formats versionnés, jamais codés en dur."
     >
       <div className="grid gap-3 md:grid-cols-2">
-        {data.numbering.map((x) => (
+        {data.numbering.filter((item) => String(item.document_type).toUpperCase() !== "PACKAGE").map((x) => (
           <form
             key={String(x.id)}
             className="rounded-[7px] border border-[#e3e7ea] bg-[#fafbfb] p-4"

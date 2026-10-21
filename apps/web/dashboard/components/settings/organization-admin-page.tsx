@@ -11,6 +11,7 @@ import {
   KeyRound,
   Languages,
   MapPin,
+  ImagePlus,
   Plug,
   Plus,
   Route as RouteIcon,
@@ -97,7 +98,7 @@ settingGroups.push(
 );
 const visibleSettings = settingGroups.slice(4).flatMap(([, sections]) => sections);
 const sectionTitles: Partial<Record<Section, [string, string]>> = {
-  visual: ["Identité visuelle", "Cette section sera complétée avec sa maquette dédiée."],
+  visual: ["Identité visuelle", "Configurez les règles applicables à votre agence."],
   tracking: ["Page publique de tracking", "Cette section sera complétée avec sa maquette dédiée."],
   hours: ["Horaires & disponibilité", "Cette section sera complétée avec sa maquette dédiée."],
   packages: ["Colis & réception", "Cette section sera complétée avec sa maquette dédiée."],
@@ -226,7 +227,8 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            {!["general", "agency", "visual", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
           </div>
         </main>
         </div>
@@ -397,6 +399,80 @@ function NotificationsSettings() {
     </Card>
   );
 }
+function VisualIdentitySettings({
+  data,
+  run,
+  active,
+}: {
+  data: AdminData;
+  run: (action: () => Promise<unknown>, message: string) => void;
+  active: boolean;
+}) {
+  const organization = data.organization;
+  const initialPrimaryColor = String(organization.primary_color || "#137C56");
+  const initialSecondaryColor = String(organization.secondary_color || "#172B4D");
+  const [primaryPreview, setPrimaryPreview] = useState(initialPrimaryColor);
+  const [secondaryPreview, setSecondaryPreview] = useState(initialSecondaryColor);
+  if (!active) return null;
+  const currentSettings = data.settings?.settings;
+  const visualSettings = currentSettings && typeof currentSettings === "object" && !Array.isArray(currentSettings)
+    ? currentSettings as Record<string, unknown>
+    : {};
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const logo = val(form, "logo");
+    const darkLogo = val(form, "dark_logo");
+    const favicon = val(form, "favicon");
+    const primaryColor = val(form, "primary_color") || "#137C56";
+    const secondaryColor = val(form, "secondary_color") || "#172B4D";
+    const nextSettings = { ...visualSettings, brand_favicon_url: favicon };
+    run(async () => {
+      await updateOrganization({
+        expected_version: Number(organization.row_version),
+        logo_url: logo,
+        logo_dark_url: darkLogo,
+        primary_color: primaryColor,
+        secondary_color: secondaryColor,
+      });
+      await updateSettings({
+        expected_version: Number(data.settings?.row_version || 1),
+        settings: nextSettings,
+      });
+    }, "Identité visuelle enregistrée.");
+  }
+
+  return <section className="grid gap-5">
+    <header className="border-b border-[#e7eaec] pb-3">
+      <h3 className="text-[16px] font-semibold text-[#25292e]">Identité visuelle de l’agence</h3>
+      <p className="mt-1 text-[13px] leading-5 text-[#697178]">Logos et couleurs utilisés sur le suivi, les factures et les documents.</p>
+    </header>
+    <form onSubmit={submit} className="grid max-w-[640px] gap-4">
+      <label className="grid gap-2 text-[13px] font-medium text-[#59636e]">
+        Logo principal
+        <span className="grid min-h-[148px] place-items-center rounded-lg border border-[#d8dddf] bg-white px-4 py-5 text-center">
+          <span><ImagePlus size={22} className="mx-auto text-[#747d84]"/><span className="mt-2 block text-[14px] font-semibold text-[#25292e]">Logo principal</span><span className="mt-1 block text-[12px] font-normal text-[#697178]">Utilisé sur le tracking, les factures et les documents.</span></span>
+          <input aria-label="URL du logo principal" name="logo" type="url" pattern="https://.*" defaultValue={String(organization.logo_url || "")} placeholder="URL du logo (démo)" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" />
+        </span>
+      </label>
+      <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Logo pour fond sombre<input name="dark_logo" type="url" pattern="https://.*" defaultValue={String(organization.logo_dark_url || "")} placeholder="URL du logo alternatif" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+      <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Favicon<input name="favicon" type="url" pattern="https://.*" defaultValue={String(visualSettings.brand_favicon_url || "")} placeholder="URL de l’icône" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Couleur principale<input name="primary_color" type="text" pattern="#[0-9A-Fa-f]{6}" defaultValue={initialPrimaryColor} onChange={event => setPrimaryPreview(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Couleur secondaire<input name="secondary_color" type="text" pattern="#[0-9A-Fa-f]{6}" defaultValue={initialSecondaryColor} onChange={event => setSecondaryPreview(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+      </div>
+      <div className="rounded-lg border border-[#d8dddf] p-4">
+        <p className="text-[12px] text-[#697178]">Aperçu de l’identité</p>
+        <div className="mt-3 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-md bg-[#f4f6f5] text-[#4d5860]"><Building2 size={18}/></span><span className="min-w-0"><strong className="block truncate text-[14px] text-[#25292e]">{String(organization.organization_name || "Votre agence")}</strong><span className="mt-0.5 block truncate text-[12px] text-[#697178]">{String(organization.brand_slogan || "Nom et slogan de l’agence")}</span></span></div>
+        <div className="mt-3 flex gap-2"><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(primaryPreview) ? primaryPreview : "#137C56" }}/><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(secondaryPreview) ? secondaryPreview : "#172B4D" }}/></div>
+      </div>
+      <p className="text-[12px] leading-5 text-[#697178]">En production, prévoyez le téléversement sécurisé, le recadrage et la validation des images plutôt qu’une URL manuelle.</p>
+      <PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div></PermissionGuard>
+    </form>
+  </section>;
+}
+
 function Organization({
   data,
   run,

@@ -1416,9 +1416,8 @@ function PackageDetails({
       close={onClose}
       title={item.package_reference || item.tracking_id || "Colis"}
       description={`${item.client_name || "Client"} · ${item.destination_city || item.destination_country || "Destination à préciser"}`}
-      width="max-w-[840px]"
+      width="max-w-[650px]"
       tabsVariant="segmented"
-      headerLeading={<PackageThumbnail item={item} />}
       headerActions={
         <OperationDrawerAction onClick={onEdit} icon="edit" aria-label="Modifier le colis">
           Modifier

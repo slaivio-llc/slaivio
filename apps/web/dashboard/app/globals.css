@@ -692,6 +692,10 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
   max-width: none;
 }
 
+.slaivio-pilot .communication-settings-content > .communication-whatsapp-channel {
+  max-width: 620px;
+}
+
 .slaivio-pilot .knowledge-embedded [data-ui="operation-metrics"] > div,
 .slaivio-pilot .knowledge-embedded [data-ui="operation-toolbar"] > div {
   max-width: none;
@@ -837,7 +841,7 @@ div.min-h-full.bg-\[\#f7f7f6\] > main > section.overflow-hidden {
 .slaivio-pilot [data-ui="operation-search"] {
   height: var(--sl-control-height);
   border-color: #cfd5db;
-  border-radius: var(--pilot-radius-control);
+  border-radius: 999px;
 }
 
 .slaivio-pilot [data-ui="operation-search"]:focus-within {

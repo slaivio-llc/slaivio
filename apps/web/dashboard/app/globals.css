@@ -1144,7 +1144,7 @@ nav[aria-label="Sections Finance"] > button:first-child {
 }
 
 .reports-page nav[aria-label="Sections des rapports"] > button {
-  border-radius: 999px !important;
+  border-radius: 0 !important;
   text-align: center;
 }
 

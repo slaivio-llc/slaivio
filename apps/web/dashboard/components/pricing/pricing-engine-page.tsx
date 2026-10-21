@@ -5,6 +5,7 @@ import {
   Calculator,
   ChevronRight,
   Download,
+  History as HistoryIcon,
   Plus,
   RefreshCcw,
 } from "lucide-react";
@@ -576,6 +577,8 @@ function GridDrawer({
   changed: () => Promise<void>;
 }) {
   const g = detail.grid;
+  const [tab, setTab] = useState<"details" | "tiers" | "conditions" | "history">("details");
+  const [versionOpen, setVersionOpen] = useState(false);
   const [versionDate,setVersionDate]=useState(new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16));
   const [versionSaving,setVersionSaving]=useState(false);
   const [actionError,setActionError]=useState("");
@@ -586,89 +589,69 @@ function GridDrawer({
     catch{setActionError("La nouvelle version n’a pas pu être créée. Vérifiez la date et réessayez.");}
     finally{setVersionSaving(false);}
   }
+  const baseRule = detail.rules.find(rule => rule.action_type === "SET_PRICE" && rule.amount != null);
+  const conditions = (baseRule?.conditions || {}) as Record<string, string>;
+  const method = String(g.base_price_method || baseRule?.calculation_method || g.calculation_method);
+  const unit = method === "PER_CBM" ? "CBM" : method === "PER_PACKAGE" ? "colis" : method === "PER_UNIT" ? "unité" : method === "FIXED" ? "forfait" : "kg";
+  const baseAmount = g.base_price ?? baseRule?.amount;
+  const statusLabel = g.status === "ACTIVE" ? "Actif" : g.status === "DRAFT" ? "Brouillon" : g.status === "INACTIVE" ? "Inactif" : g.status;
+  const validFrom = g.effective_from ? new Date(g.effective_from).toLocaleDateString("fr-FR") : "—";
+  const validUntil = g.effective_until ? new Date(g.effective_until).toLocaleDateString("fr-FR") : "Sans date de fin";
+  const dateValue = (value: unknown) => value ? new Date(String(value)).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "Date non renseignée";
+  const statusClass = g.status === "ACTIVE" ? "bg-[#dcf5e5] text-[#14804a]" : g.status === "DRAFT" ? "bg-[#fff0e8] text-[#c75b23]" : "bg-[#f1f2f1] text-[#59636b]";
+  const gridLimits = g as Grid & { minimum_weight_kg?: number | null; minimum_cbm?: number | null; minimum_billable_amount?: number | null };
+  const minimumQuantity = gridLimits.minimum_weight_kg != null ? `${gridLimits.minimum_weight_kg} kg` : gridLimits.minimum_cbm != null ? `${gridLimits.minimum_cbm} CBM` : "Aucune";
+  const detailRows: Array<[string, string]> = [["Service", g.service_name], ["Route", g.route_name], ["Bureau", "Selon la route"], ["Catégorie", String(baseRule?.category_name || goodsClassificationLabels[conditions.category_code] || "Marchandises générales")], ["Type d’emballage", String(packageTypeLabels[conditions.package_type] || "Tous les emballages")], ["Unité de facturation", unit], ["Quantité minimale", minimumQuantity], ["Montant minimum facturable", gridLimits.minimum_billable_amount != null ? `${gridLimits.minimum_billable_amount} ${g.currency_code}` : "Aucun"], ["Date d’application", validFrom], ["Fin d’application", validUntil]];
   return (
     <OperationDrawer
       open
       close={close}
-      width="max-w-[860px]"
+      width="max-w-[560px]"
+      placement="center"
+      variant="detail"
       title={g.name}
-      description={`${g.grid_code} · v${g.version} · ${g.route_name} · ${g.service_name}`}
-      bodyClassName="bg-[#f7f7f6] p-5"
+      description={`${g.grid_code} · Fiche tarifaire`}
+      headerMeta={<><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass}`}>{statusLabel}</span><span className="text-[11px] text-[#697178]">{g.route_name}</span></>}
+      headerActions={<PermissionGuard permission="pricing.update"><button type="button" onClick={() => { setTab("tiers"); setVersionOpen(true); }} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#d8dddf] px-3 text-[11px] font-medium text-[#30363a] hover:bg-[#f5f7f6]">Modifier</button></PermissionGuard>}
+      tabs={<div className="flex w-full gap-1 overflow-x-auto border-b border-[#edf0ee] pb-3">{([["details", "Détails"], ["tiers", "Paliers"], ["conditions", "Conditions"], ["history", "Historique"]] as const).map(([key, label]) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key)} className={`h-8 shrink-0 rounded-full px-3 text-[11px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f2f3f3]"}`}>{label}</button>)}</div>}
+      bodyClassName="bg-white p-4 sm:p-5"
       footer={
-        <div className="flex flex-wrap justify-end gap-2">
-            <Badge value={g.status} />
-            <PermissionGuard permission="pricing.approve">
-              <button
-                className={btn}
-                onClick={async () => {
-                  try{setActionError("");await approveGrid(g.id, "Tarif vérifié");await changed();}
-                  catch{setActionError("L’approbation a échoué. Vérifiez les permissions et l’état de la grille.");}
-                }}
-              >
-                Valider le tarif
-              </button>
-              <button
-                className={primary}
-                onClick={async () => {
-                  try{setActionError("");await transitionGrid(g.id, "ACTIVE", "Publication tarifaire");await changed();}
-                  catch{setActionError("La publication a échoué. Vérifiez l’approbation, les règles de prix et les dates d’application.");}
-                }}
-              >
-                Publier le tarif
-              </button>
-            </PermissionGuard>
-            {actionError&&<p role="alert" className="basis-full text-right text-xs text-red-700">{actionError}</p>}
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
+          <span className="text-[10px] text-[#697178]">Tarif {g.grid_code}</span>
+          <div className="flex flex-wrap justify-end gap-2">
+            {g.status === "DRAFT" && <PermissionGuard permission="pricing.approve"><button className={btn} onClick={async () => { try { setActionError(""); await approveGrid(g.id, "Tarif vérifié"); await changed(); } catch { setActionError("La validation du tarif a échoué."); } }}>Valider</button><button className={primary} onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "ACTIVE", "Publication tarifaire"); await changed(); } catch { setActionError("La publication du tarif a échoué."); } }}>Publier</button></PermissionGuard>}
+            {g.status === "ACTIVE" && <PermissionGuard permission="pricing.update"><button className="h-8 rounded-full border border-[#f0cccc] px-3 text-[11px] text-red-600 hover:bg-red-50" onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "INACTIVE", "Désactivation depuis la fiche tarif"); await changed(); } catch { setActionError("Le tarif n’a pas pu être désactivé."); } }}>Désactiver le tarif</button></PermissionGuard>}
+          </div>
+          {actionError && <p role="alert" className="basis-full text-right text-xs text-red-700">{actionError}</p>}
         </div>
       }
     >
-        <main className="grid gap-4">
-          {g.status==="DRAFT"&&<p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-            {detail.rules.length
-              ? "Le prix de base est configuré. Vérifiez-le, faites-le approuver, puis publiez le tarif pour qu’il soit utilisé."
-              : "Ce brouillon n’a pas encore de prix. Ajoutez un prix de base avant de demander son approbation."}
-          </p>}
-          {g.status!=="DRAFT"&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Cette version est en lecture seule. Créez une nouvelle version dans les options avancées pour modifier ses règles sans changer les tarifs historiques.</p>}
-          <Card title="Prix par marchandise et type de colis">
-            <p className="mb-3 text-xs text-slate-600">Chaque prix précis remplace le prix général pour les colis concernés. Le prix général reste utilisé pour les autres colis.</p>
-            <div className="divide-y divide-slate-100">
-              {detail.rules.filter(rule=>rule.action_type==="SET_PRICE").map((rule,i)=>{
-                const conditions=(rule.conditions||{}) as Record<string,string>;
-                const scope=[
-                  conditions.category_code?goodsClassificationLabels[conditions.category_code]||conditions.category_code:rule.category_name?String(rule.category_name):"Toutes marchandises",
-                  conditions.package_type?packageTypeLabels[conditions.package_type]||conditions.package_type:"Tous emballages",
-                ].join(" · ");
-                const price=rule.amount===null||rule.amount===undefined?"Prix par paliers":`${rule.amount} ${g.currency_code} · ${calculationLabels[String(rule.calculation_method)]||rule.calculation_method}`;
-                return <div key={String(rule.id||i)} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span><strong className="block font-medium">{scope}</strong><span className="text-xs text-slate-500">{String(rule.name||"Prix spécifique")}</span></span><span className="font-semibold">{price}</span></div>;
-              })}
-              {!detail.rules.some(rule=>rule.action_type==="SET_PRICE")&&<p className="py-3 text-sm text-slate-500">Aucun prix de base configuré.</p>}
-            </div>
-            {g.status==="DRAFT"&&<AddRule grid={g.id} changed={changed} />}
-          </Card>
-          <details className="rounded-xl border border-slate-200 bg-white">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Options avancées (paliers, frais, versions et historique)</summary>
-            <div className="grid gap-4 border-t border-slate-100 p-4 md:grid-cols-2">
-              <Card title="Paliers selon quantité">
-                <p className="mb-2 text-xs text-slate-600">À utiliser uniquement si le prix varie par tranche de poids, volume ou nombre d’unités.</p>
-                {detail.tiers.map((x, i) => <Row key={i} x={x} />)}
-                {g.status==="DRAFT"&&<AddTier grid={g.id} rules={detail.rules} changed={changed} />}
-              </Card>
-              <Card title="Frais supplémentaires">
-                {detail.fees.map((x, i) => <Row key={i} x={x} />)}
-                {g.status==="DRAFT"&&<AddFee grid={g.id} changed={changed} />}
-              </Card>
-              <Card title="Nouvelle version">
-                <p className="mb-3 text-xs text-slate-600">Prépare une copie modifiable sans changer les tarifs déjà appliqués.</p>
-                <form className="grid gap-2 sm:grid-cols-[1fr_auto]" onSubmit={prepareVersion}>
-                  <label className="grid gap-1 text-xs">Date d’application<input required type="datetime-local" value={versionDate} onChange={e=>setVersionDate(e.target.value)} className={input}/></label>
-                  <button disabled={versionSaving} className={`${btn} self-end`}>{versionSaving?"Préparation…":"Préparer la version suivante"}</button>
-                </form>
-              </Card>
-              <Card title="Historique">
-                {detail.audit.slice(0, 10).map((x, i) => <Row key={i} x={x} />)}
-              </Card>
-            </div>
-          </details>
-        </main>
+      <main className="grid gap-4">
+        <section className="grid gap-3 border-b border-[#edf0ee] pb-4">
+          <div><p className="text-[10px] text-[#697178]">Prix de référence</p><p className="mt-1 text-[20px] font-semibold text-[#20252b]">{baseAmount == null ? "À définir" : `${baseAmount} ${g.currency_code}`} <span className="text-[12px] font-normal text-[#697178]">/ {unit}</span></p></div>
+          <p className="flex items-center gap-2 text-[11px] text-[#30363a]"><ChevronRight size={13}/>{g.route_name}</p>
+          <p className="text-[10px] text-[#697178]">Version {g.version} · Application {validFrom}{g.effective_until ? ` – ${validUntil}` : ""}</p>
+        </section>
+        {tab === "details" && <section className="grid gap-0">
+          {detailRows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-4 border-b border-[#f0f2f1] py-2.5 text-[11px]"><span className="text-[#697178]">{label}</span><span className="text-right font-medium text-[#25292e]">{value}</span></div>)}
+        </section>}
+        {tab === "tiers" && <section className="grid gap-3">
+          <p className="text-[11px] leading-5 text-[#697178]">{detail.tiers.length ? "Prix appliqués selon la quantité facturable." : "Ce tarif utilise actuellement un prix fixe. Aucun palier progressif n’est configuré."}</p>
+          {detail.tiers.length ? <div className="grid gap-0"><div className="grid grid-cols-2 border-b border-[#e8ebea] py-2 text-[10px] font-semibold text-[#59636b]"><span>Quantité</span><span>Prix unitaire</span></div>{detail.tiers.map((tier, index) => <div key={String(tier.id || index)} className="grid grid-cols-2 border-b border-[#edf0ee] py-2.5 text-[11px]"><span>{`À partir de ${tier.min_quantity ?? 0}${tier.max_quantity == null ? "" : ` jusqu’à ${tier.max_quantity}`}`}</span><span>{`${tier.unit_price ?? "—"} ${g.currency_code} / ${String(tier.basis || unit).toLowerCase()}`}</span></div>)}</div> : <div className="grid grid-cols-2 border-b border-[#edf0ee] py-2 text-[11px]"><span>À partir de {(g as Grid & { minimum_weight_kg?: number | null }).minimum_weight_kg ?? 1} {unit}</span><span>{baseAmount == null ? "Prix à définir" : `${baseAmount} ${g.currency_code}/${unit}`}</span></div>}
+          {g.status === "DRAFT" && <AddTier grid={g.id} rules={detail.rules} changed={changed}/>}
+          {versionOpen && <form className="grid gap-2 border-t border-[#edf0ee] pt-3" onSubmit={prepareVersion}><p className="text-[12px] font-semibold">Créer une nouvelle version</p><p className="text-[10px] leading-4 text-[#697178]">Le tarif publié reste inchangé pour préserver les opérations déjà facturées.</p><label className="grid gap-1 text-[11px]">Date d’application<input required type="datetime-local" value={versionDate} onChange={e=>setVersionDate(e.target.value)} className={input}/></label>{actionError&&<p role="alert" className="text-xs text-red-700">{actionError}</p>}<button disabled={versionSaving} className={btn}>{versionSaving ? "Préparation…" : "Préparer la version suivante"}</button></form>}
+          {g.status === "DRAFT" && <AddRule grid={g.id} changed={changed}/>}
+        </section>}
+        {tab === "conditions" && <section className="grid gap-3 text-[11px] leading-5">
+          <div><p className="font-medium text-[#697178]">Conditions d’application</p><p className="mt-1">Applicable aux {String(baseRule?.category_name || goodsClassificationLabels[conditions.category_code] || "marchandises générales")} {conditions.package_type ? `conditionnées en ${packageTypeLabels[conditions.package_type] || conditions.package_type}` : "acceptées"} sur cette route.</p></div>
+          <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">Mode de calcul</p><p className="mt-1">{baseAmount == null ? "Prix déterminé par les paliers configurés." : `Quantité facturable × ${baseAmount} ${g.currency_code} par ${unit}, sous réserve du montant minimum et des frais applicables.`}</p></div>
+          <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">Application aux opérations</p><p className="mt-1">Ce tarif s’applique si le service, la route, la catégorie, l’emballage et la date correspondent. Un devis ou une facture déjà validé ne doit pas être modifié rétroactivement.</p></div>
+          {detail.fees.length > 0 && <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">Frais supplémentaires</p>{detail.fees.map((fee, index) => <p key={String(fee.id || index)} className="mt-1">{String(fee.name || "Frais")} · {String(fee.amount ?? "—")} {g.currency_code}</p>)}</div>}
+          {g.status === "DRAFT" && <AddFee grid={g.id} changed={changed}/>}
+        </section>}
+        {tab === "history" && <section className="grid gap-0">{detail.audit.slice(0, 20).map((event, index) => <div key={String(event.id || index)} className="flex gap-3 border-b border-[#edf0ee] py-3"><HistoryIcon size={13} className="mt-0.5 shrink-0 text-[#697178]"/><div><p className="text-[11px] font-medium text-[#25292e]">{String(event.event_type || "Modification").replaceAll("_", " ").toLowerCase().replace(/^./, letter => letter.toUpperCase())}</p><p className="mt-1 text-[10px] text-[#697178]">{dateValue(event.created_at)} · {String(event.actor_name || "Membre de l’agence")}</p>{event.reason != null && <p className="mt-1 text-[10px] text-[#697178]">{String(event.reason)}</p>}</div></div>)}{!detail.audit.length && <p className="py-6 text-center text-[11px] text-[#697178]">Aucun événement enregistré.</p>}</section>}
+        {g.status === "DRAFT" && <p className="border-t border-[#edf0ee] pt-3 text-[10px] leading-4 text-[#697178]">Ce brouillon doit être validé puis publié avant de pouvoir être proposé aux clients.</p>}
+      </main>
     </OperationDrawer>
   );
 }

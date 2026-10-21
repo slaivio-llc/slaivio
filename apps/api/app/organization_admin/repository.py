@@ -42,7 +42,7 @@ def overview(org_id):
         return {"organization":dict(org) if org else None,"settings":dict(settings) if settings else None,"members":members,"invitations":invitations,"roles":roles,"permissions":permissions,"audit":audit,"workspaces":workspaces,"locations":locations,"integrations":integrations,"numbering":numbering,"billing":dict(billing) if billing else None,"data_requests":data_requests,"api_keys":api_keys}
 
 def update_org(org_id, actor, data, version):
-    allowed={'organization_name','legal_name','country','city','address','phone','email','website','registration_number','tax_number','logo_url','organization_type','whatsapp','province','postal_code','registration_country','legal_address','logo_dark_url','primary_color','secondary_color','document_display_name','signature_url','stamp_url'}
+    allowed={'organization_name','legal_name','brand_slogan','brand_description','country','city','address','phone','email','website','registration_number','tax_number','logo_url','organization_type','whatsapp','province','postal_code','registration_country','legal_address','logo_dark_url','primary_color','secondary_color','document_display_name','signature_url','stamp_url'}
     values={k:v for k,v in data.items() if k in allowed}; sets=[f"{k}=:{k}" for k in values]
     if not sets:return overview(org_id)['organization']
     with engine.begin() as c:

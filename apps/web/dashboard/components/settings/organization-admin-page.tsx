@@ -39,7 +39,6 @@ import {
   type Member,
 } from "@/services/organization-admin";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
-import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { FormSection, OperationButton, OperationField } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
@@ -57,25 +56,31 @@ const button =
 const primary =
   "h-9 rounded-[6px] bg-[#12c76f] px-4 text-[13px] font-semibold text-white hover:bg-[#0fb766]";
 const tabs = [
-  ["general", "Général", Languages],
-  ["agency", "Agence", Building2],
-  ["workspaces", "Workspaces", Building2],
-  ["locations", "Implantations", MapPin],
-  ["services", "Services", Boxes],
+  ["agency", "Profil de l’agence", Building2],
+  ["general", "Langues & devises", Languages],
+  ["locations", "Bureaux & contacts", MapPin],
+  ["workspaces", "Espaces de travail", Building2],
+  ["services", "Services Cargo", Boxes],
   ["routes", "Routes", RouteIcon],
-  ["team", "Utilisateurs & équipe", Users],
+  ["documents", "Documents & étiquettes", FileText],
+  ["notifications", "Notifications & messages", Bell],
+  ["integrations", "Intégrations", Plug],
+  ["team", "Équipe & accès", Users],
   ["roles", "Rôles & permissions", KeyRound],
-  ["notifications", "Notifications", Bell],
-  ["integrations", "Canaux & intégrations", Plug],
-  ["documents", "Documents & numérotation", FileText],
   ["billing", "Abonnement Slaivio", CreditCard],
-  ["security", "Sécurité", ShieldCheck],
+  ["security", "Accès & sécurité", ShieldCheck],
   ["data", "Données & confidentialité", Database],
 ] as const;
 type Section = (typeof tabs)[number][0];
+const settingGroups: Array<[string, Section[]]> = [
+  ["Identité & présence", ["agency", "locations"]],
+  ["Opérations Cargo", ["services", "routes", "documents"]],
+  ["Clients & finance", ["notifications", "billing"]],
+  ["Administration", ["team", "roles", "security", "integrations", "general", "workspaces", "data"]],
+];
 const sectionTitles: Record<Section, [string, string]> = {
   general: ["Général", "Préférences régionales et unités du workspace actif."],
-  agency: ["Agence", "Identité légale, coordonnées et image de marque de l’agence."],
+  agency: ["Profil de l’agence", "Informations officielles utilisées sur les espaces publics et documents."],
   workspaces: ["Workspaces", "Espaces opérationnels, responsables et périmètres de travail."],
   locations: ["Implantations de votre agence", "Bureaux physiques organisés au sein de la même organisation."],
   services: ["Services de transport", "Prestations proposées par l’agence et utilisées par les colis et la tarification."],
@@ -96,7 +101,7 @@ export function OrganizationAdminPage() {
   const router = useRouter(),
     params = useSearchParams();
   const [data, setData] = useState<AdminData | null>(null),
-    [tab, setTab] = useState<Section>("general"),
+    [tab, setTab] = useState<Section>("agency"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   useEffect(() => {
@@ -107,7 +112,7 @@ export function OrganizationAdminPage() {
       organization: "agency",
       spaces: "workspaces",
     };
-    const resolved = requested ? aliases[requested] || requested : "general";
+    const resolved = requested ? aliases[requested] || requested : "agency";
     if (tabs.some(([id]) => id === resolved)) setTab(resolved as Section);
   }, [params]);
   const load = useCallback(async () => {
@@ -149,46 +154,24 @@ export function OrganizationAdminPage() {
     ? <ErrorState title="Paramètres indisponibles" description={error} retry={load} />
     : <LoadingState label="Chargement des paramètres…" />;
   return (
-    <div className="min-h-full bg-[#f6f7f8]">
-      <OperationPageHeader
-        title="Paramètres"
-        description="Configurez l’entreprise, les accès et les préférences de votre espace de travail."
-      />
-      <div className="grid min-h-[calc(100vh-132px)] lg:grid-cols-[272px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-[#e0e2e4] bg-[#fafafa] p-3 lg:block">
-          <SettingsGroup label="Administration">
-            {tabs.map(([id, label, Icon]) => (
-              <SettingsItem
-                key={id}
-                active={tab === id}
-                icon={<Icon size={15} />}
-                label={label}
-                onClick={() => select(id)}
-              />
-            ))}
-          </SettingsGroup>
-          <PermissionGuard permission="platform.admin.read">
-            <SettingsGroup label="Plateforme">
-              <SettingsLink href="/app/platform" icon={<ShieldCheck size={15} />} label="Console Super Admin" />
-            </SettingsGroup>
-          </PermissionGuard>
+    <div className="min-h-full bg-[#fff] px-4 py-5 sm:px-6 lg:py-8">
+      <div className="mx-auto max-w-[1080px] overflow-hidden rounded-[10px] border border-[#dfe3e4] bg-white">
+        <header className="flex items-center justify-between gap-4 border-b border-[#e7eaec] px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center text-[#30363a]"><Building2 size={17}/></span><div><h1 className="text-[14px] font-semibold text-[#25292e]">Paramètres de l’agence</h1><p className="mt-0.5 text-[10px] text-[#697178]">Personnalisez votre environnement Slaivio</p></div></div>
+          <span className="shrink-0 rounded-full bg-[#f1f2f1] px-2.5 py-1 text-[10px] font-medium text-[#59636b]">Administration</span>
+        </header>
+        <div className="flex items-center gap-2 border-b border-[#e7eaec] px-4 py-3 text-[10px] text-[#697178] sm:px-6"><Building2 size={12}/><span>{String(data.organization.organization_name || "Agence")}</span><span>›</span><span className="font-medium text-[#25292e]">{sectionTitles[tab][0]}</span></div>
+        <div className="grid min-h-[620px] lg:grid-cols-[250px_minmax(0,1fr)]">
+        <aside className="hidden border-b border-[#e0e2e4] p-2.5 lg:block lg:border-b-0 lg:border-r lg:p-3">
+          {settingGroups.map(([group, sections]) => <SettingsGroup key={group} label={group}>
+            {sections.map(id => { const item = tabs.find(([key]) => key === id)!; const [key, label, Icon] = item; return <SettingsItem key={key} active={tab === key} icon={<Icon size={13} />} label={label} onClick={() => select(key)}/>; })}
+          </SettingsGroup>)}
+          <PermissionGuard permission="platform.admin.read"><SettingsGroup label="Plateforme"><SettingsLink href="/app/platform" icon={<ShieldCheck size={13}/>} label="Console Super Admin"/></SettingsGroup></PermissionGuard>
         </aside>
-        <main className="min-w-0 p-5 lg:p-7">
-          <div className="mx-auto max-w-[1120px]">
-            <label className="mb-5 grid gap-1.5 text-[12px] font-medium text-[#59636e] lg:hidden">
-              Section des paramètres
-              <select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>
-                {tabs.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-              </select>
-            </label>
-            <div className="mb-5 flex items-start gap-3 border-b border-[#e5e6e7] pb-4">
-              <div className="min-w-0 flex-1"><h2 className="text-[20px] font-semibold">
-                {sectionTitles[tab][0]}
-              </h2>
-              <p className="mt-1 text-[13px] text-[#69707d]">
-                {sectionTitles[tab][1]}
-              </p></div>
-            </div>
+        <main className="min-w-0 p-4 sm:p-6">
+          <div className="mx-auto max-w-[640px]">
+            <label className="mb-4 grid gap-1.5 text-[11px] font-medium text-[#59636e] lg:hidden">Section des paramètres<select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>{tabs.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+            <div className="mb-4 border-b border-[#e7eaec] pb-3"><h2 className="text-[14px] font-semibold text-[#25292e]">{sectionTitles[tab][0]}</h2><p className="mt-1 text-[10px] leading-4 text-[#697178]">{sectionTitles[tab][1]}</p></div>
             {notice && (
               <div className="mb-3 rounded-[5px] bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
                 {notice}
@@ -217,6 +200,7 @@ export function OrganizationAdminPage() {
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
           </div>
         </main>
+        </div>
       </div>
     </div>
   );
@@ -239,7 +223,7 @@ function SettingsGroup({
   );
 }
 const settingsItemClass =
-  "flex min-h-9 w-full items-center gap-2.5 rounded-[5px] px-2.5 text-left text-[13px]";
+  "flex min-h-7 w-full items-center gap-2 rounded-[5px] px-2 text-left text-[10px]";
 function SettingsItem({
   active,
   icon,
@@ -255,7 +239,7 @@ function SettingsItem({
     <button
       type="button"
       onClick={onClick}
-      className={`${settingsItemClass} ${active ? "bg-[#e4f4ee] font-medium text-[#145f49]" : "text-[#444b52] hover:bg-[#eeeeed]"}`}
+      className={`${settingsItemClass} ${active ? "bg-[#f0f1f1] font-semibold text-[#25292e]" : "text-[#444b52] hover:bg-[#f5f6f6]"}`}
     >
       {icon}
       <span className="truncate">{label}</span>
@@ -401,6 +385,8 @@ function Organization({
           expected_version: o.row_version,
           organization_name: val(f, "name"),
           legal_name: val(f, "legal"),
+          brand_slogan: val(f, "slogan"),
+          brand_description: val(f, "description"),
           country: val(f, "country"),
           city: val(f, "city"),
           address: val(f, "address"),
@@ -414,44 +400,22 @@ function Organization({
     );
   }
   return (
-    <Card
-      title="Profil de l’agence"
-      description="Informations officielles réutilisées dans les factures, documents et communications."
-    >
+    <section className="grid gap-4">
+      <header className="border-b border-[#e7eaec] pb-3"><h3 className="text-[14px] font-semibold text-[#25292e]">Profil de l’agence</h3><p className="mt-1 text-[10px] leading-4 text-[#697178]">Informations officielles utilisées sur les espaces publics et documents.</p></header>
       <PermissionGuard permission="organization.manage" fallback={<ReadOnly />}>
-        <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <FormGeographyFields
-            key={`organization-geo-${String(o.row_version)}`}
-            initialCountry={String(o.country || "")}
-            initialCity={String(o.city || "")}
-            className={`${input} mt-1`}
-            fieldClassName="text-[12px] text-[#555d68]"
-          />
-          {[
-            ["name", "Nom commercial", "organization_name"],
-            ["legal", "Raison sociale", "legal_name"],
-            ["registration", "Numéro d’enregistrement", "registration_number"],
-            ["tax", "Identifiant fiscal", "tax_number"],
-            ["phone", "Téléphone", "phone"],
-            ["email", "Email", "email"],
-            ["website", "Site web", "website"],
-            ["address", "Adresse", "address"],
-          ].map(([n, l, k]) => (
-            <label key={n} className="text-[12px] text-[#555d68]">
-              {l}
-              <input
-                className={`${input} mt-1`}
-                name={n}
-                defaultValue={String(o[k] || "")}
-              />
-            </label>
-          ))}
-          <div className="md:col-span-2">
-            <button className={primary}>Enregistrer le profil</button>
-          </div>
+        <form onSubmit={submit} className="grid max-w-[560px] gap-3">
+          {[["name", "Nom commercial *", "organization_name"], ["legal", "Raison sociale", "legal_name"], ["slogan", "Slogan", "brand_slogan"]].map(([n, l, k]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")} required={n === "name"}/></label>)}
+          <label className="grid gap-1 text-[10px] text-[#697178]">Description de l’agence<textarea name="description" rows={3} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.brand_description || "")}/></label>
+          <div className="border-t border-[#e7eaec] pt-3"><h4 className="text-[11px] font-semibold text-[#25292e]">Coordonnées officielles</h4></div>
+          {[["phone", "Téléphone", "phone", "tel"], ["email", "Email de contact", "email", "email"], ["website", "Site web", "website", "url"]].map(([n, l, k, type]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input type={type} className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")} placeholder={n === "website" ? "https://" : ""}/></label>)}
+          <FormGeographyFields key={`organization-geo-${String(o.row_version)}`} initialCountry={String(o.country || "")} initialCity={String(o.city || "")} className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e]" fieldClassName="grid gap-1 text-[10px] text-[#697178]" countryLabel="Pays" cityLabel="Ville"/>
+          <label className="grid gap-1 text-[10px] text-[#697178]">Adresse du siège<textarea name="address" rows={2} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.address || "")} placeholder="Adresse complète"/></label>
+          {[["registration", "Numéro d’enregistrement", "registration_number"], ["tax", "Identifiant fiscal", "tax_number"]].map(([n, l, k]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")}/></label>)}
+          <p className="text-[10px] leading-4 text-[#697178]">Les informations publiques sont sélectionnées dans les paramètres de la page publique de suivi. Les données légales peuvent rester privées.</p>
+          <div className="flex items-center justify-between border-t border-[#e7eaec] pt-3"><span className="text-[9px] text-[#8a9297]">Profil de l’agence</span><button className={primary}>Enregistrer</button></div>
         </form>
       </PermissionGuard>
-    </Card>
+    </section>
   );
 }
 function Team({

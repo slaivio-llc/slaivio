@@ -48,13 +48,12 @@ export function ParcelManagementHub() {
   return <div className="min-h-full min-w-0 bg-white">
     <OperationPageHeader title="Gestion" description="Structure, services, tarifs et collaborateurs de votre agence." />
     <main className="w-full min-w-0 px-3 py-4 sm:px-5">
-      <div className="mx-auto w-full max-w-[1180px] overflow-hidden border border-[#dfe3e4] bg-white">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#e5e8e9] px-4 py-4 sm:px-5">
-          <div><p className="text-[10px] text-[#697178]">Slaivio / Gestion</p><h1 className="mt-1 text-[17px] font-semibold text-[#25292e]">Gestion</h1><p className="mt-1 text-[12px] text-[#697178]">Structure, services, tarifs et collaborateurs de votre agence.</p></div>
+      <div className="w-full min-w-0 bg-white">
+        <div className="flex justify-end pb-3">
           <label className="grid gap-1 text-[11px] text-[#697178]">Bureau actif<select className="h-9 min-w-[160px] rounded-full border border-[#d8dddf] bg-white px-3 text-[12px] text-[#30363a]" value={office?.selected_office_id || ""} onChange={(event) => void selectOffice(event.target.value)}><option value="">Tous les bureaux autorisés</option>{(office?.offices || []).map((item) => <option key={item.location_id} value={item.location_id}>{item.city || item.name}</option>)}</select></label>
-        </header>
-        <nav aria-label="Sections de gestion" className="flex min-w-0 gap-1 overflow-x-auto border-b border-[#e5e8e9] px-3 py-2 sm:px-4">{tabs.map(([key, label]) => <button key={key} type="button" onClick={() => setSection(key)} className={"shrink-0 rounded-full px-3 py-1.5 text-[12px] font-medium " + (section === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]")}>{label}</button>)}</nav>
-        <div className="min-w-0 space-y-4 p-4 sm:p-5">
+        </div>
+        <nav aria-label="Sections de gestion" className="flex min-w-0 gap-1 overflow-x-auto border-b border-[#e5e8e9] py-2">{tabs.map(([key, label]) => <button key={key} type="button" onClick={() => setSection(key)} className={"shrink-0 rounded-none px-3 py-1.5 text-[12px] font-medium " + (section === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f0f2f1]")}>{label}</button>)}</nav>
+        <div className="min-w-0 space-y-4 py-4">
           {section === "organization" && <><div className="flex flex-wrap items-center justify-between gap-3"><Heading title="Organisation" subtitle="Gérez vos implantations et vos entrepôts." /><PermissionGuard permission="locations.manage"><Link href="/app/settings?section=locations" className={primary}><Plus size={14}/>Nouveau bureau</Link></PermissionGuard></div>
             <div className="grid gap-2 sm:grid-cols-3"><Metric label="Bureaux" value={offices.length}/><Metric label="Entrepôts" value={warehouses.length}/><Metric label="Membres" value={activeMembers.length}/></div>
             <LocationGroup title="Bureaux">{offices.map((item) => <LocationRow key={String(item.id)} name={String(item.name || item.city || "Bureau")} detail={[item.city, item.address].filter(Boolean).join(" · ")} icon="office" badge={activeMembers.filter((member) => member.office_access_scope === "ALL_OFFICES" || member.office_ids.includes(String(item.id))).length + " membres"}/>)}</LocationGroup>

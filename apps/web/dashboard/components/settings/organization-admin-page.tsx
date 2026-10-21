@@ -100,7 +100,7 @@ const visibleSettings = settingGroups.slice(4).flatMap(([, sections]) => section
 const sectionTitles: Partial<Record<Section, [string, string]>> = {
   visual: ["Identité visuelle", "Configurez les règles applicables à votre agence."],
   tracking: ["Page publique de tracking", "Personnalisez l’expérience de suivi de vos clients."],
-  hours: ["Horaires & disponibilité", "Cette section sera complétée avec sa maquette dédiée."],
+  hours: ["Horaires & disponibilité", "Configurez les horaires d’ouverture et le fuseau horaire de votre agence."],
   packages: ["Colis & réception", "Cette section sera complétée avec sa maquette dédiée."],
   delivery: ["Expéditions & livraison", "Cette section sera complétée avec sa maquette dédiée."],
   numbering: ["Références & numérotation", "Cette section sera complétée avec sa maquette dédiée."],
@@ -230,6 +230,7 @@ export function OrganizationAdminPage() {
             {!["general", "agency", "visual", "tracking", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
+            <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
           </div>
         </main>
         </div>
@@ -488,6 +489,52 @@ function PublicTrackingSettings({
 
 function VisibilityToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
   return <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]">{label}<input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>;
+}
+
+function AgencyHoursSettings({
+  data,
+  run,
+  active,
+}: {
+  data: AdminData;
+  run: (action: () => Promise<unknown>, message: string) => void;
+  active: boolean;
+}) {
+  const settings = data.settings?.settings && typeof data.settings.settings === "object" && !Array.isArray(data.settings.settings)
+    ? data.settings.settings as Record<string, unknown>
+    : {};
+  const storedHours = settings.agency_hours && typeof settings.agency_hours === "object"
+    ? settings.agency_hours as Record<string, unknown>
+    : {};
+  const [hours, setHours] = useState(String(storedHours.text || "Lundi – samedi, 08h00 – 17h00"));
+  const [timezone, setTimezone] = useState(String(data.settings?.timezone || "Africa/Kinshasa"));
+  if (!active) return null;
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nextSettings = data.settings || { row_version: 1 };
+    run(() => updateSettings({
+      ...nextSettings,
+      expected_version: Number(nextSettings.row_version || 1),
+      timezone: String(form.get("agency_timezone") || "Africa/Kinshasa"),
+      settings: {
+        ...settings,
+        agency_hours: { text: String(form.get("agency_hours") || "").trim() },
+      },
+    }), "Horaires et fuseau horaire enregistrés.");
+  }
+
+  return <section className="grid gap-5">
+    <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Horaires de l’agence<textarea name="agency_hours" rows={3} maxLength={300} required value={hours} onChange={event => setHours(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Fuseau horaire<select name="agency_timezone" value={timezone} onChange={event => setTimezone(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]">{[["Africa/Kinshasa", "Kinshasa"], ["Africa/Lubumbashi", "Lubumbashi"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Africa/Lagos", "Lagos"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">En production : horaires par jour, pauses, jours fériés, fermetures exceptionnelles et horaires distincts par bureau.</p>
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+      </form>
+    </PermissionGuard>
+  </section>;
 }
 
 function VisualIdentitySettings({

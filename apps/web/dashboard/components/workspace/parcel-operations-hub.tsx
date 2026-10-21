@@ -147,7 +147,7 @@ export function ParcelOperationsHub() {
       </>}
       {visited.has("packages") && <div hidden={view !== "packages"}><PackagesPage embedded /></div>}
       {visited.has("shipments") && <div hidden={view !== "shipments"}><ShipmentsPage embedded /></div>}
-      {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage /></div>}
+      {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage embedded /></div>}
       {visited.has("tracking") && <div hidden={view !== "tracking"}><CargoTrackingView revision={revision} open={setSelectedShipment} embedded /></div>}
     </main>
     {selectedShipment && <FreightShipmentDetail shipmentId={selectedShipment} onClose={() => setSelectedShipment(null)} />}

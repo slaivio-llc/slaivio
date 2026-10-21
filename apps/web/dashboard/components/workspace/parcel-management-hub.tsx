@@ -11,8 +11,8 @@ import { getAdmin, getOfficeContext, setOfficeContext, type AdminData, type Offi
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
 import { PricingManagementSection } from "@/components/pricing/pricing-engine-page";
 
-type Section = "organization" | "services" | "pricing" | "team";
-const tabs: Array<[Section, string]> = [["organization", "Organisation"], ["services", "Services & Routes"], ["pricing", "Tarification"], ["team", "Équipe & Accès"]];
+type Section = "organization" | "services" | "pricing";
+const tabs: Array<[Section, string]> = [["organization", "Organisation"], ["services", "Services & Routes"], ["pricing", "Tarification"]];
 const button = "inline-flex h-9 items-center gap-2 rounded-full border border-[#d8dddf] bg-white px-3 text-[12px] font-medium text-[#30363a] hover:bg-[#f5f7f6]";
 const primary = "inline-flex h-9 items-center gap-2 rounded-full bg-[#111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]";
 
@@ -58,7 +58,6 @@ export function ParcelManagementHub() {
             {!warehouses.length && <Empty label="Aucun entrepôt n’est configuré."/>}</>}
           {section === "services" && <ServicesRoutesSection />}
           {section === "pricing" && <PricingManagementSection />}
-          {section === "team" && <><div className="flex flex-wrap items-center justify-between gap-3"><Heading title="Équipe & Accès" subtitle="Collaborateurs, rôles et accès aux bureaux."/><PermissionGuard permission="organization.manage"><Link href="/app/settings?section=team" className={primary}><Plus size={14}/>Inviter un membre</Link></PermissionGuard></div><div className="grid gap-2 sm:grid-cols-3"><Metric label="Membres" value={data.members.length}/><Metric label="Actifs" value={activeMembers.length}/><Metric label="Invités" value={data.members.filter((member) => member.status === "INVITED").length}/></div>{data.members.map((member) => <div key={member.id} className="flex justify-between gap-3 border border-[#dfe3e4] px-3 py-3"><span><b className="block text-[12px] font-medium">{member.member_display_name || member.member_email || "Membre"}</b><span className="mt-1 block text-[11px] text-[#697178]">{member.role_name || member.role_code}</span></span><span className="bg-[#f1f2f1] px-2 py-1 text-[10px]">{member.status === "ACTIVE" ? "Actif" : member.status}</span></div>)}</>}
           <p className="text-[10px] text-[#8a9297]">Les éléments affichés proviennent des paramètres et des données de votre agence.</p>
         </div>
       </div>

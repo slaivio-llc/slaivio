@@ -13,8 +13,8 @@ export function CommunicationAnnouncementsReminders() {
   return (
     <div className="communication-announcements-shell min-h-full bg-white">
       <section className="w-full bg-white">
-        <header className="flex min-h-[64px] items-center justify-between gap-4 py-3">
-        <nav aria-label="Annonces et relances" className="grid min-w-0 max-w-[420px] flex-1 grid-cols-2 bg-[#f1f2f2] p-1">
+        <header className="flex min-h-[64px] flex-wrap items-center justify-between gap-3 py-3">
+        <nav aria-label="Annonces et relances" className="grid h-10 w-full max-w-[420px] shrink-0 grid-cols-2 bg-[#f1f2f2] p-1">
           {([
             ["announcements", "Annonces"],
             ["reminders", "Relances"],
@@ -24,7 +24,7 @@ export function CommunicationAnnouncementsReminders() {
               type="button"
               aria-current={section === key ? "page" : undefined}
               onClick={() => setSection(key)}
-              className={`min-h-8 rounded-none px-3 text-[12px] transition-colors ${section === key ? "bg-[#111111] font-semibold text-white" : "font-medium text-[#777f86] hover:text-[#25292e]"}`}
+              className={`h-full rounded-none px-3 text-[12px] transition-colors ${section === key ? "bg-[#111111] font-semibold text-white" : "font-medium text-[#777f86] hover:text-[#25292e]"}`}
             >
               {label}
             </button>

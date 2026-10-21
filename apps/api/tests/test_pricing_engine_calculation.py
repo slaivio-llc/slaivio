@@ -140,6 +140,30 @@ def test_quote_requires_weight_for_per_kg_pricing(monkeypatch):
     assert error.value.detail == {"code": "pricing_input_required", "field": "weight_kg"}
 
 
+def test_minimum_billable_amount_is_applied_after_discounts_and_fees(monkeypatch):
+    calculator(
+        monkeypatch,
+        make_grid(minimum_billable_amount=50),
+        [make_price_rule(amount=2)],
+    )
+
+    result = repository.quote(
+        "org-id",
+        {
+            "route_id": "route-id",
+            "shipping_service_id": "service-id",
+            "weight_kg": 1,
+            "volume_cbm": 0,
+            "priced_at": "2026-10-14T10:00:00Z",
+        },
+        "actor-id",
+    )
+
+    assert result["subtotal"] == 2
+    assert result["total"] == 50
+    assert any(line["label"] == "Montant minimum facturable" for line in result["breakdown"])
+
+
 def test_quote_prefers_matching_goods_and_package_type_rule(monkeypatch):
     calculator(
         monkeypatch,

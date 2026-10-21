@@ -26,6 +26,7 @@ def dashboard(o):
 
 def create_grid(o,a,n,p):
  initial_price=p.pop('initial_price',None)
+ initial_tiers=p.pop('initial_tiers',[])
  initial_category_code=p.pop('initial_category_code',None)
  initial_package_type=p.pop('initial_package_type',None)
  with engine.begin() as c:
@@ -39,9 +40,9 @@ def create_grid(o,a,n,p):
    )) and exists(select 1 from shipping_routes r where r.org_id=s.org_id and r.id=cast(:r as uuid)
     and r.active and r.status in('ACTIVE','LIMITED') and r.archived_at is null)"""),{"o":o,"s":p['shipping_service_id'],"r":p['route_id']}).first()
   if not service: raise HTTPException(422,"route_service_mismatch")
-  row=dict(c.execute(text("""insert into pricing_grids(org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,created_by,updated_by) values(:o,:workspace_id,:grid_code,:name,:description,cast(:route_id as uuid),cast(:shipping_service_id as uuid),upper(:currency_code),:calculation_method,:visibility,'DRAFT',:effective_from,:effective_until,:volumetric_divisor,:chargeable_weight_rule,:rounding_increment,:minimum_weight_kg,:minimum_cbm,:maximum_weight_kg,:maximum_cbm,:maximum_declared_value,:tax_inclusive,:tax_rate,:requires_approval,:a,:a) returning *"""),{"o":o,"a":a,**p}).mappings().one())
+  row=dict(c.execute(text("""insert into pricing_grids(org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,minimum_billable_amount,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,created_by,updated_by) values(:o,:workspace_id,:grid_code,:name,:description,cast(:route_id as uuid),cast(:shipping_service_id as uuid),upper(:currency_code),:calculation_method,:visibility,'DRAFT',:effective_from,:effective_until,:volumetric_divisor,:chargeable_weight_rule,:rounding_increment,:minimum_weight_kg,:minimum_cbm,:minimum_billable_amount,:maximum_weight_kg,:maximum_cbm,:maximum_declared_value,:tax_inclusive,:tax_rate,:requires_approval,:a,:a) returning *"""),{"o":o,"a":a,**p}).mappings().one())
   _audit(c,o,str(row['id']),'GRID_CREATED',a,n,new=row)
-  if initial_price is not None:
+  if initial_price is not None or initial_tiers or (p['calculation_method']=='TIERED' and (initial_category_code or initial_package_type)):
    conditions={key:value for key,value in (
     ("category_code",initial_category_code),("package_type",initial_package_type)
    ) if value is not None}
@@ -56,6 +57,18 @@ def create_grid(o,a,n,p):
        "effective_from":p["effective_from"],
    }).mappings().one())
    _audit(c,o,str(row['id']),'RULE_CREATED',a,n,new=rule)
+   for index,tier in enumerate(initial_tiers):
+    minimum=float(tier['min_quantity']);maximum=tier.get('max_quantity')
+    if minimum<0 or (maximum is not None and float(maximum)<=minimum):raise HTTPException(422,'invalid_pricing_tier_range')
+    overlap=c.execute(text("""select 1 from pricing_tiers where org_id=:o and grid_id=:g and basis=:basis and rule_id=:rule
+      and coalesce(max_quantity,1e30)>:min and (:max is null or min_quantity<:max) limit 1"""),
+      {"o":o,"g":row['id'],"basis":tier['basis'],"rule":rule['id'],"min":minimum,"max":maximum}).first()
+    if overlap:raise HTTPException(409,'pricing_tier_range_overlap')
+    created_tier=dict(c.execute(text("""insert into pricing_tiers(org_id,grid_id,rule_id,basis,min_quantity,max_quantity,unit_price,priority,calculation_method)
+      values(:o,:g,:rule,:basis,:min,:max,:price,:priority,:method) returning *"""),
+      {"o":o,"g":row['id'],"rule":rule['id'],"basis":tier['basis'],"min":minimum,"max":maximum,
+       "price":tier['unit_price'],"priority":tier.get('priority',100),"method":tier['calculation_method']}).mappings().one())
+    _audit(c,o,str(row['id']),'TIER_CREATED',a,n,new=created_tier)
   return row
 
 def create_category(o,p,a,n):
@@ -77,8 +90,8 @@ def create_version(o,g,effective_from,a,n):
   version=c.execute(text("select coalesce(max(version),0)+1 from pricing_grids where org_id=:o and grid_code=:code"),{"o":o,"code":old['grid_code']}).scalar_one()
   params={"o":o,"g":g,"a":a,"version":version,"effective_from":effective_from}
   row=dict(c.execute(text("""insert into pricing_grids
-   (org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,maximum_weight_kg,maximum_cbm,maximum_declared_value,weight_volume_switch_kg_per_cbm,tax_inclusive,tax_rate,requires_approval,version,created_by,updated_by)
-   select org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,'DRAFT',:effective_from,null,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,maximum_weight_kg,maximum_cbm,maximum_declared_value,weight_volume_switch_kg_per_cbm,tax_inclusive,tax_rate,requires_approval,:version,:a,:a
+   (org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,minimum_billable_amount,maximum_weight_kg,maximum_cbm,maximum_declared_value,weight_volume_switch_kg_per_cbm,tax_inclusive,tax_rate,requires_approval,version,created_by,updated_by)
+   select org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,'DRAFT',:effective_from,null,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,minimum_billable_amount,maximum_weight_kg,maximum_cbm,maximum_declared_value,weight_volume_switch_kg_per_cbm,tax_inclusive,tax_rate,requires_approval,:version,:a,:a
    from pricing_grids where org_id=:o and id=cast(:g as uuid) returning *"""),params).mappings().one())
   c.execute(text("""with copied as (
    insert into pricing_grid_rules(org_id,grid_id,rule_code,name,category_id,client_id,client_segment,warehouse_id,office_id,min_weight_kg,max_weight_kg,min_cbm,max_cbm,min_value,max_value,min_units,max_units,conditions,action_type,calculation_method,amount,percentage,priority,stackable,active,effective_from,effective_until)
@@ -167,7 +180,7 @@ def duplicate(o,g,a,n):
   old=c.execute(text("select * from pricing_grids where org_id=:o and id=cast(:g as uuid)"),{"o":o,"g":g}).mappings().first()
   if not old: raise HTTPException(404,"pricing_grid_not_found")
   code=f"{old['grid_code']}-COPY-{str(old['id'])[:4]}"
-  row=dict(c.execute(text("""insert into pricing_grids(org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,created_by,updated_by) select org_id,workspace_id,:code,name||' — copie',description,route_id,shipping_service_id,currency_code,calculation_method,visibility,'DRAFT',now(),null,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,:a,:a from pricing_grids where org_id=:o and id=:g returning *"""),{"o":o,"g":g,"code":code,"a":a}).mappings().one())
+  row=dict(c.execute(text("""insert into pricing_grids(org_id,workspace_id,grid_code,name,description,route_id,shipping_service_id,currency_code,calculation_method,visibility,status,effective_from,effective_until,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,minimum_billable_amount,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,created_by,updated_by) select org_id,workspace_id,:code,name||' — copie',description,route_id,shipping_service_id,currency_code,calculation_method,visibility,'DRAFT',now(),null,volumetric_divisor,chargeable_weight_rule,rounding_increment,minimum_weight_kg,minimum_cbm,minimum_billable_amount,maximum_weight_kg,maximum_cbm,maximum_declared_value,tax_inclusive,tax_rate,requires_approval,:a,:a from pricing_grids where org_id=:o and id=:g returning *"""),{"o":o,"g":g,"code":code,"a":a}).mappings().one())
   c.execute(text("insert into pricing_grid_rules(org_id,grid_id,rule_code,name,category_id,client_id,client_segment,warehouse_id,office_id,min_weight_kg,max_weight_kg,min_cbm,max_cbm,min_value,max_value,min_units,max_units,conditions,action_type,calculation_method,amount,percentage,priority,stackable,active,effective_from,effective_until) select org_id,:new,rule_code,name,category_id,client_id,client_segment,warehouse_id,office_id,min_weight_kg,max_weight_kg,min_cbm,max_cbm,min_value,max_value,min_units,max_units,conditions,action_type,calculation_method,amount,percentage,priority,stackable,active,now(),null from pricing_grid_rules where org_id=:o and grid_id=:old"),{"new":row['id'],"o":o,"old":g});c.execute(text("insert into pricing_tiers(org_id,grid_id,basis,min_quantity,max_quantity,unit_price,priority) select org_id,:new,basis,min_quantity,max_quantity,unit_price,priority from pricing_tiers where org_id=:o and grid_id=:old"),{"new":row['id'],"o":o,"old":g});c.execute(text("insert into pricing_fees(org_id,grid_id,fee_code,name,fee_type,calculation_method,amount,conditions,taxable,active,priority) select org_id,:new,fee_code,name,fee_type,calculation_method,amount,conditions,taxable,active,priority from pricing_fees where org_id=:o and grid_id=:old"),{"new":row['id'],"o":o,"old":g});_audit(c,o,str(row['id']),'GRID_DUPLICATED',a,n,new={"source_grid_id":g});return row
 
 def create_promotion(o,p,a,n):
@@ -248,9 +261,11 @@ def quote(o,p,a):
   if density_switch and method=='PER_CBM': method='PER_KG'
   unit_price=Decimal(str((base_rule or {}).get('amount') or 0))
   if method=='TIERED':
-   basis='WEIGHT' if density_switch else ('CBM' if cbm else 'WEIGHT')
-   qty=cbm if basis=='CBM' else chargeable
-   tier=c.execute(text("select * from pricing_tiers where org_id=:o and grid_id=:g and basis=:b and rule_id is not distinct from cast(:rule as uuid) and min_quantity<=:q and (max_quantity is null or max_quantity>:q) order by priority desc,min_quantity desc limit 1"),{"o":o,"g":grid['id'],"b":basis,"rule":base_rule.get('id') if base_rule else None,"q":qty}).mappings().first()
+   rule_id=base_rule.get('id') if base_rule else None
+   available_bases=[x['basis'] for x in _rows(c.execute(text("select distinct basis from pricing_tiers where org_id=:o and grid_id=:g and rule_id is not distinct from cast(:rule as uuid)"),{"o":o,"g":grid['id'],"rule":rule_id}))]
+   basis=('WEIGHT' if 'WEIGHT' in available_bases else 'CBM') if density_switch else ('CBM' if cbm and 'CBM' in available_bases else ('UNITS' if 'UNITS' in available_bases else ('WEIGHT' if 'WEIGHT' in available_bases else ('CBM' if cbm else 'WEIGHT'))))
+   qty=cbm if basis=='CBM' else (Decimal(str(p.get('units') or 1)) if basis=='UNITS' else (Decimal(str(p.get('declared_value') or 0)) if basis=='VALUE' else chargeable))
+   tier=c.execute(text("select * from pricing_tiers where org_id=:o and grid_id=:g and basis=:b and rule_id is not distinct from cast(:rule as uuid) and min_quantity<=:q and (max_quantity is null or max_quantity>:q) order by priority desc,min_quantity desc limit 1"),{"o":o,"g":grid['id'],"b":basis,"rule":rule_id,"q":qty}).mappings().first()
    if not tier: raise HTTPException(422,"no_matching_pricing_tier")
    unit_price=Decimal(str(tier['unit_price'])); method=tier['calculation_method']
    if method=='PER_UNIT':
@@ -273,7 +288,12 @@ def quote(o,p,a):
    if not r['stackable']: break
   discount=min(discount,subtotal+sum(fees))
   before_tax=subtotal+sum(fees)-discount
+  minimum_billable=Decimal(str(grid.get('minimum_billable_amount') or 0))
+  if before_tax < minimum_billable:
+   breakdown.append({"type":"RULE","label":"Montant minimum facturable","amount":float(_money(minimum_billable-before_tax))})
+   before_tax=minimum_billable
   taxable_amount=max(Decimal('0'),subtotal+sum(taxable_fees)-discount)
+  if minimum_billable and before_tax==minimum_billable: taxable_amount=max(taxable_amount,minimum_billable)
   tax=Decimal('0') if grid['tax_inclusive'] else taxable_amount*Decimal(str(grid['tax_rate']))/100; total=_money(before_tax+tax)
   if tax: breakdown.append({"type":"TAX","label":f"Taxe {grid['tax_rate']}%","amount":float(_money(tax))})
   costs=c.execute(text("select calculation_method,amount from pricing_internal_costs where org_id=:o and grid_id=:g and effective_from<=:at and (effective_until is null or effective_until>:at)"),{"o":o,"g":grid['id'],"at":p['priced_at']}).mappings().all();cost=sum((Decimal(str(x['amount']))*({'PER_KG':chargeable,'PER_CBM':cbm,'PERCENTAGE':subtotal/100,'FIXED':Decimal(1)}[x['calculation_method']]) for x in costs),Decimal(0));margin=total-cost; margin_pct=(margin/total*100) if total else Decimal(0)

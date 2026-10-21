@@ -50,6 +50,7 @@ const calculationLabels: Record<string, string> = {
   TIERED: "Selon des paliers",
 };
 const goodsClassificationLabels: Record<string, string> = {
+  TEXTILES: "Vêtements et textiles",
   ORDINARY_GOODS: "Marchandise ordinaire",
   SENSITIVE_GOODS: "Marchandise sensible",
   DANGEROUS_GOODS: "Marchandise dangereuse",
@@ -205,8 +206,8 @@ export function PricingEnginePage() {
       {createOpen && catalog && (
         <OperationDrawer
           open
-          title="Créer un tarif"
-          description="Choisissez une route, un service et le prix facturé aux clients."
+          title="Configuration du tarif"
+          description="Configurez les conditions réelles de facturation pour un service et une route."
           close={() => setCreateOpen(false)}
         >
           <CreateGrid
@@ -337,67 +338,144 @@ function CreateGrid({
   catalog: Catalog;
   done: (gridId: string) => Promise<void>;
 }) {
+  type TierInput = { min: string; max: string; price: string };
+  type Draft = {
+    name: string; route: string; service: string; packageType: string; classification: string;
+    unit: "PER_KG" | "PER_CBM" | "PER_PACKAGE" | "PER_UNIT"; currency: string;
+    priceMode: "single" | "tiered"; price: string; minimumAmount: string; effectiveFrom: string;
+    effectiveUntil: string; note: string; approval: boolean;
+  };
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const [step, setStep] = useState<1 | 2>(1);
   const [route, setRoute] = useState("");
   const [service, setService] = useState("");
-  const [method, setMethod] = useState("PER_KG");
+  const [unit, setUnit] = useState<Draft["unit"]>("PER_KG");
+  const [currency, setCurrency] = useState("USD");
+  const [priceMode, setPriceMode] = useState<Draft["priceMode"]>("single");
+  const [tiers, setTiers] = useState<TierInput[]>([{ min: "0", max: "", price: "" }]);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
+  const routeName = catalog.routes.find((item) => item.id === draft?.route)?.route_name || "—";
+  const serviceName = catalog.services.find((item) => item.id === draft?.service)?.service_name || "—";
+  const unitLabel = { PER_KG: "Kilogramme (kg)", PER_CBM: "Mètre cube (CBM)", PER_PACKAGE: "Colis", PER_UNIT: "Unité" }[unit];
+
+  function continueToReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    if (priceMode === "tiered" && tiers.some((tier) => !tier.price || (tier.max && Number(tier.max) <= Number(tier.min)))) {
+      setError("Complétez chaque prix de palier et vérifiez les limites de quantité.");
+      return;
+    }
+    const effectiveFrom = String(form.get("effective_from") || today);
+    const effectiveUntil = String(form.get("effective_until") || "");
+    if (effectiveUntil && effectiveUntil < effectiveFrom) {
+      setError("La date de fin doit être postérieure ou égale à la date de début.");
+      return;
+    }
+    setError("");
+    setDraft({
+      name: String(form.get("name") || "").trim(), route, service,
+      packageType: String(form.get("package_type") || ""), classification: String(form.get("classification") || ""),
+      unit, currency: String(form.get("currency") || "USD").trim().toUpperCase(), priceMode,
+      price: String(form.get("price") || ""), minimumAmount: String(form.get("minimum_amount") || ""),
+      effectiveFrom, effectiveUntil,
+      note: String(form.get("note") || "").trim(), approval: form.get("approval") === "on",
+    });
+    setStep(2);
+  }
+
+  async function createTariff() {
+    if (!draft) return;
     setSaving(true);
     setError("");
     try {
-      const name = String(f.get("name") || "").trim();
-      const codeBase = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      const codeBase = draft.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 45);
+      const basis = draft.unit === "PER_CBM" ? "CBM" : draft.unit === "PER_KG" ? "WEIGHT" : "UNITS";
       const created = await createGrid({
         grid_code: `${codeBase || "TARIF"}-${Date.now().toString().slice(-6)}`,
-        name,
-        route_id: route,
-        shipping_service_id: service,
-        currency_code: String(f.get("currency") || "USD").trim().toUpperCase(),
-        calculation_method: method,
-        initial_price: Number(f.get("price")),
-        initial_category_code: String(f.get("classification") || "") || null,
-        initial_package_type: String(f.get("package_type") || "") || null,
-        effective_from: new Date().toISOString(),
+        name: draft.name, description: draft.note || null, route_id: draft.route, shipping_service_id: draft.service,
+        currency_code: draft.currency, calculation_method: draft.priceMode === "tiered" ? "TIERED" : draft.unit,
+        initial_price: draft.priceMode === "single" ? Number(draft.price) : undefined,
+        initial_tiers: draft.priceMode === "tiered" ? tiers.map((tier) => ({
+          basis, min_quantity: Number(tier.min), max_quantity: tier.max ? Number(tier.max) : null,
+          calculation_method: draft.unit, unit_price: Number(tier.price), priority: 100,
+        })) : [],
+        initial_category_code: draft.classification || null, initial_package_type: draft.packageType || null,
+        minimum_billable_amount: draft.minimumAmount ? Number(draft.minimumAmount) : null,
+        effective_from: new Date(`${draft.effectiveFrom}T00:00:00`).toISOString(),
+        effective_until: draft.effectiveUntil ? new Date(`${draft.effectiveUntil}T23:59:59`).toISOString() : null,
+        requires_approval: draft.approval,
       });
       await done(created.id);
     } catch {
-      setError("Le tarif n’a pas pu être créé. Vérifiez la route, le service et le montant puis réessayez.");
+      setError("Le tarif n’a pas pu être enregistré. Vérifiez les champs et réessayez.");
     } finally {
       setSaving(false);
     }
   }
-  const priceLabel = method === "PERCENT_VALUE" ? "Taux appliqué à la valeur déclarée (%)"
-    : method === "FIXED" ? "Montant forfaitaire"
-    : `Prix ${method === "PER_KG" ? "par kilogramme (kg)"
-      : method === "PER_CBM" ? "par mètre cube (CBM)"
-      : method === "PER_PACKAGE" ? "par colis" : "par unité"}`;
+
   return (
-    <form onSubmit={submit} className="grid gap-4 p-5">
-      <p className="text-sm text-slate-600">Indiquez le trajet, le service et le prix de base. Les réglages avancés pourront être ajustés ensuite.</p>
-      <label className="grid gap-1.5 text-sm">Nom du tarif<input required name="name" className={input} minLength={3} maxLength={160} placeholder="Ex. Fret aérien Chine – Kinshasa"/></label>
-      <label className="grid gap-1.5 text-sm">Route<select required name="route" className={input} value={route} onChange={e=>{setRoute(e.target.value);setService("");}}><option value="">Choisir une route</option>{catalog.routes.map(x=><option key={x.id} value={x.id}>{x.route_name}</option>)}</select></label>
-      <label className="grid gap-1.5 text-sm">Service<select required name="service" className={input} value={service} disabled={!route} onChange={e=>setService(e.target.value)}><option value="">Choisir un service</option>{catalog.services.filter(x=>x.route_id===route).map(x=><option key={x.id} value={x.id}>{x.service_name}</option>)}</select></label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-sm">Comment calculer le prix ?<select name="method" className={input} value={method} onChange={e=>setMethod(e.target.value)}>{Object.entries(calculationLabels).filter(([value])=>value!=="TIERED"&&value!=="CUSTOM").map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-        <label className="grid gap-1.5 text-sm">{priceLabel}<input required name="price" type="number" min="0.01" step="0.01" className={input} placeholder="Ex. 8.50"/></label>
+    <div className="grid gap-0 p-5">
+      <p className="text-sm text-slate-600">Un tarif associe un service, une route et des conditions de facturation.</p>
+      <div className="my-5 grid grid-cols-2 gap-3 border-b border-slate-200 pb-3 text-xs">
+        {["Configuration", "Vérification"].map((label, index) => (
+          <div key={label} className={`border-b-2 pb-2 ${step === index + 1 ? "border-emerald-600 font-semibold text-slate-900" : "border-slate-200 text-slate-500"}`}>
+            {index + 1}. {label}
+          </div>
+        ))}
       </div>
-      <fieldset className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
-        <legend className="px-1 text-xs font-semibold text-slate-700">À quels colis ce prix s’applique-t-il ?</legend>
-        <label className="grid gap-1.5 text-sm">Marchandise<select name="classification" className={input}><option value="">Toutes les marchandises</option>{Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
-        <label className="grid gap-1.5 text-sm">Type d’emballage<select name="package_type" className={input}><option value="">Tous les types</option>{Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
-        <p className="text-xs text-slate-500 sm:col-span-2">Laissez « Toutes » pour créer un prix général. Les prix définis pour une marchandise ou un emballage précis seront prioritaires.</p>
-      </fieldset>
-      <label className="grid gap-1.5 text-sm">Devise<input required name="currency" className={input} defaultValue="USD" minLength={3} maxLength={3}/></label>
-      <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">Le tarif sera créé en brouillon avec son prix de base. Il faudra le vérifier puis le publier avant qu’il soit utilisé pour calculer les prix.</p>
-      {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-      <div className="flex justify-end pt-2">
-        <button disabled={saving} className={primary}>{saving?"Création…":"Créer le tarif"}</button>
-      </div>
-    </form>
+      {step === 1 ? <form onSubmit={continueToReview} className="grid gap-5">
+        <section className="grid gap-3">
+          <h3 className="text-sm font-semibold">Informations générales</h3>
+          <label className="grid gap-1.5 text-[13px]">Nom du tarif *<input required name="name" minLength={3} maxLength={160} className={input} placeholder="Ex. Tarif aérien Guangzhou – Kinshasa" /></label>
+          <label className="grid gap-1.5 text-[13px]">Service *<select required className={input} value={service} onChange={(event) => { setService(event.target.value); setRoute(""); }}><option value="">Sélectionner un service</option>{Array.from(new Map(catalog.services.map((item) => [item.id, item])).values()).map((item) => <option key={item.id} value={item.id}>{item.service_name}</option>)}</select></label>
+          <label className="grid gap-1.5 text-[13px]">Route *<select required className={input} value={route} onChange={(event) => setRoute(event.target.value)}><option value="">Sélectionner une route</option>{catalog.routes.filter((item) => !service || catalog.services.some((entry) => entry.id === service && entry.route_id === item.id)).map((item) => <option key={item.id} value={item.id}>{item.route_name}</option>)}</select></label>
+        </section>
+        <section className="grid gap-3 border-t border-slate-200 pt-5">
+          <h3 className="text-sm font-semibold">Classification du colis</h3>
+          <label className="grid gap-1.5 text-[13px]">Type de conditionnement *<select required name="package_type" className={input} defaultValue="carton">{Object.entries(packageTypeLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+          <label className="grid gap-1.5 text-[13px]">Catégorie de marchandise *<select required name="classification" className={input} defaultValue="ORDINARY_GOODS">{Object.entries(goodsClassificationLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+          <p className="text-xs text-slate-500">Les marchandises réglementées doivent être autorisées sur le service et la route.</p>
+        </section>
+        <section className="grid gap-3 border-t border-slate-200 pt-5">
+          <h3 className="text-sm font-semibold">Prix et facturation</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1.5 text-[13px]">Unité<select className={input} value={unit} onChange={(event) => setUnit(event.target.value as Draft["unit"])}><option value="PER_KG">Kilogramme (kg)</option><option value="PER_CBM">Mètre cube (CBM)</option><option value="PER_PACKAGE">Colis</option><option value="PER_UNIT">Unité</option></select></label>
+            <label className="grid gap-1.5 text-[13px]">Devise<select name="currency" className={input} value={currency} onChange={(event) => setCurrency(event.target.value)}><option>USD</option><option>EUR</option><option>CDF</option></select></label>
+          </div>
+          <div className="grid gap-2 text-[13px]">
+            <label className="flex items-center gap-2"><input type="radio" name="price_mode" checked={priceMode === "single"} onChange={() => setPriceMode("single")} />Prix unique par unité</label>
+            <label className="flex items-center gap-2"><input type="radio" name="price_mode" checked={priceMode === "tiered"} onChange={() => setPriceMode("tiered")} />Prix par paliers</label>
+          </div>
+          {priceMode === "single" ? <label className="grid gap-1.5 text-[13px]">Prix par {unitLabel.toLowerCase()} ({currency}) *<input required name="price" type="number" min="0.01" step="0.01" className={input} placeholder="Saisir le montant" /></label> : <div className="grid gap-2">
+            {tiers.map((tier, index) => <div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2"><label className="grid gap-1 text-xs">À partir de<input className={input} type="number" min="0" step="0.01" value={tier.min} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, min: event.target.value } : item))} /></label><label className="grid gap-1 text-xs">Jusqu’à<input className={input} type="number" min="0.01" step="0.01" placeholder="Sans limite" value={tier.max} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, max: event.target.value } : item))} /></label><label className="grid gap-1 text-xs">Prix<input className={input} required type="number" min="0.01" step="0.01" value={tier.price} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, price: event.target.value } : item))} /></label><button type="button" aria-label="Supprimer le palier" disabled={tiers.length === 1} className={`${btn} disabled:opacity-40`} onClick={() => setTiers((current) => current.filter((_, i) => i !== index))}>×</button></div>)}
+            <button type="button" className={`${btn} w-full`} onClick={() => setTiers((current) => [...current, { min: current[current.length - 1]?.max || "", max: "", price: "" }])}><Plus size={14} />Ajouter un palier</button>
+          </div>}
+          <label className="grid gap-1.5 text-[13px]">Montant minimum facturable (facultatif)<input name="minimum_amount" type="number" min="0" step="0.01" className={input} placeholder="Facultatif" /></label>
+        </section>
+        <section className="grid gap-3 border-t border-slate-200 pt-5">
+          <h3 className="text-sm font-semibold">Validité et statut</h3>
+          <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-[13px]">Début *<input required name="effective_from" type="date" defaultValue={today} className={input} /></label><label className="grid gap-1.5 text-[13px]">Fin (facultatif)<input name="effective_until" type="date" min={today} className={input} /></label></div>
+          <label className="grid gap-1.5 text-[13px]">Note interne<textarea name="note" rows={2} maxLength={1000} className={`${input} h-auto py-2`} placeholder="Conditions ou références internes…" /></label>
+          <label className="flex items-start gap-2 text-[13px]"><input name="approval" type="checkbox" defaultChecked className="mt-0.5" /><span>Activer après validation<small className="block text-xs text-slate-500">Le tarif restera en brouillon jusqu’à son approbation et sa publication.</small></span></label>
+        </section>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-end border-t border-slate-200 pt-4"><button className={primary}>Vérifier le tarif <ChevronRight size={14} /></button></div>
+      </form> : <div className="grid gap-5">
+        <section className="grid gap-3"><h3 className="text-sm font-semibold">Récapitulatif du tarif</h3>{[
+          ["Tarif", draft?.name], ["Service", serviceName], ["Route", routeName],
+          ["Conditionnement", packageTypeLabels[draft?.packageType || ""]], ["Marchandise", goodsClassificationLabels[draft?.classification || ""]],
+          ["Unité", unitLabel], ["Mode de prix", draft?.priceMode === "tiered" ? `${tiers.length} palier(s)` : `${draft?.price} ${draft?.currency}`],
+          ["Montant minimum", draft?.minimumAmount ? `${draft.minimumAmount} ${draft.currency}` : "Aucun"],
+          ["Validité", `${draft?.effectiveFrom}${draft?.effectiveUntil ? ` — ${draft.effectiveUntil}` : " — sans date de fin"}`],
+        ].map(([label, value]) => <div key={label} className="flex justify-between gap-3 border-b border-slate-100 py-2 text-[13px]"><span className="text-slate-500">{label}</span><span className="text-right font-medium">{value || "—"}</span></div>)}</section>
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Le tarif sera créé en brouillon. Il ne pourra servir aux calculs qu’après validation et publication.</p>
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="flex justify-between border-t border-slate-200 pt-4"><button type="button" className={btn} onClick={() => setStep(1)}>Retour</button><button type="button" disabled={saving} className={primary} onClick={createTariff}>{saving ? "Enregistrement…" : "Enregistrer le tarif"}</button></div>
+      </div>}
+    </div>
   );
 }
 function GridDrawer({

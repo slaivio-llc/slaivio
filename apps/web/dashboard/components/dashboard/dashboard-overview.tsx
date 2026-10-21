@@ -10,7 +10,7 @@ import { ErrorState } from "@/components/ui/page-state";
 import { getOrganizationProductProfile, getProductProfile, isPilotVisiblePath, PRODUCT_PROFILES } from "@/config/product-profile";
 import { getDashboardHome, type DashboardHome, type HomeAttentionItem, type PilotActivity, type PilotDossierSummary } from "@/services/dashboard";
 import { getTenantContext } from "@/services/tenant";
-import { CargoDashboard } from "@/components/dashboard/cargo-dashboard";
+import { CargoHomeOverview } from "@/components/dashboard/cargo-home-overview";
 
 export function DashboardOverviewPage() {
   const [profile, setProfile] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function DashboardOverviewPage() {
   }, [retry]);
   if (failed) return <ErrorState title="Accueil indisponible" description="Le bureau actif n’a pas pu être vérifié." retry={() => { setFailed(false); setRetry(value => value + 1); }} />;
   if (!profile) return <DashboardSkeleton />;
-  return profile === PRODUCT_PROFILES.PARCEL_FREIGHT ? <CargoDashboard /> : <LegacyDashboardOverviewPage />;
+  return profile === PRODUCT_PROFILES.PARCEL_FREIGHT ? <CargoHomeOverview /> : <LegacyDashboardOverviewPage />;
 }
 
 function LegacyDashboardOverviewPage() {

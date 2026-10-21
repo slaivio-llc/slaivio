@@ -50,7 +50,9 @@ export function ReportsAnalyticsPage() {
     [shipmentRows, setShipmentRows] = useState<Array<Record<string, unknown>>>([]),
     [shipmentRowsLoading, setShipmentRowsLoading] = useState(false),
     [clientRows, setClientRows] = useState<Array<Record<string, unknown>>>([]),
-    [clientRowsLoading, setClientRowsLoading] = useState(false);
+    [clientRowsLoading, setClientRowsLoading] = useState(false),
+    [financeRows, setFinanceRows] = useState<Array<Record<string, unknown>>>([]),
+    [financeRowsLoading, setFinanceRowsLoading] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -105,6 +107,16 @@ export function ReportsAnalyticsPage() {
       .finally(() => { if (active) setShipmentRowsLoading(false); });
     return () => { active = false; };
   }, [tab, start, end, officeId]);
+  useEffect(() => {
+    if (tab !== "finance") return;
+    let active = true;
+    setFinanceRowsLoading(true);
+    previewReport("finance", start, end, officeId || undefined)
+      .then((result) => { if (active) setFinanceRows(result); })
+      .catch(() => { if (active) setFinanceRows([]); })
+      .finally(() => { if (active) setFinanceRowsLoading(false); });
+    return () => { active = false; };
+  }, [tab, start, end, officeId]);
   async function openReport(key: string) {
     setReport(key);
     setRows(await previewReport(key, start, end, officeId || undefined));
@@ -156,7 +168,7 @@ export function ReportsAnalyticsPage() {
               <RefreshCcw size={14} />
               Actualiser
             </OperationButton>
-            {tab !== "operations" && tab !== "shipments" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "finance" ? "finance" : tab === "shipments" ? "shipments" : tab === "clients" ? "clients" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
+            {tab !== "operations" && tab !== "shipments" && tab !== "finance" && tab !== "clients" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "shipments" ? "shipments" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
           </>
         }
       />
@@ -201,7 +213,7 @@ export function ReportsAnalyticsPage() {
             {!hasPeriodActivity && <div role="status" className="mb-4 border border-[#dfe3e4] bg-white px-4 py-3 text-[12px] text-[#697178]">Aucune opération n’a été enregistrée sur la période sélectionnée. Les vues d’état courant peuvent toutefois afficher le stock existant.</div>}
             {tab === "overview" && <Overview data={data} />}{" "}
             {tab === "operations" && <PackagesReport data={data} rows={packageRows} loading={packageRowsLoading} onExport={() => download("packages")} />} {" "}
-            {tab === "finance" && <Finance data={data} />}{" "}
+            {tab === "finance" && <FinanceReport data={data} rows={financeRows} loading={financeRowsLoading} onExport={() => download("finance")} />}{" "}
             {tab === "routes" && <Routes data={data} />}{" "}
             {tab === "warehouses" && <Warehouses data={data} />}{" "}
             {tab === "clients" && <ClientsReport data={data} rows={clientRows} loading={clientRowsLoading} onExport={() => download("clients")} />}
@@ -441,15 +453,64 @@ function shipmentStatusLabel(status: string) {
   const labels: Record<string, string> = { DRAFT: "Brouillon", PREPARING: "Prévue", LOADING: "En chargement", READY: "Prête", READY_FOR_DEPARTURE: "Prête au départ", DISPATCHED: "Partie", IN_TRANSIT: "En transit", CUSTOMS_CLEARANCE: "En douane", ARRIVED: "Arrivée", ARRIVED_DESTINATION: "Arrivée", AVAILABLE_FOR_PICKUP: "Disponible au retrait", OUT_FOR_DELIVERY: "En livraison", DELIVERED: "Livrée", CANCELLED: "Annulée", ARCHIVED: "Archivée" };
   return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase();
 }
-function Finance({ data }: { data: Analytics }) {
-  return (
-    <Card
-      title="Performance financière"
-      subtitle="Factures créées sur la période, encaissements selon la date du paiement et soldes actuels. Les devises restent séparées."
-    >
-      <Table rows={data.finance} />
-    </Card>
-  );
+function FinanceReport({ data, rows, loading, onExport }: { data: Analytics; rows: Array<Record<string, unknown>>; loading: boolean; onExport: () => void }) {
+  const currencies = [...new Set([...data.finance.map((item) => item.currency), ...data.monthly_finance.map((item) => item.currency)].filter(Boolean))];
+  const [selectedCurrency, setSelectedCurrency] = useState(currencies[0] || "");
+  const activeCurrency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || "";
+  const monthly = data.monthly_finance.filter((item) => item.currency === activeCurrency);
+  const invoiceRows = data.finance.filter((item) => item.invoices > 0 || Number(item.invoiced) > 0 || Number(item.outstanding) > 0);
+  const totalFor = (key: "invoiced" | "collected" | "outstanding") => invoiceRows.length
+    ? invoiceRows.map((item) => financeMoney(item[key], item.currency)).join(" · ")
+    : financeMoney(0, activeCurrency || "USD");
+  const pendingCount = invoiceRows.reduce((sum, item) => sum + Number(item.pending_invoices || 0), 0);
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="text-[16px] font-semibold text-[#25292e]">Rapport financier</h2><p className="mt-1 text-[12px] text-[#697178]">Facturation, encaissements et soldes</p></div>
+      <PermissionGuard permission="reports.export"><OperationButton onClick={onExport}><Download size={14} />Exporter</OperationButton></PermissionGuard>
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+      <FinanceMetric label="Facturé" value={totalFor("invoiced")} />
+      <FinanceMetric label="Encaissé" value={totalFor("collected")} />
+      <FinanceMetric label="Restant à encaisser" value={totalFor("outstanding")} />
+      <FinanceMetric label="Factures en attente" value={pendingCount.toLocaleString("fr-FR")} />
+    </div>
+    <section className="border border-[#dfe3e4] bg-white p-4" aria-label="Évolution mensuelle des factures et encaissements">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h3 className="text-[14px] font-semibold text-[#25292e]">Facturé et encaissé par mois</h3>{currencies.length > 1 && <label className="text-[11px] text-[#697178]">Devise <select aria-label="Devise du graphique" className={`${input} ml-2`} value={activeCurrency} onChange={(event) => setSelectedCurrency(event.target.value)}>{currencies.map((currency) => <option key={currency} value={currency}>{currency}</option>)}</select></label>}</div>
+      <FinanceTrend data={monthly} currency={activeCurrency || "USD"} />
+    </section>
+    <section aria-labelledby="finance-report-data">
+      <h3 id="finance-report-data" className="mb-2 text-[14px] font-semibold text-[#25292e]">Données du rapport</h3>
+      {loading ? <LoadingState label="Chargement des factures…" /> : rows.length ? <div className="space-y-2">{rows.slice(0, 8).map((row, index) => {
+        const reference = String(row.document_number || `FAC-${String(index + 1).padStart(4, "0")}`),
+          client = String(row.client_name || "Client"),
+          status = invoiceStatusLabel(String(row.status || ""));
+        return <div key={String(row.id || `${reference}-${index}`)} className="flex items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3"><span><span className="block text-[12px] font-medium text-[#25292e]">{reference}</span><span className="mt-1 block text-[11px] text-[#697178]">{client}</span></span><span className="flex items-center gap-2 text-[11px] text-[#59636b]"><span className="bg-[#f1f2f1] px-2 py-1">{status}</span><ChevronRight size={14} /></span></div>;
+      })}</div> : <p className="border border-[#dfe3e4] bg-white px-3 py-4 text-[12px] text-[#697178]">Aucune facture sur cette période.</p>}
+    </section>
+  </div>;
+}
+function FinanceMetric({ label, value }: { label: string; value: string }) {
+  return <section className="border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">{label}</p><p className="mt-2 text-[15px] font-semibold text-[#25292e]">{value}</p></section>;
+}
+function financeMoney(value: string | number, currency: string) {
+  try { return new Intl.NumberFormat("fr-FR", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 2 }).format(Number(value || 0)); }
+  catch { return `${Number(value || 0).toLocaleString("fr-FR")} ${currency}`; }
+}
+function invoiceStatusLabel(status: string) {
+  const labels: Record<string, string> = { ISSUED: "À payer", PARTIALLY_PAID: "Partiellement payée", PAID: "Payée", OVERDUE: "En retard", DRAFT: "Brouillon", VOID: "Annulée" };
+  return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase();
+}
+function FinanceTrend({ data, currency }: { data: Analytics["monthly_finance"]; currency: string }) {
+  const maxValue = Math.max(0, ...data.flatMap((item) => [Number(item.invoiced), Number(item.collected)]));
+  const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue || 1))), normalized = (maxValue || magnitude) / magnitude;
+  const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  const max = Math.max(step, Math.ceil(maxValue / step) * step);
+  const left = 66, right = 680, top = 22, bottom = 230, height = bottom - top;
+  const groupWidth = data.length ? (right - left) / data.length : 0, barWidth = Math.min(48, groupWidth * 0.32);
+  return <><svg className="h-[340px] w-full" viewBox="0 0 700 280" role="img" aria-label={`Montants facturés et encaissés chaque mois en ${currency}`}>
+    {Array.from({ length: 5 }, (_, index) => { const amount = (max / 4) * (4 - index), y = top + index * (height / 4); return <g key={index}><line x1={left} y1={y} x2={right} y2={y} stroke="#edf0ef" strokeDasharray="2 4"/><text x={left - 9} y={y + 4} textAnchor="end" fontSize="10" fill="#687178">{new Intl.NumberFormat("fr-FR", { notation: amount >= 1000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(amount)} {currency}</text></g>; })}
+    {data.map((item, index) => { const center = left + groupWidth * (index + 0.5), invoice = Number(item.invoiced), paid = Number(item.collected), invoiceHeight = (invoice / max) * height, paidHeight = (paid / max) * height; return <g key={`${item.month}-${item.currency}`}><rect x={center - barWidth - 2} y={bottom - invoiceHeight} width={barWidth} height={invoiceHeight} rx="7" fill="#f28b55"><title>{`Facturé : ${financeMoney(invoice, currency)}`}</title></rect><rect x={center + 2} y={bottom - paidHeight} width={barWidth} height={paidHeight} rx="7" fill="#f5cf4b"><title>{`Encaissé : ${financeMoney(paid, currency)}`}</title></rect><text x={center} y="252" textAnchor="middle" fontSize="10" fill="#687178">{new Date(`${item.month}T12:00:00`).toLocaleDateString("fr-FR", { month: "short" })}</text></g>; })}
+  </svg>{!data.length && <p className="text-center text-[12px] text-[#697178]">Aucune activité financière sur les six derniers mois.</p>}<div className="mt-1 flex justify-center gap-5 text-[11px]"><span className="text-[#f28b55]">● Facturé</span><span className="text-[#d2a900]">● Encaissé</span></div></>;
 }
 function Routes({ data }: { data: Analytics }) {
   return (

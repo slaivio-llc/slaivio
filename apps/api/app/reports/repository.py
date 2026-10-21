@@ -225,7 +225,9 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
             connection.execute(
                 text(
                     f"""with invoice_totals as (
-                      select fd.currency,count(*)::int invoices,coalesce(sum(fd.total),0)::text invoiced,
+                      select fd.currency,count(*)::int invoices,
+                        count(*) filter(where fd.status in ('ISSUED','PARTIALLY_PAID','OVERDUE'))::int pending_invoices,
+                        coalesce(sum(fd.total),0)::text invoiced,
                         coalesce(sum(fd.balance_due) filter(where fd.status not in ('VOID','PAID')),0)::text outstanding
                       from finance_documents fd where fd.org_id=:o and fd.document_type='INVOICE'
                         and fd.status in ('ISSUED','PARTIALLY_PAID','PAID','OVERDUE')
@@ -246,12 +248,48 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                     )
                     select coalesce(invoice_totals.currency,payment_totals.currency) currency,
                       coalesce(invoice_totals.invoices,0)::int invoices,
+                      coalesce(invoice_totals.pending_invoices,0)::int pending_invoices,
                       coalesce(invoice_totals.invoiced,'0') invoiced,
                       coalesce(payment_totals.collected,'0') collected,
                       coalesce(payment_totals.previous_collected,'0') previous_collected,
                       coalesce(invoice_totals.outstanding,'0') outstanding
                     from invoice_totals full outer join payment_totals using(currency)
                     order by currency"""
+                ),
+                p,
+            )
+        )
+        monthly_finance = _rows(
+            connection.execute(
+                text(
+                    f"""with months as (
+                      select generate_series(date_trunc('month',cast(:end as date) - interval '1 day') - interval '5 months',
+                        date_trunc('month',cast(:end as date) - interval '1 day'), interval '1 month')::date as month_start
+                    ), invoice_monthly as (
+                      select date_trunc('month',coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date))::date month_start,
+                        fd.currency,coalesce(sum(fd.total),0)::text invoiced
+                      from finance_documents fd where fd.org_id=:o and fd.document_type='INVOICE'
+                        and fd.status in ('ISSUED','PARTIALLY_PAID','PAID','OVERDUE')
+                        and coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date)>=date_trunc('month',cast(:end as date)-interval '1 day')-interval '5 months'
+                        and coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date)<date_trunc('month',cast(:end as date)-interval '1 day')+interval '1 month'{finance}
+                      group by 1,fd.currency
+                    ), payment_monthly as (
+                      select date_trunc('month',payment.paid_at)::date month_start,payment.currency,coalesce(sum(payment.amount),0)::text collected
+                      from finance_payments payment join finance_documents fd
+                        on fd.org_id=payment.org_id and fd.id=payment.document_id
+                      where payment.org_id=:o and payment.status='CONFIRMED' and fd.document_type='INVOICE'
+                        and payment.paid_at>=date_trunc('month',cast(:end as date)-interval '1 day')-interval '5 months'
+                        and payment.paid_at<date_trunc('month',cast(:end as date)-interval '1 day')+interval '1 month'{_scope('finance', 'fd', office_ids)}
+                      group by 1,payment.currency
+                    ), currencies as (
+                      select currency from invoice_monthly union select currency from payment_monthly
+                    )
+                    select months.month_start month,currencies.currency,
+                      coalesce(invoice_monthly.invoiced,'0') invoiced,coalesce(payment_monthly.collected,'0') collected
+                    from months cross join currencies
+                    left join invoice_monthly using(month_start,currency)
+                    left join payment_monthly using(month_start,currency)
+                    order by months.month_start,currencies.currency"""
                 ),
                 p,
             )
@@ -276,6 +314,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
         "statuses": statuses,
         "routes": routes,
         "finance": finance_rows,
+        "monthly_finance": monthly_finance,
         "warehouses": warehouses,
     }
 
@@ -284,7 +323,7 @@ REPORT_SQL = {
     "clients": "select c.id,c.client_reference,coalesce(c.display_name,c.company_name,c.name) name,c.lifecycle_status,c.phone,c.email,c.country,c.created_at from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end",
     "packages": "select p.id,p.package_reference,p.tracking_id,p.status,p.client_id,p.warehouse_name,p.weight_kg,p.volume_cbm,p.destination_country,p.created_at from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end",
     "shipments": "select e.id,e.expedition_reference,e.status,e.route_label,e.origin_city,e.destination_city,e.mode shipping_mode,e.total_weight_kg weight_kg,e.total_volume_cbm volume_cbm,e.billed_total,e.cost_total,e.profit_total,e.currency,e.created_at,e.updated_at from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end",
-    "finance": "select fd.document_number,fd.document_type,fd.status,fd.currency,fd.total,fd.amount_paid,fd.balance_due,fd.issue_date,fd.due_date,fd.created_at from finance_documents fd where fd.org_id=:o and fd.created_at>=:start and fd.created_at<:end",
+    "finance": "select fd.id,fd.document_number,fd.document_type,fd.status,fd.currency,fd.total,fd.amount_paid,fd.balance_due,fd.issue_date,fd.due_date,coalesce(c.display_name,c.company_name,c.name,c.phone,'Client') client_name,fd.created_at from finance_documents fd left join clients c on c.org_id=fd.org_id and c.id=fd.client_id where fd.org_id=:o and fd.document_type='INVOICE' and coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date)>=:start and coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date)<:end",
     "pickups": "select po.pickup_reference,po.status,po.client_id,po.recipient_name,po.recipient_phone,po.payment_status,po.required_amount,po.paid_amount,po.storage_fee,po.currency,po.ready_at,po.checked_in_at,po.released_at,po.created_at from pickup_orders po where po.org_id=:o and po.created_at>=:start and po.created_at<:end",
 }
 

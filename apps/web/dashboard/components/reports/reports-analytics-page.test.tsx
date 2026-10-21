@@ -40,6 +40,7 @@ describe("ReportsAnalyticsPage", () => {
       kpis: { clients: 0, packages: 0, shipments: 0, pickups: 0, weight_kg: 0 },
       trend: [],
       monthly_trend: [],
+      monthly_finance: [],
       statuses: { packages: [], shipments: [] },
       routes: [],
       finance: [],

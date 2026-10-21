@@ -4,6 +4,7 @@ import {
   Bell,
   Boxes,
   Building2,
+  Clock3,
   CreditCard,
   Database,
   FileText,
@@ -56,18 +57,28 @@ const button =
 const primary =
   "h-9 rounded-[6px] bg-[#12c76f] px-4 text-[13px] font-semibold text-white hover:bg-[#0fb766]";
 const tabs = [
+  ["subscription", "Abonnement Slaivio", CreditCard],
   ["agency", "Profil de l’agence", Building2],
+  ["visual", "Identit\u00e9 visuelle", Building2],
+  ["tracking", "Page publique de tracking", Building2],
+  ["hours", "Horaires & disponibilit\u00e9", Clock3],
+  ["packages", "Colis & r\u00e9ception", Boxes],
+  ["delivery", "Exp\u00e9ditions & livraison", RouteIcon],
+  ["numbering", "R\u00e9f\u00e9rences & num\u00e9rotation", FileText],
+  ["goods", "Marchandises & restrictions", ShieldCheck],
   ["general", "Langues & devises", Languages],
+  ["clients", "Clients & conditions", Users],
   ["locations", "Bureaux & contacts", MapPin],
   ["workspaces", "Espaces de travail", Building2],
   ["services", "Services Cargo", Boxes],
   ["routes", "Routes", RouteIcon],
   ["documents", "Documents & étiquettes", FileText],
   ["notifications", "Notifications & messages", Bell],
+  ["assistant", "Assistant IA", Building2],
   ["integrations", "Intégrations", Plug],
   ["team", "Équipe & accès", Users],
   ["roles", "Rôles & permissions", KeyRound],
-  ["billing", "Abonnement Slaivio", CreditCard],
+  ["billing", "Paiements & facturation", CreditCard],
   ["security", "Accès & sécurité", ShieldCheck],
   ["data", "Données & confidentialité", Database],
 ] as const;
@@ -78,7 +89,24 @@ const settingGroups: Array<[string, Section[]]> = [
   ["Clients & finance", ["notifications", "billing"]],
   ["Administration", ["team", "roles", "security", "integrations", "general", "workspaces", "data"]],
 ];
-const sectionTitles: Record<Section, [string, string]> = {
+settingGroups.push(
+  ["IDENTIT\u00c9 & PR\u00c9SENCE", ["agency", "visual", "tracking", "locations", "hours"]],
+  ["OP\u00c9RATIONS CARGO", ["packages", "delivery", "numbering", "goods", "documents"]],
+  ["CLIENTS & FINANCE", ["clients", "billing", "notifications", "assistant"]],
+  ["ADMINISTRATION", ["security", "integrations", "general", "subscription"]],
+);
+const visibleSettings = settingGroups.slice(4).flatMap(([, sections]) => sections);
+const sectionTitles: Partial<Record<Section, [string, string]>> = {
+  visual: ["Identité visuelle", "Cette section sera complétée avec sa maquette dédiée."],
+  tracking: ["Page publique de tracking", "Cette section sera complétée avec sa maquette dédiée."],
+  hours: ["Horaires & disponibilité", "Cette section sera complétée avec sa maquette dédiée."],
+  packages: ["Colis & réception", "Cette section sera complétée avec sa maquette dédiée."],
+  delivery: ["Expéditions & livraison", "Cette section sera complétée avec sa maquette dédiée."],
+  numbering: ["Références & numérotation", "Cette section sera complétée avec sa maquette dédiée."],
+  goods: ["Marchandises & restrictions", "Cette section sera complétée avec sa maquette dédiée."],
+  clients: ["Clients & conditions", "Cette section sera complétée avec sa maquette dédiée."],
+  assistant: ["Assistant IA", "Cette section sera complétée avec sa maquette dédiée."],
+  subscription: ["Abonnement Slaivio", "Plan et usage de votre abonnement à la plateforme."],
   general: ["Général", "Préférences régionales et unités du workspace actif."],
   agency: ["Profil de l’agence", "Informations officielles utilisées sur les espaces publics et documents."],
   workspaces: ["Workspaces", "Espaces opérationnels, responsables et périmètres de travail."],
@@ -155,23 +183,23 @@ export function OrganizationAdminPage() {
     : <LoadingState label="Chargement des paramètres…" />;
   return (
     <div className="min-h-full bg-[#fff] px-4 py-5 sm:px-6 lg:py-8">
-      <div className="mx-auto max-w-[1080px] overflow-hidden rounded-[10px] border border-[#dfe3e4] bg-white">
+      <div className="mx-auto max-w-[1080px] bg-white">
         <header className="flex items-center justify-between gap-4 border-b border-[#e7eaec] px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center text-[#30363a]"><Building2 size={17}/></span><div><h1 className="text-[14px] font-semibold text-[#25292e]">Paramètres de l’agence</h1><p className="mt-0.5 text-[10px] text-[#697178]">Personnalisez votre environnement Slaivio</p></div></div>
+          <div className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center text-[#30363a]"><Building2 size={19}/></span><div><h1 className="text-[19px] font-semibold text-[#25292e]">Paramètres de l’agence</h1><p className="mt-1 text-[13px] text-[#697178]">Personnalisez votre environnement Slaivio</p></div></div>
           <span className="shrink-0 rounded-full bg-[#f1f2f1] px-2.5 py-1 text-[10px] font-medium text-[#59636b]">Administration</span>
         </header>
-        <div className="flex items-center gap-2 border-b border-[#e7eaec] px-4 py-3 text-[10px] text-[#697178] sm:px-6"><Building2 size={12}/><span>{String(data.organization.organization_name || "Agence")}</span><span>›</span><span className="font-medium text-[#25292e]">{sectionTitles[tab][0]}</span></div>
+        <div className="flex items-center gap-2 border-b border-[#e7eaec] px-4 py-3 text-[13px] text-[#697178] sm:px-6"><Building2 size={14}/><span>{String(data.organization.organization_name || "Agence")}</span><span>›</span><span className="font-medium text-[#25292e]">{sectionTitles[tab]?.[0] || tab}</span></div>
         <div className="grid min-h-[620px] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden border-b border-[#e0e2e4] p-2.5 lg:block lg:border-b-0 lg:border-r lg:p-3">
-          {settingGroups.map(([group, sections]) => <SettingsGroup key={group} label={group}>
+          {settingGroups.slice(4).map(([group, sections]) => <SettingsGroup key={group} label={group}>
             {sections.map(id => { const item = tabs.find(([key]) => key === id)!; const [key, label, Icon] = item; return <SettingsItem key={key} active={tab === key} icon={<Icon size={13} />} label={label} onClick={() => select(key)}/>; })}
           </SettingsGroup>)}
           <PermissionGuard permission="platform.admin.read"><SettingsGroup label="Plateforme"><SettingsLink href="/app/platform" icon={<ShieldCheck size={13}/>} label="Console Super Admin"/></SettingsGroup></PermissionGuard>
         </aside>
-        <main className="min-w-0 p-4 sm:p-6">
+        <main className="min-w-0 p-4 sm:p-6 [&_form_label]:text-[13px] [&_form_input]:text-[14px] [&_form_textarea]:text-[14px]">
           <div className="mx-auto max-w-[640px]">
-            <label className="mb-4 grid gap-1.5 text-[11px] font-medium text-[#59636e] lg:hidden">Section des paramètres<select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>{tabs.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-            <div className="mb-4 border-b border-[#e7eaec] pb-3"><h2 className="text-[14px] font-semibold text-[#25292e]">{sectionTitles[tab][0]}</h2><p className="mt-1 text-[10px] leading-4 text-[#697178]">{sectionTitles[tab][1]}</p></div>
+            <label className="mb-5 grid gap-1.5 text-[13px] font-medium text-[#59636e] lg:hidden">Section des paramètres<select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>{visibleSettings.map(id => { const [key, label] = tabs.find(([key]) => key === id)!; return <option key={key} value={key}>{label}</option>; })}</select></label>
+            <div className="mb-5 border-b border-[#e7eaec] pb-4"><h2 className="text-[20px] font-semibold text-[#25292e]">{sectionTitles[tab]?.[0] || tab}</h2><p className="mt-1.5 text-[14px] leading-5 text-[#697178]">{sectionTitles[tab]?.[1] || ""}</p></div>
             {notice && (
               <div className="mb-3 rounded-[5px] bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
                 {notice}
@@ -198,6 +226,7 @@ export function OrganizationAdminPage() {
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
+            {!["general", "agency", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
           </div>
         </main>
         </div>
@@ -223,7 +252,7 @@ function SettingsGroup({
   );
 }
 const settingsItemClass =
-  "flex min-h-7 w-full items-center gap-2 rounded-[5px] px-2 text-left text-[10px]";
+  "flex min-h-8 w-full items-center gap-2 rounded-[5px] px-2 text-left text-[12px]";
 function SettingsItem({
   active,
   icon,
@@ -400,7 +429,7 @@ function Organization({
     );
   }
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-4 [&>header]:hidden">
       <header className="border-b border-[#e7eaec] pb-3"><h3 className="text-[14px] font-semibold text-[#25292e]">Profil de l’agence</h3><p className="mt-1 text-[10px] leading-4 text-[#697178]">Informations officielles utilisées sur les espaces publics et documents.</p></header>
       <PermissionGuard permission="organization.manage" fallback={<ReadOnly />}>
         <form onSubmit={submit} className="grid max-w-[560px] gap-3">

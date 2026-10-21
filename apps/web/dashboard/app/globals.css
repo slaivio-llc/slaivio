@@ -1096,6 +1096,14 @@ nav[aria-label="Sections Finance"] > button:first-child {
   padding-left: 12px;
 }
 
+/* Keep the first tab fully visible and aligned with the content below it. */
+.operation-tabs > button:first-child,
+.operation-tabs > div:first-child > button,
+.operation-tabs > [data-ui="operation-tab"]:first-child {
+  margin-left: 0 !important;
+  padding-left: 12px !important;
+}
+
 .reports-page > [data-ui="operation-page-header"] {
   max-width: 760px;
   margin-inline: auto;

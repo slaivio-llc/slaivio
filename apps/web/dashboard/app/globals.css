@@ -1067,6 +1067,10 @@ nav[aria-label="Paramètres de communication"] > button,
   padding-left: 0;
 }
 
+.slaivio-operations nav[aria-label="Sections Communication"] > button:first-child {
+  padding-left: 0;
+}
+
 .slaivio-operations [data-ui="operation-tab"][aria-current="page"],
 .slaivio-operations nav[aria-label^="Sections"] > button[aria-current="page"],
 .slaivio-operations nav[aria-label^="Vues"] > button[aria-current="page"],

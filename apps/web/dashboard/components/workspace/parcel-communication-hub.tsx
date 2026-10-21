@@ -54,7 +54,7 @@ export function ParcelCommunicationHub() {
   return <div className="min-h-full bg-white">
     <OperationPageHeader title="Communication" description="Gérez les échanges avec vos clients." />
     <div className="mx-auto w-full max-w-[1200px] px-6 sm:px-8">
-      <nav aria-label="Sections Communication" className="mb-4 flex flex-wrap gap-1">
+      <nav aria-label="Sections Communication" className="operation-tabs mb-4 flex flex-nowrap gap-0 overflow-x-auto">
         {tabs.map(([key, label]) => <OperationTab key={key} active={tab === key} onClick={() => setTab(key)}>{label}</OperationTab>)}
       </nav>
     </div>

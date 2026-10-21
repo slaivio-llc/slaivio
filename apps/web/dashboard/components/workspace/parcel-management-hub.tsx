@@ -67,14 +67,7 @@ export function ParcelManagementHub() {
 }
 
 function ServicesRoutesSection() {
-  const [view, setView] = useState<"services" | "routes">("services");
-  return <div className="min-w-0 space-y-3">
-    <nav aria-label="Services et routes" className="operation-tabs flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
-      <OperationTab active={view === "services"} onClick={() => setView("services")}>Services</OperationTab>
-      <OperationTab active={view === "routes"} onClick={() => setView("routes")}>Routes</OperationTab>
-    </nav>
-    <OrganizationTransportSettings section={view} />
-  </div>;
+  return <OrganizationTransportSettings section="management" />;
 }
 
 function Heading({title,subtitle}:{title:string;subtitle:string}) { return <div><h2 className="text-[14px] font-semibold text-[#25292e]">{title}</h2><p className="mt-1 text-[11px] text-[#697178]">{subtitle}</p></div>; }

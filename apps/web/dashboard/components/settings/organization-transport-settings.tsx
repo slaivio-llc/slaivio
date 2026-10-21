@@ -30,7 +30,7 @@ import {
 } from "@/services/service-catalog";
 
 type CatalogData = { routes: Route[]; services: Service[] };
-type SettingSection = "services" | "routes";
+type SettingSection = "services" | "routes" | "management";
 type ServiceDraft = {
   service_name: string;
   shipping_mode: string;
@@ -96,6 +96,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   const [actionError, setActionError] = useState("");
   const [saving, setSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createKind, setCreateKind] = useState<"services" | "routes">("services");
   const [createStep, setCreateStep] = useState<1 | 2>(1);
   const [officeContext, setOfficeContext] = useState<OfficeContext | null>(null);
   const [serviceDraft, setServiceDraft] = useState<ServiceDraft | null>(null);
@@ -211,12 +212,23 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   }
 
   function openCreateService() {
+    setCreateKind("services");
     setActionError("");
     setCreateStep(1);
     setServiceDraft(null);
     setRouteDraft(null);
     setCreateOpen(true);
     if (!isServices) getServiceCatalog().then(setServiceCatalogData).catch(() => setServiceCatalogData(null));
+  }
+
+  function openCreateRoute() {
+    setCreateKind("routes");
+    setActionError("");
+    setCreateStep(1);
+    setServiceDraft(null);
+    setRouteDraft(null);
+    setCreateOpen(true);
+    getServiceCatalog().then(setServiceCatalogData).catch(() => setServiceCatalogData(null));
   }
 
   async function saveRoute(event: FormEvent<HTMLFormElement>) {
@@ -406,13 +418,42 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   const activeServices = data.services.filter(service =>
     service.active !== false && ["ACTIVE", "LIMITED"].includes(service.status),
   );
-  const isServices = section === "services";
+  const isServices = section !== "routes";
+  const managementView = section === "management";
 
   return (
     <div className="grid gap-5">
       {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">{notice}</div>}
       {(error || (!createOpen && actionError)) && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{error || actionError}</div>}
-      <section className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_2px_12px_rgba(20,35,32,.035)]">
+      {managementView && <section className="grid gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-[14px] font-semibold text-[#25292e]">Services &amp; Routes</h2><p className="mt-1 text-[11px] text-[#697178]">Prestations et corridors de transport.</p></div>
+          <PermissionGuard permission="services.create"><OperationButton variant="primary" className="h-9 rounded-full px-3 text-[12px]" onClick={openCreateService}><Plus size={14}/>Nouveau service</OperationButton></PermissionGuard>
+        </div>
+        <section className="grid gap-2">
+          <h3 className="text-[12px] font-semibold text-[#25292e]">Services</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {data.services.map(service => <button key={service.id} type="button" onClick={() => void openService(service)} className="grid min-h-[84px] gap-2 border border-[#dfe3e4] p-3 text-left hover:bg-[#fafbfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
+              <span className="flex items-start justify-between gap-2"><Truck size={15} className="mt-0.5 text-[#697178]"/><StatusPill label={statusLabel(service.status, service.active)} active={service.active !== false && ["ACTIVE", "LIMITED"].includes(service.status)}/></span>
+              <span className="text-[12px] font-medium text-[#25292e]">{service.service_name}</span>
+              <span className="text-[10px] text-[#697178]">Délai indicatif : {service.eta_min_days == null && service.eta_max_days == null ? "À définir" : `${service.eta_min_days ?? "…"}–${service.eta_max_days ?? "…"} jours`}</span>
+            </button>)}
+            {!data.services.length && <EmptyState title="Aucun service configuré" detail="Ajoutez une prestation proposée par l’agence."/>}
+          </div>
+        </section>
+        <section className="grid gap-2">
+          <div className="flex items-center justify-between gap-3"><h3 className="text-[12px] font-semibold text-[#25292e]">Routes</h3><PermissionGuard permission="routes.manage"><OperationButton className="h-8 rounded-full px-3 text-[11px]" onClick={openCreateRoute}><Plus size={13}/>Nouvelle route</OperationButton></PermissionGuard></div>
+          <div className="grid gap-2">
+            {data.routes.map(route => <button key={route.id} type="button" onClick={() => void openRoute(route)} className="flex min-h-[52px] items-center justify-between gap-3 border border-[#dfe3e4] px-3 py-2.5 text-left hover:bg-[#fafbfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
+              <span className="flex min-w-0 items-center gap-3"><RouteIcon size={14} className="shrink-0 text-[#697178]"/><span className="min-w-0"><span className="block truncate text-[12px] font-medium text-[#25292e]">{route.route_name}</span><span className="mt-1 block truncate text-[10px] text-[#697178]">{route.service_names?.[0] || route.transport_mode}</span></span></span>
+              <span className="flex shrink-0 items-center gap-2"><StatusPill label={statusLabel(route.status, route.active)} active={route.active !== false && ["ACTIVE", "LIMITED"].includes(route.status)}/><ArrowRight size={13} className="text-[#697178]"/></span>
+            </button>)}
+            {!data.routes.length && <EmptyState title="Aucune route configurée" detail="Ajoutez une liaison commerciale pour proposer vos services."/>}
+          </div>
+        </section>
+        <p className="text-[10px] text-[#8a9297]">Désactiver un service ou une route conserve l’historique des opérations associées.</p>
+      </section>}
+      {!managementView && <section className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_2px_12px_rgba(20,35,32,.035)]">
         <div className="flex flex-col justify-between gap-4 border-b border-[#edf1ee] bg-gradient-to-r from-[#f4faf6] to-white p-5 sm:flex-row sm:items-center sm:p-6">
           <div className="flex items-start gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
@@ -483,7 +524,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
             ? "Les tarifs, délais et conditions se règlent dans leurs domaines dédiés. Désactiver un service préserve les opérations historiques."
             : "Les prix sont définis dans Tarification et les départs réels dans Expéditions. Désactiver une route ne supprime aucun historique."}
         </div>
-      </section>
+      </section>}
 
       <OperationDrawer
         open={Boolean(detail) || detailLoading}
@@ -585,14 +626,14 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
       <OperationDrawer
         open={createOpen}
         close={() => { if (!saving) setCreateOpen(false); }}
-        title={isServices ? createStep === 1 ? "Nouveau service" : "Vérifier le service" : createStep === 1 ? "Nouvelle route" : "Vérifier la route"}
-        description={isServices ? "Configurez une prestation proposée par l’agence." : "Configuration d’un corridor Cargo · Données de l’agence"}
+        title={createKind === "services" ? createStep === 1 ? "Nouveau service" : "Vérifier le service" : createStep === 1 ? "Nouvelle route" : "Vérifier la route"}
+        description={createKind === "services" ? "Configurez une prestation proposée par l’agence." : "Configuration d’un corridor Cargo · Données de l’agence"}
         placement="center"
         width="max-w-[760px]"
         variant="form"
         bodyClassName="p-5 sm:p-7"
         footer={<div className="flex flex-wrap justify-end gap-2">
-          {isServices ? createStep === 1 ? <>
+          {createKind === "services" ? createStep === 1 ? <>
             <OperationButton type="button" disabled={saving} onClick={() => setCreateOpen(false)}>Annuler</OperationButton>
             <OperationButton form="create-transport-service" type="submit" name="intent" value="draft" disabled={saving}>Enregistrer en brouillon</OperationButton>
             <OperationButton form="create-transport-service" type="submit" name="intent" value="continue" variant="primary" disabled={saving}>Continuer <ArrowRight size={14}/></OperationButton>
@@ -609,7 +650,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
           </>}
         </div>}
       >
-        {isServices
+        {createKind === "services"
           ? <ServiceCreationForm
               onSubmit={saveService}
               step={createStep}
@@ -619,7 +660,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
               actionError={actionError}
             />
           : createStep === 1 ? <RouteCreationForm services={activeServices} catalog={serviceCatalogData} onSubmit={saveRoute} draft={routeDraft} /> : <RouteReview draft={routeDraft} services={activeServices} catalog={serviceCatalogData} />}
-        {!isServices && actionError && <p role="alert" className="mx-auto mt-3 max-w-xl rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
+        {createKind === "routes" && actionError && <p role="alert" className="mx-auto mt-3 max-w-xl rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{actionError}</p>}
       </OperationDrawer>
     </div>
   );

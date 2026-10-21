@@ -46,7 +46,9 @@ export function ReportsAnalyticsPage() {
     [report, setReport] = useState("packages"),
     [rows, setRows] = useState<Array<Record<string, unknown>>>([]),
     [packageRows, setPackageRows] = useState<Array<Record<string, unknown>>>([]),
-    [packageRowsLoading, setPackageRowsLoading] = useState(false);
+    [packageRowsLoading, setPackageRowsLoading] = useState(false),
+    [shipmentRows, setShipmentRows] = useState<Array<Record<string, unknown>>>([]),
+    [shipmentRowsLoading, setShipmentRowsLoading] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -79,6 +81,16 @@ export function ReportsAnalyticsPage() {
       .then((result) => { if (active) setPackageRows(result); })
       .catch(() => { if (active) setPackageRows([]); })
       .finally(() => { if (active) setPackageRowsLoading(false); });
+    return () => { active = false; };
+  }, [tab, start, end, officeId]);
+  useEffect(() => {
+    if (tab !== "shipments") return;
+    let active = true;
+    setShipmentRowsLoading(true);
+    previewReport("shipments", start, end, officeId || undefined)
+      .then((result) => { if (active) setShipmentRows(result); })
+      .catch(() => { if (active) setShipmentRows([]); })
+      .finally(() => { if (active) setShipmentRowsLoading(false); });
     return () => { active = false; };
   }, [tab, start, end, officeId]);
   async function openReport(key: string) {
@@ -132,7 +144,7 @@ export function ReportsAnalyticsPage() {
               <RefreshCcw size={14} />
               Actualiser
             </OperationButton>
-            {tab !== "operations" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "finance" ? "finance" : tab === "shipments" ? "shipments" : tab === "clients" ? "clients" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
+            {tab !== "operations" && tab !== "shipments" && <PermissionGuard permission="reports.export"><OperationButton variant="primary" onClick={() => download(tab === "finance" ? "finance" : tab === "shipments" ? "shipments" : tab === "clients" ? "clients" : "packages")}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
           </>
         }
       />
@@ -181,7 +193,7 @@ export function ReportsAnalyticsPage() {
             {tab === "routes" && <Routes data={data} />}{" "}
             {tab === "warehouses" && <Warehouses data={data} />}{" "}
             {tab === "clients" && <Clients data={data} />}
-            {tab === "shipments" && <Routes data={data} />}
+            {tab === "shipments" && <ShipmentsReport data={data} rows={shipmentRows} loading={shipmentRowsLoading} onExport={() => download("shipments")} />}
             {tab === "reports" && (
               <Reports
                 report={report}
@@ -335,6 +347,53 @@ function PackagesReport({ data, rows, loading, onExport }: { data: Analytics; ro
 }
 function packageStatusLabel(status: string) {
   const labels: Record<string, string> = { CREATED: "Créé", PENDING_VALIDATION: "À valider", CONFIRMED: "Confirmé", RECEIVED: "Reçu", RECEIVED_AT_ORIGIN: "Reçu", WAREHOUSED: "En entrepôt", WAREHOUSE_PROCESSING: "En traitement", READY_FOR_DISPATCH: "Prêt à expédier", READY_FOR_BATCH: "Prêt au groupage", BATCHED: "Groupé", SHIPPED: "Expédié", DEPARTED: "Expédié", IN_TRANSIT: "En transit", CUSTOMS: "En douane", ARRIVED: "Arrivé", ARRIVED_DESTINATION: "Arrivé", CLEARED: "Dédouané", READY_FOR_PICKUP: "Prêt au retrait", AVAILABLE_FOR_PICKUP: "Prêt au retrait", OUT_FOR_DELIVERY: "En livraison", DELIVERED: "Livré", BLOCKED: "Bloqué", CANCELLED: "Annulé", RETURNED: "Retourné" };
+  return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase();
+}
+function ShipmentsReport({ data, rows, loading, onExport }: { data: Analytics; rows: Array<Record<string, unknown>>; loading: boolean; onExport: () => void }) {
+  const counts = new Map((data.statuses.shipments || []).map((item) => [String(item.label).toUpperCase(), Number(item.value)]));
+  const total = (statuses: string[]) => statuses.reduce((sum, status) => sum + (counts.get(status) || 0), 0);
+  const bars = [
+    { label: "Prévues", value: total(["DRAFT", "PREPARING", "LOADING", "READY", "READY_FOR_DEPARTURE"]) },
+    { label: "En transit", value: total(["DISPATCHED", "IN_TRANSIT", "CUSTOMS_CLEARANCE"]) },
+    { label: "Arrivées", value: total(["ARRIVED", "ARRIVED_DESTINATION", "AVAILABLE_FOR_PICKUP", "OUT_FOR_DELIVERY", "DELIVERED"]) },
+  ];
+  const max = Math.max(4, Math.ceil(Math.max(...bars.map((item) => item.value), 0) / 4) * 4);
+  const chartTop = 22, chartBottom = 230, chartHeight = chartBottom - chartTop;
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h2 className="text-[16px] font-semibold text-[#25292e]">Rapport des expéditions</h2><p className="mt-1 text-[12px] text-[#697178]">Départs, arrivées et expéditions en transit</p></div>
+      <PermissionGuard permission="reports.export"><OperationButton onClick={onExport}><Download size={14} />Exporter</OperationButton></PermissionGuard>
+    </div>
+    <div className="grid grid-cols-3 gap-2">
+      {bars.map((item) => <section key={item.label} className="border border-[#dfe3e4] bg-white px-4 py-3"><p className="text-[11px] text-[#697178]">{item.label}</p><p className="mt-2 text-[20px] font-semibold text-[#25292e]">{item.value.toLocaleString("fr-FR")}</p></section>)}
+    </div>
+    <section className="border border-[#dfe3e4] bg-white p-4" aria-label="Graphique des expéditions par étape">
+      <svg className="h-[340px] w-full" viewBox="0 0 700 280" role="img" aria-label="Nombre d’expéditions prévues, en transit et arrivées">
+        {Array.from({ length: 5 }, (_, index) => {
+          const value = (max / 4) * (4 - index), y = chartTop + index * (chartHeight / 4);
+          return <g key={index}><line x1="58" y1={y} x2="680" y2={y} stroke="#edf0ef" strokeDasharray="2 4"/><text x="48" y={y + 4} textAnchor="end" fontSize="11" fill="#687178">{Math.round(value)}</text></g>;
+        })}
+        {bars.map((item, index) => {
+          const width = 112, x = 110 + index * 190, height = (item.value / max) * chartHeight, y = chartBottom - height;
+          return <g key={item.label}><rect x={x} y={y} width={width} height={height} rx="8" fill="#f28b55"><title>{`${item.label} : ${item.value}`}</title></rect><text x={x + width / 2} y="252" textAnchor="middle" fontSize="11" fill="#687178">{item.label}</text></g>;
+        })}
+      </svg>
+    </section>
+    <section aria-labelledby="shipment-report-data">
+      <h3 id="shipment-report-data" className="mb-2 text-[14px] font-semibold text-[#25292e]">Données du rapport</h3>
+      {loading ? <LoadingState label="Chargement des expéditions…" /> : rows.length ? <div className="space-y-2">{rows.slice(0, 8).map((row, index) => {
+        const reference = String(row.expedition_reference || `Expédition ${index + 1}`),
+          origin = String(row.origin_city || "Départ à préciser"), destination = String(row.destination_city || "Destination à préciser"),
+          route = String(row.route_label || `${origin} → ${destination}`), status = shipmentStatusLabel(String(row.status || "")),
+          href = row.id ? `/app/shipments/${encodeURIComponent(String(row.id))}` : null,
+          content = <><span><span className="block text-[12px] font-medium text-[#25292e]">{reference}</span><span className="mt-1 block text-[11px] text-[#697178]">{route}</span></span><span className="flex items-center gap-2 text-[11px] text-[#59636b]"><span className="bg-[#f1f2f1] px-2 py-1">{status}</span><ChevronRight size={14} /></span></>;
+        return href ? <Link key={String(row.id)} href={href} className="flex items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3 hover:bg-[#fafbfb]">{content}</Link> : <div key={`${reference}-${index}`} className="flex items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3">{content}</div>;
+      })}</div> : <p className="border border-[#dfe3e4] bg-white px-3 py-4 text-[12px] text-[#697178]">Aucune expédition enregistrée sur cette période.</p>}
+    </section>
+  </div>;
+}
+function shipmentStatusLabel(status: string) {
+  const labels: Record<string, string> = { DRAFT: "Brouillon", PREPARING: "Prévue", LOADING: "En chargement", READY: "Prête", READY_FOR_DEPARTURE: "Prête au départ", DISPATCHED: "Partie", IN_TRANSIT: "En transit", CUSTOMS_CLEARANCE: "En douane", ARRIVED: "Arrivée", ARRIVED_DESTINATION: "Arrivée", AVAILABLE_FOR_PICKUP: "Disponible au retrait", OUT_FOR_DELIVERY: "En livraison", DELIVERED: "Livrée", CANCELLED: "Annulée", ARCHIVED: "Archivée" };
   return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase();
 }
 function Finance({ data }: { data: Analytics }) {

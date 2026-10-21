@@ -39,6 +39,7 @@ describe("ReportsAnalyticsPage", () => {
       period: { start: "2026-10-01", end: "2026-10-30", days: 30 },
       kpis: { clients: 0, packages: 0, shipments: 0, pickups: 0, weight_kg: 0 },
       trend: [],
+      monthly_trend: [],
       statuses: { packages: [], shipments: [] },
       routes: [],
       finance: [],

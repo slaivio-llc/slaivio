@@ -132,7 +132,9 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                       (select count(*) from pickup_orders po where po.org_id=:o and po.created_at>=:start and po.created_at<:end{pickup})::int pickups,
                       (select count(*) from clients c where c.org_id=:o and c.created_at>=:ps and c.created_at<:pe{client})::int previous_clients,
                       (select count(*) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:ps and p.created_at<:pe{package})::int previous_packages,
-                      (select count(*) from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:ps and e.created_at<:pe{expedition})::int previous_shipments"""
+                      (select count(*) from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:ps and e.created_at<:pe{expedition})::int previous_shipments,
+                      (select count(distinct p.client_id) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.client_id is not null and p.created_at>=:start and p.created_at<:end{package})::int active_clients,
+                      (select count(distinct p.client_id) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.client_id is not null and p.created_at>=:ps and p.created_at<:pe{package})::int previous_active_clients"""
                 ),
                 p,
             ).mappings().one()
@@ -147,6 +149,31 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                     left join(select p.created_at::date as report_day,count(*) packages from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package} group by 1)p using(report_day)
                     left join(select e.created_at::date as report_day,count(*) shipments from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end{expedition} group by 1)s using(report_day)
                     order by d.report_day"""
+                ),
+                p,
+            )
+        )
+        monthly_trend = _rows(
+            connection.execute(
+                text(
+                    f"""with months as (
+                      select generate_series(date_trunc('month',cast(:end as date) - interval '1 day') - interval '5 months',
+                        date_trunc('month',cast(:end as date) - interval '1 day'), interval '1 month')::date as month_start
+                    )
+                    select m.month_start as month,
+                      coalesce(p.packages,0)::int packages,coalesce(s.shipments,0)::int shipments
+                    from months m
+                    left join (select date_trunc('month',p.created_at)::date month_start,count(*) packages
+                      from cargo_packages p where p.org_id=:o and p.deleted_at is null
+                      and p.created_at>=date_trunc('month',cast(:end as date)-interval '1 day')-interval '5 months'
+                      and p.created_at<date_trunc('month',cast(:end as date)-interval '1 day')+interval '1 month'{package}
+                      group by 1) p using(month_start)
+                    left join (select date_trunc('month',e.created_at)::date month_start,count(*) shipments
+                      from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null
+                      and e.created_at>=date_trunc('month',cast(:end as date)-interval '1 day')-interval '5 months'
+                      and e.created_at<date_trunc('month',cast(:end as date)-interval '1 day')+interval '1 month'{expedition}
+                      group by 1) s using(month_start)
+                    order by m.month_start"""
                 ),
                 p,
             )
@@ -201,11 +228,14 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                         and coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date)<:end{finance}
                       group by fd.currency
                     ), payment_totals as (
-                      select payment.currency,coalesce(sum(payment.amount),0)::text collected
+                      select payment.currency,
+                        coalesce(sum(payment.amount) filter(where payment.paid_at>=:start and payment.paid_at<:end),0)::text collected,
+                        coalesce(sum(payment.amount) filter(where payment.paid_at>=:ps and payment.paid_at<:pe),0)::text previous_collected
                       from finance_payments payment join finance_documents fd
                         on fd.org_id=payment.org_id and fd.id=payment.document_id
                       where payment.org_id=:o and payment.status='CONFIRMED'
-                        and payment.paid_at>=:start and payment.paid_at<:end
+                        and ((payment.paid_at>=:start and payment.paid_at<:end)
+                          or (payment.paid_at>=:ps and payment.paid_at<:pe))
                         and fd.document_type='INVOICE'{_scope('finance', 'fd', office_ids)}
                       group by payment.currency
                     )
@@ -213,6 +243,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                       coalesce(invoice_totals.invoices,0)::int invoices,
                       coalesce(invoice_totals.invoiced,'0') invoiced,
                       coalesce(payment_totals.collected,'0') collected,
+                      coalesce(payment_totals.previous_collected,'0') previous_collected,
                       coalesce(invoice_totals.outstanding,'0') outstanding
                     from invoice_totals full outer join payment_totals using(currency)
                     order by currency"""
@@ -236,6 +267,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
         "period": {"start": start, "end": end, "days": days},
         "kpis": kpis,
         "trend": trend,
+        "monthly_trend": monthly_trend,
         "statuses": statuses,
         "routes": routes,
         "finance": finance_rows,

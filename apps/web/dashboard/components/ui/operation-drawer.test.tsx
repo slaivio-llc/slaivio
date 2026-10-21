@@ -12,7 +12,8 @@ describe("OperationDrawer", () => {
     expect(dialog.parentElement).toBe(document.body);
     expect(dialog).toHaveClass("justify-end");
     expect(dialog.querySelector('section')).toHaveClass("h-dvh");
-    expect(dialog.querySelector('[data-ui="operation-drawer"]')).toHaveClass("max-w-[720px]");
+    expect(dialog.querySelector('[data-ui="operation-drawer"]')).toHaveClass("max-w-[650px]");
+    expect(dialog.querySelector('[data-ui="operation-drawer"]')).toHaveAttribute("data-variant", "auto");
     screen.getByRole("button", { name: "Enregistrer" }).focus();
     fireEvent.keyDown(window, { key: "Tab" });
     expect(screen.getByRole("button", { name: "Fermer" })).toHaveFocus();
@@ -45,7 +46,13 @@ describe("OperationDrawer", () => {
 
     expect(screen.getByRole("button", { name: "Vue d’ensemble" })).toHaveAttribute("aria-current", "page");
     fireEvent.click(screen.getByRole("button", { name: "Opérations" }));
+    expect(screen.getByRole("dialog", { name: "Fiche opérationnelle" }).querySelector('[data-ui="operation-drawer"]')).toHaveAttribute("data-variant", "detail");
     expect(change).toHaveBeenCalledWith("operations");
+  });
+
+  it("supports the payment-detail layout explicitly for simple records", () => {
+    render(<OperationDrawer open title="Fiche client" close={vi.fn()} variant="detail">Détails</OperationDrawer>);
+    expect(screen.getByRole("dialog", { name: "Fiche client" }).querySelector('[data-ui="operation-drawer"]')).toHaveAttribute("data-variant", "detail");
   });
 
   it("keeps all detail tabs visible in a horizontally scrollable row", () => {

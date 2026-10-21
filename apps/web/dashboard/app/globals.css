@@ -1365,6 +1365,40 @@ nav[aria-label="Paramètres de communication"] > button[aria-current="page"] {
   gap: 1.5rem;
 }
 
+/* Detail sheets follow Finance's payment record: a stable 650 px desktop
+   rail, compact content gutters, and a full-width surface on small screens. */
+[data-ui="operation-drawer"][data-variant="detail"][data-placement="center"] {
+  width: min(650px, calc(100vw - 24px)) !important;
+  max-width: 650px !important;
+}
+
+[data-ui="operation-drawer"][data-variant="auto"][data-placement="center"]:not(:has(.operation-form-surface form)) {
+  width: min(650px, calc(100vw - 24px)) !important;
+  max-width: 650px !important;
+}
+
+[data-ui="operation-drawer"][data-variant="detail"][data-placement="right"] {
+  width: min(650px, 100vw) !important;
+  max-width: 650px !important;
+}
+
+[data-ui="operation-drawer"][data-variant="auto"][data-placement="right"]:not(:has(.operation-form-surface form)) {
+  width: min(650px, 100vw) !important;
+  max-width: 650px !important;
+}
+
+[data-ui="operation-drawer"] .operation-detail-surface,
+[data-ui="operation-drawer"][data-variant="auto"]:not(:has(.operation-form-surface form)) .operation-form-surface {
+  padding: 16px 20px;
+}
+
+@media (min-width: 640px) {
+  [data-ui="operation-drawer"] .operation-detail-surface,
+  [data-ui="operation-drawer"][data-variant="auto"]:not(:has(.operation-form-surface form)) .operation-form-surface {
+    padding: 20px 24px;
+  }
+}
+
 /* Creation and edit forms share the invoice composer rail on every module. */
 [data-ui="operation-drawer"]:has(.operation-form-surface form) {
   max-width: min(720px, calc(100vw - 24px));

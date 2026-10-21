@@ -96,8 +96,9 @@ export function OperationDrawer({
   footerClassName = "",
   bodyClassName = "",
   panelClassName = "",
-  width = "max-w-[720px]",
+  width = "max-w-[650px]",
   placement = "center",
+  variant = "auto",
 }: {
   open: boolean;
   title: string;
@@ -115,11 +116,17 @@ export function OperationDrawer({
   panelClassName?: string;
   width?: string;
   placement?: "center" | "right";
+  variant?: "auto" | "detail" | "form";
 }) {
   const [visible, setVisible] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef(close);
+  const resolvedVariant = variant === "auto"
+    ? (Boolean(headerMeta) || Boolean(tabs && tabsVariant === "segmented")
+      ? "detail"
+      : width === "max-w-[650px]" ? "auto" : "form")
+    : variant;
   useEffect(() => { closeRef.current = close; }, [close]);
   useEffect(() => {
     if (!open) return;
@@ -168,6 +175,8 @@ export function OperationDrawer({
         ref={panelRef}
         tabIndex={-1}
         data-ui="operation-drawer"
+        data-variant={resolvedVariant}
+        data-placement={placement}
         className={`flex w-full ${width} flex-col overflow-hidden border border-[#d8dce0] bg-white shadow-[0_24px_72px_rgba(15,23,42,.15)] transition duration-200 ease-out ${placement === "right" ? "h-dvh sm:rounded-l-2xl" : "max-h-[calc(100dvh-24px)] rounded-xl sm:max-h-[calc(100dvh-48px)]"} ${panelClassName} ${visible ? "scale-100 opacity-100" : "scale-[.98] opacity-0"}`}
       >
         <header data-ui="operation-drawer-header" className="shrink-0 bg-white px-6 py-5">
@@ -207,7 +216,7 @@ export function OperationDrawer({
             {tabs}
           </div>
         )}
-        <div className={`operation-form-surface min-h-0 flex-1 overflow-y-auto bg-white p-6 sm:p-7 ${bodyClassName}`}>
+        <div className={`operation-form-surface min-h-0 flex-1 overflow-y-auto bg-white p-6 sm:p-7 ${resolvedVariant === "detail" ? "operation-detail-surface" : ""} ${bodyClassName}`}>
           {children}
         </div>
         {footer && <footer className={`operation-drawer-footer flex min-h-[68px] shrink-0 items-center justify-end gap-2.5 border-t border-[#dfe3e7] bg-[#fbfcfc] px-6 py-3.5 ${footerClassName}`}>{footer}</footer>}

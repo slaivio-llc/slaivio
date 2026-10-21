@@ -1123,6 +1123,10 @@ nav[aria-label="Sections Finance"] > button:first-child {
   width: 100%;
   max-width: none;
   min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   margin-inline: 0;
   border: 0;
   border-radius: 0;

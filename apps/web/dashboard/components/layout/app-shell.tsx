@@ -15,7 +15,6 @@ import {
   Keyboard,
   Languages,
   LogOut,
-  Mail,
   Menu,
   MessageSquareText,
   MessagesSquare,
@@ -56,7 +55,6 @@ import { getTenantContext } from "@/services/tenant";
 import { createTicket, listArticles } from "@/services/support";
 
 type FloatingPanel = "account" | "notifications" | "help" | "language" | null;
-type SupportView = "topics" | "contact" | null;
 const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 const utilityRoutes: readonly AppRoute[] = [
@@ -83,7 +81,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [floatingPanel, setFloatingPanel] = useState<FloatingPanel>(null);
-  const [supportView, setSupportView] = useState<SupportView>(null);
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
@@ -179,7 +176,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (event.key === "Escape") {
         setSearchOpen(false);
         setFloatingPanel(null);
-        setSupportView(null);
       }
     }
     window.addEventListener("keydown", onShortcut);
@@ -346,7 +342,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {cargo && <div className="w-[min(190px,32vw)]"><OfficeContextSelector compact /></div>}
             {pilot && !cargo && <PilotReadinessPanel compact />}
             {!pilot && !cargo && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
-            {(cargo || !pilot) && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => cargo ? (setFloatingPanel(null), setSupportView("topics")) : togglePanel("help")} active={floatingPanel === "help" || Boolean(cargo && supportView)} showLabel={!cargo} />}
+            {(cargo || !pilot) && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => togglePanel("help")} active={floatingPanel === "help"} showLabel={!cargo} />}
             {!cargo && <HeaderButton label={dashboardLabel(locale, "Langue")} icon={<Languages size={16} />} onClick={() => togglePanel("language")} active={floatingPanel === "language"} showLabel />}
             {(cargo || !pilot) && (!permissionsAvailable || permissions.includes("notifications.read")) && <HeaderButton label={dashboardLabel(locale, "Notifications")} icon={<span className="relative inline-flex"><Bell size={16} />{cargo && hasUnreadNotifications && <span className="absolute -right-1 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#e5484d] ring-2 ring-white" />}</span>} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />}
             {(cargo || !pilot) && <AccountTrigger onClick={() => togglePanel("account")} />}
@@ -359,7 +355,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         {floatingPanel === "language" && <div className="fixed right-[82px] top-[52px] z-50"><LanguageMenu close={() => setFloatingPanel(null)}/></div>}
         {floatingPanel === "account" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-3 left-3 lg:left-[96px]" : "right-3 top-[52px]"}`}><AccountMenu close={() => setFloatingPanel(null)} /></div>}
 
-        {supportView && <SupportDialog locale={locale} view={supportView} setView={setSupportView} close={() => setSupportView(null)} />}
 
         {pilot && <PilotOfflineIndicator />}
         <main className="slaivio-operations min-h-0 min-w-0 flex-1 overflow-y-auto bg-white">
@@ -592,45 +587,6 @@ function AccountMenuContent({ close, name, email, imageUrl, openProfile, logout 
       </div>
     </div>
   </>;
-}
-
-function SupportDialog({ locale, view, setView, close }: { locale: "fr" | "en"; view: Exclude<SupportView, null>; setView: (view: SupportView) => void; close: () => void }) {
-  const fr = locale === "fr";
-  return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true" aria-labelledby="support-dialog-title" onMouseDown={(event) => { if (event.currentTarget === event.target) close(); }}>
-      <section className="w-full max-w-[560px] overflow-hidden rounded-[12px] bg-white shadow-[0_24px_70px_rgba(15,23,42,.24)]">
-        <div className="flex items-center px-6 pt-5">
-          {view === "contact" && <button type="button" onClick={() => setView("topics")} aria-label={fr ? "Retour" : "Back"} className="mr-2 grid h-8 w-8 place-items-center rounded-full text-[#596169] hover:bg-[#f1f3f2]"><ArrowLeft size={17} /></button>}
-          <button type="button" onClick={close} aria-label={fr ? "Fermer" : "Close"} className="ml-auto grid h-8 w-8 place-items-center rounded-full text-[#697179] hover:bg-[#f1f3f2]"><X size={17} /></button>
-        </div>
-        {view === "topics" ? (
-          <div className="px-7 pb-8 pt-1">
-            <h2 id="support-dialog-title" className="text-center text-[24px] font-semibold tracking-[-0.02em]">{fr ? "Comment pouvons-nous vous aider ?" : "How can we help?"}</h2>
-            <p className="mt-2 text-center text-[14px] text-[#697179]">{fr ? "Sélectionnez un sujet pour trouver l’aide dont vous avez besoin" : "Select a topic to find the help you need"}</p>
-            <div className="mt-7 grid gap-3">
-              <SupportTopic icon={<Settings size={19} />} title={fr ? "Configurer votre agence" : "Set up your agency"} subtitle={fr ? "Organisation, équipe, WhatsApp, IA et connaissances" : "Organization, team, WhatsApp, AI and knowledge"} close={close} />
-              <SupportTopic icon={<Users size={19} />} title={fr ? "Gérer clients et opérations" : "Manage clients and operations"} subtitle={fr ? "Dossiers, colis, départs, paiements et suivi client" : "Cases, parcels, departures, payments and customer tracking"} close={close} />
-              <SupportTopic icon={<MessageSquareText size={19} />} title={fr ? "Contacter le support" : "Contact support"} subtitle={fr ? "Contactez-nous pour obtenir de l’aide." : "Reach out for help."} onClick={() => setView("contact")} />
-            </div>
-          </div>
-        ) : (
-          <div className="px-7 pb-8 pt-1">
-            <h2 id="support-dialog-title" className="text-[24px] font-semibold tracking-[-0.02em]">{fr ? "Contacter le support" : "Contact support"}</h2>
-            <p className="mt-2 text-[14px] text-[#697179]">{fr ? "Contactez notre équipe pour une assistance personnalisée." : "Reach out to our team for personalized assistance."}</p>
-            <div className="mt-7 rounded-[10px] bg-[#f5f7f6] p-5">
-              <div className="flex items-center gap-2.5"><Mail size={18} className="text-[#087a46]" /><h3 className="text-[15px] font-semibold">{fr ? "Support par e-mail" : "Email support"}</h3></div>
-              <p className="mt-3 text-[14px] leading-6 text-[#59636b]">{fr ? "Contactez notre équipe à" : "Reach out to our team at"} <a href="mailto:support@slaivio.com" className="font-semibold text-[#087a46] hover:underline">support@slaivio.com</a>. {fr ? "Nous répondons généralement sous 24 heures." : "We typically respond within 24 hours."}</p>
-            </div>
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function SupportTopic({ icon, title, subtitle, onClick, close }: { icon: ReactNode; title: string; subtitle: string; onClick?: () => void; close?: () => void }) {
-  const content = <><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#edf6f1] text-[#087a46]">{icon}</span><span className="min-w-0"><span className="block text-[14px] font-semibold">{title}</span><span className="mt-0.5 block text-[12px] text-[#737b83]">{subtitle}</span></span><ChevronRight size={17} className="ml-auto shrink-0 text-[#939ba2]" /></>;
-  return onClick ? <button type="button" onClick={onClick} className="flex w-full items-center gap-3 rounded-[9px] bg-[#f7f8f8] px-4 py-3.5 text-left hover:bg-[#eef2f0]">{content}</button> : <Link href="/app/support" onClick={close} className="flex w-full items-center gap-3 rounded-[9px] bg-[#f7f8f8] px-4 py-3.5 hover:bg-[#eef2f0]">{content}</Link>;
 }
 
 function UserAvatar({ imageUrl, name, size }: { imageUrl?: string | null; name: string; size: number }) {

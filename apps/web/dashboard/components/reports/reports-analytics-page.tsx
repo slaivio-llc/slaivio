@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { ChevronRight, Download } from "lucide-react";
@@ -41,8 +41,22 @@ export function ReportsAnalyticsPage() {
   const [officeId, setOfficeId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<ReportRow[]>([]);
-  const [rowsLoading, setRowsLoading] = useState(false);
+  const [reportRows, setReportRows] = useState<Record<string, ReportRow[]>>({});
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentMinHeight, setContentMinHeight] = useState(0);
+  const reportKey = JSON.stringify([tab, start, end, officeId]);
+  const cachedRows = reportRows[reportKey];
+  const rows = cachedRows ?? [];
+  const rowsLoading = cachedRows === undefined;
+
+  function selectTab(nextTab: ReportTab) {
+    if (nextTab === tab) return;
+    // Reserve the outgoing view's space before replacing it so the scroll
+    // container cannot shrink and move the header or the user's scroll position.
+    const height = contentRef.current?.getBoundingClientRect().height ?? 0;
+    setContentMinHeight((previous) => Math.max(previous, Math.ceil(height)));
+    setTab(nextTab);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,19 +83,13 @@ export function ReportsAnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    if (tab === "overview" || tab === "offices") {
-      setRows([]);
-      setRowsLoading(false);
-      return;
-    }
+    if (tab === "overview" || tab === "offices" || cachedRows !== undefined) return;
     let active = true;
-    setRowsLoading(true);
     previewReport(tab, start, end, officeId || undefined)
-      .then((result) => { if (active) setRows(result); })
-      .catch(() => { if (active) setRows([]); })
-      .finally(() => { if (active) setRowsLoading(false); });
+      .then((result) => { if (active) setReportRows((previous) => ({ ...previous, [reportKey]: result })); })
+      .catch(() => { if (active) setReportRows((previous) => ({ ...previous, [reportKey]: [] })); });
     return () => { active = false; };
-  }, [tab, start, end, officeId]);
+  }, [tab, start, end, officeId, reportKey, cachedRows]);
 
   async function download(key: string) {
     const blob = await exportReport(key, start, end, officeId || undefined);
@@ -117,7 +125,7 @@ export function ReportsAnalyticsPage() {
       <main className="mx-auto w-full max-w-[1200px] min-w-0 px-6 pb-10 sm:px-8">
         <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
           {tabs.map(({ id, label }) => (
-            <OperationTab key={id} active={tab === id} className="!text-[14px]" onClick={() => setTab(id)}>{label}</OperationTab>
+            <OperationTab key={id} active={tab === id} className="!text-[14px]" onClick={() => selectTab(id)}>{label}</OperationTab>
           ))}
         </nav>
 
@@ -142,6 +150,7 @@ export function ReportsAnalyticsPage() {
           </label>
         </div>
 
+        <div ref={contentRef} data-ui="report-content" className="min-w-0 [overflow-anchor:none]" style={{ minHeight: contentMinHeight || undefined }}>
         {error && data && <div className="mb-4 border border-[#e7c98d] bg-[#fffaf0] px-4 py-3 text-[13px] text-[#75530b]" role="alert">{error} Les derniers indicateurs disponibles restent affichés.</div>}
         {loading && !data ? <LoadingState label="Calcul des indicateurs…" /> : data ? (
           <div className="min-w-0 space-y-5">
@@ -156,6 +165,7 @@ export function ReportsAnalyticsPage() {
         ) : (
           <ErrorState title="Analytics indisponibles" description={error || "Aucune donnée analytique n’a pu être chargée."} retry={load} />
         )}
+        </div>
       </main>
     </div>
   );
@@ -352,9 +362,12 @@ function FinanceChart({ data, currency }: { data: Analytics["monthly_finance"]; 
 }
 
 function ReportRows({ rows, loading, empty, kind }: { rows: ReportRow[]; loading: boolean; empty: string; kind: ReportTab }) {
-  return <section className="min-w-0" aria-labelledby="report-data-title">
+  return <section className="min-h-[280px] min-w-0" aria-labelledby="report-data-title" aria-busy={loading}>
     <h3 id="report-data-title" className="mb-3 text-[14px] font-semibold text-[#25292e]">Données du rapport</h3>
-    {loading ? <LoadingState label="Chargement du rapport…" /> : rows.length ? <div className="grid min-w-0 gap-2 md:grid-cols-2">
+    {loading ? <div role="status" aria-label="Chargement du rapport…" className="grid min-w-0 gap-2 md:grid-cols-2">
+      <span className="sr-only">Chargement du rapport…</span>
+      {Array.from({ length: 6 }, (_, index) => <div key={index} aria-hidden="true" className="flex h-[76px] items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3"><div className="w-2/3 animate-pulse space-y-2"><div className="h-3 w-1/2 rounded bg-[#e7ebed]"/><div className="h-3 w-full rounded bg-[#edf0f1]"/></div><div className="h-5 w-16 animate-pulse rounded bg-[#edf0f1]"/></div>)}
+    </div> : rows.length ? <div className="grid min-w-0 gap-2 md:grid-cols-2">
       {rows.slice(0, 12).map((row, index) => <ReportRowCard key={String(row.id || row.reference || index)} row={row} index={index} kind={kind} />)}
     </div> : <EmptyState>{empty}</EmptyState>}
   </section>;

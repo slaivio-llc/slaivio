@@ -70,7 +70,7 @@ const fixture = {
 } as Awaited<ReturnType<typeof catalog>>;
 
 beforeEach(() => {
-  vi.mocked(getOfficeContext).mockResolvedValue({ offices: [], selected_office_id: null } as Awaited<ReturnType<typeof getOfficeContext>>);
+  vi.mocked(getOfficeContext).mockResolvedValue({ offices: [], selected_office_id: null, office_access_scope: "ALL_OFFICES", allowed_office_ids: [] });
   vi.mocked(catalog).mockResolvedValue(fixture);
   vi.mocked(createRoute).mockResolvedValue({});
   vi.mocked(createService).mockResolvedValue({});

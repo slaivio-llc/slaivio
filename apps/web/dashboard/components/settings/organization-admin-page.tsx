@@ -103,7 +103,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   clients: ["Clients & conditions", "Définissez les conditions de crédit et les règles applicables aux clients."],
   assistant: ["Assistant IA", "Cette section sera complétée avec sa maquette dédiée."],
   subscription: ["Abonnement Slaivio", "Plan et usage de votre abonnement à la plateforme."],
-  general: ["Général", "Préférences régionales et unités du workspace actif."],
+  general: ["Langues & devises", "Configurez les règles applicables à votre agence."],
   agency: ["Profil de l’agence", "Informations officielles utilisées sur les espaces publics et documents."],
   workspaces: ["Workspaces", "Espaces opérationnels, responsables et périmètres de travail."],
   locations: ["Implantations de votre agence", "Bureaux physiques organisés au sein de la même organisation."],
@@ -1221,53 +1221,34 @@ function Preferences({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
-  const s = data.settings || { row_version: 1 };
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
+  const settings = data.settings || { row_version: 1 };
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
     run(
       () =>
         updateSettings({
-          expected_version: s.row_version,
-          timezone: val(f, "timezone"),
-          currency_code: val(f, "currency"),
-          country_code: val(f, "country"),
-          language_code: val(f, "language"),
-          date_format: val(f, "date"),
-          weight_unit: val(f, "weight"),
-          volume_unit: val(f, "volume"),
-          time_format: val(f, "time"),
-          dimension_unit: val(f, "dimensions"),
-          distance_unit: val(f, "distance"),
-          notification_email: val(f, "email"),
-          settings: s.settings || {},
-          security: s.security || {},
+          ...settings,
+          expected_version: settings.row_version,
+          language_code: val(form, "language"),
+          currency_code: val(form, "currency"),
+          timezone: val(form, "timezone"),
         }),
-      "Préférences enregistrées.",
+      "Langue, devise et fuseau horaire enregistrés.",
     );
   }
   return (
-    <Card
-      title="Préférences de l’espace"
-      description="Formats appliqués à tous les collaborateurs de l’agence."
-    >
-      <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
-        <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-          <SettingSelect label="Langue de l’interface" name="language" value={String(s.language_code || "fr")} options={[["fr","Français"],["en","English"]]} />
-          <SettingSelect label="Fuseau horaire" name="timezone" value={String(s.timezone || "UTC")} options={[["Africa/Kinshasa","Kinshasa"],["Africa/Douala","Douala"],["Africa/Abidjan","Abidjan"],["Asia/Shanghai","Chine"],["Asia/Dubai","Dubaï"],["UTC","Temps universel (UTC)"]]} />
-          <SettingSelect label="Devise comptable principale" name="currency" value={String(s.currency_code || "USD")} options={["USD","CDF","EUR","CNY","AED","XAF","GHS","KES"].map(x=>[x,x])} />
-          <FormGeographyFields initialCountry={String(s.country_code || data.organization.country || "")} countryValueMode="isoCode" showCity={false} className={`${input} mt-1`} fieldClassName="grid gap-1 text-[13px]" countryLabel="Pays principal" />
-          <SettingSelect label="Format de date" name="date" value={String(s.date_format || "DD/MM/YYYY")} options={[["DD/MM/YYYY","31/12/2026"],["MM/DD/YYYY","12/31/2026"],["YYYY-MM-DD","2026-12-31"]]} />
-          <SettingSelect label="Format de l’heure" name="time" value={String(s.time_format || "24H")} options={[["24H","24 heures"],["12H","12 heures (AM/PM)"]]} />
-          <SettingSelect label="Poids" name="weight" value={String(s.weight_unit || "kg")} options={[["kg","Kilogrammes (kg)"],["lb","Livres (lb)"]]} />
-          <SettingSelect label="Volume" name="volume" value={String(s.volume_unit || "cbm")} options={[["cbm","Mètre cube (m³)"],["ft3","Pied cube (ft³)"]]} />
-          <SettingSelect label="Dimensions" name="dimensions" value={String(s.dimension_unit || "cm")} options={[["cm","Centimètres"],["in","Pouces"]]} />
-          <SettingSelect label="Distance" name="distance" value={String(s.distance_unit || "km")} options={[["km","Kilomètres"],["mi","Miles"]]} />
-          <label>Email pour les alertes importantes<input name="email" type="email" className={`${input} mt-1`} defaultValue={String(s.notification_email || "")} placeholder="operations@agence.com" /></label>
-          <div className="flex items-end"><button className={primary}>Enregistrer les préférences</button></div>
-        </form>
-      </PermissionGuard>
-    </Card>
+    <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-4">
+        <SettingSelect label="Langue par défaut" name="language" value={String(settings.language_code || "fr")} options={[["fr", "Français"], ["en", "English"]]} />
+        <SettingSelect label="Devise de référence" name="currency" value={String(settings.currency_code || "USD")} options={["USD", "CDF", "EUR", "CNY", "AED", "XAF", "GHS", "KES"].map(currency => [currency, currency])} />
+        <SettingSelect label="Fuseau horaire" name="timezone" value={String(settings.timezone || "Africa/Kinshasa")} options={[["Africa/Kinshasa", "Kinshasa"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]]} />
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4">
+          <span className="text-[11px] text-[#858d93]">Paramètres de l’agence</span>
+          <button className={primary}>Enregistrer</button>
+        </div>
+      </form>
+    </PermissionGuard>
   );
 }
 function SettingSelect({label,name,value,options}:{label:string;name:string;value:string;options:string[][]}) {

@@ -174,8 +174,8 @@ export function OrganizationAdminPage() {
   return (
     <div className="min-h-full bg-[#fff] px-4 py-5 sm:px-6 lg:py-8">
       <div className="mx-auto max-w-[1080px] bg-white">
-        <header className="flex items-center justify-between gap-4 border-b border-[#e7eaec] px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center text-[#30363a]"><Building2 size={19}/></span><div><h1 className="text-[19px] font-semibold text-[#25292e]">Paramètres de l’agence</h1><p className="mt-1 text-[13px] text-[#697178]">Personnalisez votre environnement Slaivio</p></div></div>
+        <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center text-[#30363a]"><Building2 size={19}/></span><h1 className="text-[19px] font-semibold text-[#25292e]">Paramètres de l’agence</h1></div>
           <span className="shrink-0 rounded-full bg-[#f1f2f1] px-2.5 py-1 text-[10px] font-medium text-[#59636b]">Administration</span>
         </header>
         <div className="flex items-center gap-2 border-b border-[#e7eaec] px-4 py-3 text-[13px] text-[#697178] sm:px-6"><Building2 size={14}/><span>{String(data.organization.organization_name || "Agence")}</span><span>›</span><span className="font-medium text-[#25292e]">{sectionTitles[tab]?.[0] || tab}</span></div>

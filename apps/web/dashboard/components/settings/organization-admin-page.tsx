@@ -176,9 +176,7 @@ export function OrganizationAdminPage() {
       <div className="mx-auto max-w-[1080px] bg-white">
         <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 items-center"><h1 className="text-[19px] font-semibold text-[#25292e]">Paramètres de l’agence</h1></div>
-          <span className="shrink-0 rounded-full bg-[#f1f2f1] px-2.5 py-1 text-[10px] font-medium text-[#59636b]">Administration</span>
         </header>
-        <div className="border-b border-[#e7eaec] px-4 py-3 text-[13px] font-medium text-[#25292e] sm:px-6">{sectionTitles[tab]?.[0] || tab}</div>
         <div className="grid min-h-[620px] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden border-b border-[#e0e2e4] p-2.5 lg:block lg:border-b-0 lg:border-r lg:p-3">
           {settingGroups.slice(4).map(([group, sections]) => <SettingsGroup key={group} label={group}>

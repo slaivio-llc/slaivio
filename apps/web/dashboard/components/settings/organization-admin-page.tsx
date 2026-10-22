@@ -45,11 +45,6 @@ import { FormSection, OperationButton, OperationField } from "@/components/ui/op
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { FormGeographyFields } from "@/components/ui/geography-fields";
-import {
-  getNotificationPreferences,
-  saveNotificationPreference,
-  type NotificationPreference,
-} from "@/services/notification-center";
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
 const input =
   "h-9 w-full rounded-[5px] border border-[#d8d9dc] bg-white px-3 text-[13px] outline-none focus:border-[#16855f]";
@@ -116,7 +111,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   routes: ["Routes commerciales", "Liaisons de transport et services disponibles pour chacune."],
   team: ["Utilisateurs & équipe", "Invitations, affectations et accès des collaborateurs."],
   roles: ["Rôles & permissions", "Responsabilités et droits accordés à chaque rôle."],
-  notifications: ["Notifications", "Événements importants et canaux utilisés pour prévenir l’équipe."],
+  notifications: ["Notifications & messages", "Configurez les notifications automatiques envoyées à vos clients."],
   integrations: ["Canaux & intégrations", "Comptes externes connectés aux opérations de l’agence."],
   documents: ["Documents & étiquettes", "Configurez l’apparence et le format des documents de l’agence."],
   billing: ["Abonnement Slaivio", "Plan, usage et facturation de votre abonnement à la plateforme."],
@@ -219,9 +214,7 @@ export function OrganizationAdminPage() {
             {tab === "routes" && <OrganizationTransportSettings section="routes"/>}{" "}
             {tab === "team" && <Team data={data} run={run} />}{" "}
             {tab === "roles" && <Roles data={data} run={run} />}{" "}
-            {tab === "notifications" && (
-              <NotificationsSettings />
-            )}{" "}
+            {tab === "notifications" && <CustomerMilestoneNotifications data={data} run={run} />}{" "}
             {tab === "integrations" && <Integrations data={data} run={run} />}{" "}
             {tab === "documents" && <DocumentsSettings data={data} run={run} />}{" "}
             {tab === "billing" && <BillingSettings data={data} />}{" "}
@@ -323,88 +316,31 @@ function Card({
   );
 }
 
-const notificationCategories = [
-  ["OPERATIONS", "Activité de l’agence", "Dossiers, tâches et opérations importantes"],
-  ["SHIPMENT", "Expéditions", "Départs, arrivées, retards et incidents"],
-  ["PACKAGE", "Colis", "Réception, blocage, anomalie et disponibilité"],
-  ["PAYMENT", "Paiements", "Paiement reçu, échéance et facture impayée"],
-  ["COMPLIANCE", "Contrôles", "Documents, restrictions et validations requises"],
-  ["SYSTEM", "Compte et sécurité", "Invitations, accès et alertes de sécurité"],
+const customerMilestones = [
+  ["package_received", "Colis reçu à l'entrepôt"],
+  ["departure_confirmed", "Départ effectivement confirmé"],
+  ["package_arrived", "Arrivée du colis"],
+  ["ready_for_pickup", "Colis prêt à retirer"],
 ] as const;
 
-function NotificationsSettings() {
-  const [items, setItems] = useState<NotificationPreference[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  useEffect(() => {
-    getNotificationPreferences()
-      .then(setItems)
-      .catch(() => setMessage("Les préférences ne peuvent pas être chargées."));
-  }, []);
-  const current = (category: string): NotificationPreference =>
-    items.find((item) => item.category === category) || {
-      category,
-      in_app: true,
-      email: false,
-      whatsapp: false,
-      digest_frequency: "IMMEDIATE",
-    };
-  async function submit(event: FormEvent<HTMLFormElement>) {
+function CustomerMilestoneNotifications({ data, run }: { data: AdminData; run: (action: () => Promise<unknown>, message: string) => void }) {
+  const rawSettings = data.settings?.settings;
+  const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings) ? rawSettings as Record<string, unknown> : {};
+  const rawMilestones = storedSettings.customer_milestone_notifications;
+  const savedMilestones = rawMilestones && typeof rawMilestones === "object" && !Array.isArray(rawMilestones) ? rawMilestones as Record<string, unknown> : {};
+  const [milestones, setMilestones] = useState<Record<string, boolean>>(() => Object.fromEntries(customerMilestones.map(([key]) => [key, savedMilestones[key] !== false])));
+  function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setSaving(true);
-    setMessage("");
-    try {
-      const saved = await Promise.all(
-        notificationCategories.map(([category]) =>
-          saveNotificationPreference({
-            category,
-            in_app: form.get(`${category}.app`) === "on",
-            email: form.get(`${category}.email`) === "on",
-            whatsapp: form.get(`${category}.whatsapp`) === "on",
-            digest_frequency: String(form.get(`${category}.frequency`) || "IMMEDIATE"),
-          }),
-        ),
-      );
-      setItems(saved.map((result) => result.preference || result));
-      setMessage("Préférences enregistrées.");
-    } catch {
-      setMessage("L’enregistrement n’a pas abouti.");
-    } finally {
-      setSaving(false);
-    }
+    run(() => updateSettings({ ...data.settings, expected_version: Number(data.settings?.row_version || 1), settings: { ...storedSettings, customer_milestone_notifications: milestones } }), "Paramètres de notifications enregistrés.");
   }
-  return (
-    <Card
-      title="Notifications de l’agence"
-      description="Choisissez où et à quel rythme votre équipe reçoit chaque type d’alerte."
-    >
-      <form onSubmit={submit}>
-        <div className="overflow-x-auto">
-          <div className="min-w-[680px]">
-            <div className="grid grid-cols-[minmax(240px,1fr)_74px_74px_92px_150px] border-b border-[#e6e9ee] bg-[#f7f8fa] px-3 py-2 text-[12px] font-medium text-[#5f6b76]">
-              <span>Événement</span><span>Dans Slaivio</span><span>Email</span><span>WhatsApp</span><span>Fréquence</span>
-            </div>
-            {notificationCategories.map(([category, label, description]) => {
-              const preference = current(category);
-              return (
-                <div key={category} className="grid grid-cols-[minmax(240px,1fr)_74px_74px_92px_150px] items-center border-b border-[#edf0f3] px-3 py-3 last:border-0">
-                  <div><b className="text-[13px]">{label}</b><p className="text-[11px] text-[#74808c]">{description}</p></div>
-                  <input aria-label={`${label} dans Slaivio`} name={`${category}.app`} type="checkbox" defaultChecked={preference.in_app} className="h-4 w-4 accent-[#12c76f]" />
-                  <input aria-label={`${label} par email`} name={`${category}.email`} type="checkbox" defaultChecked={preference.email} className="h-4 w-4 accent-[#12c76f]" />
-                  <input aria-label={`${label} par WhatsApp`} name={`${category}.whatsapp`} type="checkbox" defaultChecked={preference.whatsapp} className="h-4 w-4 accent-[#12c76f]" />
-                  <select name={`${category}.frequency`} defaultValue={preference.digest_frequency} className={input}>
-                    <option value="IMMEDIATE">Immédiatement</option><option value="DAILY">Résumé quotidien</option><option value="WEEKLY">Résumé hebdomadaire</option><option value="OFF">Désactivé</option>
-                  </select>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between"><p className="text-[12px] text-[#537064]">{message}</p><button disabled={saving} className={primary}>{saving ? "Enregistrement…" : "Enregistrer"}</button></div>
-      </form>
-    </Card>
-  );
+  return <PermissionGuard permission="settings.write" fallback={<ReadOnly />}><form onSubmit={submit} className="max-w-[640px]">
+    <section className="border-b border-[#e7eaec] pb-4">
+      <h3 className="text-[15px] font-semibold text-[#25292e]">Notifications automatiques</h3>
+      <div className="mt-3 divide-y divide-[#edf0f2]">{customerMilestones.map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center justify-between gap-4 py-2 text-[14px] text-[#30363a]"><span>{label}</span><input aria-label={label} type="checkbox" checked={milestones[key] !== false} onChange={event => setMilestones(current => ({ ...current, [key]: event.target.checked }))} className="h-5 w-5 shrink-0 accent-[#202326]" /></label>)}</div>
+      <p className="mt-3 text-[12px] leading-5 text-[#697178]">Envoi soumis aux connexions actives, aux modèles approuvés, au consentement et à la prévention des doublons.</p>
+    </section>
+    <div className="flex justify-end pt-4"><button className={primary}>Enregistrer</button></div>
+  </form></PermissionGuard>;
 }
 function PublicTrackingSettings({
   data,

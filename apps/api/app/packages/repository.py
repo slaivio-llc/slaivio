@@ -57,14 +57,26 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
     template = CUSTOMER_STATUS_MESSAGES.get(status)
     if not template or not package.get("client_id"):
         return None
+    milestone_by_status = {
+        "RECEIVED": "package_received",
+        "RECEIVED_AT_ORIGIN": "package_received",
+        "SHIPPED": "departure_confirmed",
+        "IN_TRANSIT": "departure_confirmed",
+        "ARRIVED": "package_arrived",
+        "ARRIVED_DESTINATION": "package_arrived",
+        "READY_FOR_PICKUP": "ready_for_pickup",
+    }
+    milestone = milestone_by_status.get(status)
     enabled = conn.execute(text("""
         select 1
         from organizations organization
         left join parcel_operation_settings settings on settings.org_id=organization.id
+        left join organization_settings org_settings on org_settings.org_id=organization.id
         where organization.id=:org_id
           and organization.organization_type in ('PARCEL_FREIGHT','CARGO')
           and coalesce(settings.notify_package_milestones,true)
-    """), {"org_id": package["org_id"]}).first()
+          and (:milestone is null or coalesce((org_settings.settings->'customer_milestone_notifications'->>:milestone)::boolean,true))
+    """), {"org_id": package["org_id"], "milestone": milestone}).first()
     if not enabled:
         return None
     customer_context = conn.execute(text("""

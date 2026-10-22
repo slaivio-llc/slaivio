@@ -43,7 +43,6 @@ export function ReportsAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [reportRows, setReportRows] = useState<Record<string, ReportRow[]>>({});
   const contentRef = useRef<HTMLDivElement>(null);
-  const [contentMinHeight, setContentMinHeight] = useState(0);
   const reportKey = JSON.stringify([tab, start, end, officeId]);
   const cachedRows = reportRows[reportKey];
   const rows = cachedRows ?? [];
@@ -51,10 +50,8 @@ export function ReportsAnalyticsPage() {
 
   function selectTab(nextTab: ReportTab) {
     if (nextTab === tab) return;
-    // Reserve the outgoing view's space before replacing it so the scroll
-    // container cannot shrink and move the header or the user's scroll position.
-    const height = contentRef.current?.getBoundingClientRect().height ?? 0;
-    setContentMinHeight((previous) => Math.max(previous, Math.ceil(height)));
+    // Only the report pane scrolls; changing tabs never resizes the workspace.
+    if (contentRef.current) contentRef.current.scrollTop = 0;
     setTab(nextTab);
   }
 
@@ -115,21 +112,21 @@ export function ReportsAnalyticsPage() {
   ));
 
   return (
-    <div className="min-h-full min-w-0 w-full bg-white">
+    <div data-ui="reports-workspace" className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white [&>header]:shrink-0">
       <OperationPageHeader
         title="Rapports & analyses"
         description="Suivez les performances de votre activité Cargo."
         actions={<PermissionGuard permission="reports.export"><OperationButton variant="primary" className="!rounded-full !border-[#111111] !bg-[#111111] !text-white hover:!bg-[#303030]" onClick={exportCurrentView}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
       />
 
-      <main className="mx-auto w-full max-w-[1200px] min-w-0 px-6 pb-10 sm:px-8">
-        <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
+      <main className="mx-auto flex min-h-0 w-full max-w-[1200px] min-w-0 flex-1 flex-col overflow-hidden px-6 sm:px-8">
+        <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex shrink-0 flex-nowrap items-center gap-0 overflow-x-auto pb-2">
           {tabs.map(({ id, label }) => (
             <OperationTab key={id} active={tab === id} className="!text-[14px]" onClick={() => selectTab(id)}>{label}</OperationTab>
           ))}
         </nav>
 
-        <div className="mb-5 grid min-w-0 gap-3 sm:grid-cols-2">
+        <div className="mb-5 grid min-w-0 shrink-0 gap-3 sm:grid-cols-2">
           <label className="min-w-0 text-[12px] text-[#697178]">Période
             <select aria-label="Période" className={selectClass} value={`${start}|${end}`} onChange={(event) => {
               const [nextStart, nextEnd] = event.target.value.split("|");
@@ -150,7 +147,7 @@ export function ReportsAnalyticsPage() {
           </label>
         </div>
 
-        <div ref={contentRef} data-ui="report-content" className="min-w-0 [overflow-anchor:none]" style={{ minHeight: contentMinHeight || undefined }}>
+        <div ref={contentRef} data-ui="report-content" role="region" aria-label={`Contenu du rapport — ${tabs.find(({ id }) => id === tab)?.label}`} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pb-10 outline-none [overflow-anchor:none] [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#aeb8be]">
         {error && data && <div className="mb-4 border border-[#e7c98d] bg-[#fffaf0] px-4 py-3 text-[13px] text-[#75530b]" role="alert">{error} Les derniers indicateurs disponibles restent affichés.</div>}
         {loading && !data ? <LoadingState label="Calcul des indicateurs…" /> : data ? (
           <div className="min-w-0 space-y-5">

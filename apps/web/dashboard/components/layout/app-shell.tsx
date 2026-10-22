@@ -74,6 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const searchableAppRoutes = useMemo(() => appNavigation.flatMap((group) => group.routes), [appNavigation]);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const reportsView = pathname === "/app/reports" || pathname.startsWith("/app/reports/");
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const { permissions, loading: permissionsLoading, available: permissionsAvailable } = usePermissions();
@@ -362,8 +363,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 
         {pilot && <PilotOfflineIndicator />}
-        <main className="slaivio-operations min-h-0 min-w-0 flex-1 overflow-y-auto bg-white">
-          {pilot ? <div className="min-h-full w-full bg-white">{children}</div> : children}
+        <main className={`slaivio-operations min-h-0 min-w-0 flex-1 bg-white ${reportsView ? "overflow-hidden" : "overflow-y-auto"}`}>
+          {pilot ? <div className={`w-full bg-white ${reportsView ? "h-full min-h-0" : "min-h-full"}`}>{children}</div> : children}
         </main>
       </section>
 

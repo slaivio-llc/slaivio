@@ -38,20 +38,30 @@ beforeEach(() => {
 });
 
 describe("ReportsAnalyticsPage", () => {
-  it("preserves the outgoing view's height when switching to a shorter report", async () => {
+  it("keeps the workspace fixed and scrolls only the report pane when switching tabs", async () => {
     vi.mocked(reportsService.getAnalytics).mockResolvedValue(analytics);
     const { container } = render(<ReportsAnalyticsPage />);
     await screen.findByRole("heading", { name: "Évolution de l’activité" });
     const panel = container.querySelector('[data-ui="report-content"]') as HTMLElement;
-    vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({ height: 940 } as DOMRect);
+    const workspace = container.querySelector('[data-ui="reports-workspace"]')!;
+    const navigation = screen.getByRole("navigation", { name: "Sections des rapports" });
+    expect(workspace).toHaveClass("h-full", "min-h-0", "overflow-hidden", "flex-col");
+    expect(navigation).toHaveClass("shrink-0");
+    expect(panel).toHaveClass("flex-1", "min-h-0", "overflow-y-auto", "[scrollbar-gutter:stable]");
+    expect(panel.style.minHeight).toBe("");
+    panel.scrollTop = 750;
 
     fireEvent.click(screen.getByRole("button", { name: "Bureaux" }));
-    expect(panel).toHaveStyle({ minHeight: "940px" });
+    expect(panel.scrollTop).toBe(0);
+    expect(screen.getByRole("region", { name: "Contenu du rapport — Bureaux" })).toBe(panel);
+    expect(screen.getByRole("navigation", { name: "Sections des rapports" })).toBe(navigation);
     expect(screen.getByRole("heading", { name: "Performances bureaux" })).toBeVisible();
 
-    vi.spyOn(panel, "getBoundingClientRect").mockReturnValue({ height: 300 } as DOMRect);
+    panel.scrollTop = 120;
     fireEvent.click(screen.getByRole("button", { name: "Clients" }));
-    expect(panel).toHaveStyle({ minHeight: "940px" });
+    expect(panel.scrollTop).toBe(0);
+    expect(panel.style.minHeight).toBe("");
+    expect(container.querySelector('[data-ui="reports-workspace"]')).toBe(workspace);
     await waitFor(() => expect(screen.queryByRole("status", { name: "Chargement du rapport…" })).not.toBeInTheDocument());
   });
 

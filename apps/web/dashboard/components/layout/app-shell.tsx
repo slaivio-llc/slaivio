@@ -10,9 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleHelp,
-  Code2,
   CreditCard,
-  FileQuestion,
   Home,
   LayoutDashboard,
   Keyboard,
@@ -20,7 +18,6 @@ import {
   LogOut,
   Mail,
   Menu,
-  Megaphone,
   MessageSquareText,
   MessagesSquare,
   Moon,
@@ -44,7 +41,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
 
@@ -62,6 +59,7 @@ import { PilotOfflineIndicator } from "@/components/offline/pilot-offline-indica
 import { PilotReadinessPanel } from "@/components/dashboard/pilot-readiness";
 import { dashboardLabel, setDashboardLocale, useDashboardLocale } from "@/components/i18n/dashboard-language";
 import { getTenantContext } from "@/services/tenant";
+import { createTicket, listArticles } from "@/services/support";
 
 type FloatingPanel = "account" | "notifications" | "help" | "language" | null;
 type SupportView = "topics" | "contact" | null;
@@ -648,21 +646,126 @@ function UserAvatar({ imageUrl, name, size }: { imageUrl?: string | null; name: 
   return initial ? <span aria-hidden="true">{initial}</span> : <UserRound size={Math.round(size * 0.5)} aria-hidden="true" />;
 }
 
+type HelpArticle = { id: string; title: string; summary: string; content: string; category: string };
+const popularHelpArticles: HelpArticle[] = [
+  { id: "register-parcel", title: "Comment enregistrer un colis ?", summary: "Réception, client, référence et suivi.", category: "Colis", content: "Ouvrez le module Colis et choisissez Nouveau colis. Sélectionnez le client, renseignez la référence et les informations demandées, puis enregistrez. À la réception physique, confirmez le statut de réception pour démarrer le suivi opérationnel." },
+  { id: "create-shipment", title: "Comment créer une expédition ?", summary: "Préparer un départ et y ajouter des colis.", category: "Expéditions", content: "Ouvrez Expéditions et démarrez une nouvelle expédition. Choisissez la route, le service et les informations de départ, puis ajoutez les colis concernés. Vérifiez les éléments avant d’enregistrer ; confirmez le départ seulement lorsqu’il a réellement eu lieu." },
+  { id: "register-payment", title: "Comment enregistrer un paiement ?", summary: "Paiements partiels et soldes clients.", category: "Finance", content: "Ouvrez Finance, retrouvez le client ou la facture concernée et choisissez l’action d’enregistrement d’un paiement. Saisissez le montant réellement reçu, le moyen de paiement et sa référence. Un paiement partiel laisse le solde restant à recouvrer." },
+  { id: "add-office", title: "Comment ajouter un bureau ?", summary: "Bureaux, entrepôts et accès.", category: "Organisation", content: "Ouvrez le sélecteur d’espace dans la barre latérale. En bas du menu, choisissez Créer un bureau ou Créer un entrepôt. Complétez le nom, le code et les informations de localisation, puis validez la création." },
+  { id: "use-whatsapp", title: "Comment utiliser WhatsApp ?", summary: "Connexion, conversations et réponses.", category: "Communication", content: "Ouvrez le module de communication WhatsApp et vérifiez que le compte professionnel de l’agence est connecté. Les messages sortants doivent respecter les modèles approuvés et les règles de consentement. Les conversations entrantes sont traitées depuis la boîte de réception." },
+];
+
 function HelpMenu({ close }: { close: () => void }) {
+  const [view, setView] = useState<"home" | "article" | "contact" | "shortcuts">("home");
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null);
+  const [search, setSearch] = useState("");
+  const [publishedArticles, setPublishedArticles] = useState<HelpArticle[]>([]);
+  const [articlesLoading, setArticlesLoading] = useState(true);
+  const [articlesError, setArticlesError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [ticketReference, setTicketReference] = useState("");
+  const [contactError, setContactError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    listArticles().then(items => {
+      if (active) setPublishedArticles(items.map(item => ({ id: item.id, title: item.title, summary: item.summary || "", content: item.content, category: item.category })));
+    }).catch(() => {
+      if (active) setArticlesError("Les articles du centre d’aide ne sont pas disponibles pour le moment.");
+    }).finally(() => { if (active) setArticlesLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  function navigate(next: typeof view) {
+    setDirection(next === "home" ? "back" : "forward");
+    setView(next);
+  }
+  const allArticles = [...popularHelpArticles, ...publishedArticles];
+  const query = search.trim().toLocaleLowerCase("fr");
+  const matchingArticles = allArticles.filter(item => `${item.title} ${item.summary} ${item.content} ${item.category}`.toLocaleLowerCase("fr").includes(query));
+  const headerTitle = view === "home" ? "Aide & assistance" : view === "article" ? selectedArticle?.title || "Article d’aide" : view === "contact" ? "Contacter le support" : "Raccourcis clavier";
+
+  async function submitContact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setSending(true);
+    setContactError("");
+    try {
+      const ticket = await createTicket({
+        subject: String(form.get("subject") || ""),
+        description: String(form.get("description") || ""),
+        category: String(form.get("category") || "FONCTIONNALITÉ"),
+        priority: "NORMAL",
+      });
+      setTicketReference(ticket.ticket_reference);
+    } catch {
+      setContactError("Impossible d’envoyer votre demande. Vérifiez vos droits d’accès au support et réessayez.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <div className="w-[264px] overflow-hidden rounded-[7px] border border-[#d1d4d7] bg-white py-2 shadow-[0_16px_44px_rgba(15,23,42,.18)]">
-      <div className="px-4 pb-1.5 pt-1 text-[10px] font-semibold uppercase text-[#8a9097]">Aide et assistance</div>
-      <MenuLink href="/app/support?view=articles" icon={<BookOpen size={15} />} label="Centre d’aide" close={close} />
-      <MenuLink href="/app/support?new=1" icon={<MessageSquareText size={15} />} label="Contacter le support" close={close} />
-      <MenuLink href="/app/support?view=tickets" icon={<TicketCheck size={15} />} label="Mes tickets" close={close} />
-      <MenuDivider />
-      <MenuDisabled icon={<Keyboard size={15} />} label="Raccourcis clavier" status="Bientôt" />
-      <MenuDisabled icon={<Megaphone size={15} />} label="Nouveautés produit" status="Bientôt" />
-      <MenuDisabled icon={<Code2 size={15} />} label="Documentation API" status="Non publiée" />
-      <MenuDisabled icon={<FileQuestion size={15} />} label="Guides opérationnels" status="Bientôt" />
-    </div>
+    <section role="dialog" aria-label="Aide & assistance" className="w-[344px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[12px] border border-[#dfe2e4] bg-white shadow-[0_16px_44px_rgba(15,23,42,.16)]">
+      <header className="flex h-[54px] items-center gap-2.5 border-b border-[#e7eaec] px-3">
+        {view !== "home" && <button type="button" onClick={() => { setTicketReference(""); setContactError(""); navigate("home"); }} aria-label="Retour" className="grid h-8 w-8 place-items-center rounded-md text-[#596169] hover:bg-[#f3f5f4]"><ArrowLeft size={16}/></button>}
+        <span className="grid h-8 w-8 place-items-center rounded-[6px] border border-[#e0e3e5] text-[#30363a]"><CircleHelp size={16}/></span>
+        <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#25292e]">{headerTitle}</h2>
+        <button type="button" onClick={close} aria-label="Fermer l’aide" className="grid h-8 w-8 place-items-center rounded-md text-[#697179] hover:bg-[#f3f5f4]"><X size={15}/></button>
+      </header>
+      <div key={view + (selectedArticle?.id || "")} className={`help-panel-enter-${direction} max-h-[min(590px,calc(100vh-130px))] overflow-y-auto`}>
+        {view === "home" && <div className="px-3 pb-2 pt-4">
+          <h3 className="text-[15px] font-semibold text-[#25292e]">Comment pouvons-nous vous aider ?</h3>
+          <p className="mt-1 text-[12px] text-[#697179]">Trouvez rapidement une réponse.</p>
+          <label className="relative mt-3 block">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#858d93]"/>
+            <input aria-label="Rechercher dans l’aide" value={search} onChange={event => setSearch(event.target.value)} placeholder="Rechercher dans l’aide..." className="h-9 w-full rounded-full border border-[#d8dddf] bg-white pl-9 pr-3 text-[13px] outline-none focus:border-[#16855f]"/>
+          </label>
+          <p className="mb-1 mt-3 text-[11px] text-[#697179]">{query ? "Résultats" : "Articles populaires"}</p>
+          <div className="divide-y divide-[#f0f1f2]">
+            {(query ? matchingArticles : popularHelpArticles).slice(0, 8).map(article => <button key={article.id} type="button" onClick={() => { setSelectedArticle(article); navigate("article"); }} className="flex min-h-[48px] w-full items-center gap-2 px-1 py-2 text-left hover:bg-[#fafbfb]">
+              <BookOpen size={13} className="shrink-0 text-[#737b82]"/>
+              <span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-medium text-[#25292e]">{article.title}</span><span className="mt-0.5 block truncate text-[10px] text-[#737b82]">{article.summary}</span></span>
+              <ChevronRight size={14} className="shrink-0 text-[#939ba2]"/>
+            </button>)}
+            {query && !matchingArticles.length && !articlesLoading && <p className="px-2 py-4 text-[12px] text-[#697179]">Aucun article trouvé. Vous pouvez contacter le support Slaivio.</p>}
+            {query && articlesLoading && <p className="px-2 py-3 text-[11px] text-[#697179]">Recherche des articles publiés…</p>}
+            {articlesError && <p className="px-2 py-2 text-[10px] text-amber-700">{articlesError}</p>}
+          </div>
+          <div className="mt-2 border-t border-[#e7eaec] pt-2">
+            <button type="button" onClick={() => { setTicketReference(""); setContactError(""); navigate("contact"); }} className="flex min-h-[46px] w-full items-center gap-2 px-1 text-left hover:bg-[#fafbfb]"><MessageSquareText size={14} className="text-[#697179]"/><span className="min-w-0 flex-1"><span className="block text-[12px] font-medium text-[#25292e]">Contacter le support</span><span className="block text-[10px] text-[#737b82]">Envoyer une demande à l’équipe Slaivio</span></span><ChevronRight size={14} className="text-[#939ba2]"/></button>
+            <button type="button" onClick={() => navigate("shortcuts")} className="flex min-h-[42px] w-full items-center gap-2 px-1 text-left hover:bg-[#fafbfb]"><Keyboard size={14} className="text-[#697179]"/><span className="min-w-0 flex-1 text-[12px] font-medium text-[#25292e]">Raccourcis clavier</span><ChevronRight size={14} className="text-[#939ba2]"/></button>
+          </div>
+        </div>}
+        {view === "article" && selectedArticle && <article className="px-4 py-4">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-[#16855f]">{selectedArticle.category}</p>
+          <h3 className="mt-1 text-[15px] font-semibold leading-5 text-[#25292e]">{selectedArticle.title}</h3>
+          <p className="mt-1 text-[12px] text-[#697179]">{selectedArticle.summary}</p>
+          <div className="mt-4 whitespace-pre-wrap text-[13px] leading-6 text-[#424a50]">{selectedArticle.content}</div>
+          <div className="mt-4 border-t border-[#e7eaec] pt-3 text-[11px] text-[#697179]">Cet article vous a-t-il aidé ? <button type="button" onClick={() => navigate("home")} className="ml-2 font-medium text-[#16855f] hover:underline">Oui, merci</button></div>
+        </article>}
+        {view === "contact" && <div className="px-4 py-4">
+          {ticketReference ? <div className="py-5 text-center"><span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-emerald-50 text-emerald-700"><TicketCheck size={20}/></span><h3 className="mt-3 text-[14px] font-semibold text-[#25292e]">Demande envoyée au support Slaivio</h3><p className="mt-1 text-[12px] text-[#697179]">Référence : {ticketReference}</p><button type="button" onClick={close} className="mt-4 h-9 rounded-[6px] bg-[#272a2f] px-4 text-[12px] font-semibold text-white">Fermer</button></div> : <form onSubmit={submitContact} className="grid gap-3">
+            <p className="text-[12px] text-[#697179]">Décrivez votre demande. Elle sera transmise à l’équipe support de Slaivio.</p>
+            <label className="grid gap-1 text-[11px] font-medium text-[#59636e]">Sujet<input required minLength={5} name="subject" defaultValue="" placeholder="Ex. Besoin d’aide sur une expédition" className="h-9 rounded-[6px] border border-[#d8dddf] px-2.5 text-[12px] outline-none focus:border-[#16855f]"/></label>
+            <label className="grid gap-1 text-[11px] font-medium text-[#59636e]">Type de demande<select name="category" className="h-9 rounded-[6px] border border-[#d8dddf] bg-white px-2.5 text-[12px]"><option value="FONCTIONNALITÉ">Utilisation d’une fonctionnalité</option><option value="TECHNIQUE">Problème technique</option><option value="COMPTE">Compte et accès</option><option value="FACTURATION">Abonnement ou facturation</option><option value="AUTRE">Autre demande</option></select></label>
+            <label className="grid gap-1 text-[11px] font-medium text-[#59636e]">Description<textarea required minLength={10} name="description" rows={4} placeholder="Expliquez ce qui s’est passé et le résultat attendu." className="resize-y rounded-[6px] border border-[#d8dddf] p-2.5 text-[12px] outline-none focus:border-[#16855f]"/></label>
+            {contactError && <p role="alert" className="text-[11px] text-red-700">{contactError}</p>}
+            <button disabled={sending} className="h-9 rounded-[6px] bg-[#272a2f] px-4 text-[12px] font-semibold text-white disabled:opacity-60">{sending ? "Envoi…" : "Envoyer au support Slaivio"}</button>
+          </form>}
+        </div>}
+        {view === "shortcuts" && <div className="grid gap-2 px-4 py-4">
+          <p className="mb-1 text-[12px] text-[#697179]">Accédez rapidement aux commandes principales.</p>
+          <div className="flex items-center justify-between border-b border-[#edf0f2] py-2 text-[12px]"><span>Ouvrir la recherche</span><kbd className="rounded border border-[#d8dddf] bg-[#f8f9f9] px-2 py-1 text-[11px]">Ctrl K</kbd></div>
+          <div className="flex items-center justify-between border-b border-[#edf0f2] py-2 text-[12px]"><span>Fermer un menu ou une fenêtre</span><kbd className="rounded border border-[#d8dddf] bg-[#f8f9f9] px-2 py-1 text-[11px]">Esc</kbd></div>
+          <p className="mt-1 text-[10px] text-[#858d93]">Sur Mac, utilisez ⌘ à la place de Ctrl.</p>
+        </div>}
+      </div>
+    </section>
   );
 }
+
 
 function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?: boolean }) {
   const router = useRouter();

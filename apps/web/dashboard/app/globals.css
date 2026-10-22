@@ -1670,3 +1670,21 @@ nav[aria-label="Sections Gestion"] > [data-ui="operation-tab"] {
   font-size: var(--operation-text-tab, 14px) !important;
   line-height: 16px;
 }
+
+@keyframes help-panel-slide-forward {
+  from { opacity: 0.65; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes help-panel-slide-back {
+  from { opacity: 0.65; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.help-panel-enter-forward { animation: help-panel-slide-forward 180ms ease-out both; }
+.help-panel-enter-back { animation: help-panel-slide-back 180ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .help-panel-enter-forward,
+  .help-panel-enter-back { animation: none; }
+}

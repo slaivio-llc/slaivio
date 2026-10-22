@@ -115,7 +115,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   integrations: ["Canaux & intégrations", "Comptes externes connectés aux opérations de l’agence."],
   documents: ["Documents & étiquettes", "Configurez l’apparence et le format des documents de l’agence."],
   billing: ["Abonnement Slaivio", "Plan, usage et facturation de votre abonnement à la plateforme."],
-  security: ["Sécurité", "Protection des comptes, sessions et règles d’authentification."],
+  security: ["Accès & sécurité", "Configurez les règles applicables à votre agence."],
   data: ["Données & confidentialité", "Export, conservation et demandes sensibles sur les données."],
 };
 function val(f: FormData, k: string) {
@@ -1280,51 +1280,44 @@ function Security({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
-  const s = data.settings || { row_version: 1 },
-    sec = (s.security || {}) as Record<string, unknown>;
-  async function submit(e: FormEvent<HTMLFormElement>) {
+  const s = data.settings || { row_version: 1 };
+  const sec = (s.security || {}) as Record<string, unknown>;
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const f = new FormData(e.currentTarget);
+    const form = new FormData(e.currentTarget);
     run(
       () =>
         updateSettings({
           ...s,
           expected_version: s.row_version,
           security: {
-            require_mfa: f.get("mfa") === "on",
-            session_timeout_minutes: Number(f.get("timeout")),
-            inactivity_timeout_minutes: Number(f.get("inactivity")),
-            max_failed_attempts: Number(f.get("attempts")),
+            ...sec,
+            require_mfa: form.get("mfa") === "on",
           },
         }),
-      "Politique de sécurité mise à jour.",
+      "Politique d’authentification mise à jour.",
     );
   }
   return (
-    <Card
-      title="Protection des comptes"
-      description="Définissez les règles de connexion appliquées aux membres de votre agence."
-    >
-      <PermissionGuard permission="security.manage" fallback={<ReadOnly />}>
-        <form onSubmit={submit} className="grid max-w-2xl gap-5">
-          <label className="flex items-start gap-3 rounded-md bg-[#f8faf9] p-4 ring-1 ring-[#e6eae8]">
-            <input
-              name="mfa"
-              type="checkbox"
-              defaultChecked={Boolean(sec.require_mfa)}
-            />
-            <span><b className="block text-[13px]">Exiger la double authentification</b><small className="text-[11px] font-normal text-[#74808c]">Chaque membre devra confirmer sa connexion avec un second facteur.</small></span>
+    <PermissionGuard permission="security.manage" fallback={<ReadOnly />}>
+      <form onSubmit={submit} className="grid max-w-[640px] gap-4">
+        <section className="grid gap-3 border-b border-[#e7eaec] pb-4">
+          <label className="flex items-center justify-between gap-4 text-[14px] text-[#30363a]">
+            <span>
+              <span className="block font-medium">Authentification multifacteur</span>
+              <span className="mt-1 block text-[12px] text-[#697178]">Protection supplémentaire des comptes.</span>
+            </span>
+            <input aria-label="Authentification multifacteur" name="mfa" type="checkbox" defaultChecked={sec.require_mfa === undefined ? true : Boolean(sec.require_mfa)} className="h-5 w-5 accent-[#202326]" />
           </label>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <label>Durée maximale d’une session<input name="timeout" type="number" min="15" max="10080" className={`${input} mt-1`} defaultValue={Number(sec.session_timeout_minutes || 480)} /><small className="text-[11px] font-normal text-[#74808c]">En minutes</small></label>
-            <label>Déconnexion après inactivité<input name="inactivity" type="number" min="5" max="1440" className={`${input} mt-1`} defaultValue={Number(sec.inactivity_timeout_minutes || 30)} /><small className="text-[11px] font-normal text-[#74808c]">En minutes</small></label>
-            <label>Tentatives avant verrouillage<input name="attempts" type="number" min="3" max="20" className={`${input} mt-1`} defaultValue={Number(sec.max_failed_attempts || 5)} /><small className="text-[11px] font-normal text-[#74808c]">Échecs de connexion</small></label>
-          </div>
-          <div className="rounded-md bg-[#f7f8fa] p-4 text-[12px] text-[#53606d]"><b className="block text-[#25292e]">Sessions et appareils</b>Chaque membre peut consulter ses appareils connectés et fermer ses autres sessions depuis son menu de compte.</div>
-          <button className={primary}>Enregistrer la politique</button>
-        </form>
-      </PermissionGuard>
-    </Card>
+          <p className="text-[12px] leading-5 text-[#697178]">Rôles personnalisés, accès par bureau, historique des connexions et audit des changements sensibles.</p>
+          <Link href="/app/settings?section=team" className="flex h-10 w-full items-center justify-center rounded-full border border-[#d8dddf] text-[13px] font-medium text-[#424a50] hover:bg-[#f7f8f8]">Configurer les accès</Link>
+        </section>
+        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4">
+          <span className="text-[11px] text-[#858d93]">Paramètres de sécurité de l’agence</span>
+          <button className={primary}>Enregistrer</button>
+        </div>
+      </form>
+    </PermissionGuard>
   );
 }
 function Workspaces({

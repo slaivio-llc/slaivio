@@ -121,9 +121,9 @@ export function ParcelOperationsHub() {
 
   return <div className="min-h-full bg-white">
     <OperationPageHeader title="Opérations" description="Vue d’ensemble de l’activité cargo" actions={<div className="flex flex-wrap items-center justify-end gap-2">
-      {available && permissions.includes("packages.create") && <OperationButton variant="primary" onClick={() => requestCreate("packages")}><Plus size={14}/>Créer un colis</OperationButton>}
-      {available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("shipments")}><Plus size={14}/>Nouvelle expédition</OperationButton>}
-      {available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("calendar")}><CalendarDays size={14}/>Planifier calendrier</OperationButton>}
+      {view === "packages" && available && permissions.includes("packages.create") && <OperationButton variant="primary" onClick={() => requestCreate("packages")}><Plus size={14}/>Créer un colis</OperationButton>}
+      {view === "shipments" && available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("shipments")}><Plus size={14}/>Nouvelle expédition</OperationButton>}
+      {view === "calendar" && available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("calendar")}><CalendarDays size={14}/>Planifier calendrier</OperationButton>}
     </div>}/>
     <main className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-8">
       <nav aria-label="Sections Opérations" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">

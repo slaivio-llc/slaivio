@@ -16,6 +16,7 @@ import {
   Languages,
   LogOut,
   Menu,
+  MoreHorizontal,
   MessageSquareText,
   MessagesSquare,
   PanelLeftClose,
@@ -351,7 +352,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {floatingPanel && <button aria-label="Fermer le menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setFloatingPanel(null)} />}
         {floatingPanel === "help" && <div className="fixed right-[82px] top-[52px] z-50"><HelpMenu close={() => setFloatingPanel(null)} /></div>}
-        {floatingPanel === "notifications" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-[70px] left-3 lg:left-[96px]" : "right-[48px] top-[52px]"}`}><NotificationsMenu pilot={pilot && !cargo} close={() => setFloatingPanel(null)} /></div>}
+        {floatingPanel === "notifications" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-[70px] left-3 lg:left-[96px]" : "right-[48px] top-[52px]"}`}><NotificationsMenu close={() => setFloatingPanel(null)} /></div>}
         {floatingPanel === "language" && <div className="fixed right-[82px] top-[52px] z-50"><LanguageMenu close={() => setFloatingPanel(null)}/></div>}
         {floatingPanel === "account" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-3 left-3 lg:left-[96px]" : "right-3 top-[52px]"}`}><AccountMenu close={() => setFloatingPanel(null)} /></div>}
 
@@ -719,104 +720,118 @@ function HelpMenu({ close }: { close: () => void }) {
 }
 
 
-function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?: boolean }) {
+function NotificationsMenu({ close }: { close: () => void }) {
   const router = useRouter();
   const { permissions } = usePermissions();
   const canManage = permissions.includes("notifications.manage");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const [items, setItems] = useState<CenterItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"unread" | "read">("unread");
-  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"all" | "unread">("all");
+  const [selected, setSelected] = useState<CenterItem | null>(null);
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
 
   useEffect(() => {
     let active = true;
-    listNotifications({ status: tab === "unread" ? "UNREAD" : "READ", page_size: 20 })
-      .then((result) => { if (active) setItems(result.items); })
+    listNotifications({ ...(tab === "unread" ? { status: "UNREAD" } : {}), page_size: 20 })
+      .then((result) => { if (active) { setItems(result.items); setUnreadCount(result.stats.unread); } })
       .catch(() => { if (active) setError("Notifications indisponibles."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [tab, revision]);
 
-  const filtered = items.filter((item) => `${item.title} ${item.message}`.toLocaleLowerCase("fr").includes(query.toLocaleLowerCase("fr")));
-
-  async function markRead(item: CenterItem) {
-    if (busy) return;
-    setBusy(true);
+  async function openNotification(item: CenterItem) {
+    setSelected(item);
+    setDirection("forward");
     setError("");
-    try {
-      if (!item.read_at && canManage) await notificationAction(item, "read");
-      const destination = item.href && !item.href.startsWith("/app/notifications") ? item.href : null;
-      if (destination) router.push(destination);
-      close();
-    } catch {
-      setError("Impossible de marquer la notification comme lue. Réessayez.");
-    } finally {
-      setBusy(false);
+    if (!item.read_at && canManage) {
+      setBusy(true);
+      try {
+        await notificationAction(item, "read");
+        const readItem = { ...item, read_at: new Date().toISOString() };
+        setSelected(readItem);
+        setItems(current => tab === "unread"
+          ? current.filter(entry => entry.id !== item.id || entry.source !== item.source)
+          : current.map(entry => entry.id === item.id && entry.source === item.source ? readItem : entry));
+        setUnreadCount(count => Math.max(0, count - 1));
+      } catch {
+        setError("Le détail est ouvert, mais la notification n’a pas pu être marquée comme lue.");
+      } finally {
+        setBusy(false);
+      }
     }
   }
 
-  function switchTab(next: "unread" | "read") {
+  function backToList() { setDirection("back"); setSelected(null); }
+  function switchTab(next: "all" | "unread") {
     if (next === tab) return;
-    setError("");
-    setLoading(true);
-    setTab(next);
+    setError(""); setLoading(true); setTab(next);
   }
-
   async function readEverything() {
-    setBusy(true);
-    setError("");
-    try {
-      await markAllRead();
-      setLoading(true);
-      setRevision((value) => value + 1);
-    } catch {
-      setError("Impossible de marquer les notifications comme lues. Réessayez.");
-    } finally {
-      setBusy(false);
-    }
+    if (!canManage || busy) return;
+    setBusy(true); setError("");
+    try { await markAllRead(); setUnreadCount(0); setLoading(true); setRevision(value => value + 1); }
+    catch { setError("Impossible de marquer les notifications comme lues. Réessayez."); }
+    finally { setBusy(false); }
   }
+  function openDestination(item: CenterItem) {
+    if (!item.href) return;
+    router.push(item.href);
+    close();
+  }
+  function timeAgo(value: string) {
+    const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+    if (minutes < 1) return "À l’instant";
+    if (minutes < 60) return `Il y a ${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Il y a ${hours} h`;
+    return `Il y a ${Math.floor(hours / 24)} j`;
+  }
+  const filtered = items;
 
-  return (
-    <div className="flex h-[560px] w-[380px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-[7px] border border-[#d1d4d7] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
-      <div className="flex h-12 shrink-0 items-center border-b border-[#e5e6e7] px-4">
-        <div className="text-[13px] font-semibold">Notifications</div>
-        <div className="ml-auto flex rounded-[5px] bg-[#f0f1f1] p-0.5">
-          <button type="button" aria-pressed={tab === "unread"} onClick={() => switchTab("unread")} className={`h-7 rounded-[4px] px-2.5 text-[11px] ${tab === "unread" ? "bg-white shadow-sm" : ""}`}>Non lues</button>
-          <button type="button" aria-pressed={tab === "read"} onClick={() => switchTab("read")} className={`h-7 rounded-[4px] px-2.5 text-[11px] ${tab === "read" ? "bg-white shadow-sm" : ""}`}>Lues</button>
+  return <div role="dialog" aria-label="Notifications" className="w-[292px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[10px] border border-[#dfe2e4] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
+    <div key={selected ? `detail-${selected.id}` : "list"} className={`help-panel-enter-${direction}`}>
+      {!selected ? <>
+        <header className="flex items-start gap-2 px-3 pt-3">
+          <div className="min-w-0 flex-1"><h2 className="text-[13px] font-semibold text-[#25292e]">Notifications</h2><p className="mt-0.5 text-[10px] text-[#737b82]">{unreadCount} non lue{unreadCount === 1 ? "" : "s"}</p></div>
+          {canManage && <button type="button" title="Tout marquer comme lu" aria-label="Tout marquer comme lu" disabled={busy || loading || unreadCount === 0} onClick={() => void readEverything()} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5] disabled:opacity-40"><MoreHorizontal size={16}/></button>}
+          <button type="button" aria-label="Fermer les notifications" onClick={close} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5]"><X size={14}/></button>
+        </header>
+        <nav aria-label="Filtres des notifications" className="mx-3 mt-2 flex gap-1 border-b border-[#e9ebec] pb-2">
+          <button type="button" aria-pressed={tab === "all"} onClick={() => switchTab("all")} className={`h-7 rounded-full px-3 text-[10px] ${tab === "all" ? "bg-[#111] font-semibold text-white" : "text-[#555e65] hover:bg-[#f3f4f4]"}`}>Toutes</button>
+          <button type="button" aria-pressed={tab === "unread"} onClick={() => switchTab("unread")} className={`h-7 rounded-full px-3 text-[10px] ${tab === "unread" ? "bg-[#111] font-semibold text-white" : "text-[#555e65] hover:bg-[#f3f4f4]"}`}>Non lues ({unreadCount})</button>
+        </nav>
+        <div className="max-h-[350px] min-h-[110px] overflow-y-auto px-2 py-1">
+          {loading ? <div className="flex h-28 items-center justify-center" aria-label="Chargement des notifications"><span className="flex items-center gap-1.5">{[0, 1, 2].map(dot => <span key={dot} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#169c68]" style={{ animationDelay: `${dot * 140}ms` }}/>)}</span></div>
+            : error && !items.length ? <div role="alert" className="p-5 text-center text-[11px] text-red-600">{error}<button type="button" onClick={() => { setError(""); setLoading(true); setRevision(value => value + 1); }} className="mt-2 block w-full underline">Réessayer</button></div>
+            : !filtered.length ? <div className="flex min-h-[120px] flex-col items-center justify-center px-5 text-center"><CheckCheck size={21} className="text-[#a1a7ad]"/><p className="mt-2 text-[11px] font-medium">Aucune notification {tab === "unread" ? "non lue" : "pour le moment"}</p><p className="mt-1 text-[10px] text-[#858b92]">Les mises à jour opérationnelles apparaîtront ici.</p></div>
+            : filtered.map(item => <button type="button" disabled={busy} key={`${item.source}-${item.id}`} onClick={() => void openNotification(item)} className="flex min-h-[56px] w-full items-center gap-2 border-b border-[#f0f1f2] px-1.5 py-2 text-left hover:bg-[#fafbfb] disabled:opacity-60">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[5px] bg-[#f2f3f3] text-[#626b72]"><Package size={13}/></span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-[10px] font-medium text-[#25292e]">{item.title}</span><span className="mt-0.5 block truncate text-[9px] text-[#697179]">{item.message}</span><span className="mt-0.5 block text-[8px] text-[#939ba2]">{timeAgo(item.created_at)}</span></span>
+              {!item.read_at && <span className="h-2 w-2 shrink-0 rounded-full bg-[#df5b26]"/>}<ChevronRight size={13} className="shrink-0 text-[#939ba2]"/>
+            </button>)}
         </div>
-      </div>
-      {canManage && <button type="button" disabled={busy || loading} onClick={readEverything} className="px-4 py-2 text-left text-xs text-emerald-700 disabled:opacity-50">Tout marquer comme lu</button>}
-      <div className="border-b border-[#eceeef] p-3">
-        <label className="flex h-8 items-center gap-2 rounded-[5px] border border-[#d7dade] bg-[#f8f8f7] px-2 focus-within:border-[#7771ed]">
-          <Search size={14} className="text-[#737a82]" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent text-[12px] outline-none" placeholder="Rechercher" />
-        </label>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {loading ? (
-          <div className="flex h-full min-h-36 items-center justify-center" aria-label="Chargement des notifications">
-            <span className="flex items-center gap-1.5">
-              {[0, 1, 2].map((dot) => <span key={dot} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#169c68]" style={{ animationDelay: `${dot * 140}ms` }} />)}
-            </span>
-          </div>
-        ) : error ? <div role="alert" className="p-6 text-center text-[12px]"><p className="text-red-600">{error}</p><button type="button" onClick={() => { setError(""); setLoading(true); setRevision((value) => value + 1); }} className="mt-3 rounded border px-3 py-2">Réessayer</button></div> : !filtered.length ? (
-          <div className="flex h-full flex-col items-center justify-center px-8 text-center"><CheckCheck size={24} className="text-[#a1a7ad]" /><p className="mt-3 text-[13px] font-medium">Aucune notification {tab === "unread" ? "non lue" : "lue"}</p><p className="mt-1 text-[11px] leading-5 text-[#858b92]">Les mises à jour opérationnelles apparaîtront ici.</p></div>
-        ) : filtered.map((item) => (
-          <button type="button" disabled={busy} key={`${item.source}-${item.id}`} onClick={() => markRead(item)} className="flex w-full gap-3 border-b border-[#eceeef] px-4 py-3 text-left hover:bg-[#f7f8f8] disabled:opacity-50">
-            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.priority === "CRITICAL" ? "bg-red-500" : item.priority === "HIGH" ? "bg-amber-500" : "bg-[#5b55e7]"}`} />
-            <span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold">{item.title}</span><span className="mt-1 line-clamp-2 block text-[11px] leading-4 text-[#666e77]">{item.message}</span><span className="mt-1.5 block text-[10px] text-[#959ba1]">{new Date(item.created_at).toLocaleString("fr-FR")}</span></span>
-          </button>
-        ))}
-      </div>
-      <div className="grid shrink-0 grid-cols-2 border-t border-[#e5e6e7] p-2">
-        <Link href={pilot ? "/app/inbox" : "/app/communication"} onClick={close} className="flex h-8 items-center justify-center rounded-[5px] text-[11px] font-medium hover:bg-[#f0f1f1]">{pilot ? "Boîte de réception" : "Communication"}</Link>
-        <Link href="/app/settings?section=notifications" onClick={close} className="flex h-8 items-center justify-center gap-1.5 rounded-[5px] text-[11px] font-medium hover:bg-[#f0f1f1]"><Settings size={13} />Préférences</Link>
-      </div>
+        {error && items.length > 0 && <p role="alert" className="border-t border-[#f0d8d5] px-3 py-1.5 text-[9px] text-red-700">{error}</p>}
+      </> : <>
+        <header className="flex h-[46px] items-center gap-2 border-b border-[#e9ebec] px-2.5">
+          <button type="button" aria-label="Retour à la liste" onClick={backToList} className="grid h-7 w-7 place-items-center rounded text-[#596169] hover:bg-[#f3f5f4]"><ArrowLeft size={14}/></button>
+          <h2 className="flex-1 text-[11px] font-medium text-[#25292e]">Détail de la notification</h2>
+          <button type="button" aria-label="Fermer les notifications" onClick={close} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5]"><X size={14}/></button>
+        </header>
+        <article className="px-3.5 py-4">
+          <div className="flex items-start gap-2"><Package size={15} className="mt-0.5 shrink-0 text-[#30363a]"/><div className="min-w-0"><h3 className="text-[11px] font-semibold text-[#25292e]">{selected.title}</h3><p className="mt-0.5 text-[9px] text-[#858d93]">{timeAgo(selected.created_at)}</p></div></div>
+          <p className="mt-3 whitespace-pre-wrap text-[10px] leading-[1.55] text-[#424a50]">{selected.message}</p>
+          {(selected.resource_id || selected.category) && <p className="mt-3 flex items-center gap-1.5 text-[9px] text-[#858d93]"><Package size={10}/>Référence : {selected.resource_id || selected.category}</p>}
+          {selected.href && <button type="button" onClick={() => openDestination(selected)} className="mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-[#111] text-[10px] font-semibold text-white hover:bg-[#303030]">Voir {selected.resource_kind === "PARCEL" ? "le colis" : selected.resource_kind === "SHIPMENT" ? "l’expédition" : selected.resource_kind === "INVOICE" ? "la facture" : "le détail"}<span aria-hidden="true">↗</span></button>}
+          {busy && <p className="mt-2 text-[9px] text-[#697179]">Mise à jour du statut de lecture…</p>}
+          {error && <p role="alert" className="mt-2 text-[9px] text-amber-700">{error}</p>}
+        </article>
+      </>}
     </div>
-  );
+  </div>;
 }
 
 function MenuDivider() {

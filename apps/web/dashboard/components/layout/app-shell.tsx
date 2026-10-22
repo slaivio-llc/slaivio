@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleHelp,
-  CreditCard,
   Home,
   LayoutDashboard,
   Keyboard,
@@ -20,19 +19,15 @@ import {
   Menu,
   MessageSquareText,
   MessagesSquare,
-  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Package,
-  Plug,
   Search,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
-  Sun,
   TicketCheck,
-  Trash2,
   UserRound,
   Users,
   Wallet,
@@ -46,11 +41,10 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { usePermissions } from "@/components/permissions/permission-provider";
 
 import { WorkspaceSearch } from "@/components/layout/workspace-search";
-import { CargoAccountMenu } from "@/components/layout/cargo-account-menu";
 import { OrganizationSwitcher } from "@/components/tenant/organization-switcher";
 import { OfficeContextSelector } from "@/components/tenant/office-context-selector";
 import { canAccessRoute, getAppNavigation, getCompactPrimaryRoutes, type AppRoute } from "@/config/app-navigation";
-import { getOrganizationProductProfile, getProductProfile, isPilotV1, usesCompactAgencyShell } from "@/config/product-profile";
+import { getOrganizationProductProfile, getProductProfile, usesCompactAgencyShell } from "@/config/product-profile";
 import { SESSION_EXPIRED_EVENT } from "@/services/api";
 import { listNotifications, markAllRead, notificationAction, type CenterItem } from "@/services/notification-center";
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
@@ -363,7 +357,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {floatingPanel === "help" && <div className="fixed right-[82px] top-[52px] z-50"><HelpMenu close={() => setFloatingPanel(null)} /></div>}
         {floatingPanel === "notifications" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-[70px] left-3 lg:left-[96px]" : "right-[48px] top-[52px]"}`}><NotificationsMenu pilot={pilot && !cargo} close={() => setFloatingPanel(null)} /></div>}
         {floatingPanel === "language" && <div className="fixed right-[82px] top-[52px] z-50"><LanguageMenu close={() => setFloatingPanel(null)}/></div>}
-        {floatingPanel === "account" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-3 left-3 lg:left-[96px]" : "right-3 top-[52px]"}`}>{cargo && clerkEnabled ? <CargoAccountMenu locale={locale} close={() => setFloatingPanel(null)} preferences={() => setFloatingPanel("language")}/> : <AccountMenu close={() => setFloatingPanel(null)} openSupport={() => { setFloatingPanel(null); setSupportView("topics"); }} />}</div>}
+        {floatingPanel === "account" && <div className={`fixed z-50 ${pilot && !cargo ? "bottom-3 left-3 lg:left-[96px]" : "right-3 top-[52px]"}`}><AccountMenu close={() => setFloatingPanel(null)} /></div>}
 
         {supportView && <SupportDialog locale={locale} view={supportView} setView={setSupportView} close={() => setSupportView(null)} />}
 
@@ -504,19 +498,19 @@ function ClerkAccountTrigger({ onClick, rail }: { onClick: () => void; rail: boo
   );
 }
 
-function AccountMenu({ close, openSupport }: { close: () => void; openSupport: () => void }) {
+function AccountMenu({ close }: { close: () => void }) {
   if (!clerkEnabled) {
-    return <FallbackAccountMenu close={close} openSupport={openSupport} />;
+    return <FallbackAccountMenu close={close} />;
   }
-  return <ClerkAccountMenu close={close} openSupport={openSupport} />;
+  return <ClerkAccountMenu close={close} />;
 }
 
-function ClerkAccountMenu({ close, openSupport }: { close: () => void; openSupport: () => void }) {
+function ClerkAccountMenu({ close }: { close: () => void }) {
   const { user } = useUser();
-  const { signOut } = useClerk();
-  const name = user?.primaryEmailAddress?.emailAddress || user?.fullName || "Compte";
+  const { signOut, openUserProfile } = useClerk();
+  const name = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Compte";
   const email = user?.primaryEmailAddress?.emailAddress || "";
-  return <AccountMenuContent close={close} name={name} email={email} imageUrl={user?.imageUrl} openSupport={openSupport} logout={() => signOut({ redirectUrl: "/sign-in" })} />;
+  return <AccountMenuContent close={close} name={name} email={email} imageUrl={user?.imageUrl} openProfile={() => { close(); openUserProfile(); }} logout={() => signOut({ redirectUrl: "/sign-in" })} />;
 }
 
 function FallbackAccountTrigger({ onClick, rail }: { onClick: () => void; rail: boolean }) {
@@ -527,8 +521,8 @@ function FallbackAccountTrigger({ onClick, rail }: { onClick: () => void; rail: 
   );
 }
 
-function FallbackAccountMenu({ close, openSupport }: { close: () => void; openSupport: () => void }) {
-  return <AccountMenuContent close={close} name="Compte local" email="compte@local" openSupport={openSupport} logout={() => { window.location.assign("/sign-in"); }} />;
+function FallbackAccountMenu({ close }: { close: () => void }) {
+  return <AccountMenuContent close={close} name="Compte local" email="compte@local" logout={() => { window.location.assign("/sign-in"); }} />;
 }
 
 function LanguageMenu({close}:{close:()=>void}){
@@ -537,65 +531,67 @@ function LanguageMenu({close}:{close:()=>void}){
   return <div className="w-[230px] rounded-[8px] border border-[#d1d5d8] bg-white p-1.5 shadow-[0_16px_44px_rgba(15,23,42,.18)]"><p className="px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#7a838b]">{dashboardLabel(locale,"Langue du tableau de bord")}</p>{([['fr','🇫🇷','Français'],['en','🇬🇧','English']] as const).map(([key,flag,label])=><button key={key} type="button" onClick={()=>choose(key)} className="flex h-10 w-full items-center gap-2 rounded-[6px] px-2 text-left text-[13px] hover:bg-[#f2f4f4]"><span aria-hidden="true">{flag}</span><span className="flex-1">{label}</span>{locale===key&&<CheckCheck size={15} className="text-[#16855f]"/>}</button>)}</div>
 }
 
-function AccountMenuContent({ close, name, email, imageUrl, openSupport, logout }: { close: () => void; name: string; email: string; imageUrl?: string | null; openSupport: () => void; logout: () => void | Promise<unknown> }) {
+function AccountMenuContent({ close, name, email, imageUrl, openProfile, logout }: { close: () => void; name: string; email: string; imageUrl?: string | null; openProfile?: () => void; logout: () => void | Promise<unknown> }) {
   const locale = useDashboardLocale();
-  const { permissions, available } = usePermissions();
-  const canOpenPlatform = !available || permissions.some((permission) => permission.startsWith("platform."));
-  const pilot = isPilotV1();
-  const [theme,setTheme]=useState<"light"|"dark">("light");
-  const [signingOut,setSigningOut]=useState(false);
-  useEffect(()=>{setTheme(document.documentElement.dataset.theme==="dark"?"dark":"light")},[]);
-  function toggleTheme(){const next=theme==="dark"?"light":"dark";setTheme(next);document.documentElement.dataset.theme=next;window.localStorage.setItem("slaivio.theme",next);}
-  async function signOutAccount(){setSigningOut(true);try{await logout();}catch{setSigningOut(false)}}
+  const [view, setView] = useState<"home" | "preferences" | "security">("home");
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const [appearance, setAppearance] = useState<"light" | "dark" | "system">("light");
+  const [inAppNotifications, setInAppNotifications] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
 
-  if (pilot) {
-    return (<>
-      {signingOut && <SlaivioLogoLoader overlay label={locale === "en" ? "Signing out" : "Déconnexion"} />}
-      <div className="w-[300px] rounded-[7px] border border-[#d1d4d7] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
-        <div className="px-4 py-3.5">
-          <p className="text-[11px] text-[#737a82]">{locale === "en" ? "Signed in as" : "Connecté en tant que"}</p>
-          <p className="mt-1 truncate text-[13px] font-semibold">{email}</p>
-        </div>
-        <MenuDivider />
-        <button type="button" onClick={openSupport} className={menuClass}><CircleHelp size={15} />Support</button>
-        <MenuLink href="/app/settings?section=privacy" icon={<ShieldCheck size={15} />} label={locale === "en" ? "Privacy and cookies" : "Confidentialité et cookies"} close={close} />
-        <MenuLink href="/app/settings" icon={<Settings size={15} />} label={dashboardLabel(locale,"Paramètres")} close={close} />
-        <MenuDivider />
-        <button type="button" onClick={() => void signOutAccount()} disabled={signingOut} className={menuClass}>
-          <LogOut size={15} /> {dashboardLabel(locale,"Se déconnecter")}
-        </button>
-      </div>
-    </>);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("slaivio.user.preferences") || "{}");
+      if (saved.appearance === "light" || saved.appearance === "dark" || saved.appearance === "system") setAppearance(saved.appearance);
+      if (typeof saved.inAppNotifications === "boolean") setInAppNotifications(saved.inAppNotifications);
+    } catch { /* Ignore invalid personal preferences. */ }
+  }, []);
+
+  function navigate(next: typeof view) { setDirection(next === "home" ? "back" : "forward"); setView(next); }
+  function applyAppearance(next: "light" | "dark" | "system") {
+    setAppearance(next);
+    const resolved = next === "system" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : next;
+    document.documentElement.dataset.theme = resolved;
+    window.localStorage.setItem("slaivio.theme", resolved);
   }
+  function savePreferences() {
+    window.localStorage.setItem("slaivio.user.preferences", JSON.stringify({ appearance, inAppNotifications }));
+    close();
+  }
+  async function signOutAccount() { setSigningOut(true); try { await logout(); } catch { setSigningOut(false); } }
 
-  return (<>
-    {signingOut && <SlaivioLogoLoader overlay label="Déconnexion" />}
-    <div className="w-[300px] overflow-hidden rounded-[7px] border border-[#d1d4d7] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
-      <div className="flex items-center gap-3 px-4 py-4">
-        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#087a46] text-sm font-semibold text-white"><UserAvatar imageUrl={imageUrl} name={name} size={40} /></div>
-        <div className="min-w-0"><div className="truncate text-[13px] font-semibold">{name}</div><div className="truncate text-[11px] text-[#737a82]">{email}</div></div>
+  return <>
+    {signingOut && <SlaivioLogoLoader overlay label={locale === "en" ? "Signing out" : "Déconnexion"} />}
+    <div className="w-[300px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[10px] border border-[#dfe2e4] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
+      <div key={view} className={`help-panel-enter-${direction}`}>
+        {view === "home" && <>
+          <div className="flex items-center gap-3 px-3.5 py-3.5">
+            <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#087a46] text-[13px] font-semibold text-white"><UserAvatar imageUrl={imageUrl} name={name} size={40} /></div>
+            <div className="min-w-0"><p className="truncate text-[13px] font-medium text-[#25292e]">{name}</p><p className="truncate text-[11px] text-[#737a82]">{email}</p></div>
+          </div>
+          <MenuDivider />
+          <button type="button" onClick={() => openProfile?.()} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><UserRound size={14} className="text-[#697179]" />Mon profil<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
+          <button type="button" onClick={() => navigate("preferences")} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><SlidersHorizontal size={14} className="text-[#697179]" />Préférences<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
+          <button type="button" onClick={() => navigate("security")} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><ShieldCheck size={14} className="text-[#697179]" />Sécurité<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
+          <MenuDivider />
+          <button type="button" onClick={() => void signOutAccount()} disabled={signingOut} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] text-[#c73535] hover:bg-[#fff7f7] disabled:opacity-60"><LogOut size={14} />{locale === "en" ? "Sign out" : "Se déconnecter"}</button>
+        </>}
+        {view === "preferences" && <>
+          <div className="flex h-11 items-center gap-2 border-b border-[#e7eaec] px-2.5"><button type="button" aria-label="Retour" onClick={() => navigate("home")} className="grid h-7 w-7 place-items-center rounded hover:bg-[#f3f5f4]"><ArrowLeft size={15} /></button><span className="text-[12px] font-semibold">Préférences</span></div>
+          <div className="grid gap-3 px-3 py-3.5">
+            <label className="grid gap-1 text-[10px] text-[#697179]">Langue de l’interface<select value={locale} onChange={event => setDashboardLocale(event.target.value as "fr" | "en")} className="h-8 rounded-full border border-[#d8dddf] bg-white px-2.5 text-[11px] text-[#25292e]"><option value="fr">Français</option><option value="en">English</option></select></label>
+            <fieldset className="grid gap-1"><legend className="mb-0.5 text-[10px] text-[#697179]">Apparence</legend>{([["light", "Clair"], ["dark", "Sombre"], ["system", "Automatique (système)"]] as const).map(([value, label]) => <label key={value} className="flex h-6 items-center gap-2 text-[11px]"><input type="radio" name="account-appearance" checked={appearance === value} onChange={() => applyAppearance(value)} className="accent-[#111]" />{label}</label>)}</fieldset>
+            <label className="flex items-center gap-2 text-[11px]"><input type="checkbox" checked={inAppNotifications} onChange={event => setInAppNotifications(event.target.checked)} className="accent-[#111]" />Notifications dans l’application</label>
+            <button type="button" onClick={savePreferences} className="h-8 rounded-full bg-[#111] text-[11px] font-semibold text-white hover:bg-[#303030]">Enregistrer</button>
+          </div>
+        </>}
+        {view === "security" && <>
+          <div className="flex h-11 items-center gap-2 border-b border-[#e7eaec] px-2.5"><button type="button" aria-label="Retour" onClick={() => navigate("home")} className="grid h-7 w-7 place-items-center rounded hover:bg-[#f3f5f4]"><ArrowLeft size={15} /></button><span className="text-[12px] font-semibold">Sécurité</span></div>
+          <div className="grid gap-2.5 px-3 py-3.5"><p className="text-[10px] leading-4 text-[#697179]">Sécurisez l’accès à votre compte personnel.</p>{openProfile ? <><p className="text-[10px] text-[#697179]">La gestion du mot de passe et des sessions est assurée par votre fournisseur de connexion.</p><button type="button" onClick={openProfile} className="h-8 rounded-full border border-[#d8dddf] text-[11px] hover:bg-[#f7f8f8]">Gérer la sécurité du compte</button></> : <p className="rounded-md bg-[#f7f8f8] p-2.5 text-[10px] leading-4 text-[#697179]">La gestion de la sécurité n’est pas disponible pour ce type de session.</p>}</div>
+        </>}
       </div>
-      <MenuDivider />
-      <MenuLink href="/app/settings?section=general" icon={<UserRound size={15} />} label="Compte et profil" close={close} />
-      <MenuLink href="/app/settings?section=agency" icon={<Settings size={15} />} label="Organisation" close={close} />
-      <MenuLink href="/app/settings?section=workspaces" icon={<Home size={15} />} label="Espaces et agences" close={close} />
-      <MenuLink href="/app/settings?section=team" icon={<Users size={15} />} label="Équipe et accès" close={close} />
-      <MenuLink href="/app/settings?section=roles" icon={<ShieldCheck size={15} />} label="Rôles et permissions" close={close} />
-      <MenuLink href="/app/settings?section=notifications" icon={<SlidersHorizontal size={15} />} label="Préférences de notifications" close={close} />
-      <MenuLink href="/app/settings?section=general" icon={<Languages size={15} />} label="Langue et formats" close={close} />
-      <button type="button" onClick={toggleTheme} className={menuClass}>{theme==="dark"?<Sun size={15}/>:<Moon size={15}/>} {theme==="dark"?"Mode clair":"Mode sombre"}</button>
-      <MenuDivider />
-      <MenuLink href="/app/settings?section=integrations" icon={<Plug size={15} />} label="Intégrations" close={close} />
-      <MenuLink href="/app/settings?section=billing" icon={<CreditCard size={15} />} label="Abonnement et facturation" close={close} />
-      <MenuLink href="/app/settings?section=security" icon={<ShieldCheck size={15} />} label="Sécurité" close={close} />
-      {canOpenPlatform && <MenuLink href="/app/platform" icon={<ShieldCheck size={15} />} label="Console Super Admin" close={close} />}
-      <MenuDivider />
-      <MenuDisabled icon={<Trash2 size={15} />} label="Corbeille" status="Bientôt" />
-      <button type="button" onClick={() => void signOutAccount()} disabled={signingOut} className={menuClass}>
-        <LogOut size={15} /> Se déconnecter
-      </button>
     </div>
-  </>);
+  </>;
 }
 
 function SupportDialog({ locale, view, setView, close }: { locale: "fr" | "en"; view: Exclude<SupportView, null>; setView: (view: SupportView) => void; close: () => void }) {
@@ -865,16 +861,6 @@ function NotificationsMenu({ close, pilot = false }: { close: () => void; pilot?
       </div>
     </div>
   );
-}
-
-const menuClass = "flex min-h-9 w-full items-center gap-2.5 px-4 text-left text-[12px] text-[#353b42] hover:bg-[#f2f3f3]";
-
-function MenuLink({ href, icon, label, close }: { href: string; icon: ReactNode; label: string; close: () => void }) {
-  return <Link href={href} onClick={close} className={menuClass}>{icon}<span className="truncate">{label}</span><ChevronRight size={13} className="ml-auto text-[#a0a5aa]" /></Link>;
-}
-
-function MenuDisabled({ icon, label, status }: { icon: ReactNode; label: string; status: string }) {
-  return <button type="button" disabled title={`${label} : ${status}`} className="flex min-h-9 w-full cursor-not-allowed items-center gap-2.5 px-4 text-left text-[12px] text-[#a3a8ad]">{icon}<span className="truncate">{label}</span><span className="ml-auto rounded bg-[#f0f1f1] px-1.5 py-0.5 text-[9px] font-medium text-[#8a9096]">{status}</span></button>;
 }
 
 function MenuDivider() {

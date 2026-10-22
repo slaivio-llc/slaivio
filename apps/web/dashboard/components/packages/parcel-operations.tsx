@@ -13,6 +13,13 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 export function parcelError(cause: unknown) {
   const detail = axios.isAxiosError(cause) ? cause.response?.data?.detail : null;
   const messages: Record<string,string> = {
+    package_category_required:"La catégorie de marchandise est obligatoire pour cette agence.",
+    package_packaging_required:"Le conditionnement est obligatoire pour cette agence.",
+    package_measurement_required:"Renseignez un poids ou un volume avant d’enregistrer la réception.",
+    package_photos_disabled:"L’ajout de photos est désactivé dans les paramètres de l’agence.",
+    goods_not_accepted:"Cette marchandise est interdite par les règles de l’agence.",
+    regulated_goods_review_required:"Cette marchandise doit être vérifiée et validée avant l’expédition.",
+    delivery_proof_required:"Enregistrez une preuve de remise avant de marquer ce colis comme livré.",
     package_version_conflict: "Ce colis a été modifié par un autre agent. Actualisez la fiche avant de reprendre.",
     parcel_weight_requires_review: "Le poids est lié à une tarification ou une expédition. Une réévaluation est nécessaire.",
     parcel_edit_closed: "Ce colis est clôturé. Une correction encadrée est nécessaire.",

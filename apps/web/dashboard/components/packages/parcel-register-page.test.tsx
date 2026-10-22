@@ -8,7 +8,7 @@ import { getPackageInvoice } from "@/services/finance";
 import { ParcelRegisterPage } from "./parcel-register-page";
 
 vi.mock("@/services/api", () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
-vi.mock("@/services/packages", () => ({ createPackage: vi.fn(), getPackage: vi.fn(), pricePackage: vi.fn() }));
+vi.mock("@/services/packages", () => ({ createPackage: vi.fn(), getPackage: vi.fn(), getPackageLabel:vi.fn(), pricePackage: vi.fn() }));
 vi.mock("@/services/finance", () => ({ getPackageInvoice: vi.fn(), createPackageInvoice: vi.fn() }));
 vi.mock("@/services/parcel-register", () => ({ getParcelOverview: vi.fn() }));
 vi.mock("@/services/tenant", () => ({ getTenantContext: () => Promise.resolve({ active_tenant: { organization_type: "PARCEL_FREIGHT" } }) }));
@@ -20,7 +20,7 @@ vi.mock("./parcel-receipt-drawer", () => ({ ParcelPackageCreateDrawer: () => <di
 const item = { id: "parcel", org_id: "office", reference: "COL-0042", client_id: "client", client_name: "Marie", local_client: true, status: "RECEIVED_AT_ORIGIN", stage: "received", status_label: "Reçu", service_name: "Cargo aérien", office_name: "Guangzhou" };
 const response = { items: [item], total: 1, page: 1, total_pages: 1 };
 beforeEach(() => {
-  vi.mocked(getPackage).mockReset();
+  vi.mocked(getPackage).mockReset().mockResolvedValue({...item,row_version:1,currency:'USD',fees_total:null,pricing_snapshot:{}} as unknown as PackageRecord);
   vi.mocked(getPackageInvoice).mockReset().mockResolvedValue(null);
   vi.mocked(api.post).mockReset();
   vi.mocked(api.patch).mockReset();
@@ -82,7 +82,7 @@ describe("Registre fret", () => {
     expect(within(drawer).queryByText("Paramètres")).not.toBeInTheDocument();
     expect(within(drawer).getByText("Suivi du colis")).toBeInTheDocument();
     expect(within(drawer).getByText("Photos du colis")).toBeInTheDocument();
-    expect(within(drawer).getByText("Paiement")).toBeInTheDocument();
+    expect(await within(drawer).findByText("Paiement")).toBeInTheDocument();
     expect(within(drawer).queryByRole("button", { name: "Finance" })).not.toBeInTheDocument();
     expect(within(drawer).queryByRole("button", { name: "Historique" })).not.toBeInTheDocument();
     fireEvent.click(within(drawer).getByRole("button", { name: "Historique complet" }));
@@ -95,7 +95,7 @@ describe("Registre fret", () => {
     render(<ParcelRegisterPage />);
     fireEvent.click(await screen.findByRole("button", { name: "COL-0042" }));
     const drawer = await screen.findByRole("dialog", { name: "COL-0042" });
-    fireEvent.click(within(drawer).getByRole("button", { name: "Détails du paiement" }));
+    fireEvent.click(await within(drawer).findByRole("button", { name: "Détails du paiement" }));
     expect(await within(drawer).findByText("Détails Finance")).toBeInTheDocument();
     expect(within(drawer).getByRole("button", { name: "Calculer le tarif du colis" })).toBeInTheDocument();
     expect(getPackage).toHaveBeenCalledWith("parcel");

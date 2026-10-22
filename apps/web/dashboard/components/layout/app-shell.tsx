@@ -45,13 +45,13 @@ import { OrganizationSwitcher } from "@/components/tenant/organization-switcher"
 import { OfficeContextSelector } from "@/components/tenant/office-context-selector";
 import { canAccessRoute, getAppNavigation, getCompactPrimaryRoutes, type AppRoute } from "@/config/app-navigation";
 import { getOrganizationProductProfile, getProductProfile, usesCompactAgencyShell } from "@/config/product-profile";
-import { SESSION_EXPIRED_EVENT } from "@/services/api";
+import { SESSION_EXPIRED_EVENT,MFA_REQUIRED_EVENT } from "@/services/api";
 import { listNotifications, markAllRead, notificationAction, type CenterItem } from "@/services/notification-center";
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
 import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 import { PilotOfflineIndicator } from "@/components/offline/pilot-offline-indicator";
 import { PilotReadinessPanel } from "@/components/dashboard/pilot-readiness";
-import { dashboardLabel, setDashboardLocale, useDashboardLocale } from "@/components/i18n/dashboard-language";
+import { dashboardLabel, setDashboardLocale,setAgencyDashboardLocale, useDashboardLocale } from "@/components/i18n/dashboard-language";
 import { getTenantContext } from "@/services/tenant";
 import { createTicket, listArticles } from "@/services/support";
 
@@ -81,6 +81,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [mfaRequired,setMfaRequired]=useState(false);
+  const mfaPromptShown=useRef(false);
   const [floatingPanel, setFloatingPanel] = useState<FloatingPanel>(null);
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -92,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     let active = true;
     getTenantContext()
       .then((context) => {
-        if (active) {setProductProfile(getOrganizationProductProfile(context.active_tenant?.organization_type));setWorkspaceKind(context.active_tenant?.workspace_kind || "OFFICE");}
+        if (active) {setProductProfile(getOrganizationProductProfile(context.active_tenant?.organization_type));setWorkspaceKind(context.active_tenant?.workspace_kind || "OFFICE");setAgencyDashboardLocale(context.active_tenant?.language_code==='en'?'en':'fr');}
       })
       .catch(() => undefined);
     return () => { active = false; };
@@ -185,8 +187,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onSessionExpired = () => setSessionExpired(true);
+    const onMfaRequired=()=>{if(!mfaPromptShown.current){mfaPromptShown.current=true;setMfaRequired(true);}};
     window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    window.addEventListener(MFA_REQUIRED_EVENT,onMfaRequired);
+    return () => {window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);window.removeEventListener(MFA_REQUIRED_EVENT,onMfaRequired);};
   }, []);
 
   useEffect(() => {
@@ -386,6 +390,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
+      {mfaRequired && clerkEnabled && <MfaPolicyPrompt close={()=>setMfaRequired(false)}/>}
       {sessionExpired && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/35 p-4" role="alertdialog" aria-modal="true">
           <section className="w-full max-w-sm rounded-[8px] border border-[#d0d3d6] bg-white p-6 shadow-2xl">
@@ -399,6 +404,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
     </div>
   );
+}
+
+function MfaPolicyPrompt({close}:{close:()=>void}){
+  const clerk=useClerk();
+  return <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/35 p-4" role="alertdialog" aria-modal="true" aria-labelledby="agency-mfa-title"><section className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl"><h2 id="agency-mfa-title" className="text-lg font-semibold">Double authentification requise</h2><p className="mt-3 text-sm leading-6 text-slate-600">Votre agence exige une vérification supplémentaire à la connexion. Activez-la dans la sécurité de votre compte, puis reconnectez-vous.</p><button type="button" onClick={()=>{close();clerk.openUserProfile();}} className="mt-4 h-10 w-full rounded-lg border border-slate-300 text-sm">Configurer mon compte</button><button type="button" onClick={()=>void clerk.signOut({redirectUrl:'/sign-in'})} className="mt-2 h-10 w-full rounded-lg bg-slate-900 text-sm font-medium text-white">Se reconnecter</button></section></div>;
 }
 
 function CargoSidebarLink({ href, icon, active, label, collapsed = false }: { href: string; icon: ReactNode; active: boolean; label: string; collapsed?: boolean }) {

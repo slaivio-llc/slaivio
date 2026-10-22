@@ -135,6 +135,10 @@ def shipment_manifest_excel(shipment_id: UUID, tenant=Depends(get_current_tenant
     book = Workbook(); sheet = book.active; sheet.title = 'Manifeste'
     shipment=data['shipment']
     sheet.append(['Manifeste',shipment['reference']])
+    brand=data.get('agency_brand') or {}
+    if brand.get('organization_name'):sheet.append(['Agence',brand['organization_name']])
+    if brand.get('office_name'):sheet.append(['Bureau',brand['office_name']])
+    if brand.get('office_address') or brand.get('address'):sheet.append(['Adresse',brand.get('office_address') or brand.get('address')])
     sheet.append(['Version','Figée au départ' if data['historical_snapshot'] else 'Préparation'])
     sheet.append(['Origine',', '.join(filter(None,[shipment.get('origin_city'),shipment.get('origin_country')]))])
     sheet.append(['Destination',', '.join(filter(None,[shipment.get('destination_city'),shipment.get('destination_country')]))])

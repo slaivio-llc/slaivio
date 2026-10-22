@@ -117,8 +117,18 @@ def confirm_invoice_payment(
 def get_billing_overview(
     org_id: str,
 ):
+    from sqlalchemy import text
+    from app.db.database import engine
+    with engine.connect() as connection:
+        usage=dict(connection.execute(text("""select
+            (select count(*) from clients where org_id=:org and deleted_at is null) clients,
+            (select count(*) from cargo_packages where org_id=:org and deleted_at is null) packages,
+            (select count(*) from organization_memberships where org_id=:org and status='ACTIVE') members,
+            (select count(*) from organization_locations where org_id=:org and status='ACTIVE' and location_type='OFFICE') offices
+            """),{'org':org_id}).mappings().one())
     return {
         "subscription": get_subscription(org_id),
         "invoices": list_invoices(org_id),
+        "usage":usage,
     }
 

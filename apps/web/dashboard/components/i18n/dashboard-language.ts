@@ -8,7 +8,16 @@ const EVENT = "slaivio:language-changed";
 
 export function readDashboardLocale(): DashboardLocale {
   if (typeof window === "undefined") return "fr";
-  return window.localStorage.getItem("slaivio-locale") === "en" ? "en" : "fr";
+  return (window.localStorage.getItem("slaivio-locale") || window.sessionStorage.getItem('slaivio-agency-locale')) === "en" ? "en" : "fr";
+}
+
+export function setAgencyDashboardLocale(locale:DashboardLocale){
+  window.sessionStorage.setItem('slaivio-agency-locale',locale);
+  if(!window.localStorage.getItem('slaivio-locale')){
+    document.documentElement.lang=locale;
+    document.cookie=`NEXT_LOCALE=${locale}; path=/; max-age=31536000; SameSite=Lax`;
+    window.dispatchEvent(new CustomEvent(EVENT,{detail:locale}));
+  }
 }
 
 export function setDashboardLocale(locale: DashboardLocale) {

@@ -16,6 +16,10 @@ from fastapi import HTTPException
 
 from app.core.config import settings
 from app.db.database import engine
+from app.organization_admin.settings_policy import (
+    load_policies, validate_receipt, require_photos_allowed,
+    require_delivery_proof, check_regulated_goods,
+)
 
 
 PACKAGE_STATUSES = {
@@ -75,6 +79,7 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
         where organization.id=:org_id
           and organization.organization_type in ('PARCEL_FREIGHT','CARGO')
           and coalesce(settings.notify_package_milestones,true)
+          and (:milestone is distinct from 'package_arrived' or coalesce((org_settings.settings->'shipment_delivery_rules'->>'arrival_notice')::boolean,true))
           and (:milestone is null or coalesce((org_settings.settings->'customer_milestone_notifications'->>:milestone)::boolean,true))
     """), {"org_id": package["org_id"], "milestone": milestone}).first()
     if not enabled:
@@ -894,31 +899,36 @@ def get_package(org_id: str, package_id: str) -> dict | None:
         return package
 
 
-def public_package_tracking(reference: str) -> dict | None:
+def public_package_tracking(reference: str, agency_slug: str | None = None) -> dict | None:
     """Resolve an exact public tracking number and return only customer-safe fields."""
     normalized = str(reference or "").strip()
     if len(normalized) < 6 or len(normalized) > 120:
         return None
     with engine.connect() as conn:
         matches = conn.execute(text("""
-            select package.id::text, package.package_reference, package.tracking_id, package.status,
+            select package.id::text, package.org_id, package.package_reference, package.tracking_id, package.status,
                    package.origin_city, package.origin_country,
                    package.destination_city, package.destination_country,
                    package.eta_at, package.received_at, package.dispatched_at,
                    package.delivered_at, package.last_scan_location,
-                   package.updated_at,
+                   package.updated_at,package.fees_total,package.currency,
                    coalesce(nullif(organization.organization_name,''), nullif(organization.name,''), 'Agence') agency_name,
                    organization.logo_url agency_logo_url,
                    organization.phone agency_support_phone,
+                   organization.primary_color,organization.secondary_color,
+                   org_settings.settings->>'brand_favicon_url' favicon_url,
+                   org_settings.settings->'agency_hours'->>'text' agency_hours,
                    coalesce(org_settings.settings->'public_tracking_page', '{}'::jsonb) tracking_page_settings
             from cargo_packages package
             join organizations organization on organization.id=package.org_id
             left join organization_settings org_settings on org_settings.org_id=organization.id
             where package.deleted_at is null and package.public_tracking_enabled=true
+              and organization.status='ACTIVE'
+              and (:slug is null or org_settings.settings->'public_tracking_page'->>'slug'=:slug)
               and (upper(package.tracking_id)=upper(:reference) or upper(package.package_reference)=upper(:reference))
             order by package.updated_at desc
             limit 2
-        """), {"reference": normalized}).fetchall()
+        """), {"reference": normalized,"slug":agency_slug}).fetchall()
         # An ambiguous reference must not allow a caller to select another tenant.
         if len(matches) != 1:
             return None
@@ -932,8 +942,14 @@ def public_package_tracking(reference: str) -> dict | None:
         if not show_brand:
             package["agency_name"] = None
             package["agency_logo_url"] = None
+            for field in ('primary_color','secondary_color','favicon_url'):
+                package[field]=None
         if not show_support:
             package["agency_support_phone"] = None
+            package['agency_hours']=None
+        if page_settings.get('show_pricing') is not True:
+            package.pop('fees_total',None)
+            package.pop('currency',None)
         package["tracking_page"] = {
             "welcome_message": page_settings.get("welcome_message") or "Suivez votre colis en temps réel grâce à sa référence.",
             "show_brand": show_brand,
@@ -952,6 +968,7 @@ def public_package_tracking(reference: str) -> dict | None:
         """), {"org_id": package["org_id"], "package_id": package["id"]}).fetchall() if show_history else []
         package["events"] = [_safe(dict(row._mapping)) for row in event_rows]
         package.pop("id", None)
+        package.pop('org_id',None)
         return package
 
 
@@ -1081,6 +1098,7 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
     dossier_id = payload.get("dossier_id")
     client_id = payload.get("client_id")
     queued_notification_id = None
+    reference_office_id=payload.get('_reference_office_id')
     with engine.begin() as conn:
         organization_type = conn.execute(text(
             "select organization_type from organizations where id=:org_id"
@@ -1090,6 +1108,9 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
         if organization_type == "PARCEL_FREIGHT" and not dossier_id and payload.get("source", "manual") == "manual":
             from app.packages.receipt import prepare_manual_receipt
             payload = prepare_manual_receipt(payload)
+        validate_receipt(load_policies(conn, org_id), payload)
+        payload['validation_status']='PENDING'
+        check_regulated_goods(conn, org_id, payload, receiving=True)
         dossier = _dossier_for_create(conn, org_id, dossier_id) if dossier_id else None
         if dossier_id and not dossier:
             raise ValueError("dossier_not_found")
@@ -1120,10 +1141,6 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
             if duplicate:
                 raise ValueError("supplier_tracking_already_exists")
         reference = payload.get("package_reference") or payload.get("tracking_id")
-        if not reference:
-            reference = conn.execute(text("""
-              select next_organization_reference(:org_id,'PACKAGE','COL-{YYYY}-{000001}')
-            """), {"org_id": org_id}).scalar_one()
         route_id = payload.get("route_id") or dossier.get("route_id")
         route = None
         if route_id:
@@ -1223,6 +1240,20 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
           where org_id=:org_id and id=cast(:location_id as uuid) and status='ACTIVE'
         """), {"org_id": destination_org_id or org_id, "location_id": destination_location_id}).first():
             raise ValueError("destination_location_not_found")
+        if not reference:
+            numbering=conn.execute(text("select prefix_format,counter_scope from document_numbering_settings where org_id=:org and document_type='PACKAGE'"),{'org':org_id}).mappings().first()
+            if numbering and ('{OFFICE}' in numbering.get('prefix_format','') or numbering.get('counter_scope')=='OFFICE'):
+                offices=conn.execute(text("""select id::text from organization_locations
+                    where org_id=:org and location_type='OFFICE' and status='ACTIVE'
+                    order by (id=cast(:requested as uuid)) desc nulls last,id"""),
+                    {'org':org_id,'requested':reference_office_id or origin_location_id}).scalars().all()
+                requested=str(reference_office_id or origin_location_id or '')
+                if requested in offices:reference_office_id=requested
+                elif len(offices)==1:reference_office_id=offices[0]
+                else:raise HTTPException(422,'reference_office_required')
+            reference=conn.execute(text("""select next_organization_reference(
+                :org_id,'PACKAGE','COL-{YYYY}-{000001}',cast(:office as uuid))"""),
+                {'org_id':org_id,'office':reference_office_id or origin_location_id}).scalar_one()
         # A dossier estimate is commercial context, not a warehouse measurement.
         # Physical package values remain empty until OCR explicitly reads them or
         # an agent/device measures them.
@@ -1344,6 +1375,32 @@ def create_package(org_id: str, user_id: str, payload: dict) -> dict:
             },
         ).fetchone()
         package_id = row[0]
+        receipt_rules=load_policies(conn,org_id).get('parcel_receipt_rules',{})
+        if receipt_rules.get('auto_rate_lookup') is True and shipping_service_id and route_id:
+            from app.pricing_engine.repository import quote as pricing_quote
+            try:
+                with conn.begin_nested():
+                    price=pricing_quote(org_id,{
+                        'route_id':route_id,'shipping_service_id':shipping_service_id,
+                        'category_code':payload.get('goods_classification') or payload.get('category'),
+                        'package_type':payload.get('package_type'),'client_id':client_id,
+                        'weight_kg':payload.get('weight_kg') or 0,'volume_cbm':volume_cbm or 0,
+                        'length_cm':payload.get('length_cm'),'width_cm':payload.get('width_cm'),'height_cm':payload.get('height_cm'),
+                        'units':payload.get('pieces_count') or 1,'declared_value':payload.get('declared_value') or 0,
+                        'priced_at':datetime.now(timezone.utc),'exchange_rate':1,'freeze':True,
+                        'idempotency_key':f'receipt:{package_id}'},user_id,connection=conn)
+                    conn.execute(text("""update cargo_packages set fees_total=:total,currency=:currency,
+                        chargeable_weight_kg=:weight,pricing_snapshot=cast(:snapshot as jsonb)
+                        where org_id=:org_id and id=:id"""),{'org_id':org_id,'id':package_id,
+                        'total':price['total'],'currency':price['currency'],'weight':price.get('chargeable_weight_kg'),
+                        'snapshot':json.dumps(price,default=str)})
+            except HTTPException as exc:
+                if exc.status_code != 422:
+                    raise
+                _insert_package_event(conn,org_id=org_id,package_id=package_id,
+                    event_type='PRICING_REVIEW_REQUIRED',title='Tarif à compléter',
+                    description='Aucun tarif automatique applicable. Complétez les mesures ou vérifiez la grille tarifaire.',
+                    actor_id=user_id,metadata={'reason':exc.detail})
         if payload.get("supplier_tracking"):
             expectation=conn.execute(text("""update package_expectations set status='MATCHED',matched_package_id=:package_id,matched_at=now()
                 where id=(select id from package_expectations where org_id=:org_id and status='EXPECTED' and lower(supplier_tracking)=lower(:tracking)
@@ -1406,6 +1463,17 @@ def update_package(org_id: str, package_id: str, user_id: str, payload: dict) ->
     with engine.begin() as conn:
         conn.execute(text("select id from cargo_packages where org_id=:org_id and id=:id for update"),
             {'org_id':org_id,'id':package_id})
+        validate_receipt(load_policies(conn, org_id), data)
+        category_changed=any(data.get(key)!=existing.get(key) for key in ('category','goods_classification','description'))
+        review={**data,'validation_status':'PENDING' if category_changed else existing.get('validation_status')}
+        if next_status in {'READY_FOR_DISPATCH','READY_FOR_BATCH','BATCHED','SHIPPED','IN_TRANSIT','DELIVERED'}:
+            check_regulated_goods(conn, org_id, review)
+        elif category_changed:
+            check_regulated_goods(conn, org_id, review,receiving=True)
+            data['validation_status']=review['validation_status']
+        if next_status == 'DELIVERED' and previous_status != 'DELIVERED':
+            require_delivery_proof(conn, org_id, existing)
+            _require_package_delivery_financial_clearance(conn, org_id, existing)
         _protect_managed_loading(conn,org_id,[package_id])
         conn.execute(
             text("""
@@ -1586,6 +1654,7 @@ def add_package_media(org_id: str, package_id: str, user_id: str, payload: dict)
     if not get_package(org_id, package_id):
         return None
     with engine.begin() as conn:
+        require_photos_allowed(conn, org_id)
         conn.execute(
             text("""
                 insert into package_media (org_id, package_id, media_url, media_type, caption, uploaded_by_id)
@@ -1614,6 +1683,7 @@ def add_package_media(org_id: str, package_id: str, user_id: str, payload: dict)
 
 def add_private_package_media(org_id: str, package_id: str, user_id: str, payload: dict) -> dict | None:
     with engine.begin() as conn:
+        require_photos_allowed(conn, org_id)
         row = conn.execute(text("select org_id from cargo_packages where id=:id and org_id=:org_id and deleted_at is null for update"), {"id":package_id,"org_id":org_id}).mappings().first()
         if not row: raise HTTPException(404, "package_not_found")
         conn.execute(text("""insert into package_media(org_id,package_id,media_url,media_type,caption,uploaded_by_id,
@@ -1668,7 +1738,7 @@ def set_package_media_customer_visibility(
         return True
 
 
-def public_package_tracking_media(reference: str) -> list[dict]:
+def public_package_tracking_media(reference: str, agency_slug: str | None = None) -> list[dict]:
     """Only explicitly shared images from a uniquely resolved public tracking ref."""
     normalized = str(reference or "").strip()
     if len(normalized) < 6 or len(normalized) > 120:
@@ -1677,17 +1747,22 @@ def public_package_tracking_media(reference: str) -> list[dict]:
         rows = conn.execute(text("""select media.id::text,media.object_path,media.file_name
           from cargo_packages package
           join package_media media on media.package_id=package.id and media.org_id=package.org_id
+          left join organization_settings agency on agency.org_id=package.org_id
           where package.deleted_at is null and package.public_tracking_enabled=true
+            and coalesce((agency.settings->'public_tracking_page'->>'enabled')::boolean,true)
+            and (:slug is null or agency.settings->'public_tracking_page'->>'slug'=:slug)
             and media.customer_visible=true and media.media_type='IMAGE'
             and media.object_path is not null
             and (upper(package.tracking_id)=upper(:reference)
               or upper(package.package_reference)=upper(:reference))
             and 1=(select count(*) from cargo_packages match
+              left join organization_settings match_settings on match_settings.org_id=match.org_id
               where match.deleted_at is null and match.public_tracking_enabled=true
+                and (:slug is null or match_settings.settings->'public_tracking_page'->>'slug'=:slug)
                 and (upper(match.tracking_id)=upper(:reference)
                   or upper(match.package_reference)=upper(:reference)))
           order by media.created_at desc,media.id desc limit 20"""), {
-            "reference": normalized,
+            "reference": normalized,"slug":agency_slug,
         }).mappings().all()
         return [dict(row) for row in rows]
 
@@ -2013,7 +2088,10 @@ def transition_package(org_id,package_id,user_id,new_status,expected_version,rea
         allowed=OFFICIAL_TRANSITIONS.get(row["status"],set())
         if new_status not in allowed:raise HTTPException(409,"invalid_package_transition")
         if new_status in("WAREHOUSED","READY_FOR_BATCH") and not row.get("weight_kg"):raise HTTPException(409,"package_weight_required")
+        if new_status in {'READY_FOR_DISPATCH','READY_FOR_BATCH','BATCHED','SHIPPED','IN_TRANSIT','DELIVERED'}:
+            check_regulated_goods(conn,owner_org_id,dict(row))
         if new_status == "DELIVERED":
+            require_delivery_proof(conn, owner_org_id, row)
             _require_package_delivery_financial_clearance(conn, owner_org_id, row)
         item=conn.execute(text("update cargo_packages set status=:s,row_version=row_version+1,updated_by=:u,updated_at=now(),received_at=case when :s='RECEIVED' then coalesce(received_at,now()) else received_at end,dispatched_at=case when :s='SHIPPED' then coalesce(dispatched_at,now()) else dispatched_at end,delivered_at=case when :s='DELIVERED' then coalesce(delivered_at,now()) else delivered_at end where org_id=:o and id=:id returning *"),{"s":new_status,"u":user_id,"o":owner_org_id,"id":package_id}).mappings().one()
         _insert_package_event(conn,org_id=owner_org_id,package_id=package_id,event_type="STATUS_CHANGED",title=f"Statut : {new_status}",description=reason,previous_status=row["status"],new_status=new_status,actor_id=user_id,metadata={"version":item["row_version"],"acting_org_id":org_id,"office_role":"DESTINATION" if destination_access else "ORIGIN"})
@@ -2123,6 +2201,13 @@ def bulk_package_operation(org_id,user_id,idempotency_key,operation_type,package
         if operation_type=="STATUS":
             target=payload.get("status")
             if target not in PACKAGE_STATUSES:raise HTTPException(422,"invalid_status")
+            if target in {'READY_FOR_DISPATCH','READY_FOR_BATCH','BATCHED','SHIPPED','IN_TRANSIT','DELIVERED'}:
+                for package in conn.execute(text("select * from cargo_packages where org_id=:o and id=any(cast(:ids as uuid[]))"),{'o':org_id,'ids':valid}).mappings().all():
+                    check_regulated_goods(conn,org_id,dict(package))
+            if target == 'DELIVERED':
+                for package in conn.execute(text("select * from cargo_packages where org_id=:o and id=any(cast(:ids as uuid[]))"),{'o':org_id,'ids':valid}).mappings().all():
+                    require_delivery_proof(conn, org_id, package)
+                    _require_package_delivery_financial_clearance(conn, org_id, package)
             conn.execute(text("update cargo_packages set status=:s,row_version=row_version+1,updated_by=:u,updated_at=now() where org_id=:o and id=any(cast(:ids as uuid[]))"),{"s":target,"u":user_id,"o":org_id,"ids":valid})
         elif operation_type=="MOVE":
             if not payload.get("warehouse_name"):raise HTTPException(422,"warehouse_required")
@@ -2192,6 +2277,9 @@ def detect_package_alerts(org_id,office_ids=None):
         )"""
         params["office_ids"]=office_ids
     with engine.begin() as conn:
+        pickup_days=int(load_policies(conn,org_id).get('shipment_delivery_rules',{}).get('pickup_delay_days',14))
+        rules[-1]=(*rules[-1][:3], rules[-1][3].replace("interval '5 days'", "make_interval(days => :pickup_days)"))
+        params['pickup_days']=pickup_days
         for typ,sev,msg,condition in rules:
             result=conn.execute(text(f"insert into package_operational_alerts(org_id,package_id,alert_type,severity,message) select p.org_id,p.id,:t,:s,:m from cargo_packages p where p.org_id=:o and p.deleted_at is null and {condition}{office_filter} on conflict(package_id,alert_type,status) do nothing returning id"),{**params,"t":typ,"s":sev,"m":msg}).fetchall();created+=len(result)
     return created

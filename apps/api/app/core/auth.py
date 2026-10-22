@@ -28,6 +28,9 @@ def get_current_manager(
             detail="Invalid Clerk token",
         )
 
+    verification_age = payload.get("fva")
+    mfa_verified = (isinstance(verification_age, list) and len(verification_age) == 2
+                    and type(verification_age[1]) is int and verification_age[1] >= 0)
     return {
         "id": payload.get("sub"),
         "user_id": payload.get("sub"),
@@ -38,4 +41,5 @@ def get_current_manager(
         "name": payload.get("name") or email,
         "full_name": payload.get("name") or email,
         "role": payload.get("role"),
+        "mfa_verified": mfa_verified,
     }

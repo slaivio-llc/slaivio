@@ -97,6 +97,11 @@ def get_active_tenant(
             text("""
                 select
                     s.*,
+                    coalesce(agency_settings.language_code,'fr') language_code,
+                    coalesce(agency_settings.currency_code,'USD') currency_code,
+                    coalesce(agency_settings.timezone,'Africa/Kinshasa') timezone,
+                    (coalesce((agency_settings.security->>'require_mfa')::boolean,false)
+                     and coalesce((agency_settings.security->>'mfa_enforced')::boolean,false)) require_mfa,
                     m.role_code,
                     coalesce(o.organization_name, o.name, o.id) as organization_name,
                     coalesce(o.organization_code, o.id) as organization_code,
@@ -110,6 +115,7 @@ def get_active_tenant(
                 from tenant_sessions s
                 join organizations o
                     on o.id = s.org_id
+                left join organization_settings agency_settings on agency_settings.org_id=o.id
                 left join organization_groups g on g.id = o.group_id
                 join organization_memberships m
                     on m.org_id = s.org_id

@@ -39,7 +39,8 @@ def test_financially_blocked_delivery_does_not_write_status_or_proof(monkeypatch
 
     assert error.value.detail["remaining"] == "80.00"
     clearance.assert_called_once()
-    conn.execute.assert_called_once()  # lock/read only; the transaction writes nothing
+    assert all(str(call.args[0]).lstrip().lower().startswith('select')
+               for call in conn.execute.call_args_list)  # lock/policy reads only
 
 
 def test_delivery_proof_requires_pickup_ready_state(monkeypatch):

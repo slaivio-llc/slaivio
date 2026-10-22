@@ -1,4 +1,5 @@
 import csv, hashlib, io, json, math
+from contextlib import nullcontext
 from decimal import Decimal, ROUND_CEILING
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -208,8 +209,8 @@ def _match(rule,p):
  if conditions.get('package_type') and conditions['package_type']!=p.get('package_type'): return False
  return True
 
-def quote(o,p,a):
- with engine.begin() as c:
+def quote(o,p,a,connection=None):
+ with (nullcontext(connection) if connection is not None else engine.begin()) as c:
   if p.get('freeze') and p.get('idempotency_key'):
    prior=c.execute(text("select input_payload,result_payload from pricing_quote_snapshots where org_id=:o and idempotency_key=:key"),{"o":o,"key":p['idempotency_key']}).mappings().first()
    if prior:

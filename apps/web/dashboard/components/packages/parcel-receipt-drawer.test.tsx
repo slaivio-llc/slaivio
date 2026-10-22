@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { ParcelPackageCreateDrawer } from "./parcel-receipt-drawer";
@@ -30,8 +30,9 @@ function renderForm(onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) =
 
 async function selectClientAndService() {
   await screen.findByRole("option", { name: /Marie/ });
-  fireEvent.change(screen.getByLabelText("Client associé"), { target: { value: "client" } });
-  fireEvent.change(screen.getByLabelText("Service utilisé"), { target: { value: "air" } });
+  fireEvent.change(screen.getByRole('combobox',{name:/^Client/}), { target: { value: "client" } });
+  fireEvent.change(screen.getByRole('combobox',{name:/^Service/}), { target: { value: "air" } });
+  fireEvent.change(screen.getByRole('combobox',{name:/^Origine/}), {target:{value:JSON.stringify(['CN',''])}});
 }
 
 describe("Réception d’un colis fret", () => {
@@ -40,10 +41,10 @@ describe("Réception d’un colis fret", () => {
     expect(screen.getByRole("button", { name: "Enregistrer le colis" })).toBeDisabled();
     await selectClientAndService();
     expect(screen.queryByRole("option", { name: /Service suspendu/ })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Route")).toHaveValue("route");
-    expect(screen.getByRole("option", { name: /Dubaï → RDC/ })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Route"), { target: { value: "route-2" } });
-    expect(screen.getByLabelText("Poids en kg (si connu)")).not.toBeRequired();
+    expect(screen.getByRole('combobox',{name:/^Destination/})).toHaveValue("route");
+    expect(screen.getByRole('combobox',{name:/^Origine/})).toHaveTextContent('AE');
+    fireEvent.change(screen.getByRole('combobox',{name:/^Origine/}), { target: { value: JSON.stringify(['AE','']) } });
+    expect(screen.getByLabelText("Poids (kg)")).not.toBeRequired();
     expect(screen.getByRole("button", { name: "Enregistrer le colis" })).toBeEnabled();
     const data = new FormData(document.querySelector("form")!);
     expect(data.get("weight_kg")).toBe("");
@@ -73,24 +74,22 @@ describe("Réception d’un colis fret", () => {
     } as Awaited<ReturnType<typeof receiptCatalog>>);
     renderForm();
 
-    expect(await screen.findByRole("option", { name: /Fret express · Aucune route active associée/ })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Service utilisé"), { target: { value: "unassigned" } });
-    expect(screen.getByLabelText("Route")).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("aucune route active ne lui est associée");
+    expect(await screen.findByRole("option", { name: 'Fret express' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox',{name:/^Service/}), { target: { value: "unassigned" } });
+    expect(screen.getByRole('combobox',{name:/^Destination/})).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("aucune route disponible");
     expect(screen.getByRole("button", { name: "Enregistrer le colis" })).toBeDisabled();
   });
 
   it("préserve le brouillon et sélectionne le client créé sans rouvrir le formulaire", async () => {
     renderForm();
     await selectClientAndService();
-    fireEvent.change(screen.getByLabelText("Référence fournisseur (facultatif)"), { target: { value: "EXT-42" } });
+    fireEvent.change(screen.getByLabelText(/^Référence fournisseur/), { target: { value: "EXT-42" } });
     fireEvent.click(screen.getByRole("button", { name: "Créer un client" }));
-    expect(screen.getByLabelText("Client associé")).toHaveValue("new");
-    expect(screen.getByLabelText("Référence fournisseur (facultatif)")).toHaveValue("EXT-42");
-    expect(screen.getByLabelText("Service utilisé")).toHaveValue("air");
-    fireEvent.change(screen.getByLabelText("Rechercher un client"), { target: { value: "autre" } });
-    await waitFor(() => expect(listClients).toHaveBeenCalledWith(expect.objectContaining({ q: "autre" })));
-    expect(screen.getByLabelText("Client associé")).toHaveValue("new");
+    expect(screen.getByRole('combobox',{name:/^Client/})).toHaveValue("new");
+    expect(screen.getByLabelText(/^Référence fournisseur/)).toHaveValue("EXT-42");
+    expect(screen.getByRole('combobox',{name:/^Service/})).toHaveValue("air");
+    expect(screen.getByRole('combobox',{name:/^Destination/})).toHaveValue('route');
   });
 
   it("empêche deux soumissions immédiates du même formulaire", async () => {
@@ -110,5 +109,15 @@ describe("Réception d’un colis fret", () => {
     fireEvent.click(screen.getByRole("button", { name: "Réessayer" }));
     await screen.findByRole("option", { name: /Cargo aérien/ });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it('applique les exigences et les consignes de l’agence au formulaire réel',async()=>{
+    const catalog=await vi.mocked(receiptCatalog).getMockImplementation()!();
+    vi.mocked(receiptCatalog).mockResolvedValueOnce({...catalog,operational_settings:{timezone:'Africa/Kinshasa',currency_code:'USD',language_code:'fr',settings:{parcel_receipt_rules:{category_required:true,packaging_required:true,allow_unmeasured:false,allow_photos:false,auto_rate_lookup:true},goods_restrictions:{regulated_goods_check:true,agent_instructions:'Batteries à vérifier'}}}});
+    renderForm();await selectClientAndService();
+    expect(screen.getByLabelText('Catégorie de marchandise')).toBeRequired();
+    expect(screen.getByLabelText('Conditionnement')).toBeRequired();
+    expect(screen.getByText('Batteries à vérifier')).toBeInTheDocument();
+    expect(screen.getByText(/Un poids ou un volume est obligatoire/)).toBeInTheDocument();
   });
 });

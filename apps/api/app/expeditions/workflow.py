@@ -6,6 +6,8 @@ from math import ceil
 from fastapi import HTTPException
 from sqlalchemy import text
 from app.finance.clearance import departure_clearance
+from app.organization_admin.settings_policy import check_regulated_goods
+from app.documents.agency_brand import identity as document_identity
 
 from app.db.database import engine
 from app.expeditions.detail import require_shipment, PACKAGES, SCOPE
@@ -98,6 +100,7 @@ def loading(org_id, shipment_id, actor, expected, ids, remove=False):
                     where org_id=:org_id and package_id=cast(:package as uuid) and status<>'REMOVED' limit 1"""),p).first())
                 reasons=compatible(shipment,package)
                 if reasons: raise HTTPException(409,{'code':'package_not_eligible','package_id':pid,'reference':package.get('package_reference'),'reasons':reasons})
+                check_regulated_goods(conn,org_id,package)
                 # Reuse a removed row to support older unique constraints on the triple.
                 prior=conn.execute(text("""update expedition_packages set removed_at=null,removal_reason=null,added_at=now(),added_by=:actor
                     where id=(select id from expedition_packages where org_id=:org_id
@@ -178,6 +181,7 @@ def milestone(org_id,shipment_id,actor,expected,action):
             if action=='depart':
                 reasons=compatible(shipment,p)
                 if reasons:raise HTTPException(409,{'code':'package_not_eligible','package_id':str(p['id']),'reference':p.get('package_reference'),'reasons':reasons})
+                check_regulated_goods(conn,org_id,p)
                 clearance=departure_clearance(conn,org_id,p)
                 if not clearance['allowed']:
                     raise HTTPException(409,{'code':clearance['code'],'package_id':str(p['id']),
@@ -186,7 +190,8 @@ def milestone(org_id,shipment_id,actor,expected,action):
             manifest_rows=conn.execute(text(f"""select p.id::text,p.package_reference as reference,c.name as client_name,
               p.supplier_tracking,p.weight_kg,p.destination_city,p.destination_country
               {PACKAGES} where {SCOPE} and ep.removed_at is null order by ep.added_at,ep.id"""),params).mappings().all()
-            payload={'shipment':shipment,'items':[dict(row) for row in manifest_rows]}
+            payload={'shipment':shipment,'items':[dict(row) for row in manifest_rows],
+                     'agency_brand':document_identity(conn,org_id,shipment.get('origin_location_id'))}
             conn.execute(text("""insert into expedition_departure_manifests(org_id,expedition_id,payload,created_by)
                 values(:org_id,cast(:id as uuid),cast(:payload as jsonb),:actor)"""),{**params,'payload':json.dumps(payload,default=str)})
         date_column='departed_at' if action=='depart' else 'arrived_at'
@@ -224,4 +229,5 @@ def manifest(org_id,shipment_id):
             p.supplier_tracking,p.weight_kg,p.destination_city,p.destination_country
             {PACKAGES} where {SCOPE} and ep.removed_at is null and p.deleted_at is null order by ep.added_at,ep.id"""),
             {'org_id':org_id,'id':shipment_id}).mappings()
-        return {'shipment':shipment,'items':[dict(row) for row in rows],'historical_snapshot':False,'departed_at':None}
+        return {'shipment':shipment,'items':[dict(row) for row in rows],'historical_snapshot':False,'departed_at':None,
+                'agency_brand':document_identity(conn,org_id,shipment.get('origin_location_id'))}

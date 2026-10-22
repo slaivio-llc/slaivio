@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel,Field,ConfigDict
 
 from app.core.tenant_context import get_current_tenant
+from app.core.permissions import require_permission
 from app.db.goods_repository import (
     create_goods_rule,
     list_goods_rules,
@@ -15,8 +16,9 @@ router = APIRouter()
 
 
 class CreateGoodsRuleRequest(BaseModel):
-    goods_name: str
-    category: str | None = None
+    model_config=ConfigDict(str_strip_whitespace=True)
+    goods_name: str=Field(min_length=2,max_length=160)
+    category: str | None=Field(default=None,max_length=120)
     accepted: bool = True
     pricing_mode: str = "PER_KG"
     price_note: str | None = None
@@ -29,8 +31,9 @@ class CreateGoodsRuleRequest(BaseModel):
 
 
 class UpdateGoodsRuleRequest(BaseModel):
-    goods_name: str | None = None
-    category: str | None = None
+    model_config=ConfigDict(str_strip_whitespace=True)
+    goods_name: str | None=Field(default=None,min_length=2,max_length=160)
+    category: str | None=Field(default=None,max_length=120)
     accepted: bool | None = None
     pricing_mode: str | None = None
     price_note: str | None = None
@@ -43,7 +46,7 @@ class UpdateGoodsRuleRequest(BaseModel):
     is_active: bool | None = None
 
 
-@router.post("/goods/rules")
+@router.post("/goods/rules",dependencies=[Depends(require_permission('settings.write'))])
 def create_rule(body: CreateGoodsRuleRequest, tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 
@@ -68,7 +71,7 @@ def create_rule(body: CreateGoodsRuleRequest, tenant=Depends(get_current_tenant)
     }
 
 
-@router.get("/goods/rules")
+@router.get("/goods/rules",dependencies=[Depends(require_permission('organization.read'))])
 def list_rules(
     category: str | None = None,
     limit: int = 100,
@@ -131,7 +134,7 @@ def get_rule(rule_id: str, tenant=Depends(get_current_tenant)):
     }
 
 
-@router.patch("/goods/rules/{rule_id}")
+@router.patch("/goods/rules/{rule_id}",dependencies=[Depends(require_permission('settings.write'))])
 def update_rule(
     rule_id: str,
     body: UpdateGoodsRuleRequest,

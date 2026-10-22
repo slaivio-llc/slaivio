@@ -92,4 +92,16 @@ def delivery_clearance(connection, org_id, package):
     controls = connection.execute(text("select block_delivery_release from finance_settings where org_id=:o"), {'o': org_id}).mappings().first()
     if controls and not controls['block_delivery_release']:
         return {'allowed': True, 'code': None, 'reference': package.get('package_reference'), 'message': None}
-    return _clearance(connection, org_id, package, 'DELIVERY', missing_policy_allowed=True)
+    decision=_clearance(connection, org_id, package, 'DELIVERY', missing_policy_allowed=True)
+    if not decision['allowed'] and decision.get('code')=='PAYMENT_CLEARANCE_REQUIRED':
+        from app.organization_admin.settings_policy import load_policies
+        if load_policies(connection,org_id).get('client_conditions',{}).get('allow_customer_credit') is True:
+            credit=connection.execute(text("""select c.credit_enabled,c.credit_limit,c.preferred_currency,
+                coalesce((select sum(d.balance_due) from finance_documents d
+                  where d.org_id=c.org_id and d.client_id=c.id and d.currency=:currency
+                    and d.document_type='INVOICE' and d.status in ('ISSUED','PARTIALLY_PAID','OVERDUE')),0) outstanding
+                from clients c where c.org_id=:o and c.id=:client and c.deleted_at is null for update"""),
+                {'o':org_id,'client':package.get('client_id'),'currency':decision.get('currency')}).mappings().first()
+            if credit and credit['credit_enabled'] and credit['preferred_currency']==decision.get('currency') and _money(credit['credit_limit'])>0 and _money(credit['outstanding'])<=_money(credit['credit_limit']):
+                return {**decision,'allowed':True,'code':None,'message':None,'customer_credit_applied':True}
+    return decision

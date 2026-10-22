@@ -30,6 +30,9 @@ def get_current_tenant(
             detail="organization_access_suspended",
         )
 
+    if active.get("require_mfa") and not manager.get("mfa_verified"):
+        raise HTTPException(status_code=403, detail="organization_mfa_required")
+
     return {
         "org_id": active["org_id"],
         "organization_name": active.get("organization_name"),

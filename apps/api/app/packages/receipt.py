@@ -22,7 +22,9 @@ def prepare_manual_receipt(payload: dict) -> dict:
         "warehouse_id", "warehouse_name", "fees_total", "fees_paid", "currency",
         "payment_status", "payment_clearance_status",
     }}
-    result.update(status="RECEIVED_AT_ORIGIN", received_at=datetime.now(timezone.utc))
+    physically_received = payload.get('status') != 'CREATED'
+    result.update(status="RECEIVED_AT_ORIGIN" if physically_received else "CREATED",
+                  received_at=datetime.now(timezone.utc) if physically_received else None)
     tracking = str(result.get("supplier_tracking") or "").strip()
     result["supplier_tracking"] = tracking or None
     return result

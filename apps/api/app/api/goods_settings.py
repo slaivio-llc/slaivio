@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from app.core.auth import get_current_manager
+from app.core.tenant_context import get_current_tenant
+from app.core.permissions import require_permission
 from app.db.database import engine
 
 
@@ -13,14 +14,14 @@ class GoodsRuleRequest(BaseModel):
     goods_name: str
     category: str = "GENERAL"
     is_accepted: bool = True
-    pricing_mode: str | None = None
+    pricing_mode: str = 'PER_KG'
     note: str | None = None
     requires_manager_review: bool = False
 
 
-@router.get("/settings/goods-rules")
-def list_goods_rules(manager=Depends(get_current_manager)):
-    org_id = manager["org_id"]
+@router.get("/settings/goods-rules",dependencies=[Depends(require_permission('organization.read'))])
+def list_goods_rules(tenant=Depends(get_current_tenant)):
+    org_id = tenant["org_id"]
 
     with engine.connect() as conn:
         rows = conn.execute(
@@ -39,12 +40,12 @@ def list_goods_rules(manager=Depends(get_current_manager)):
     }
 
 
-@router.post("/settings/goods-rules")
+@router.post("/settings/goods-rules",dependencies=[Depends(require_permission('settings.write'))])
 def create_goods_rule(
     body: GoodsRuleRequest,
-    manager=Depends(get_current_manager),
+    tenant=Depends(get_current_tenant),
 ):
-    org_id = manager["org_id"]
+    org_id = tenant["org_id"]
 
     with engine.connect() as conn:
         result = conn.execute(
@@ -52,15 +53,17 @@ def create_goods_rule(
                 insert into goods_rules (
                     org_id,
                     goods_name,
+                    normalized_name,
                     category,
-                    is_accepted,
+                    accepted,
                     pricing_mode,
-                    note,
-                    requires_manager_review
+                    handling_note,
+                    requires_manual_validation
                 )
                 values (
                     :org_id,
                     :goods_name,
+                    :normalized_name,
                     :category,
                     :is_accepted,
                     :pricing_mode,
@@ -72,6 +75,7 @@ def create_goods_rule(
             {
                 "org_id": org_id,
                 "goods_name": body.goods_name,
+                "normalized_name":body.goods_name.strip().lower(),
                 "category": body.category,
                 "is_accepted": body.is_accepted,
                 "pricing_mode": body.pricing_mode,

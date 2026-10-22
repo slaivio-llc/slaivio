@@ -72,7 +72,9 @@ class RouteView(BaseModel):name:str=Field(min_length=2,max_length=80);filters:di
 @router.get("")
 def index(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return repo.list_all(tenant['org_id'])
 @router.get("/receipt-options",dependencies=[Depends(require_permission("packages.create")),Depends(require_package_office_scope)])
-def receipt_options(tenant=Depends(get_current_tenant)):return repo.list_all(tenant['org_id'])
+def receipt_options(tenant=Depends(get_current_tenant)):
+ from app.organization_admin.repository import operational_settings
+ return {**repo.list_all(tenant['org_id']),"operational_settings":operational_settings(tenant['org_id'])}
 @router.get("/available-services")
 def available_services(tenant=Depends(get_current_tenant),_=Depends(require_permission("routes.read"))):return {"items":repo.available_services(tenant['org_id'])}
 @router.get("/network-offices")

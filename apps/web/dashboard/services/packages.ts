@@ -424,7 +424,7 @@ export async function scanPackageLabel(file:File,language:"fr"|"en"="fr",barcode
 }
 export async function uploadPackageMedia(id:string,file:File,category:string,caption?:string){const form=new FormData();form.append("file",file);form.append("category",category);if(caption)form.append("caption",caption);return (await api.post<{package:PackageRecord}>(`/packages/${id}/media/upload`,form)).data.package}
 export async function getPackageMediaUrl(id:string,mediaId:string){return (await api.get<{url:string}>(`/packages/${id}/media/${mediaId}/view`)).data.url}
-export async function getPackageLabel(id:string,kind:"barcode"|"qr"){return (await api.get<Blob>(`/packages/${id}/label/${kind}`,{responseType:"blob"})).data}
+export async function getPackageLabel(id:string,kind:"barcode"|"qr"|"print"){return (await api.get<Blob>(`/packages/${id}/label/${kind}`,{responseType:"blob"})).data}
 export type PackageAnalytics={summary:{average_storage_days:number|null;average_before_dispatch_days:number|null;anomaly_rate:number|null};daily:Array<{day:string;count:number;weight_kg:number}>;warehouses:Array<{label:string;count:number;weight_kg:number;volume_cbm:number}>;suppliers:Array<{label:string;count:number}>;destinations:Array<{label:string;count:number}>;capacity:Array<{label:string;occupied:number;capacity:number}>};
 export async function getPackageAnalytics(){return (await api.get<{analytics:PackageAnalytics}>("/packages/analytics")).data.analytics}
 export async function transitionPackageState(id:string,new_status:string,expected_version:number,reason?:string){return(await api.post<{package:PackageRecord}>(`/packages/${id}/transition`,{new_status,expected_version,reason})).data.package}

@@ -1,11 +1,47 @@
 import json
 import hashlib
 import secrets
+from contextlib import nullcontext
 from uuid import uuid4
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from app.db.database import engine
+from app.permissions.services.permission_service import assert_permission
+
+
+def operational_settings(org_id):
+    with engine.connect() as c:
+        row=c.execute(text("select timezone,currency_code,language_code,settings from organization_settings where org_id=:o"),{"o":org_id}).mappings().first()
+        result=dict(row) if row else {"timezone":"Africa/Kinshasa","currency_code":"USD","language_code":"fr","settings":{}}
+        visible={'agency_hours','parcel_receipt_rules','shipment_delivery_rules','goods_restrictions','document_preferences'}
+        result['settings']={key:value for key,value in (result.get('settings') or {}).items() if key in visible}
+        return result
+
+
+def authorize_settings_update(org_id, actor, changes, manager):
+    with engine.connect() as c:
+        old=c.execute(text("select * from organization_settings where org_id=:o"),{"o":org_id}).mappings().first() or {}
+    permissions=set()
+    for key,value in changes.items():
+        if value == old.get(key):
+            continue
+        if key == 'settings':
+            for section, policy in value.items():
+                if policy != (old.get('settings') or {}).get(section):
+                    permissions.add('documents.settings' if section == 'document_preferences' else 'settings.write')
+        else:
+            permissions.add('security.manage' if key == 'security' else 'settings.write')
+    for permission in permissions:
+        assert_permission(user_id=actor,org_id=org_id,permission_code=permission)
+    security=changes.get('security')
+    if security is not None and security != old.get('security'):
+        if security.get('require_mfa') is True:
+            if not (old.get('security') or {}).get('mfa_enforced') and not manager.get('mfa_verified'):
+                raise HTTPException(409,'mfa_setup_required')
+            security['mfa_enforced']=True
+        else:
+            security['mfa_enforced']=False
 
 def _rows(result): return [dict(x._mapping) for x in result]
 def _audit(conn, org_id, actor, action, entity_type, entity_id, old=None, new=None):
@@ -41,24 +77,40 @@ def overview(org_id):
         api_keys=_rows(c.execute(text("select id::text,name,key_prefix,scopes,status,last_used_at,expires_at,created_at from developer_api_keys where org_id=:o order by created_at desc"),{"o":org_id}))
         return {"organization":dict(org) if org else None,"settings":dict(settings) if settings else None,"members":members,"invitations":invitations,"roles":roles,"permissions":permissions,"audit":audit,"workspaces":workspaces,"locations":locations,"integrations":integrations,"numbering":numbering,"billing":dict(billing) if billing else None,"data_requests":data_requests,"api_keys":api_keys}
 
-def update_org(org_id, actor, data, version):
+def update_org(org_id, actor, data, version, connection=None):
     allowed={'organization_name','legal_name','brand_slogan','brand_description','country','city','address','phone','email','website','registration_number','tax_number','logo_url','organization_type','whatsapp','province','postal_code','registration_country','legal_address','logo_dark_url','primary_color','secondary_color','document_display_name','signature_url','stamp_url'}
     values={k:v for k,v in data.items() if k in allowed}; sets=[f"{k}=:{k}" for k in values]
     if not sets:return overview(org_id)['organization']
-    with engine.begin() as c:
+    with (nullcontext(connection) if connection is not None else engine.begin()) as c:
         old=c.execute(text("select * from organizations where id=:o"),{"o":org_id}).mappings().first()
         row=c.execute(text(f"update organizations set {','.join(sets)},name=coalesce(:display_name,name),row_version=row_version+1,updated_at=now() where id=:o and row_version=:v returning *"),{"o":org_id,"v":version,"display_name":values.get('organization_name'),**values}).mappings().first()
         if not row: return None
         _audit(c,org_id,actor,'ORGANIZATION_UPDATED','organization',org_id,dict(old),dict(row)); return dict(row)
 
-def save_settings(org_id,actor,data,version):
+def save_settings(org_id,actor,data,version,connection=None):
     allowed={'timezone','currency_code','country_code','language_code','date_format','weight_unit','volume_unit','notification_email','settings','security','time_format','week_starts_on','dimension_unit','distance_unit','data_retention_days','privacy'}
     values={k:(json.dumps(v) if k in {'settings','security','privacy'} else v) for k,v in data.items() if k in allowed}
-    with engine.begin() as c:
+    with (nullcontext(connection) if connection is not None else engine.begin()) as c:
         c.execute(text("insert into organization_settings(org_id) values(:o) on conflict(org_id) do nothing"),{"o":org_id})
-        sets=[f"{k}=cast(:{k} as jsonb)" if k in {'settings','security','privacy'} else f"{k}=:{k}" for k in values]
+        old=c.execute(text("select * from organization_settings where org_id=:o for update"),{'o':org_id}).mappings().first()
+        if not old or old['row_version']!=version:
+            return None
+        page=(data.get('settings') or {}).get('public_tracking_page')
+        if page:
+            c.execute(text("select pg_advisory_xact_lock(hashtext(:slug))"),{'slug':'tracking-page:'+page['slug']})
+            duplicate=c.execute(text("""select 1 from organization_settings
+                where org_id<>:o and settings->'public_tracking_page'->>'slug'=:slug"""),
+                {'o':org_id,'slug':page['slug']}).first()
+            if duplicate:raise HTTPException(409,'tracking_slug_unavailable')
+        sets=[f"{k}=coalesce({k},'{{}}'::jsonb) || cast(:{k} as jsonb)" if k in {'settings','security','privacy'} else f"{k}=:{k}" for k in values]
+        if not sets:
+            raise HTTPException(422,'settings_changes_required')
         row=c.execute(text(f"update organization_settings set {','.join(sets)},row_version=row_version+1,updated_at=now() where org_id=:o and row_version=:v returning *"),{"o":org_id,"v":version,**values}).mappings().first()
-        if row:_audit(c,org_id,actor,'SETTINGS_UPDATED','organization_settings',org_id,new=data)
+        if row and 'currency_code' in values and old.get('currency_code')!=values['currency_code']:
+            c.execute(text("""insert into finance_settings(org_id,default_currency) values(:o,:currency)
+                on conflict(org_id) do update set default_currency=excluded.default_currency,updated_at=now()"""),
+                {'o':org_id,'currency':values['currency_code']})
+        if row:_audit(c,org_id,actor,'SETTINGS_UPDATED','organization_settings',org_id,old=dict(old),new=dict(row))
         return dict(row) if row else None
 
 def update_member(org_id,member_id,actor,role_code,status,version):
@@ -245,9 +297,9 @@ def save_integration(org_id,actor,data):
           values(:o,upper(:provider),:account_label,:status,:granted_permissions,cast(:configuration as jsonb),case when :status='CONNECTED' then now() end,:a)
           on conflict(org_id,provider,account_label) do update set status=excluded.status,granted_permissions=excluded.granted_permissions,configuration=excluded.configuration,connected_at=case when excluded.status='CONNECTED' then coalesce(organization_integrations.connected_at,now()) end,updated_by=:a,updated_at=now() returning *"""),{"o":org_id,"a":actor,"configuration":json.dumps(data.pop('configuration',{})),**data}).mappings().one()
         _audit(c,org_id,actor,'INTEGRATION_SAVED','integration',row['id'],new={"provider":row['provider'],"status":row['status']});return dict(row)
-def save_numbering(org_id,actor,document_type,prefix_format,version):
+def save_numbering(org_id,actor,document_type,prefix_format,version,counter_scope='GLOBAL',reset_period='NEVER'):
     with engine.begin() as c:
-        row=c.execute(text("update document_numbering_settings set prefix_format=:f,row_version=row_version+1,updated_at=now() where org_id=:o and document_type=:t and row_version=:v returning *"),{"o":org_id,"t":document_type,"f":prefix_format,"v":version}).mappings().first()
+        row=c.execute(text("update document_numbering_settings set prefix_format=:f,counter_scope=:scope,reset_period=:reset,row_version=row_version+1,updated_at=now() where org_id=:o and document_type=:t and row_version=:v returning *"),{"o":org_id,"t":document_type,"f":prefix_format,"v":version,"scope":counter_scope,"reset":reset_period}).mappings().first()
         if row:_audit(c,org_id,actor,'NUMBERING_UPDATED','document_numbering',row['id'],new=dict(row))
         return dict(row) if row else None
 def request_data_operation(org_id,actor,request_type,scope):

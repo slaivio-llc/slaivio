@@ -67,6 +67,7 @@ import {
   getPackage,
   getPackageStats,
   getPackageTimeline,
+  getPackageLabel,
   importPackages,
   listPackages,
   resolvePackageAnomaly,
@@ -2586,25 +2587,13 @@ function SettingsTab({
       setBusy(false);
     }
   }
-  function printLabel() {
+  async function printLabel() {
     const popup = window.open("", "_blank", "width=520,height=680");
     if (!popup) return;
-    const safe = (value: unknown) =>
-      String(value ?? "-").replace(
-        /[&<>"']/g,
-        (c) =>
-          ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;",
-          })[c] || c,
-      );
-    popup.document.write(
-      `<html><head><title>${safe(item.package_reference || "Colis")}</title><style>body{font-family:Arial;padding:28px}.label{border:3px solid #111;padding:24px}h1{font-size:32px}.code{font-family:monospace;font-size:22px;letter-spacing:3px;border:1px solid;padding:16px;text-align:center}</style></head><body><div class="label"><h1>${safe(item.package_reference || "COLIS")}</h1><p><b>Client:</b> ${safe(item.client_name)}</p><p><b>Dossier:</b> ${safe(item.dossier_reference)}</p><p><b>Destination:</b> ${safe(item.destination_city)}, ${safe(item.destination_country)}</p><p><b>Poids:</b> ${safe(item.weight_kg)} kg</p><div class="code">${safe(item.barcode || item.tracking_id || item.package_reference)}</div></div><script>window.print();<\/script></body></html>`,
-    );
-    popup.document.close();
+    try {
+      const content=await getPackageLabel(item.id,'print');
+      popup.document.write(await content.text());popup.document.close();popup.focus();popup.print();
+    } catch {popup.close();}
   }
   return (
     <div className="space-y-5">

@@ -48,9 +48,12 @@ def test_identity_query_is_scoped_to_org_and_document():
     conn = MagicMock()
     conn.execute.return_value.mappings.return_value.first.return_value = {'agency_name': 'LUZA'}
     assert capture_identity(conn, 'agency', 'invoice')['agency_name'] == 'LUZA'
-    sql, params = conn.execute.call_args.args
+    sql, params = conn.execute.call_args_list[0].args
     assert 'c.org_id=d.org_id' in str(sql)
     assert params == {'org_id': 'agency', 'document_id': 'invoice'}
+    brand_sql, brand_params=conn.execute.call_args_list[1].args
+    assert 'l.org_id=o.id' in str(brand_sql)
+    assert brand_params['org_id']=='agency'
 
 
 def test_foreign_or_missing_payment_has_no_receipt(monkeypatch):

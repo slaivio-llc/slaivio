@@ -460,14 +460,19 @@ def packages_stats(tenant=Depends(get_current_tenant), context=Depends(get_curre
     return {"status": "ok", "stats": package_stats(tenant["org_id"], office_scope_ids(context))}
 
 
+@router.get('/public/agencies/{slug}')
+def public_agency_page(slug: str):
+    from app.organization_admin.public_page import public_agency
+    return public_agency(slug)
+
 @router.get("/public/packages/tracking/{reference}")
-def packages_public_tracking(reference: str):
-    package = public_package_tracking(reference)
+def packages_public_tracking(reference: str, agency: str | None = Query(default=None,max_length=80)):
+    package = public_package_tracking(reference, agency) if agency else public_package_tracking(reference)
     if not package:
         raise HTTPException(status_code=404, detail="tracking_not_found")
     photos = []
     try:
-        for media in public_package_tracking_media(reference):
+        for media in (public_package_tracking_media(reference,agency) if agency else public_package_tracking_media(reference)):
             try:
                 photos.append({
                     "id": media["id"], "file_name": media["file_name"],
@@ -627,9 +632,21 @@ async def packages_import(file: UploadFile = File(...), tenant=Depends(get_curre
 
 @router.post("/packages", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_permission("packages.create")), Depends(require_package_office_scope)])
 def packages_create(body: PackagePayload, background_tasks: BackgroundTasks, tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
-    validate_office_assignment(context, body.origin_location_id, body.destination_location_id)
+    origin,destination=body.origin_location_id,body.destination_location_id
+    if office_scope_ids(context) is not None and not (origin or destination) and body.route_id:
+        from app.db.database import engine
+        from sqlalchemy import text
+        with engine.connect() as connection:
+            route=connection.execute(text("""select origin_location_id::text,destination_location_id::text
+                from shipping_routes where org_id=:org and id=cast(:route as uuid) and active and archived_at is null"""),
+                {'org':tenant['org_id'],'route':body.route_id}).mappings().first()
+        if not route:raise HTTPException(422,'route_not_found')
+        origin,destination=route['origin_location_id'],route['destination_location_id']
+    validate_office_assignment(context, origin, destination)
     try:
-        package = create_package(tenant["org_id"], _user_id(tenant), body.model_dump())
+        payload=body.model_dump()
+        payload['_reference_office_id']=context.get('selected_office_id')
+        package = create_package(tenant["org_id"], _user_id(tenant), payload)
     except ValueError as exc:
         if str(exc) == "dossier_required":
             raise HTTPException(status_code=422, detail="dossier_required") from exc
@@ -803,6 +820,10 @@ async def packages_media_upload(package_id:str,file:UploadFile=File(...),categor
     package = parcel_overview(tenant["org_id"], package_id)
     if not package: raise HTTPException(404, "package_not_found")
     if package["org_id"] != tenant["org_id"]: raise HTTPException(403, "package_media_owner_required")
+    from app.organization_admin.settings_policy import require_photos_allowed
+    from app.db.database import engine
+    with engine.connect() as connection:
+        require_photos_allowed(connection, tenant['org_id'])
     allowed={"image/jpeg","image/png","image/webp","video/mp4","audio/mpeg","audio/mp4","audio/ogg"}
     if file.content_type not in allowed: raise HTTPException(status_code=415,detail="unsupported_media_type")
     content=await file.read(26_214_401)
@@ -844,6 +865,15 @@ def packages_media_customer_visibility(
 def packages_label(package_id:str,kind:str,tenant=Depends(get_current_tenant)):
     package=get_package(tenant["org_id"],package_id)
     if not package: raise HTTPException(status_code=404,detail="package_not_found")
+    if kind == 'print':
+        from app.documents.agency_brand import identity, label_html
+        from app.db.database import engine
+        with engine.connect() as connection:
+            brand=identity(connection,tenant['org_id'],package.get('origin_location_id'))
+        import qrcode
+        from qrcode.image.svg import SvgPathImage
+        qr=qrcode.make(package.get('tracking_id') or package.get('package_reference'),image_factory=SvgPathImage,box_size=3,border=2).to_string().decode('utf-8')
+        return Response(label_html(package,brand,qr),media_type='text/html',headers={'Content-Disposition':f'inline; filename="{package_id}-etiquette.html"'})
     value=package.get("barcode") or package.get("tracking_id") or package.get("package_reference")
     if kind=="barcode":
         import barcode

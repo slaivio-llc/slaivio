@@ -6,7 +6,10 @@ export type Permission={id:string;permission_code:string;description?:string};
 export type AdminData={organization:Record<string,unknown>&{row_version:number};settings:(Record<string,unknown>&{row_version:number})|null;members:Member[];invitations:Array<Record<string,unknown>>;roles:Role[];permissions:Permission[];audit:Array<Record<string,unknown>>;workspaces:Array<Record<string,unknown>>;locations:Array<Record<string,unknown>>;integrations:Array<Record<string,unknown>>;numbering:Array<Record<string,unknown>>;billing:Record<string,unknown>|null;data_requests:Array<Record<string,unknown>>;api_keys:Array<Record<string,unknown>>};
 export async function getAdmin(){return (await api.get<AdminData>('/organization/admin')).data}
 export async function updateOrganization(payload:Record<string,unknown>){return (await api.patch('/organization/admin',payload)).data}
+export async function saveAgencyBrand(organization:Record<string,unknown>,settings_version:number,favicon_url:string|null){return(await api.patch('/organization/admin/brand',{organization,settings_version,favicon_url})).data}
 export async function updateSettings(payload:Record<string,unknown>){return (await api.patch('/organization/admin/settings',payload)).data}
+export type OperationalSettings={timezone:string;currency_code:string;language_code:string;settings:{parcel_receipt_rules?:{category_required:boolean;packaging_required:boolean;allow_unmeasured:boolean;allow_photos:boolean;auto_rate_lookup:boolean};goods_restrictions?:{regulated_goods_check:boolean;agent_instructions:string}}};
+export async function getOperationalSettings(){return(await api.get<OperationalSettings>('/organization/admin/operational-settings')).data}
 export async function updateMember(id:string,payload:Record<string,unknown>){return (await api.patch(`/organization/admin/members/${id}`,payload)).data}
 export async function updateMemberOfficeAccess(id:string,payload:{expected_version:number;office_access_scope:"ALL_OFFICES"|"SELECTED_OFFICES";office_ids:string[]}){return(await api.patch(`/organization/admin/members/${id}/offices`,payload)).data}
 export async function getOfficeContext(selected_office_id?:string|null){return(await api.get<OfficeContext>('/organization/admin/office-context',{params:selected_office_id?{selected_office_id}:undefined})).data}
@@ -19,7 +22,7 @@ export async function archiveWorkspace(id:string,expected_version:number){return
 export async function saveLocation(payload:Record<string,unknown>){return(await api.post('/organization/admin/locations',payload)).data}
 export async function updateLocationStatus(id:string,status:"ACTIVE"|"INACTIVE",expected_version:number){return(await api.patch(`/organization/admin/locations/${id}/status`,{status,expected_version})).data}
 export async function saveIntegration(payload:Record<string,unknown>){return(await api.post('/organization/admin/integrations',payload)).data}
-export async function saveNumbering(type:string,prefix_format:string,expected_version:number){return(await api.patch(`/organization/admin/numbering/${type}`,{prefix_format,expected_version})).data}
+export async function saveNumbering(type:string,prefix_format:string,expected_version:number,counter_scope="GLOBAL",reset_period="NEVER"){return(await api.patch(`/organization/admin/numbering/${type}`,{prefix_format,expected_version,counter_scope,reset_period})).data}
 export async function savePilotNumbering(type:"CLIENT"|"DOSSIER"|"PACKAGE",prefix_format:string,expected_version:number){return(await api.patch(`/organization/admin/pilot/numbering/${type}`,{prefix_format,expected_version})).data}
 export async function requestDataOperation(payload:Record<string,unknown>){return(await api.post('/organization/admin/data-requests',payload)).data}
 export async function createApiKey(payload:Record<string,unknown>){return(await api.post('/organization/admin/api-keys',payload)).data}

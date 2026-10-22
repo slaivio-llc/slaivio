@@ -80,6 +80,14 @@ def send_notification(org_id: str, notification_id: str):
         preflight = validate_broadcast_notification(org_id, notification_id)
     elif notification_type.startswith('FOLLOWUP:'):
         preflight = validate_followup_notification(org_id, notification_id)
+    elif notification_type.startswith('PACKAGE_STATUS:'):
+        from app.organization_admin.notification_policy import can_dispatch
+        try:
+            preflight=can_dispatch(notification)
+        except Exception:
+            mark_notification_failed(org_id,notification_id,'notification_policy_unavailable')
+            finish_notification_dispatch(org_id,notification_id,'REJECTED')
+            return {'status':'failed','message':'notification_policy_unavailable'}
     if preflight is False:
         cancel_notification_before_dispatch(org_id, notification_id, 'eligibility_changed_before_dispatch')
         finish_notification_dispatch(org_id, notification_id, 'REJECTED')

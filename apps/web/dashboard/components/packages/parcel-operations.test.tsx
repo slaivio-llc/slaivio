@@ -43,14 +43,16 @@ describe("Corrections du colis", () => {
 });
 
 describe("Photos privées", () => {
-  it("demande une URL privée seulement à l’ouverture de la photo", async () => {
+  it("utilise des URL privées pour les miniatures et l’ouverture de la photo", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: { items: [{ id: "photo", file_name: "carton.png", caption: null }], page: 1, total_pages: 1, total: 1 } });
     vi.mocked(getPackageMediaUrl).mockResolvedValue("https://storage.example/private-signed");
     render(<ParcelPhotos item={item} changed={vi.fn()} busyChanged={vi.fn()}/>);
-    const photo = await screen.findByRole("button", { name: "carton.png" });
-    expect(getPackageMediaUrl).not.toHaveBeenCalled();
+    const photo = await screen.findByRole("button", { name: /^carton\.png/ });
+    await waitFor(()=>expect(photo).toBeEnabled());
+    expect(getPackageMediaUrl).toHaveBeenCalledWith('parcel','photo');
     fireEvent.click(photo);
-    expect(await screen.findByRole("img")).toHaveAttribute("referrerpolicy", "no-referrer");
+    await waitFor(()=>expect(screen.getAllByRole('img')).toHaveLength(2));
+    expect(screen.getAllByRole('img')[1]).toHaveAttribute("referrerpolicy", "no-referrer");
     expect(getPackageMediaUrl).toHaveBeenCalledWith("parcel", "photo");
   });
   it("partage une photo avec le client uniquement après une action explicite", async () => {
@@ -58,7 +60,7 @@ describe("Photos privées", () => {
     vi.mocked(api.patch).mockResolvedValue({ data: { status: "ok", customer_visible: true } });
     const changed = vi.fn().mockResolvedValue(undefined);
     render(<ParcelPhotos item={item} changed={changed} busyChanged={vi.fn()}/>);
-    fireEvent.click(await screen.findByRole("button", { name: "Partager dans le suivi client" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Partager au client" }));
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith("/packages/parcel/media/photo/customer-visibility", { customer_visible: true }));
     expect(await screen.findByText("Photo maintenant visible dans le suivi client.")).toBeInTheDocument();
     expect(changed).toHaveBeenCalledTimes(1);

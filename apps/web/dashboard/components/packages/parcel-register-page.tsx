@@ -5,7 +5,7 @@ import Link from "next/link";
 import axios from "axios";
 import { ChevronLeft, ChevronRight, Plus, Search, PackageCheck } from "lucide-react";
 import { api } from "@/services/api";
-import { createPackage, getPackage, getPackageStats, type PackageRecord, type PackageStats } from "@/services/packages";
+import { createPackage, getPackage, getPackageLabel, getPackageStats, type PackageRecord, type PackageStats } from "@/services/packages";
 import { getParcelOverview, type ParcelEntry, type ParcelOverview, type ParcelHistoryResult, type RegisterResult } from "@/services/parcel-register";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -99,6 +99,8 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
       const physicalReceived = form.get("physical_received") === "on";
       const created = await createPackage({ client_id: value("client_id"), shipping_service_id: value("shipping_service_id"), route_id: value("route_id"),
         supplier_tracking: value("supplier_tracking") || null, description: value("description") || null,
+        category:value('category') || null,package_type:(value('package_type') || 'carton') as PackageRecord['package_type'],
+        volume_cbm:value('volume_cbm') ? Number(value('volume_cbm')) : null,
         weight_kg: value("weight_kg") ? Number(value("weight_kg")) : null, pieces_count: Number(value("pieces_count") || "1"),
         warehouse_location: value("warehouse_location") || null, status: physicalReceived ? "RECEIVED_AT_ORIGIN" : "CREATED",
         received_at: physicalReceived ? new Date().toISOString() : null, source: "manual" });
@@ -107,7 +109,8 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
       const detail = axios.isAxiosError(cause) ? cause.response?.data?.detail : null;
       setSaveError(detail === "supplier_tracking_already_exists" ? "Cette référence fournisseur existe déjà. Vérifiez le colis existant ; votre saisie est conservée."
         : detail === "shipping_service_not_found_for_route" || detail === "route_not_found" ? "Le service ou la route n’est plus disponible. Vérifiez la configuration du bureau."
-        : "Enregistrement impossible. Votre saisie est conservée ; vérifiez vos droits et la connexion.");
+          : ['package_category_required','package_packaging_required','package_measurement_required','goods_not_accepted','regulated_goods_review_required'].includes(detail) ? parcelError(cause)
+          : "Enregistrement impossible. Votre saisie est conservée ; vérifiez vos droits et la connexion.");
     } finally { setSaving(false); }
   }
 
@@ -157,6 +160,12 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
   const [busy,setBusy]=useState(false);
   const [mutationError,setMutationError]=useState("");
   const [notice,setNotice]=useState("");
+  async function printLabel(){
+    const popup=window.open('','_blank','width=650,height=800');
+    if(!popup){setNotice('Autorisez les fenêtres contextuelles pour imprimer l’étiquette.');return;}
+    try{const content=await getPackageLabel(item.id,'print');popup.document.write(await content.text());popup.document.close();popup.focus();popup.print();}
+    catch{popup.close();setNotice('Impossible de préparer l’étiquette. Réessayez.');}
+  }
   const pending=useRef(false);
   async function refresh() {
     try { changed(await getParcelOverview(item.id)); }
@@ -191,6 +200,7 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
         <section className="pb-5"><p className="mb-3 text-[11px] text-slate-500">Opérations / Colis</p><h3 className="mb-3 text-sm font-semibold">Informations du colis</h3><dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2"><Fact label="Client"><ClientLink item={item}/></Fact><Fact label="Service">{item.service_name}</Fact><Fact label="Route">{item.route_name||[item.destination_city,item.destination_country].filter(Boolean).join(", ")}</Fact><Fact label="Poids">{item.weight_kg==null?"Non pesé":`${new Intl.NumberFormat("fr").format(item.weight_kg)} kg`}</Fact><Fact label="Référence fournisseur">{item.supplier_tracking||item.external_reference}</Fact><Fact label="Stockage">{[item.warehouse_zone,item.warehouse_rack,item.warehouse_location].filter(Boolean).join(" · ")||item.office_name}</Fact><Fact label="Expédition">{item.shipment_id?<PermissionGuard permission="shipments.read" fallback={<span>{item.shipment_reference||"Affecté"}</span>}><Link className={linkClass} href={`/app/shipments/${encodeURIComponent(item.shipment_id)}`}>{item.shipment_reference||"Voir l’expédition"}</Link></PermissionGuard>:"Pas encore affecté"}</Fact>{item.description&&<Fact label="Description">{item.description}</Fact>}</dl></section>
         <section className="py-5"><div className="mb-4 flex items-center justify-between"><h3 className="text-sm font-semibold">Suivi du colis</h3><button type="button" className="text-xs font-medium text-slate-600 underline underline-offset-2" aria-expanded={historyOpen} onClick={()=>setHistoryOpen(value=>!value)}>{historyOpen?"Masquer l’historique":"Historique complet"}</button></div>{history?<ParcelMilestones item={item} history={history}/>:historyError?<p role="alert" className="text-sm text-amber-800">Événements de suivi indisponibles. Le statut courant reste affiché dans l’en-tête.</p>:<TableSkeleton rows={1} columns={4} label="Chargement du suivi"/>}{historyOpen&&<div className="mt-4 border-t border-slate-100 pt-3">{history?.items.length?<><ol className="space-y-3">{history.items.map(event=><li key={event.id} className="flex justify-between gap-3 text-xs"><span className="font-medium text-slate-700">{event.title}</span><time className="shrink-0 text-slate-500">{formatDate(event.created_at)}</time></li>)}</ol>{history.total_pages>1&&<div className="mt-3 flex items-center justify-end gap-2"><OperationButton disabled={historyPage<=1} onClick={()=>setHistoryPage(value=>value-1)}>Précédent</OperationButton><span className="text-xs text-slate-500">{history.page}/{history.total_pages}</span><OperationButton disabled={historyPage>=history.total_pages} onClick={()=>setHistoryPage(value=>value+1)}>Suivant</OperationButton></div>}</>:<p className="text-xs text-slate-500">{historyError?"Historique indisponible.":history?"Aucun événement enregistré.":"Chargement de l’historique…"}</p>}</div>}</section>
         {item.stage==="arrived"&&<PermissionGuard permission="packages.update"><section className="py-4">{confirmReady?<><h3 className="text-sm font-semibold">Confirmer la disponibilité</h3><p className="mt-2 text-sm text-slate-600">Le colis est physiquement disponible au point de retrait. Le client sera averti si les notifications sont activées.</p><div className="mt-4 flex justify-end gap-2"><OperationButton disabled={busy} onClick={()=>setConfirmReady(false)}>Annuler</OperationButton><OperationButton variant="primary" disabled={busy} onClick={()=>void command("ready")}>{busy?"Confirmation…":"Confirmer"}</OperationButton></div></>:<OperationButton disabled={busy} onClick={()=>{setMutationError("");setConfirmReady(true);}}><PackageCheck size={15}/>Disponible pour retrait</OperationButton>}{mutationError&&<p role="alert" className="mt-3 text-sm text-red-700">{mutationError}</p>}</section></PermissionGuard>}
+        <section className="py-5"><OperationButton onClick={()=>void printLabel()}>Imprimer l’étiquette</OperationButton></section>
         <section className="py-5"><ParcelPhotos item={item} changed={refresh} busyChanged={setBusy} disabled={busy}/></section>
         <section className="py-5"><PermissionGuard permission="finance.read" fallback={<p role="status" className="text-sm text-slate-600">Vous n’avez pas l’autorisation de consulter Finance pour ce colis.</p>}><ParcelFinanceDetails item={item} changed={refresh}/></PermissionGuard></section>
       </div>}

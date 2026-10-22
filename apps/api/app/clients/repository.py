@@ -395,6 +395,11 @@ def create_client(org_id: str, user_id: str, payload: dict, *, connection=None) 
                     if not replay:
                         raise ValueError('client_creation_no_longer_available')
                     return replay
+            if payload.get('credit_enabled'):
+                from app.organization_admin.settings_policy import require_credit_allowed
+                from app.permissions.services.permission_service import assert_permission
+                assert_permission(user_id=user_id,org_id=org_id,permission_code='finance.settings')
+                require_credit_allowed(conn, org_id, True)
             duplicate = _find_duplicate(org_id, phone or whatsapp_phone, email, connection=conn)
             if duplicate:
                 raise ValueError('duplicate_client')
@@ -524,6 +529,13 @@ def update_client(org_id: str, client_id: str, user_id: str, payload: dict) -> d
 
     try:
         with engine.begin() as conn:
+            credit_changed=(data.get('credit_enabled')!=existing.get('credit_enabled')
+                            or Decimal(str(data.get('credit_limit') or 0))!=Decimal(str(existing.get('credit_limit') or 0)))
+            if credit_changed:
+                from app.organization_admin.settings_policy import require_credit_allowed
+                from app.permissions.services.permission_service import assert_permission
+                assert_permission(user_id=user_id,org_id=org_id,permission_code='finance.settings')
+                require_credit_allowed(conn, org_id, data.get('credit_enabled'))
             network_client_id = None
             network_phone = phone or whatsapp_phone
             if network_phone:

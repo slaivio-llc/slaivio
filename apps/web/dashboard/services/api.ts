@@ -8,10 +8,23 @@ type RetriableRequest = {
 };
 let accessTokenProvider: AccessTokenProvider | null = null;
 export const SESSION_EXPIRED_EVENT = "slaivio:session-expired";
+export const MFA_REQUIRED_EVENT = "slaivio:mfa-required";
 export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  package_category_required:"La catégorie de marchandise est obligatoire.",
+  reference_office_required:"Sélectionnez un bureau pour générer la référence du colis, ou configurez un bureau dans les paramètres.",
+  package_packaging_required:"Le type de conditionnement est obligatoire.",
+  package_measurement_required:"Renseignez un poids ou un volume pour ce colis.",
+  package_photos_disabled:"L’ajout de photos est désactivé pour cette agence.",
+  delivery_proof_required:"Une preuve de remise est nécessaire pour livrer ce colis.",
+  customer_credit_disabled:"Le crédit client est désactivé dans les paramètres de l’agence.",
+  regulated_goods_review_required:"La marchandise doit être validée avant son expédition.",
+  goods_not_accepted:"Cette marchandise est interdite par les règles de l’agence.",
+  tracking_slug_unavailable:"L’identifiant public est déjà utilisé par une autre agence.",
+  mfa_setup_required:"Activez la double authentification de votre compte, puis reconnectez-vous avant de l’imposer à l’agence.",
+  organization_mfa_required:"Votre agence exige une connexion avec double authentification.",
   knowledge_antivirus_unavailable: "Le service de sécurité des fichiers est temporairement indisponible. Réessayez dans quelques instants.",
   knowledge_antivirus_not_configured: "L’analyse de sécurité des fichiers n’est pas encore configurée sur cet environnement.",
   knowledge_antivirus_invalid_response: "Le service de sécurité n’a pas pu confirmer le résultat de l’analyse.",
@@ -140,6 +153,9 @@ api.interceptors.response.use(
     return response;
   },
   async (error: unknown) => {
+    if(typeof window !== 'undefined' && axios.isAxiosError(error) && error.response?.status===403 && error.response.data?.detail==='organization_mfa_required'){
+      window.dispatchEvent(new Event(MFA_REQUIRED_EVENT));
+    }
     if (axios.isAxiosError(error) && !error.response && error.config) {
       const config = error.config as typeof error.config & RetriableRequest;
       const method = String(config.method || "get").toUpperCase();

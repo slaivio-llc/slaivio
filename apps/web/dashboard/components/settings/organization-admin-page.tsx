@@ -19,6 +19,11 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import { useClerk } from "@clerk/nextjs";
+import { api } from "@/services/api";
+import { FinanceSettingsOverview } from "@/components/finance/finance-settings-overview";
+import { GoodsRuleSettings } from "./goods-rule-settings";
+import { setDashboardLocale } from "@/components/i18n/dashboard-language";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   archiveWorkspace,
@@ -27,6 +32,7 @@ import {
   requestDataOperation,
   revokeInvitation,
   saveLocation,
+  saveAgencyBrand,
   saveNumbering,
   saveRole,
   saveWorkspace,
@@ -108,7 +114,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   roles: ["Rôles & permissions", "Responsabilités et droits accordés à chaque rôle."],
   notifications: ["Notifications & messages", "Configurez les notifications automatiques envoyées à vos clients."],
   documents: ["Documents & étiquettes", "Configurez l’apparence et le format des documents de l’agence."],
-  billing: ["Abonnement Slaivio", "Plan, usage et facturation de votre abonnement à la plateforme."],
+  billing: ["Paiements & facturation", "Configurez les paiements et les conditions de règlement de vos clients."],
   security: ["Accès & sécurité", "Configurez les règles applicables à votre agence."],
   data: ["Données & confidentialité", "Export, conservation et demandes sensibles sur les données."],
 };
@@ -121,6 +127,7 @@ export function OrganizationAdminPage() {
   const [data, setData] = useState<AdminData | null>(null),
     [tab, setTab] = useState<Section>("agency"),
     [error, setError] = useState(""),
+    [saving, setSaving] = useState(false),
     [notice, setNotice] = useState("");
   useEffect(() => {
     const requested = params.get("section");
@@ -145,26 +152,39 @@ export function OrganizationAdminPage() {
     void load();
   }, [load]);
   async function run(action: () => Promise<unknown>, message: string) {
+    if (saving) return;
+    setSaving(true);
     try {
       setError("");
+      setNotice("");
       await action();
       setNotice(message);
       await load();
     } catch (e) {
       const detail = (e as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;
-      setError(
+      const messages:Record<string,string>={
+        settings_were_modified:"Les paramètres ont changé dans une autre session. Rechargez la page avant de réessayer.",
+        organization_was_modified:"Le profil a changé dans une autre session. Rechargez la page avant de réessayer.",
+        numbering_was_modified:"La numérotation a changé dans une autre session. Rechargez la page avant de réessayer.",
+        tracking_slug_unavailable:"Cet identifiant public est déjà utilisé. Choisissez-en un autre.",
+        mfa_setup_required:"Activez la double authentification de votre compte, puis reconnectez-vous avant de l’imposer à l’agence.",
+      };
+      setError(messages[String(detail)] || (
         detail === "organization_requires_an_active_owner"
           ? "Une organisation doit toujours conserver au moins un propriétaire actif."
           : detail === "clerk_organizations_not_enabled"
             ? "Impossible d’envoyer l’invitation : activez Organizations dans le Clerk Dashboard de l’instance utilisée par l’API, puis réessayez."
             : detail === "invitation_provider_unavailable"
               ? "Le service d’invitation est temporairement injoignable. Réessayez plus tard."
-          : detail || "L’opération n’a pas abouti.",
-      );
+          : "L’enregistrement a échoué. Vérifiez les champs et vos droits d’accès."
+      ));
+    } finally {
+      setSaving(false);
     }
   }
   function select(section: Section) {
+    setError("");setNotice("");
     setTab(section);
     router.replace(`/app/settings?section=${section}`, { scroll: false });
   }
@@ -185,7 +205,7 @@ export function OrganizationAdminPage() {
           <PermissionGuard permission="platform.admin.read"><SettingsGroup label="Plateforme"><SettingsLink href="/app/platform" label="Console Super Admin"/></SettingsGroup></PermissionGuard>
         </aside>
         <main className="min-w-0 p-4 sm:p-6 [&_form_label]:text-[13px] [&_form_input]:text-[14px] [&_form_textarea]:text-[14px]">
-          <div className="mx-auto max-w-[640px]">
+          <fieldset disabled={saving} aria-busy={saving} className="mx-auto min-w-0 max-w-[640px]" key={`${data.settings?.row_version}-${data.organization.row_version}`}>
             <label className="mb-5 grid gap-1.5 text-[13px] font-medium text-[#59636e] lg:hidden">Section des paramètres<select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>{visibleSettings.map(id => { const [key, label] = tabs.find(([key]) => key === id)!; return <option key={key} value={key}>{label}</option>; })}</select></label>
             <div className="mb-5 border-b border-[#e7eaec] pb-4"><h2 className="text-[20px] font-semibold text-[#25292e]">{sectionTitles[tab]?.[0] || tab}</h2><p className="mt-1.5 text-[14px] leading-5 text-[#697178]">{sectionTitles[tab]?.[1] || ""}</p></div>
             {notice && (
@@ -208,10 +228,10 @@ export function OrganizationAdminPage() {
             {tab === "roles" && <Roles data={data} run={run} />}{" "}
             {tab === "notifications" && <CustomerMilestoneNotifications data={data} run={run} />}{" "}
             {tab === "documents" && <DocumentsSettings data={data} run={run} />}{" "}
-            {tab === "billing" && <BillingSettings data={data} />}{" "}
+            {tab === "billing" && <PermissionGuard permission="finance.settings"><FinanceSettingsOverview /></PermissionGuard>}{" "}
+            {tab === "subscription" && <BillingSettings />}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "goods", "clients", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
             <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
@@ -219,8 +239,9 @@ export function OrganizationAdminPage() {
             <ShipmentDeliverySettings data={data} run={run} active={tab === "delivery"} />
             <PackageNumberingSettings data={data} run={run} active={tab === "numbering"} />
             <GoodsRestrictionsSettings data={data} run={run} active={tab === "goods"} />
+            {tab === 'goods' && <GoodsRuleSettings/>}
             <ClientConditionsSettings data={data} run={run} active={tab === "clients"} />
-          </div>
+          </fieldset>
         </main>
         </div>
       </div>
@@ -313,7 +334,7 @@ function CustomerMilestoneNotifications({ data, run }: { data: AdminData; run: (
   const [milestones, setMilestones] = useState<Record<string, boolean>>(() => Object.fromEntries(customerMilestones.map(([key]) => [key, savedMilestones[key] !== false])));
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    run(() => updateSettings({ ...data.settings, expected_version: Number(data.settings?.row_version || 1), settings: { ...storedSettings, customer_milestone_notifications: milestones } }), "Paramètres de notifications enregistrés.");
+    run(() => updateSettings({ expected_version: Number(data.settings?.row_version || 1), settings: { customer_milestone_notifications: milestones } }), "Paramètres de notifications enregistrés.");
   }
   return <PermissionGuard permission="settings.write" fallback={<ReadOnly />}><form onSubmit={submit} className="max-w-[640px]">
     <section className="border-b border-[#e7eaec] pb-4">
@@ -364,13 +385,12 @@ function PublicTrackingSettings({
       show_pricing: showPricing,
     };
     run(() => updateSettings({
-      ...data.settings,
       expected_version: Number(data.settings?.row_version || 1),
-      settings: { ...storedSettings, public_tracking_page: nextPage },
+      settings: { public_tracking_page: nextPage },
     }), "Paramètres de tracking public enregistrés.");
   }
 
-  const publicUrl = `tracking.slaivio.com/${slug || "identifiant-agence"}`;
+  const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/track?agency=${encodeURIComponent(slug)}`;
   const agencyName = String(data.organization.organization_name || "Votre agence");
   const supportPhone = String(data.organization.phone || "");
   return <section className="grid gap-5">
@@ -382,7 +402,7 @@ function PublicTrackingSettings({
           <input aria-label="Activer le suivi public" type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} className="h-5 w-5 accent-[#137c56]" />
         </label>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Identifiant public de l’agence<input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={event => setSlug(event.target.value.toLowerCase())} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-        <div className="pt-1"><p className="text-[12px] text-[#697178]">Adresse illustrative</p><p className="mt-1 text-[13px] font-medium text-[#30363a]">{publicUrl}</p><p className="mt-1 text-[11px] text-[#858d93]">La disponibilité et l’unicité de l’identifiant doivent être vérifiées côté serveur.</p></div>
+        <div className="pt-1"><p className="text-[12px] text-[#697178]">Adresse publique</p><a href={publicUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all text-[13px] font-medium text-[#30363a] underline">{publicUrl}</a></div>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Message d’accueil<textarea name="welcome" rows={3} maxLength={300} value={welcome} onChange={event => setWelcome(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
       </section>
       <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
@@ -439,11 +459,9 @@ function AgencyHoursSettings({
     const form = new FormData(event.currentTarget);
     const nextSettings = data.settings || { row_version: 1 };
     run(() => updateSettings({
-      ...nextSettings,
       expected_version: Number(nextSettings.row_version || 1),
       timezone: String(form.get("agency_timezone") || "Africa/Kinshasa"),
       settings: {
-        ...settings,
         agency_hours: { text: String(form.get("agency_hours") || "").trim() },
       },
     }), "Horaires et fuseau horaire enregistrés.");
@@ -454,8 +472,8 @@ function AgencyHoursSettings({
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Horaires de l’agence<textarea name="agency_hours" rows={3} maxLength={300} required value={hours} onChange={event => setHours(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Fuseau horaire<select name="agency_timezone" value={timezone} onChange={event => setTimezone(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]">{[["Africa/Kinshasa", "Kinshasa"], ["Africa/Lubumbashi", "Lubumbashi"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Africa/Lagos", "Lagos"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">En production : horaires par jour, pauses, jours fériés, fermetures exceptionnelles et horaires distincts par bureau.</p>
-        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Ces horaires sont affichés sur votre page publique lorsque les coordonnées du support sont visibles. Chaque bureau conserve ses propres horaires dans Bureaux & contacts.</p>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -487,10 +505,8 @@ function ParcelReceiptRulesSettings({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     run(() => updateSettings({
-      ...data.settings,
       expected_version: Number(data.settings?.row_version || 1),
       settings: {
-        ...storedSettings,
         parcel_receipt_rules: {
           category_required: categoryRequired,
           packaging_required: packagingRequired,
@@ -518,7 +534,7 @@ function ParcelReceiptRulesSettings({
           {[ ["Transport aérien", "KG"], ["Transport maritime", "CBM"], ["Transport express", "KG"] ].map(([service, unit]) => <div key={service} className="flex items-center justify-between px-2 py-1 text-[13px] text-[#30363a]"><span>{service}</span><span className="rounded-full bg-[#f0f1f2] px-2.5 py-1 text-[11px] font-semibold text-[#424a50]">{unit}</span></div>)}
           <p className="text-[12px] leading-5 text-[#697178]">L’unité de facturation est déterminée automatiquement par la configuration du service, jamais choisie par l’agent.</p>
         </section>
-        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -548,10 +564,8 @@ function ShipmentDeliverySettings({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     run(() => updateSettings({
-      ...data.settings,
       expected_version: Number(data.settings?.row_version || 1),
       settings: {
-        ...storedSettings,
         shipment_delivery_rules: {
           delivery_proof: deliveryProof,
           arrival_notice: arrivalNotice,
@@ -570,7 +584,7 @@ function ShipmentDeliverySettings({
           <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Délai indicatif de retrait (jours)<input type="number" min={0} max={365} step={1} required value={pickupDays} onChange={event => setPickupDays(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
           <p className="text-[12px] leading-5 text-[#697178]">Les calendriers de départ, routes et expéditions se gèrent dans les modules opérationnels.</p>
         </div>
-        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -586,36 +600,41 @@ function PackageNumberingSettings({
   active: boolean;
 }) {
   const numbering = data.numbering.find(item => String(item.document_type).toUpperCase() === "PACKAGE");
+  const savedFormat=String(numbering?.prefix_format || 'COL-{YYYY}-{000001}');
+  const [prefix,setPrefix]=useState(savedFormat.split('{')[0].replace(/[-_]+$/,''));
+  const [withOffice,setWithOffice]=useState(savedFormat.includes('{OFFICE}'));
+  const [digits,setDigits]=useState(String(savedFormat.match(/\{(0+1)\}/)?.[1].length || 6));
+  const [scope,setScope]=useState(String(numbering?.counter_scope || 'GLOBAL'));
+  const [reset,setReset]=useState(String(numbering?.reset_period || 'NEVER'));
   if (!active) return null;
   if (!numbering) return <p role="alert" className="max-w-[640px] rounded-lg border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-900">Le compteur de références colis n’est pas configuré pour cette agence.</p>;
   const packageNumbering = numbering;
 
-  const currentFormat = String(packageNumbering.prefix_format || "COL-{YYYY}-{000001}");
-  const initialPrefix = currentFormat.split("{")[0].replace(/[-_]+$/, "") || "COL";
+  const currentFormat = `${prefix.toUpperCase()}-${withOffice || scope === 'OFFICE' ? '{OFFICE}-' : ''}{YYYY}-${reset === 'MONTH' ? '{MM}-' : ''}{${'0'.repeat(Number(digits)-1)}1}`;
   const preview = currentFormat
     .replaceAll("{YYYY}", String(new Date().getFullYear()))
     .replaceAll("{YEAR}", String(new Date().getFullYear()))
-    .replace(/\{(0+)\}/g, (_, zeros: string) => String(packageNumbering.next_number || 1).padStart(zeros.length, "0"))
+    .replaceAll('{OFFICE}',String(data.locations.find(item=>item.location_type==='OFFICE')?.code || 'BUREAU').toUpperCase())
+    .replaceAll('{MM}',String(new Date().getMonth()+1).padStart(2,'0'))
+    .replace(/\{(0+1)\}/g, (_, zeros: string) => String(packageNumbering.next_number || 1).padStart(zeros.length, "0"))
     .replaceAll("{SEQUENCE}", String(packageNumbering.next_number || 1));
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const prefix = String(form.get("agency_prefix") || "").trim().toUpperCase();
-    run(() => saveNumbering("PACKAGE", `${prefix}-{YYYY}-{000001}`, Number(packageNumbering.row_version)), "Format de référence des colis enregistré.");
+    run(() => saveNumbering("PACKAGE", currentFormat, Number(packageNumbering.row_version),scope,reset), "Format de référence des colis enregistré.");
   }
 
   return <section className="grid gap-5">
     <PermissionGuard permission="documents.settings" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Modèle de référence colis<select disabled value="prefix-year-sequence" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="prefix-year-sequence">Préfixe + année + séquence</option></select></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Préfixe agence<input name="agency_prefix" required minLength={2} maxLength={12} pattern="[A-Za-z0-9-]+" defaultValue={initialPrefix} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Longueur de la séquence<select disabled value="6" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="6">6 chiffres</option></select></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Compteur<select disabled value="global" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="global">Global à l’agence</option></select></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Réinitialisation<select disabled value="never" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e]"><option value="never">Jamais</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Modèle de référence colis<select value={withOffice ? 'office' : 'simple'} onChange={event=>{setWithOffice(event.target.value==='office');if(event.target.value==='simple')setScope('GLOBAL');}} className={input}><option value="simple">Préfixe + année + séquence</option><option value="office">Préfixe + bureau + année + séquence</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Préfixe agence<input name="agency_prefix" required minLength={2} maxLength={12} pattern="[A-Za-z0-9-]+" value={prefix} onChange={event=>setPrefix(event.target.value.toUpperCase())} className={input} /></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Longueur de la séquence<select value={digits} onChange={event=>setDigits(event.target.value)} className={input}>{[4,6,8].map(value=><option key={value} value={value}>{value} chiffres</option>)}</select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Compteur<select value={scope} onChange={event=>{setScope(event.target.value);if(event.target.value==='OFFICE')setWithOffice(true);}} className={input}><option value="GLOBAL">Global à l’agence</option><option value="OFFICE">Par bureau</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Réinitialisation<select value={reset} onChange={event=>setReset(event.target.value)} className={input}><option value="NEVER">Jamais</option><option value="YEAR">Chaque année</option><option value="MONTH">Chaque mois</option></select></label>
         <div className="grid gap-1"><span className="text-[12px] text-[#697178]">Exemple fictif</span><strong className="text-[14px] font-semibold text-[#25292e]">{preview}</strong></div>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Les paramètres doivent être validés contre les collisions de références avant activation. Les références existantes sont immuables.</p>
-        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Le nouveau format s’applique aux prochains colis. Les références existantes sont conservées et les doublons sont évités automatiquement.</p>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -644,10 +663,8 @@ function GoodsRestrictionsSettings({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     run(() => updateSettings({
-      ...data.settings,
       expected_version: Number(data.settings?.row_version || 1),
       settings: {
-        ...storedSettings,
         goods_restrictions: {
           regulated_goods_check: regulatedGoodsCheck,
           agent_instructions: instructions.trim(),
@@ -662,7 +679,7 @@ function GoodsRestrictionsSettings({
         <VisibilityToggle label="Vérification des marchandises réglementées" checked={regulatedGoodsCheck} onChange={setRegulatedGoodsCheck}/>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Conditions et restrictions communiquées aux agents<textarea rows={4} maxLength={2000} required value={instructions} onChange={event => setInstructions(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
         <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Les règles doivent pouvoir varier selon le pays, le corridor et le service, avec validation humaine pour les marchandises sensibles.</p>
-        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -690,10 +707,8 @@ function ClientConditionsSettings({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     run(() => updateSettings({
-      ...data.settings,
       expected_version: Number(data.settings?.row_version || 1),
       settings: {
-        ...storedSettings,
         client_conditions: { ...storedConditions, allow_customer_credit: allowCredit },
       },
     }), "Conditions clients enregistrées.");
@@ -705,7 +720,7 @@ function ClientConditionsSettings({
         <VisibilityToggle label="Autoriser le crédit client" checked={allowCredit} onChange={setAllowCredit}/>
         <p className="-mt-3 text-[12px] leading-5 text-[#697178]">Uniquement pour les clients explicitement approuvés.</p>
         <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Autres règles à prévoir : conditions générales, consentements, réclamations, données obligatoires, gestion des comptes entreprises.</p>
-        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -739,20 +754,13 @@ function VisualIdentitySettings({
     const favicon = val(form, "favicon");
     const primaryColor = val(form, "primary_color") || "#137C56";
     const secondaryColor = val(form, "secondary_color") || "#172B4D";
-    const nextSettings = { ...visualSettings, brand_favicon_url: favicon };
-    run(async () => {
-      await updateOrganization({
+    run(() => saveAgencyBrand({
         expected_version: Number(organization.row_version),
         logo_url: logo,
         logo_dark_url: darkLogo,
         primary_color: primaryColor,
         secondary_color: secondaryColor,
-      });
-      await updateSettings({
-        expected_version: Number(data.settings?.row_version || 1),
-        settings: nextSettings,
-      });
-    }, "Identité visuelle enregistrée.");
+      }, Number(data.settings?.row_version || 1), favicon), "Identité visuelle enregistrée.");
   }
 
   return <section className="grid gap-5">
@@ -779,7 +787,7 @@ function VisualIdentitySettings({
         <div className="mt-3 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-md bg-[#f4f6f5] text-[#4d5860]"><Building2 size={18}/></span><span className="min-w-0"><strong className="block truncate text-[14px] text-[#25292e]">{String(organization.organization_name || "Votre agence")}</strong><span className="mt-0.5 block truncate text-[12px] text-[#697178]">{String(organization.brand_slogan || "Nom et slogan de l’agence")}</span></span></div>
         <div className="mt-3 flex gap-2"><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(primaryPreview) ? primaryPreview : "#137C56" }}/><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(secondaryPreview) ? secondaryPreview : "#172B4D" }}/></div>
       </div>
-      <p className="text-[12px] leading-5 text-[#697178]">En production, prévoyez le téléversement sécurisé, le recadrage et la validation des images plutôt qu’une URL manuelle.</p>
+      <p className="text-[12px] leading-5 text-[#697178]">Utilisez des images accessibles par une adresse HTTPS. Le logo et les couleurs sont utilisés sur la page publique ; les documents respectent leurs propres préférences d’affichage.</p>
       <PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div></PermissionGuard>
     </form>
   </section>;
@@ -1208,14 +1216,15 @@ function Preferences({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     run(
-      () =>
-        updateSettings({
-          ...settings,
+      async () => {
+        await updateSettings({
           expected_version: settings.row_version,
           language_code: val(form, "language"),
           currency_code: val(form, "currency"),
           timezone: val(form, "timezone"),
-        }),
+        });
+        setDashboardLocale(form.get("language") === "en" ? "en" : "fr");
+      },
       "Langue, devise et fuseau horaire enregistrés.",
     );
   }
@@ -1223,7 +1232,7 @@ function Preferences({
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-4">
         <SettingSelect label="Langue par défaut" name="language" value={String(settings.language_code || "fr")} options={[["fr", "Français"], ["en", "English"]]} />
-        <SettingSelect label="Devise de référence" name="currency" value={String(settings.currency_code || "USD")} options={["USD", "CDF", "EUR", "CNY", "AED", "XAF", "GHS", "KES"].map(currency => [currency, currency])} />
+        <SettingSelect label="Devise de référence" name="currency" value={String(settings.currency_code || "USD")} options={["USD", "CDF", "EUR", "CNY", "AED", "XAF", "XOF", "AOA", "GBP", "GHS", "KES"].map(currency => [currency, currency])} />
         <SettingSelect label="Fuseau horaire" name="timezone" value={String(settings.timezone || "Africa/Kinshasa")} options={[["Africa/Kinshasa", "Kinshasa"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]]} />
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4">
           <span className="text-[11px] text-[#858d93]">Paramètres de l’agence</span>
@@ -1234,7 +1243,7 @@ function Preferences({
   );
 }
 function SettingSelect({label,name,value,options}:{label:string;name:string;value:string;options:string[][]}) {
-  return <label>{label}<select name={name} defaultValue={value} className={`${input} mt-1`}>{options.map(([option,labelText])=><option key={option} value={option}>{labelText}</option>)}</select></label>;
+  return <label>{label}<select name={name} defaultValue={value} className={`${input} mt-1`}>{!options.some(([option])=>option===value)&&<option value={value}>{value}</option>}{options.map(([option,labelText])=><option key={option} value={option}>{labelText}</option>)}</select></label>;
 }
 function Security({
   data,
@@ -1243,6 +1252,7 @@ function Security({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  const clerk=useClerk();
   const s = data.settings || { row_version: 1 };
   const sec = (s.security || {}) as Record<string, unknown>;
   function submit(e: FormEvent<HTMLFormElement>) {
@@ -1251,7 +1261,6 @@ function Security({
     run(
       () =>
         updateSettings({
-          ...s,
           expected_version: s.row_version,
           security: {
             ...sec,
@@ -1270,9 +1279,10 @@ function Security({
               <span className="block font-medium">Authentification multifacteur</span>
               <span className="mt-1 block text-[12px] text-[#697178]">Protection supplémentaire des comptes.</span>
             </span>
-            <input aria-label="Authentification multifacteur" name="mfa" type="checkbox" defaultChecked={sec.require_mfa === undefined ? true : Boolean(sec.require_mfa)} className="h-5 w-5 accent-[#202326]" />
+            <input aria-label="Authentification multifacteur" name="mfa" type="checkbox" defaultChecked={sec.require_mfa === true && sec.mfa_enforced === true} className="h-5 w-5 accent-[#202326]" />
           </label>
           <p className="text-[12px] leading-5 text-[#697178]">Rôles personnalisés, accès par bureau, historique des connexions et audit des changements sensibles.</p>
+          <button type="button" onClick={()=>clerk.openUserProfile()} className={button}>Configurer la sécurité de mon compte</button>
           <Link href="/app/settings?section=team" className="flex h-10 w-full items-center justify-center rounded-full border border-[#d8dddf] text-[13px] font-medium text-[#424a50] hover:bg-[#f7f8f8]">Configurer les accès</Link>
         </section>
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4">
@@ -1518,10 +1528,8 @@ function DocumentsSettings({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     run(() => updateSettings({
-      ...data.settings,
       expected_version: Number(data.settings?.row_version || 1),
       settings: {
-        ...storedSettings,
         document_preferences: {
           label_format: labelFormat,
           show_agency_logo: showLogo,
@@ -1538,13 +1546,20 @@ function DocumentsSettings({
         <VisibilityToggle label="Afficher le logo de l’agence" checked={showLogo} onChange={setShowLogo}/>
         <VisibilityToggle label="Afficher les coordonnées du bureau" checked={showOfficeDetails} onChange={setShowOfficeDetails}/>
         <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Modèles à personnaliser : étiquette colis, reçu de dépôt, facture, manifeste, bon de livraison.</p>
-        <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4"><span className="text-[11px] text-[#858d93]">Configuration de démonstration</span><button className={primary}>Enregistrer</button></div>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
   </section>;
 }
-function BillingSettings({ data }: { data: AdminData }) {
-  const b = data.billing || {};
+function BillingSettings() {
+  const [billing,setBilling]=useState<{subscription:Record<string,unknown>|null;invoices:Array<Record<string,unknown>>;usage:Record<string,number>}|null>(null);
+  const [error,setError]=useState(false);
+  const [retry,setRetry]=useState(0);
+  useEffect(()=>{let active=true;api.get('/billing').then(result=>{if(active)setBilling(result.data.billing);}).catch(()=>{if(active)setError(true);});return()=>{active=false;};},[retry]);
+  if(error)return <ErrorState title="Abonnement indisponible" description="Impossible de charger votre abonnement." retry={()=>{setError(false);setRetry(value=>value+1);}}/>;
+  if(!billing)return <LoadingState label="Chargement de l’abonnement…"/>;
+  const subscription=billing.subscription;
+  const b:Record<string,unknown>={plan_code:subscription?.plan_name,status:subscription?.status,monthly_amount:Number(subscription?.monthly_price_minor || 0)/100,billing_currency:'USD',next_billing_at:subscription?.ends_at,usage:billing.usage};
   const usage = (b.usage || {}) as Record<string, number>,
     limits = (b.limits || {}) as Record<string, number>;
   return (
@@ -1554,10 +1569,10 @@ function BillingSettings({ data }: { data: AdminData }) {
         description="Abonnement Slaivio, distinct des factures clients."
       >
         <h3 className="text-xl font-semibold">
-          {String(b.plan_code || "TRIAL")}
+          {String(b.plan_code || "Aucun abonnement configuré")}
         </h3>
         <p className="text-[13px]">
-          {String(b.status || "TRIAL")} · {String(b.monthly_amount || 0)}{" "}
+          {String(({TRIAL:'Période d’essai',ACTIVE:'Actif',PAST_DUE:'Paiement en retard',CANCELLED:'Résilié',SUSPENDED:'Suspendu'} as Record<string,string>)[String(b.status)] || 'Non configuré')} · {String(b.monthly_amount || 0)}{" "}
           {String(b.billing_currency || "USD")} / mois
         </p>
         <p className="mt-2 text-[12px] text-[#69707d]">
@@ -1569,14 +1584,14 @@ function BillingSettings({ data }: { data: AdminData }) {
       </Card>
       <Card
         title="Usage"
-        description="Mesures utilisées par le futur moteur d’abonnement."
+        description="Utilisation actuelle de votre agence."
       >
         {Object.keys({ ...limits, ...usage }).map((k) => (
           <div className="mb-3" key={k}>
             <div className="flex justify-between text-[12px]">
-              <span>{k}</span>
+              <span>{{clients:'Clients',packages:'Colis',members:'Membres',offices:'Bureaux'}[k] || k}</span>
               <b>
-                {usage[k] || 0} / {limits[k] || "∞"}
+                {usage[k] || 0}{limits[k] ? ` / ${limits[k]}` : ''}
               </b>
             </div>
             <div className="mt-1 h-1.5 bg-[#e6e8e8]">
@@ -1589,6 +1604,9 @@ function BillingSettings({ data }: { data: AdminData }) {
             </div>
           </div>
         ))}
+      </Card>
+      <Card title="Factures d’abonnement" description="Historique de facturation de la plateforme.">
+        {!billing.invoices.length ? <p className="text-sm text-slate-500">Aucune facture d’abonnement.</p> : billing.invoices.map(invoice=><div key={String(invoice.id)} className="flex justify-between gap-3 border-b border-slate-100 py-3 text-sm"><span>{String(invoice.invoice_number)}<span className="mt-1 block text-xs text-slate-500">{String(({PAID:'Payée',OPEN:'À régler',VOID:'Annulée',DRAFT:'Brouillon'} as Record<string,string>)[String(invoice.status)] || 'En cours')}</span></span><strong>{new Intl.NumberFormat('fr-FR',{style:'currency',currency:String(invoice.currency_code || 'USD')}).format(Number(invoice.total_minor)/100)}</strong></div>)}
       </Card>
     </div>
   );

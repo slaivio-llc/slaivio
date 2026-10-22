@@ -9,17 +9,66 @@ from app.core.tenant_context import get_current_tenant
 from app.organization_admin import repository as repo
 from app.organization_admin import pilot_repository as pilot_repo
 from app.services.wazzap_activation_service import activate_wazzap_number
+from app.organization_admin.settings_policy import validate_policies, validate_timezone
 
 router=APIRouter(prefix='/organization/admin',tags=['organization-admin'])
 def actor(m):return m.get('user_id') or m.get('id')
 class OrgUpdate(BaseModel):
     expected_version:int=Field(ge=1); organization_name:str|None=None;legal_name:str|None=None;brand_slogan:str|None=Field(default=None,max_length=180);brand_description:str|None=Field(default=None,max_length=2000);country:str|None=None;city:str|None=None;address:str|None=None;phone:str|None=None;email:str|None=None;website:str|None=None;registration_number:str|None=None;tax_number:str|None=None;logo_url:str|None=None;organization_type:str|None=None;whatsapp:str|None=None;province:str|None=None;postal_code:str|None=None;registration_country:str|None=None;legal_address:str|None=None;logo_dark_url:str|None=None;primary_color:str|None=None;secondary_color:str|None=None;document_display_name:str|None=None;signature_url:str|None=None;stamp_url:str|None=None
+
+    @field_validator('primary_color','secondary_color')
+    @classmethod
+    def color(cls,value):
+        if value and not re.fullmatch(r'#[0-9a-fA-F]{6}',value):raise ValueError('invalid_brand_color')
+        return value
+
+    @field_validator('logo_url','logo_dark_url','signature_url','stamp_url')
+    @classmethod
+    def image_url(cls,value):
+        from urllib.parse import urlsplit
+        if value:
+            parsed=urlsplit(value)
+            if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError('https_image_url_required')
+        return value
 class SettingsUpdate(BaseModel):
     expected_version:int=Field(ge=1);timezone:str='UTC';currency_code:str='USD';country_code:str|None=None;language_code:str='fr';date_format:str='DD/MM/YYYY';weight_unit:str='kg';volume_unit:str='cbm';notification_email:str|None=None;settings:dict[str,Any]={};security:dict[str,Any]={};time_format:str='24H';week_starts_on:int=Field(default=1,ge=0,le=6);dimension_unit:str='cm';distance_unit:str='km';data_retention_days:int=Field(default=1095,ge=30,le=3650);privacy:dict[str,Any]={}
+
+    _timezone = field_validator('timezone')(validate_timezone)
+    _policies = field_validator('settings')(validate_policies)
+
+    @field_validator('language_code')
+    @classmethod
+    def language(cls, value):
+        if value not in {'fr', 'en'}: raise ValueError('unsupported_language')
+        return value
+
+    @field_validator('currency_code')
+    @classmethod
+    def currency(cls, value):
+        if value not in {'USD','CDF','EUR','CNY','AED','XAF','XOF','AOA','GBP','GHS','KES'}: raise ValueError('unsupported_currency')
+        return value
+
+    @field_validator('security')
+    @classmethod
+    def security_policy(cls, value):
+        if 'require_mfa' in value and type(value['require_mfa']) is not bool:
+            raise ValueError('invalid_mfa_policy')
+        return value
 class MemberUpdate(BaseModel):
     expected_version:int=Field(ge=1)
     role_code:str
     status:str
+
+class BrandUpdate(BaseModel):
+    organization:OrgUpdate
+    settings_version:int=Field(ge=1)
+    favicon_url:str|None=Field(default=None,max_length=2000)
+
+    @field_validator('favicon_url')
+    @classmethod
+    def favicon(cls,value):
+        return OrgUpdate.image_url(value)
 class MemberOfficeAccessUpdate(BaseModel):
     expected_version:int=Field(ge=1)
     office_access_scope:Literal['ALL_OFFICES','SELECTED_OFFICES']
@@ -53,14 +102,16 @@ class IntegrationSave(BaseModel):provider:str=Field(pattern=r'^(WHATSAPP|GMAIL)$
 class NumberingSave(BaseModel):
     prefix_format:str=Field(min_length=3,max_length=100)
     expected_version:int=Field(ge=1)
+    counter_scope:Literal['GLOBAL','OFFICE']='GLOBAL'
+    reset_period:Literal['NEVER','YEAR','MONTH']='NEVER'
 
     @field_validator('prefix_format')
     @classmethod
     def validate_prefix_format(cls,value:str)->str:
         value=value.strip()
         tokens=re.findall(r'\{[^{}]+\}',value)
-        unknown=[token for token in tokens if token not in {'{YYYY}','{YEAR}','{000001}','{SEQUENCE}'}]
-        sequence_count=sum(value.count(token) for token in ('{000001}','{SEQUENCE}'))
+        unknown=[token for token in tokens if token not in {'{YYYY}','{YEAR}','{MM}','{OFFICE}','{0001}','{000001}','{00000001}','{SEQUENCE}'}]
+        sequence_count=sum(token == '{SEQUENCE}' or bool(re.fullmatch(r'\{0{3,7}1\}',token)) for token in tokens)
         if unknown:raise ValueError('unknown_identifier_placeholder')
         if sequence_count!=1:raise ValueError('identifier_requires_one_sequence')
         if any(ord(character)<32 for character in value):raise ValueError('identifier_contains_control_character')
@@ -162,12 +213,31 @@ def post_office_context(
     )}
 @router.patch('',dependencies=[Depends(require_permission('organization.manage'))])
 def patch_org(body:OrgUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
-    row=repo.update_org(tenant['org_id'],actor(manager),body.model_dump(exclude={'expected_version'}),body.expected_version)
+    row=repo.update_org(tenant['org_id'],actor(manager),body.model_dump(exclude={'expected_version'},exclude_unset=True),body.expected_version)
     if not row:raise HTTPException(409,'organization_was_modified')
     return {'status':'ok','organization':row}
-@router.patch('/settings',dependencies=[Depends(require_permission('settings.write'))])
+
+@router.patch('/brand',dependencies=[Depends(require_permission('organization.manage')),Depends(require_permission('settings.write'))])
+def patch_brand(body:BrandUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+    from app.db.database import engine
+    with engine.begin() as connection:
+        organization=repo.update_org(tenant['org_id'],actor(manager),
+            body.organization.model_dump(exclude={'expected_version'},exclude_unset=True),
+            body.organization.expected_version,connection=connection)
+        if not organization:raise HTTPException(409,'organization_was_modified')
+        settings=repo.save_settings(tenant['org_id'],actor(manager),{'settings':{'brand_favicon_url':body.favicon_url}},
+            body.settings_version,connection=connection)
+        if not settings:raise HTTPException(409,'settings_were_modified')
+    return {'organization':organization,'settings':settings}
+@router.get('/operational-settings')
+def operational_settings(tenant=Depends(get_current_tenant)):
+    return repo.operational_settings(tenant['org_id'])
+
+@router.patch('/settings')
 def patch_settings(body:SettingsUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
-    row=repo.save_settings(tenant['org_id'],actor(manager),body.model_dump(exclude={'expected_version'}),body.expected_version)
+    changes=body.model_dump(exclude={'expected_version'},exclude_unset=True)
+    repo.authorize_settings_update(tenant['org_id'],actor(manager),changes,manager)
+    row=repo.save_settings(tenant['org_id'],actor(manager),changes,body.expected_version)
     if not row:raise HTTPException(409,'settings_were_modified')
     return {'status':'ok','settings':row}
 @router.patch('/members/{member_id}',dependencies=[Depends(require_permission('team.manage'))])
@@ -218,7 +288,13 @@ def patch_location_status(item_id:str,body:LocationStatusUpdate,tenant=Depends(g
 def post_integration(body:IntegrationSave,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):return {'status':'ok','integration':repo.save_integration(tenant['org_id'],actor(manager),body.model_dump())}
 @router.patch('/numbering/{document_type}',dependencies=[Depends(require_permission('documents.settings'))])
 def patch_numbering(document_type:str,body:NumberingSave,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
-    row=repo.save_numbering(tenant['org_id'],actor(manager),document_type.upper(),body.prefix_format,body.expected_version)
+    if body.counter_scope=='OFFICE' and '{OFFICE}' not in body.prefix_format:
+        raise HTTPException(422,'reference_office_token_required')
+    if body.reset_period!='NEVER' and not any(token in body.prefix_format for token in ('{YYYY}','{YEAR}')):
+        raise HTTPException(422,'reference_year_token_required')
+    if body.reset_period=='MONTH' and '{MM}' not in body.prefix_format:
+        raise HTTPException(422,'reference_month_token_required')
+    row=repo.save_numbering(tenant['org_id'],actor(manager),document_type.upper(),body.prefix_format,body.expected_version,body.counter_scope,body.reset_period)
     if not row:raise HTTPException(409,'numbering_was_modified')
     return {'status':'ok','numbering':row}
 @router.post('/data-requests',dependencies=[Depends(require_permission('data.manage'))])

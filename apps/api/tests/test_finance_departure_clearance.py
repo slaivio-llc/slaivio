@@ -125,6 +125,7 @@ def test_delivery_policy_blocks_release_with_explainable_balance():
         {'name': 'Paiement avant remise', 'rule_type': 'PERCENTAGE',
          'percentage': Decimal('100'), 'currency': 'USD'},
         Decimal('120.00'),
+        None,  # No agency-wide customer-credit exception.
     ])
     decision = delivery_clearance(c, 'org', package())
     assert decision['allowed'] is False

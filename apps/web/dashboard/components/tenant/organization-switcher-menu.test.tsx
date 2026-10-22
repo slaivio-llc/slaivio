@@ -5,8 +5,8 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 
 vi.mock("@/components/permissions/permission-provider", () => ({ usePermissions: vi.fn() }));
 vi.mock("@/services/tenant", () => ({ getTenantContext: () => Promise.resolve({
-  active_tenant: { org_id: "office", organization_type: "PARCEL_FREIGHT", organization_name: "LUZA RDC", group_id: "group" },
-  tenants: [{ org_id: "office", organization_type: "PARCEL_FREIGHT", organization_name: "LUZA RDC", group_id: "group", role_code: "OWNER", city: "Kinshasa" },
+  active_tenant: { org_id: "office", organization_type: "PARCEL_FREIGHT", organization_name: "LUZA RDC", network_name: "Cargo Express", group_id: "group" },
+  tenants: [{ org_id: "office", organization_type: "PARCEL_FREIGHT", organization_name: "LUZA RDC", network_name: "Cargo Express", group_id: "group", role_code: "OWNER", city: "Kinshasa" },
     { org_id: "warehouse", organization_type: "PARCEL_FREIGHT", organization_name: "LUZA CHINE", workspace_kind: "WAREHOUSE", group_id: "group" }],
 }), switchTenant: vi.fn(), createTenant: vi.fn() }));
 
@@ -19,12 +19,16 @@ describe("Sélecteur d’espace", () => {
     render(<OrganizationSwitcher menuPlacement="down" />);
     const trigger = await screen.findByRole("button", { name: "luza rdc's office" });
     fireEvent.click(trigger);
-    expect(screen.getByRole("button", { name: /luza chine's warehouse/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /LUZA CHINE/ })).toBeInTheDocument();
+    expect(screen.getByText("Cargo Express")).toBeInTheDocument();
+    expect(screen.getByText("Bureaux")).toBeInTheDocument();
+    expect(screen.getByText("Entrepôts")).toBeInTheDocument();
     expect(screen.queryByText("Bureaux et entrepôts accessibles")).not.toBeInTheDocument();
     expect(screen.queryByText("OWNER")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Créer un bureau ou entrepôt" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Réseau et équipe" })).toHaveAttribute("href", "/app/settings?section=network");
-    fireEvent.keyDown(screen.getByRole("button", { name: "Fermer" }), { key: "Escape" });
+    expect(screen.getByRole("button", { name: "Créer un bureau" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Créer un entrepôt" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Réseau et équipe" })).not.toBeInTheDocument();
+    fireEvent.keyDown(trigger, { key: "Escape" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveFocus();
   });
@@ -33,15 +37,16 @@ describe("Sélecteur d’espace", () => {
     vi.mocked(usePermissions).mockReturnValue({ permissions: [], available: true, loading: false, reload: vi.fn() });
     render(<OrganizationSwitcher />);
     fireEvent.click(await screen.findByRole("button", { name: "luza rdc's office" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /luza chine's warehouse/ })).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Créer un bureau ou entrepôt" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /LUZA CHINE/ })).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Créer un bureau" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Créer un entrepôt" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Réseau et équipe" })).not.toBeInTheDocument();
   });
 
   it("affiche un formulaire de création spacieux, centré et adapté aux deux implantations", async () => {
     render(<OrganizationSwitcher menuPlacement="down" />);
     fireEvent.click(await screen.findByRole("button", { name: "luza rdc's office" }));
-    fireEvent.click(screen.getByRole("button", { name: "Créer un bureau ou entrepôt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Créer un bureau" }));
 
     const dialog = screen.getByRole("dialog", { name: "Créer un bureau ou entrepôt" });
     expect(dialog).toHaveClass("items-center", "justify-center");

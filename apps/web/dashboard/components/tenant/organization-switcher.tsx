@@ -1,7 +1,6 @@
 "use client";
 
-import { Building2, Check, ChevronDown, Plus, Settings2, Warehouse, X } from "lucide-react";
-import Link from "next/link";
+import { Building2, Check, ChevronDown, Plus, Warehouse, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -32,10 +31,8 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   const [loading,setLoading]=useState(true);const [switching,setSwitching]=useState(false);const [open,setOpen]=useState(false);const [createOpen,setCreateOpen]=useState(false);
   const [organizationName,setOrganizationName]=useState("");const [creating,setCreating]=useState(false);const [error,setError]=useState("");const [workspaceKind,setWorkspaceKind]=useState<"OFFICE"|"WAREHOUSE">("OFFICE");
   const parcelFreight=["PARCEL_FREIGHT","CARGO"].includes(activeTenant?.organization_type||"");const networkConfigured=parcelFreight&&Boolean(activeTenant?.group_id);
-  const canManageNetwork=available&&permissions.some(permission=>["network.read","network.offices.manage","network.members.manage"].includes(permission));
   const canCreateOffice=parcelFreight&&available&&permissions.includes("network.offices.manage");
   const networkTenants=activeTenant?.group_id?tenants.filter(tenant=>tenant.group_id===activeTenant.group_id):[];
-  const otherTenants=activeTenant?.group_id?tenants.filter(tenant=>tenant.group_id!==activeTenant.group_id):tenants;
   const activeLabel=parcelFreight?workspaceLabel(activeTenant!):formatOrganizationDisplayName(activeTenant?.organization_name);
 
   const load=useCallback(async()=>{try{const data=await getTenantContext();setTenants(data.tenants||[]);setActiveTenant(data.active_tenant||null);setError("");}catch{setError("Espaces indisponibles");}finally{setLoading(false);}},[]);
@@ -50,7 +47,7 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   async function handleCreate(event:React.FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);setCreating(true);setError("");try{if(parcelFreight){const value=(key:string)=>String(form.get(key)||"").trim();await createNetworkOffice({workspace_kind:value("workspace_kind") as "OFFICE"|"WAREHOUSE",organization_name:value("organization_name"),office_code:value("office_code"),country:value("country"),country_code:value("country_code"),city:value("city"),currency_code:value("currency_code")||"USD",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",address:[value("address_line_1"),value("address_line_2")].filter(Boolean).join("\n")||null,phone:value("phone")||null,email:value("email")||null});setCreateOpen(false);await load();}else{const name=organizationName.trim();if(name.length<2){setError("Saisissez un nom d’organisation.");return;}await createTenant(name);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.assign("/onboarding");}}catch{setError(parcelFreight?`La création du ${workspaceKind==="WAREHOUSE"?"entrepôt":"bureau"} a échoué.`:"La création de l’organisation a échoué.");}finally{setCreating(false);}}
   function tenantRow(tenant:Tenant,office=false){
     const Icon=tenant.workspace_kind==="WAREHOUSE"?Warehouse:Building2;
-    const label=(office||["PARCEL_FREIGHT","CARGO"].includes(tenant.organization_type||""))?workspaceLabel(tenant):formatOrganizationDisplayName(tenant.organization_name);
+    const label=office?(tenant.city||tenant.organization_name||"Bureau"):["PARCEL_FREIGHT","CARGO"].includes(tenant.organization_type||"")?workspaceLabel(tenant):formatOrganizationDisplayName(tenant.organization_name);
     return <button key={tenant.org_id} type="button" disabled={switching} onClick={()=>handleSwitch(tenant)} aria-current={tenant.org_id===activeTenant?.org_id?"true":undefined} className={operationMenuItemClass}>
       <Icon size={15} aria-hidden="true" className="shrink-0 text-slate-400"/><span className="min-w-0 flex-1 py-1"><span className="block truncate font-medium">{label}</span>{(tenant.city||tenant.country)&&<span className="mt-0.5 block truncate text-xs text-slate-500">{[tenant.city,tenant.country].filter(Boolean).join(" · ")}</span>}</span>{tenant.org_id===activeTenant?.org_id&&<Check size={15} aria-label="Actif" className="shrink-0 text-emerald-700"/>}
     </button>;
@@ -61,19 +58,27 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
       {(collapsed||header)&&<Building2 size={16} className={`${collapsed?"hidden lg:block":""} shrink-0 text-[#16855f]`}/>}<span className={`min-w-0 flex-1 ${collapsed?"lg:hidden":""}`}><span className="block truncate text-[13px] font-medium text-[#25292e]">{loading?"…":activeTenant?activeLabel:"Choisir un espace"}</span></span><ChevronDown size={15} className={`shrink-0 text-[#73777c] transition ${collapsed?"lg:hidden":""} ${open?"rotate-180":""}`}/>
     </button>
     {open&&<div id={menuId} data-workspace-menu className={`absolute z-50 w-[280px] max-w-[calc(100vw-24px)] ${operationMenuClass} ${collapsed?"bottom-0 left-[48px]":menuPlacement==="down"?header?"right-0 top-[44px]":"left-0 top-[48px]":"bottom-[48px] left-0"}`}>
-      <div className="flex items-center justify-between px-2.5 py-1.5"><span className="text-xs font-medium text-slate-500">{parcelFreight?"Changer d’espace":"Changer d’organisation"}</span><button type="button" onClick={closeMenu} className="rounded-md p-1 text-slate-400 hover:bg-slate-50" aria-label="Fermer"><X size={14}/></button></div>
-      {tenants.length>6&&<input type="search" aria-label="Rechercher un espace" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
-      <div className="max-h-64 overflow-y-auto py-1">
-        {networkConfigured&&networkTenants.filter(matching).map(tenant=>tenantRow(tenant,true))}
-        {networkConfigured&&otherTenants.some(matching)&&<p className="px-2.5 pb-1 pt-2 text-xs text-slate-400">Autres entreprises</p>}
-        {(networkConfigured?otherTenants:tenants).filter(matching).map(tenant=>tenantRow(tenant,false))}
-        {!tenants.some(matching)&&<p className="px-2.5 py-3 text-xs text-slate-500">Aucun espace trouvé.</p>}
-      </div>
-      {(canCreateOffice||parcelFreight&&canManageNetwork||!parcelFreight)&&<div className="mt-1 border-t border-slate-100 pt-1">
-        {canCreateOffice&&<button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setCreateOpen(true);}}><Plus size={15}/>Créer un bureau ou entrepôt</button>}
-        {parcelFreight&&canManageNetwork&&<Link href="/app/settings?section=network" onClick={()=>setOpen(false)} className={operationMenuItemClass}><Settings2 size={15}/>Réseau et équipe</Link>}
-        {!parcelFreight&&<button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setCreateOpen(true);}}><Plus size={15}/>Créer une organisation</button>}
-      </div>}
+      {parcelFreight ? <>
+        <div className="border-b border-slate-100 px-3 pb-2 pt-1"><p className="truncate text-[13px] font-semibold text-[#25292e]">{activeTenant?.network_name||activeTenant?.organization_name||"Agence"}</p><p className="mt-0.5 truncate text-[12px] text-slate-500">{activeTenant?.city||activeTenant?.country||""}</p></div>
+        {tenants.length>6&&<input type="search" aria-label="Rechercher un bureau ou entrepôt" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
+        <div className="max-h-64 overflow-y-auto px-2 py-1">
+          {(["OFFICE","WAREHOUSE"] as const).map(kind=>{
+            const items=(networkConfigured?networkTenants:tenants).filter(tenant=>(tenant.workspace_kind||"OFFICE")===kind&&matching(tenant));
+            if(!items.length)return null;
+            return <section key={kind} className="py-1"><p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{kind==="OFFICE"?"Bureaux":"Entrepôts"}</p>{items.map(tenant=>tenantRow(tenant,true))}</section>;
+          })}
+          {!tenants.some(matching)&&<p className="px-2 py-3 text-xs text-slate-500">Aucun bureau ou entrepôt disponible.</p>}
+        </div>
+        {canCreateOffice&&<div className="grid border-t border-slate-100 px-2 py-1">
+          <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("OFFICE");setCreateOpen(true);}}><Plus size={14}/>Créer un bureau</button>
+          <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("WAREHOUSE");setCreateOpen(true);}}><Plus size={14}/>Créer un entrepôt</button>
+        </div>}
+      </> : <>
+        <div className="flex items-center justify-between px-2.5 py-1.5"><span className="text-xs font-medium text-slate-500">Changer d’organisation</span><button type="button" onClick={closeMenu} className="rounded-md p-1 text-slate-400 hover:bg-slate-50" aria-label="Fermer"><X size={14}/></button></div>
+        {tenants.length>6&&<input type="search" aria-label="Rechercher une organisation" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
+        <div className="max-h-64 overflow-y-auto py-1">{tenants.filter(matching).map(tenant=>tenantRow(tenant,false))}{!tenants.some(matching)&&<p className="px-2.5 py-3 text-xs text-slate-500">Aucun espace trouvé.</p>}</div>
+        <div className="mt-1 border-t border-slate-100 pt-1"><button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setCreateOpen(true);}}><Plus size={15}/>Créer une organisation</button></div>
+      </>}
     </div>}
     {error&&<p className="mt-1 px-1 text-[11px] text-red-600">{error}</p>}
     <OperationDrawer

@@ -7,6 +7,10 @@ export type AdminData={organization:Record<string,unknown>&{row_version:number};
 export async function getAdmin(){return (await api.get<AdminData>('/organization/admin')).data}
 export async function updateOrganization(payload:Record<string,unknown>){return (await api.patch('/organization/admin',payload)).data}
 export async function saveAgencyBrand(organization:Record<string,unknown>,settings_version:number,favicon_url:string|null){return(await api.patch('/organization/admin/brand',{organization,settings_version,favicon_url})).data}
+export async function uploadAgencyBrandImage(file:File,kind:"logo"|"dark_logo"|"favicon"="logo"):Promise<string>{
+ const form=new FormData();form.append('file',file);form.append('kind',kind);
+ return(await api.post<{url:string}>('/organization/admin/brand/images',form)).data.url;
+}
 export async function updateSettings(payload:Record<string,unknown>){return (await api.patch('/organization/admin/settings',payload)).data}
 export type OperationalSettings={timezone:string;currency_code:string;language_code:string;settings:{parcel_receipt_rules?:{category_required:boolean;packaging_required:boolean;allow_unmeasured:boolean;allow_photos:boolean;auto_rate_lookup:boolean};goods_restrictions?:{regulated_goods_check:boolean;agent_instructions:string}}};
 export async function getOperationalSettings(){return(await api.get<OperationalSettings>('/organization/admin/operational-settings')).data}

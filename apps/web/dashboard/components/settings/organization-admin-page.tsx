@@ -11,7 +11,6 @@ import {
   KeyRound,
   Languages,
   MapPin,
-  ImagePlus,
   Plus,
   Route as RouteIcon,
   ShieldCheck,
@@ -21,7 +20,7 @@ import {
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { api } from "@/services/api";
-import { FinanceSettingsOverview } from "@/components/finance/finance-settings-overview";
+import { BrandImageUpload } from "./brand-image-upload";
 import { GoodsRuleSettings } from "./goods-rule-settings";
 import { setDashboardLocale } from "@/components/i18n/dashboard-language";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -40,6 +39,7 @@ import {
   updateMemberOfficeAccess,
   updateLocationStatus,
   updateOrganization,
+  uploadAgencyBrandImage,
   updateSettings,
   type AdminData,
   type Member,
@@ -74,7 +74,7 @@ const tabs = [
   ["routes", "Routes", RouteIcon],
   ["documents", "Documents & étiquettes", FileText],
   ["notifications", "Notifications & messages", Bell],
-  ["team", "Équipe & accès", Users],
+  ["team", "Équipe", Users],
   ["roles", "Rôles & permissions", KeyRound],
   ["billing", "Paiements & facturation", CreditCard],
   ["security", "Accès & sécurité", ShieldCheck],
@@ -88,10 +88,10 @@ const settingGroups: Array<[string, Section[]]> = [
   ["Administration", ["team", "roles", "security", "general", "workspaces", "data"]],
 ];
 settingGroups.push(
-  ["IDENTIT\u00c9 & PR\u00c9SENCE", ["agency", "visual", "tracking", "locations", "hours"]],
+  ["IDENTIT\u00c9 & PR\u00c9SENCE", ["agency", "visual", "tracking", "hours"]],
   ["OP\u00c9RATIONS CARGO", ["packages", "delivery", "numbering", "goods", "documents"]],
-  ["CLIENTS & FINANCE", ["clients", "billing", "notifications"]],
-  ["ADMINISTRATION", ["security", "general", "subscription"]],
+  ["CLIENTS & FINANCE", ["clients", "notifications"]],
+  ["ADMINISTRATION", ["team", "security", "general", "subscription"]],
 );
 const visibleSettings = settingGroups.slice(4).flatMap(([, sections]) => sections);
 const sectionTitles: Partial<Record<Section, [string, string]>> = {
@@ -110,7 +110,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   locations: ["Implantations de votre agence", "Bureaux physiques organisés au sein de la même organisation."],
   services: ["Services de transport", "Prestations proposées par l’agence et utilisées par les colis et la tarification."],
   routes: ["Routes commerciales", "Liaisons de transport et services disponibles pour chacune."],
-  team: ["Utilisateurs & équipe", "Invitations, affectations et accès des collaborateurs."],
+  team: ["Équipe", "Invitez vos collaborateurs et gérez leurs rôles et leurs accès."],
   roles: ["Rôles & permissions", "Responsabilités et droits accordés à chaque rôle."],
   notifications: ["Notifications & messages", "Configurez les notifications automatiques envoyées à vos clients."],
   documents: ["Documents & étiquettes", "Configurez l’apparence et le format des documents de l’agence."],
@@ -136,6 +136,8 @@ export function OrganizationAdminPage() {
       preferences: "general",
       organization: "agency",
       spaces: "workspaces",
+      locations: "agency",
+      billing: "agency",
     };
     const resolved = requested ? aliases[requested] || requested : "agency";
     if (tabs.some(([id]) => id === resolved)) setTab(resolved as Section);
@@ -169,6 +171,11 @@ export function OrganizationAdminPage() {
         numbering_was_modified:"La numérotation a changé dans une autre session. Rechargez la page avant de réessayer.",
         tracking_slug_unavailable:"Cet identifiant public est déjà utilisé. Choisissez-en un autre.",
         mfa_setup_required:"Activez la double authentification de votre compte, puis reconnectez-vous avant de l’imposer à l’agence.",
+        brand_image_type_unsupported:"Choisissez une image PNG, JPG ou WebP.",
+        brand_image_content_invalid:"Ce fichier n’est pas une image valide. Choisissez une autre image.",
+        brand_image_too_large:"L’image doit peser entre 1 octet et 5 Mo.",
+        brand_image_dimensions_invalid:"L’image ne doit pas dépasser 4 096 × 4 096 pixels.",
+        brand_image_storage_unavailable:"Le téléversement est indisponible. Vérifiez la configuration du stockage et réessayez.",
       };
       setError(messages[String(detail)] || (
         detail === "organization_requires_an_active_owner"
@@ -198,7 +205,7 @@ export function OrganizationAdminPage() {
           <div className="flex min-w-0 items-center"><h1 className="text-[19px] font-semibold text-[#25292e]">Paramètres de l’agence</h1></div>
         </header>
         <div className="grid min-h-[620px] lg:grid-cols-[250px_minmax(0,1fr)]">
-        <aside className="hidden border-b border-[#e0e2e4] p-2.5 lg:block lg:border-b-0 lg:border-r lg:p-3">
+        <aside className="hidden space-y-1 border-b border-[#e0e2e4] p-2.5 lg:block lg:border-b-0 lg:border-r lg:p-3">
           {settingGroups.slice(4).map(([group, sections]) => <SettingsGroup key={group} label={group}>
             {sections.map(id => { const item = tabs.find(([key]) => key === id)!; const [key, label] = item; return <SettingsItem key={key} active={tab === key} label={label} onClick={() => select(key)}/>; })}
           </SettingsGroup>)}
@@ -228,7 +235,6 @@ export function OrganizationAdminPage() {
             {tab === "roles" && <Roles data={data} run={run} />}{" "}
             {tab === "notifications" && <CustomerMilestoneNotifications data={data} run={run} />}{" "}
             {tab === "documents" && <DocumentsSettings data={data} run={run} />}{" "}
-            {tab === "billing" && <PermissionGuard permission="finance.settings"><FinanceSettingsOverview /></PermissionGuard>}{" "}
             {tab === "subscription" && <BillingSettings />}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
@@ -257,13 +263,13 @@ function SettingsGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-5" aria-label={label}>
-      <div className="space-y-0.5">{children}</div>
+    <section aria-label={label}>
+      <div className="space-y-1">{children}</div>
     </section>
   );
 }
 const settingsItemClass =
-  "flex min-h-8 w-full items-center rounded-[5px] px-2 text-left text-[12px]";
+  "flex min-h-10 w-full items-center rounded-[5px] px-3 py-2 text-left text-[14px]";
 function SettingsItem({
   active,
   label,
@@ -472,7 +478,7 @@ function AgencyHoursSettings({
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Horaires de l’agence<textarea name="agency_hours" rows={3} maxLength={300} required value={hours} onChange={event => setHours(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Fuseau horaire<select name="agency_timezone" value={timezone} onChange={event => setTimezone(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]">{[["Africa/Kinshasa", "Kinshasa"], ["Africa/Lubumbashi", "Lubumbashi"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Africa/Lagos", "Lagos"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Ces horaires sont affichés sur votre page publique lorsque les coordonnées du support sont visibles. Chaque bureau conserve ses propres horaires dans Bureaux & contacts.</p>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Ces horaires sont affichés sur votre page publique lorsque les coordonnées du support sont visibles. Chaque bureau conserve ses propres horaires.</p>
         <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
@@ -740,6 +746,8 @@ function VisualIdentitySettings({
   const initialSecondaryColor = String(organization.secondary_color || "#172B4D");
   const [primaryPreview, setPrimaryPreview] = useState(initialPrimaryColor);
   const [secondaryPreview, setSecondaryPreview] = useState(initialSecondaryColor);
+  const [darkLogoFile, setDarkLogoFile] = useState<File | null>(null);
+  const [faviconFile, setFaviconFile] = useState<File | null>(null);
   if (!active) return null;
   const currentSettings = data.settings?.settings;
   const visualSettings = currentSettings && typeof currentSettings === "object" && !Array.isArray(currentSettings)
@@ -749,35 +757,28 @@ function VisualIdentitySettings({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const logo = val(form, "logo");
-    const darkLogo = val(form, "dark_logo");
-    const favicon = val(form, "favicon");
     const primaryColor = val(form, "primary_color") || "#137C56";
     const secondaryColor = val(form, "secondary_color") || "#172B4D";
-    run(() => saveAgencyBrand({
+    run(async () => {
+      const darkLogo = darkLogoFile ? await uploadAgencyBrandImage(darkLogoFile, "dark_logo") : String(organization.logo_dark_url || "") || null;
+      const favicon = faviconFile ? await uploadAgencyBrandImage(faviconFile, "favicon") : String(visualSettings.brand_favicon_url || "") || null;
+      return saveAgencyBrand({
         expected_version: Number(organization.row_version),
-        logo_url: logo,
         logo_dark_url: darkLogo,
         primary_color: primaryColor,
         secondary_color: secondaryColor,
-      }, Number(data.settings?.row_version || 1), favicon), "Identité visuelle enregistrée.");
+      }, Number(data.settings?.row_version || 1), favicon);
+    }, "Identité visuelle enregistrée.");
   }
 
   return <section className="grid gap-5">
     <header className="border-b border-[#e7eaec] pb-3">
       <h3 className="text-[16px] font-semibold text-[#25292e]">Identité visuelle de l’agence</h3>
-      <p className="mt-1 text-[13px] leading-5 text-[#697178]">Logos et couleurs utilisés sur le suivi, les factures et les documents.</p>
+      <p className="mt-1 text-[13px] leading-5 text-[#697178]">Couleurs et images complémentaires. Le logo principal se modifie dans le profil de l’agence.</p>
     </header>
     <form onSubmit={submit} className="grid max-w-[640px] gap-4">
-      <label className="grid gap-2 text-[13px] font-medium text-[#59636e]">
-        Logo principal
-        <span className="grid min-h-[148px] place-items-center rounded-lg border border-[#d8dddf] bg-white px-4 py-5 text-center">
-          <span><ImagePlus size={22} className="mx-auto text-[#747d84]"/><span className="mt-2 block text-[14px] font-semibold text-[#25292e]">Logo principal</span><span className="mt-1 block text-[12px] font-normal text-[#697178]">Utilisé sur le tracking, les factures et les documents.</span></span>
-          <input aria-label="URL du logo principal" name="logo" type="url" pattern="https://.*" defaultValue={String(organization.logo_url || "")} placeholder="URL du logo (démo)" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" />
-        </span>
-      </label>
-      <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Logo pour fond sombre<input name="dark_logo" type="url" pattern="https://.*" defaultValue={String(organization.logo_dark_url || "")} placeholder="URL du logo alternatif" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-      <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Favicon<input name="favicon" type="url" pattern="https://.*" defaultValue={String(visualSettings.brand_favicon_url || "")} placeholder="URL de l’icône" className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+      <BrandImageUpload label="Logo pour fond sombre" currentUrl={String(organization.logo_dark_url || "")} file={darkLogoFile} onChange={setDarkLogoFile}/>
+      <BrandImageUpload label="Favicon" currentUrl={String(visualSettings.brand_favicon_url || "")} file={faviconFile} onChange={setFaviconFile}/>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Couleur principale<input name="primary_color" type="text" pattern="#[0-9A-Fa-f]{6}" defaultValue={initialPrimaryColor} onChange={event => setPrimaryPreview(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Couleur secondaire<input name="secondary_color" type="text" pattern="#[0-9A-Fa-f]{6}" defaultValue={initialSecondaryColor} onChange={event => setSecondaryPreview(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
@@ -787,7 +788,7 @@ function VisualIdentitySettings({
         <div className="mt-3 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-md bg-[#f4f6f5] text-[#4d5860]"><Building2 size={18}/></span><span className="min-w-0"><strong className="block truncate text-[14px] text-[#25292e]">{String(organization.organization_name || "Votre agence")}</strong><span className="mt-0.5 block truncate text-[12px] text-[#697178]">{String(organization.brand_slogan || "Nom et slogan de l’agence")}</span></span></div>
         <div className="mt-3 flex gap-2"><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(primaryPreview) ? primaryPreview : "#137C56" }}/><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(secondaryPreview) ? secondaryPreview : "#172B4D" }}/></div>
       </div>
-      <p className="text-[12px] leading-5 text-[#697178]">Utilisez des images accessibles par une adresse HTTPS. Le logo et les couleurs sont utilisés sur la page publique ; les documents respectent leurs propres préférences d’affichage.</p>
+      <p className="text-[12px] leading-5 text-[#697178]">Les images sont téléversées lors de l’enregistrement. Les documents respectent leurs propres préférences d’affichage.</p>
       <PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div></PermissionGuard>
     </form>
   </section>;
@@ -801,12 +802,14 @@ function Organization({
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
   const o = data.organization;
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     run(
-      () =>
-        updateOrganization({
+      async () => {
+        const logoUrl = logoFile ? await uploadAgencyBrandImage(logoFile) : undefined;
+        return updateOrganization({
           expected_version: o.row_version,
           organization_name: val(f, "name"),
           legal_name: val(f, "legal"),
@@ -820,7 +823,9 @@ function Organization({
           website: val(f, "website"),
           registration_number: val(f, "registration"),
           tax_number: val(f, "tax"),
-        }),
+          ...(logoUrl ? { logo_url: logoUrl } : {}),
+        });
+      },
       "Profil de l’agence mis à jour.",
     );
   }
@@ -829,6 +834,7 @@ function Organization({
       <header className="border-b border-[#e7eaec] pb-3"><h3 className="text-[14px] font-semibold text-[#25292e]">Profil de l’agence</h3><p className="mt-1 text-[10px] leading-4 text-[#697178]">Informations officielles utilisées sur les espaces publics et documents.</p></header>
       <PermissionGuard permission="organization.manage" fallback={<ReadOnly />}>
         <form onSubmit={submit} className="grid max-w-[560px] gap-3">
+          <BrandImageUpload label="Logo de l’agence" currentUrl={String(o.logo_url || "")} file={logoFile} onChange={setLogoFile}/>
           {[["name", "Nom commercial *", "organization_name"], ["legal", "Raison sociale", "legal_name"], ["slogan", "Slogan", "brand_slogan"]].map(([n, l, k]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")} required={n === "name"}/></label>)}
           <label className="grid gap-1 text-[10px] text-[#697178]">Description de l’agence<textarea name="description" rows={3} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.brand_description || "")}/></label>
           <div className="border-t border-[#e7eaec] pt-3"><h4 className="text-[11px] font-semibold text-[#25292e]">Coordonnées officielles</h4></div>
@@ -860,11 +866,11 @@ function Team({
   }
   return (
     <div className="grid gap-4">
-      <Card
+      <FormSection
         title="Inviter un collaborateur"
-        description="L’invitation est envoyée par Clerk et expire automatiquement."
+        description="Envoyez une invitation par email et attribuez un rôle au collaborateur."
       >
-        <PermissionGuard permission="team.write">
+        <PermissionGuard permission="team.write" fallback={<ReadOnly />}>
           <form onSubmit={invite} className="flex flex-wrap gap-2">
             <input
               required
@@ -886,19 +892,20 @@ function Team({
             </button>
           </form>
         </PermissionGuard>
-      </Card>
-      <Card
+      </FormSection>
+      <FormSection
         title={`Membres (${data.members.length})`}
-        description="Suspendre un accès prend effet côté API sans supprimer l’historique."
+        description="Gérez les rôles, les accès et les bureaux autorisés de votre équipe."
       >
         <div className="divide-y">
+          {!data.members.length && <p className="py-3 text-[13px] text-[#697178]">Aucun collaborateur pour le moment.</p>}
           {data.members.map((m) => (
             <MemberRow key={m.id} member={m} roles={data.roles} locations={data.locations} run={run} />
           ))}
         </div>
-      </Card>
+      </FormSection>
       {data.invitations.length > 0 && (
-        <Card
+        <FormSection
           title="Invitations"
           description="Invitations en attente, acceptées ou révoquées."
         >
@@ -932,7 +939,7 @@ function Team({
               </div>
             ))}
           </div>
-        </Card>
+        </FormSection>
       )}
     </div>
   );
@@ -971,7 +978,7 @@ function MemberRow({
           </span>
         }
       >
-        <div className="flex gap-2">
+        <div className="flex min-w-0 flex-wrap gap-2">
           <select
             className={input}
             value={role}

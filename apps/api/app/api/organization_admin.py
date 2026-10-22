@@ -1,6 +1,6 @@
 import re
 from typing import Any,Literal
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException,File,Form,UploadFile
 from pydantic import BaseModel,Field,field_validator
 from uuid import UUID
 from app.core.auth import get_current_manager
@@ -10,6 +10,8 @@ from app.organization_admin import repository as repo
 from app.organization_admin import pilot_repository as pilot_repo
 from app.services.wazzap_activation_service import activate_wazzap_number
 from app.organization_admin.settings_policy import validate_policies, validate_timezone
+from app.services.agency_brand_images import MAX_BYTES, FORMATS, store_brand_image
+from starlette.concurrency import run_in_threadpool
 
 router=APIRouter(prefix='/organization/admin',tags=['organization-admin'])
 def actor(m):return m.get('user_id') or m.get('id')
@@ -216,6 +218,17 @@ def patch_org(body:OrgUpdate,tenant=Depends(get_current_tenant),manager=Depends(
     row=repo.update_org(tenant['org_id'],actor(manager),body.model_dump(exclude={'expected_version'},exclude_unset=True),body.expected_version)
     if not row:raise HTTPException(409,'organization_was_modified')
     return {'status':'ok','organization':row}
+
+@router.post('/brand/images',dependencies=[Depends(require_permission('organization.manage'))])
+async def upload_brand_image(
+    file:UploadFile=File(...),kind:Literal['logo','dark_logo','favicon']=Form('logo'),
+    tenant=Depends(get_current_tenant),
+):
+    if file.content_type not in FORMATS:
+        raise HTTPException(415,'brand_image_type_unsupported')
+    content=await file.read(MAX_BYTES+1)
+    url=await run_in_threadpool(store_brand_image,tenant['org_id'],kind,content,file.content_type)
+    return {'url':url}
 
 @router.patch('/brand',dependencies=[Depends(require_permission('organization.manage')),Depends(require_permission('settings.write'))])
 def patch_brand(body:BrandUpdate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):

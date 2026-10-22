@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { usePermissions } from "@/components/permissions/permission-provider";
 import { useDashboardLocale } from "@/components/i18n/dashboard-language";
 import { getCargoDashboard, type CargoDashboardData, type CargoQuery } from "@/services/cargo-dashboard";
 
@@ -20,7 +18,6 @@ const inputClass = "h-10 min-w-0 rounded-lg border border-slate-200 bg-white px-
 export function CargoHomeOverview() {
   const locale = useDashboardLocale();
   const t = (fr: string, en: string) => locale === "fr" ? fr : en;
-  const { permissions } = usePermissions();
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -31,7 +28,12 @@ export function CargoHomeOverview() {
   const [refresh, setRefresh] = useState(0);
   const [section, setSection] = useState<Section>("operations");
   const data = result?.key === queryKey ? result.data : null;
-  const canChooseScope = permissions.includes("network.overview");
+
+  useEffect(() => {
+    const refreshForOffice = () => setRefresh(value => value + 1);
+    window.addEventListener("slaivio:office-context-changed", refreshForOffice);
+    return () => window.removeEventListener("slaivio:office-context-changed", refreshForOffice);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -39,7 +41,7 @@ export function CargoHomeOverview() {
     const query: CargoQuery = {
       preset: params.get("preset") || "month",
       comparison: params.get("comparison") || "previous",
-      scope: params.get("scope") || "office",
+      scope: "office",
     };
     for (const key of ["start", "end", "compare_start", "compare_end"] as const) {
       const value = params.get(key);
@@ -53,7 +55,7 @@ export function CargoHomeOverview() {
     return () => controller.abort();
   }, [queryKey, refresh]);
 
-  const changeFilter = (key: "preset" | "scope", value: string) => {
+  const changeFilter = (key: "preset", value: string) => {
     const params = new URLSearchParams(queryKey);
     params.set(key, value);
     params.delete("metric"); params.delete("page");
@@ -80,12 +82,10 @@ export function CargoHomeOverview() {
         <p className="mt-1 text-sm text-slate-600">{t("Performance et activité de votre organisation Cargo", "Cargo organization performance and activity")}</p>
         {data && <p className="mt-2 text-xs text-slate-500">{data.workspace.name}{data.scope === "network" ? ` · ${data.office_count} ${t("bureaux autorisés", "authorized offices")}` : ""}</p>}
       </div>
-      <button type="button" onClick={() => setRefresh(v => v + 1)} disabled={loading} aria-label={t("Actualiser", "Refresh")} className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCcw size={16} className={loading ? "animate-spin" : ""}/></button>
     </header>
 
     <section className="flex flex-wrap items-end justify-between gap-3" aria-label={t("Filtres du tableau de bord", "Dashboard filters")}>
       <div className="flex flex-wrap gap-3">
-        {canChooseScope && <label className="grid gap-1 text-xs font-medium text-slate-600">{t("Bureau", "Office")}<select className={`${inputClass} w-56`} value={search.get("scope") || "office"} onChange={e => changeFilter("scope", e.target.value)}><option value="office">{t("Bureau actif", "Active office")}</option><option value="network">{t("Tous les bureaux autorisés", "All authorized offices")}</option></select></label>}
         <label className="grid gap-1 text-xs font-medium text-slate-600">{t("Période", "Period")}<select className={`${inputClass} w-56`} value={search.get("preset") || "month"} onChange={e => changeFilter("preset", e.target.value)}>
           <option value="today">{t("Aujourd’hui", "Today")}</option><option value="7d">{t("7 derniers jours", "Last 7 days")}</option><option value="30d">{t("30 derniers jours", "Last 30 days")}</option><option value="month">{t("Ce mois", "This month")}</option><option value="quarter">{t("Ce trimestre", "This quarter")}</option><option value="year">{t("Cette année", "This year")}</option>
         </select></label>
@@ -111,26 +111,34 @@ export function CargoHomeOverview() {
       })}</div> : <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{data ? t("Aucune donnée financière disponible pour ce périmètre.", "No financial data for this scope.") : t("Les montants apparaîtront après chargement des données.", "Amounts will appear after data loads.")}</p>}
     </section>
 
-    <section className="min-w-0 rounded-xl border border-slate-200 bg-white">
-      <nav className="flex max-w-full gap-1 overflow-x-auto border-b border-slate-200 px-3 pt-3" aria-label={t("Sections du tableau de bord", "Dashboard sections")}>
-        {tabs.map(tab => <button key={tab.id} type="button" onClick={() => setSection(tab.id)} aria-current={section === tab.id ? "page" : undefined} className={`shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${section === tab.id ? "border-emerald-700 text-emerald-800" : "border-transparent text-slate-600 hover:text-slate-900"}`}>{t(tab.fr, tab.en)}</button>)}
+    <section className="min-w-0 overflow-hidden rounded-[14px] border border-[#e4e8e6] bg-white shadow-[0_2px_8px_rgba(25,35,30,.035)]">
+      <nav className="flex max-w-full gap-1 overflow-x-auto border-b border-[#edf0ee] px-4 py-3" aria-label={t("Sections du tableau de bord", "Dashboard sections")}>
+        {tabs.map(tab => <button key={tab.id} type="button" onClick={() => setSection(tab.id)} aria-current={section === tab.id ? "page" : undefined} className={`shrink-0 rounded-full px-3.5 py-2 text-[12px] font-medium transition-colors ${section === tab.id ? "bg-[#151817] text-white" : "text-[#59635e] hover:bg-[#f2f5f3] hover:text-[#202622]"}`}>{t(tab.fr, tab.en)}</button>)}
       </nav>
-      <div className="min-w-0 p-4 sm:p-5">
-        {section === "operations" && <div><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">{t("Flux des marchandises", "Cargo flows")}</h2><p className="mt-1 text-xs text-slate-500">{t("Volumes datés sur la période sélectionnée", "Dated volumes during the selected period")}</p></div><Link className="text-sm font-medium text-emerald-800 hover:underline" href="/app/operations">{t("Ouvrir les opérations →", "Open operations →")}</Link></div>
-          {data && <div className="mt-5 grid gap-4 sm:grid-cols-3">{[[t("Reçus", "Received"), data.flows.received], [t("Expédiés", "Shipped"), data.flows.shipped], [t("Livrés", "Delivered"), data.flows.delivered]].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-slate-50 p-4"><p className="text-xs text-slate-500">{label}</p><strong className="mt-2 block text-xl tabular-nums">{number(Number(value))}</strong></div>)}</div>}
-          <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">{data && <><StateRow label={t("Poids reçu", "Received weight")} value={t("Détail non fourni par cette vue", "Not provided by this view")}/><StateRow label={t("État actuel", "Current state")} value={`${number(data.states.in_transit)} ${t("en transit", "in transit")} · ${number(data.states.blocked)} ${t("bloqués", "blocked")}`}/></>}</div>
-          {!data && <p className="mt-4 text-sm text-slate-500">{loading ? t("Chargement…", "Loading…") : t("Aucun flux disponible.", "No flow data available.")}</p>}
+      <div className="min-w-0 bg-[#fcfdfc] p-4 sm:p-5">
+        {section === "operations" && <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold text-[#202622]">{t("Flux des marchandises", "Cargo flows")}</h2><p className="mt-1 text-[12px] text-[#737d77]">{t("Volumes enregistrés pendant la période sélectionnée", "Volumes recorded during the selected period")}</p></div><Link className="rounded-full border border-[#dce2de] bg-white px-3.5 py-2 text-[11px] font-medium text-[#303a34] transition hover:border-[#aebbb3] hover:bg-[#f7f9f7]" href="/app/operations">{t("Ouvrir les opérations", "Open operations")} <span aria-hidden="true">→</span></Link></div>
+          <div className="grid gap-3 sm:grid-cols-3">{[[t("Colis reçus", "Received parcels"), data ? number(data.flows.received) : "—", "#eaf5ee"], [t("Expéditions", "Shipments"), data ? number(data.flows.shipped) : "—", "#eff2fa"], [t("Colis livrés", "Delivered parcels"), data ? number(data.flows.delivered) : "—", "#f3f1fb"]].map(([label, value, tint]) => <article key={label} className="rounded-[11px] border border-[#e7ebe8] bg-white p-4"><span className="mb-3 grid h-8 w-8 place-items-center rounded-[8px] text-[12px] font-semibold text-[#42534a]" style={{backgroundColor:tint}} aria-hidden="true">{label===t("Colis reçus","Received parcels")?"R":label===t("Expéditions","Shipments")?"E":"L"}</span><p className="text-[11px] text-[#737d77]">{label}</p><strong className="mt-1.5 block text-[22px] font-semibold tabular-nums text-[#202622]">{value}</strong></article>)}</div>
+          <div className="rounded-[11px] border border-[#e7ebe8] bg-white p-4"><div className="mb-3 flex items-center justify-between"><h3 className="text-[12px] font-semibold text-[#303a34]">{t("Situation des colis", "Parcel status")}</h3><span className="text-[10px] text-[#858d88]">{t("État actuel", "Current state")}</span></div><div className="grid gap-3 sm:grid-cols-3">{[[t("En transit","In transit"),data?number(data.states.in_transit):"—"],[t("En entrepôt","In warehouse"),data?number(data.states.warehoused):"—"],[t("Bloqués","Blocked"),data?number(data.states.blocked):"—"]].map(([label,value])=><div key={label} className="flex items-center justify-between border-t border-[#f0f2f0] pt-3"><span className="text-[11px] text-[#69736d]">{label}</span><strong className="text-[14px] font-semibold tabular-nums text-[#252d28]">{value}</strong></div>)}</div></div>
+          {!data && <p className="text-[11px] text-[#7a847e]">{loading?t("Chargement des données…","Loading data…"):t("Aucun flux disponible.","No flow data available.")}</p>}
         </div>}
-        {section === "finance" && <div><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">{t("Situation financière", "Financial overview")}</h2><p className="mt-1 text-xs text-slate-500">{t("Encaissements de la période et soldes courants, par devise", "Period collections and current balances, by currency")}</p></div><Link className="text-sm font-medium text-emerald-800 hover:underline" href="/app/finance">{t("Voir les finances →", "Open finance →")}</Link></div>
-          {financialTotals.length ? <div className="mt-4 divide-y divide-slate-100">{financialTotals.map(entry => <div key={entry.currency} className="grid gap-2 py-3 text-sm sm:grid-cols-3"><StateRow label={`${t("Encaissé", "Collected")} · ${entry.currency}`} value={money(entry.collected, entry.currency)}/><StateRow label={`${t("À recouvrer", "Outstanding")} · ${entry.currency}`} value={money(entry.outstanding, entry.currency)}/><StateRow label={`${t("En retard", "Overdue")} · ${entry.currency}`} value={money(entry.overdue, entry.currency)}/></div>)}</div> : <Empty text={t("Aucun indicateur financier disponible pour cette période.", "No financial indicators available for this period.")}/>}
+        {section === "finance" && <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold text-[#202622]">{t("Situation financière", "Financial overview")}</h2><p className="mt-1 text-[12px] text-[#737d77]">{t("Encaissements et soldes affichés séparément par devise", "Collections and balances shown separately by currency")}</p></div><Link className="rounded-full border border-[#dce2de] bg-white px-3.5 py-2 text-[11px] font-medium text-[#303a34] hover:bg-[#f7f9f7]" href="/app/finance">{t("Voir les finances", "Open finance")} <span aria-hidden="true">→</span></Link></div>
+          {financialTotals.length ? <div className="grid gap-3 lg:grid-cols-2">{financialTotals.map(entry => {const collected=Number(entry.collected)||0;const outstanding=Number(entry.outstanding)||0;const rate=collected+outstanding>0?collected/(collected+outstanding)*100:0;return <article key={entry.currency} className="rounded-[11px] border border-[#e7ebe8] bg-white p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[.08em] text-[#7b857f]">{entry.currency} · {t("Encaissé", "Collected")}</p><strong className="mt-1.5 block text-[20px] font-semibold tabular-nums text-[#202622]">{money(entry.collected,entry.currency)}</strong></div><span className="rounded-full bg-[#eaf5ee] px-2.5 py-1 text-[10px] font-semibold text-[#28744b]">{rate.toFixed(1)}%</span></div><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#edf1ee]"><div className="h-full rounded-full bg-[#43a276]" style={{width:`${Math.min(100,rate)}%`}}/></div><div className="mt-3 grid grid-cols-2 gap-3 border-t border-[#f0f2f0] pt-3"><div><p className="text-[10px] text-[#7b857f]">{t("À recouvrer", "Outstanding")}</p><p className="mt-1 text-[12px] font-medium tabular-nums text-[#303a34]">{money(entry.outstanding,entry.currency)}</p></div><div><p className="text-[10px] text-[#7b857f]">{t("En retard", "Overdue")}</p><p className="mt-1 text-[12px] font-medium tabular-nums text-[#303a34]">{money(entry.overdue,entry.currency)}</p></div></div></article>;})}</div> : <div className="rounded-[11px] border border-dashed border-[#dce2de] bg-white px-4 py-8 text-center"><p className="text-[12px] font-medium text-[#3d4741]">{data?t("Aucune donnée financière pour ce bureau et cette période.","No financial data for this office and period."):t("Les données financières se chargent…","Financial data is loading…")}</p></div>}
         </div>}
-        {section === "clients" && <div><h2 className="font-semibold">{t("Activité clients", "Customer activity")}</h2><p className="mt-1 text-xs text-slate-500">{t("Le service de données actuel ne fournit pas encore les clients actifs ou nouveaux pour cette période.", "The current data service does not yet provide active or new customer counts for this period.")}</p><Link className="mt-4 inline-flex text-sm font-medium text-emerald-800 hover:underline" href="/app/clients">{t("Consulter les clients →", "Open clients →")}</Link></div>}
-        {section === "quality" && <div><h2 className="font-semibold">{t("Qualité et délais", "Quality and timing")}</h2><p className="mt-1 text-xs text-slate-500">{t("Aucun taux de livraison à temps ni délai moyen vérifiable n’est fourni par l’API. Les réceptions sans dates fiables sont exclues.", "No verifiable on-time delivery rate or average transit time is provided by the API. Receipts without reliable dates are excluded.")}</p>{data?.upcoming && <div className="mt-4"><h3 className="text-sm font-medium">{t("Arrivées estimées · 7 prochains jours", "Estimated arrivals · next 7 days")}</h3>{data.upcoming.length ? <ul className="mt-2 divide-y divide-slate-100">{data.upcoming.slice(0, 5).map(item => <li key={item.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{item.reference} · {[item.destination_city, item.destination_country].filter(Boolean).join(", ") || t("Destination inconnue", "Unknown destination")}</span><span className="text-slate-500">{item.eta_at ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: data.period.timezone }).format(new Date(item.eta_at)) : t("Date non renseignée", "No date")}</span></li>)}</ul> : <p className="mt-2 text-sm text-slate-500">{t("Aucune arrivée estimée.", "No estimated arrivals.")}</p>}</div>}</div>}
+        {section === "clients" && <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold text-[#202622]">{t("Activité clients", "Customer activity")}</h2><p className="mt-1 text-[12px] text-[#737d77]">{t("Indicateurs clients de la période sélectionnée", "Customer indicators for the selected period")}</p></div><Link className="rounded-full border border-[#dce2de] bg-white px-3.5 py-2 text-[11px] font-medium text-[#303a34] hover:bg-[#f7f9f7]" href="/app/clients">{t("Consulter les clients", "Open clients")} <span aria-hidden="true">→</span></Link></div>
+          <div className="grid gap-3 sm:grid-cols-2"><article className="rounded-[11px] border border-[#e7ebe8] bg-white p-4"><p className="text-[11px] text-[#737d77]">{t("Clients actifs", "Active customers")}</p><strong className="mt-2 block text-[22px] font-semibold text-[#727d76]">—</strong><p className="mt-1 text-[10px] text-[#89928d]">{t("Indicateur indisponible dans cette source", "Metric unavailable from this data source")}</p></article><article className="rounded-[11px] border border-[#e7ebe8] bg-white p-4"><p className="text-[11px] text-[#737d77]">{t("Nouveaux clients", "New customers")}</p><strong className="mt-2 block text-[22px] font-semibold text-[#727d76]">—</strong><p className="mt-1 text-[10px] text-[#89928d]">{t("Indicateur indisponible dans cette source", "Metric unavailable from this data source")}</p></article></div>
+          <p className="rounded-[9px] bg-[#f2f5f3] px-3.5 py-3 text-[11px] leading-5 text-[#626d66]">{t("Les volumes clients ne sont pas fournis par le service de synthèse actuel. Aucun chiffre estimé n’est affiché.", "Customer counts are not supplied by the current summary service. No estimated values are shown.")}</p>
+        </div>}
+        {section === "quality" && <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[15px] font-semibold text-[#202622]">{t("Qualité et délais", "Quality and timing")}</h2><p className="mt-1 text-[12px] text-[#737d77]">{t("Indicateurs de ponctualité et arrivées attendues", "On-time indicators and expected arrivals")}</p></div></div>
+          <div className="grid gap-3 sm:grid-cols-3">{[[t("Livraisons à temps","On-time deliveries"),t("Non renseigné","Not available")],[t("Délai moyen","Average transit time"),t("Non renseigné","Not available")],[t("Incidents","Incidents"),t("Non renseigné","Not available")]].map(([label,value])=><article key={label} className="rounded-[11px] border border-[#e7ebe8] bg-white p-4"><p className="text-[11px] text-[#737d77]">{label}</p><p className="mt-2 text-[15px] font-semibold text-[#737d77]">{value}</p></article>)}</div>
+          <p className="text-[10px] leading-4 text-[#858d88]">{t("La source actuelle ne fournit pas de jalons de livraison datés suffisants pour calculer ces indicateurs de façon fiable.", "The current data source does not provide enough dated delivery milestones to calculate these indicators reliably.")}</p>
+          <div className="rounded-[11px] border border-[#e7ebe8] bg-white p-4"><div className="flex items-center justify-between gap-2"><div><h3 className="text-[12px] font-semibold text-[#303a34]">{t("Arrivées estimées", "Estimated arrivals")}</h3><p className="mt-1 text-[10px] text-[#7b857f]">{t("7 prochains jours", "Next 7 days")}</p></div><span className="rounded-full bg-[#f2f5f3] px-2.5 py-1 text-[9px] text-[#657068]">{data?.upcoming?.length || 0}</span></div>{data?.upcoming?.length ? <ul className="mt-3 divide-y divide-[#f0f2f0]">{data.upcoming.slice(0,5).map(item=><li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-3"><span><strong className="block text-[11px] font-medium text-[#303a34]">{item.reference}</strong><span className="mt-0.5 block text-[10px] text-[#7b857f]">{[item.destination_city,item.destination_country].filter(Boolean).join(", ")||t("Destination inconnue","Unknown destination")}</span></span><span className="text-[10px] text-[#69736d]">{item.eta_at?new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeZone:data.period.timezone}).format(new Date(item.eta_at)):t("Date non renseignée","No date")}</span></li>)}</ul>:<p className="mt-3 rounded-[8px] bg-[#f7f9f7] px-3 py-4 text-[11px] text-[#7b857f]">{t("Aucune arrivée estimée dans les 7 prochains jours.","No estimated arrivals in the next 7 days.")}</p>}</div>
+        </div>}
       </div>
     </section>
-    {data && <p className="text-[11px] text-slate-500">{t("Calculé le", "Calculated")}: {new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: data.period.timezone }).format(new Date(data.generated_at))} · {t("Les indicateurs non fournis par la source restent non renseignés.", "Metrics not supplied by the data source remain unavailable.")}</p>}
   </main>;
 }
 
-function StateRow({ label, value }: { label: string; value: string }) { return <div className="flex min-w-0 items-center justify-between gap-3"><span className="text-slate-600">{label}</span><strong className="text-right font-medium tabular-nums">{value}</strong></div>; }
-function Empty({ text }: { text: string }) { return <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">{text}</p>; }

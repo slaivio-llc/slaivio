@@ -54,6 +54,7 @@ export function OfficeContextSelector({ collapsed = false, compact = false }: { 
       if (value) window.sessionStorage.setItem(storageKey, value);
       else window.sessionStorage.removeItem(storageKey);
       setSelected(value);
+      window.dispatchEvent(new CustomEvent("slaivio:office-context-changed", { detail: value || null }));
     } catch {
       setError("Vous n’êtes pas autorisé à sélectionner ce bureau.");
     }

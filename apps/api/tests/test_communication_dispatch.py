@@ -26,6 +26,7 @@ def test_one_claim_only_sends_once(setup):
     notification, mocks, provider = setup
     mocks['claim_notification_dispatch'].side_effect = [notification, None]
     assert sender.send_notification('agency', 'notification')['status'] == 'sent'
+    assert mocks['emit_notification_event'].call_args.kwargs['message'] == 'Le message WhatsApp a bien été envoyé au destinataire.'
     assert sender.send_notification('agency', 'notification')['status'] == 'skipped'
     assert provider.send_message.call_count == 1
 
@@ -61,6 +62,7 @@ def test_rejection_is_failed(setup):
     provider.send_message.return_value = {'success': False, 'http_status': 400}
     assert sender.send_notification('agency', 'notification')['status'] == 'failed'
     mocks['finish_notification_dispatch'].assert_called_with('agency', 'notification', 'REJECTED')
+    assert 'n’a pas pu être envoyé' in mocks['emit_notification_event'].call_args.kwargs['message']
 
 
 def test_email_is_never_sent_on_whatsapp(setup):

@@ -569,7 +569,6 @@ function AccountMenuContent({ close, name, email, imageUrl, openProfile, logout 
           <button type="button" onClick={() => openProfile?.()} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><UserRound size={14} className="text-[#697179]" />Mon profil<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
           <button type="button" onClick={() => navigate("preferences")} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><SlidersHorizontal size={14} className="text-[#697179]" />Préférences<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
           <button type="button" onClick={() => navigate("security")} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><ShieldCheck size={14} className="text-[#697179]" />Sécurité<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
-          <MenuDivider />
           <button type="button" onClick={() => void signOutAccount()} disabled={signingOut} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] text-[#c73535] hover:bg-[#fff7f7] disabled:opacity-60"><LogOut size={14} />{locale === "en" ? "Sign out" : "Se déconnecter"}</button>
         </>}
         {view === "preferences" && <>
@@ -824,7 +823,6 @@ function NotificationsMenu({ close }: { close: () => void }) {
         <article className="px-3.5 py-4">
           <div className="flex items-start gap-2"><Package size={15} className="mt-0.5 shrink-0 text-[#30363a]"/><div className="min-w-0"><h3 className="text-[11px] font-semibold text-[#25292e]">{selected.title}</h3><p className="mt-0.5 text-[9px] text-[#858d93]">{timeAgo(selected.created_at)}</p></div></div>
           <p className="mt-3 whitespace-pre-wrap text-[10px] leading-[1.55] text-[#424a50]">{selected.message}</p>
-          {(selected.resource_id || selected.category) && <p className="mt-3 flex items-center gap-1.5 text-[9px] text-[#858d93]"><Package size={10}/>Référence : {selected.resource_id || selected.category}</p>}
           {selected.href && <button type="button" onClick={() => openDestination(selected)} className="mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-[#111] text-[10px] font-semibold text-white hover:bg-[#303030]">Voir {selected.resource_kind === "PARCEL" ? "le colis" : selected.resource_kind === "SHIPMENT" ? "l’expédition" : selected.resource_kind === "INVOICE" ? "la facture" : "le détail"}<span aria-hidden="true">↗</span></button>}
           {busy && <p className="mt-2 text-[9px] text-[#697179]">Mise à jour du statut de lecture…</p>}
           {error && <p role="alert" className="mt-2 text-[9px] text-amber-700">{error}</p>}

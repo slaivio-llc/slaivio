@@ -47,7 +47,11 @@ def _project_result(notification: dict, status: str, result: dict):
             org_id=notification['org_id'], notification_id=str(notification['id']),
             dossier_id=str(notification['dossier_id']) if notification.get('dossier_id') else None,
             title='Notification envoyée' if status == 'SENT' else 'Échec notification',
-            message='Message accepté par le fournisseur.' if status == 'SENT' else 'Message refusé par le fournisseur.',
+            message=(
+                'Le message WhatsApp a bien été envoyé au destinataire.'
+                if status == 'SENT'
+                else 'Le message WhatsApp n’a pas pu être envoyé. Vérifiez le numéro du destinataire et la connexion WhatsApp.'
+            ),
             status=status,
         )
     except Exception:

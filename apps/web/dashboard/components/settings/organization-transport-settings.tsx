@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRight, Boxes, ChevronLeft, ChevronRight, History, MapPin, Pencil, Plane, Plus, Route as RouteIcon, Search, ShieldCheck, Truck } from "lucide-react";
 import Link from "next/link";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -88,7 +89,7 @@ function statusLabel(status?: string, active?: boolean) {
   return status === "LIMITED" ? "Disponibilité limitée" : "Actif";
 }
 
-export function OrganizationTransportSettings({ section }: { section: SettingSection }) {
+export function OrganizationTransportSettings({ section, headerActionsTarget }: { section: SettingSection; headerActionsTarget?: HTMLElement | null }) {
   const [data, setData] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -420,16 +421,17 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
   );
   const isServices = section !== "routes";
   const managementView = section === "management";
+  const managementActions = <>
+    <PermissionGuard permission="services.create"><OperationButton variant="primary" className="h-9 rounded-full px-3 text-[12px]" onClick={openCreateService}><Plus size={14}/>Nouveau service</OperationButton></PermissionGuard>
+    <PermissionGuard permission="routes.manage"><OperationButton className="h-9 rounded-full px-3 text-[12px]" onClick={openCreateRoute}><Plus size={14}/>Nouvelle route</OperationButton></PermissionGuard>
+  </>;
 
   return (
     <div className="grid gap-5">
       {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">{notice}</div>}
       {(error || (!createOpen && actionError)) && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{error || actionError}</div>}
       {managementView && <section className="grid gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-[14px] font-semibold text-[#25292e]">Services &amp; Routes</h2><p className="mt-1 text-[11px] text-[#697178]">Prestations et corridors de transport.</p></div>
-          <PermissionGuard permission="services.create"><OperationButton variant="primary" className="h-9 rounded-full px-3 text-[12px]" onClick={openCreateService}><Plus size={14}/>Nouveau service</OperationButton></PermissionGuard>
-        </div>
+        {headerActionsTarget === undefined ? <div className="flex flex-wrap justify-end gap-2">{managementActions}</div> : headerActionsTarget && createPortal(managementActions, headerActionsTarget)}
         <section className="grid gap-2">
           <h3 className="text-[12px] font-semibold text-[#25292e]">Services</h3>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -442,7 +444,7 @@ export function OrganizationTransportSettings({ section }: { section: SettingSec
           </div>
         </section>
         <section className="grid gap-2">
-          <div className="flex items-center justify-between gap-3"><h3 className="text-[12px] font-semibold text-[#25292e]">Routes</h3><PermissionGuard permission="routes.manage"><OperationButton className="h-8 rounded-full px-3 text-[11px]" onClick={openCreateRoute}><Plus size={13}/>Nouvelle route</OperationButton></PermissionGuard></div>
+          <h3 className="text-[12px] font-semibold text-[#25292e]">Routes</h3>
           <div className="grid gap-2">
             {data.routes.map(route => <button key={route.id} type="button" onClick={() => void openRoute(route)} className="flex min-h-[52px] items-center justify-between gap-3 border border-[#dfe3e4] px-3 py-2.5 text-left hover:bg-[#fafbfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
               <span className="flex min-w-0 items-center gap-3"><RouteIcon size={14} className="shrink-0 text-[#697178]"/><span className="min-w-0"><span className="block truncate text-[12px] font-medium text-[#25292e]">{route.route_name}</span><span className="mt-1 block truncate text-[10px] text-[#697178]">{route.service_names?.[0] || route.transport_mode}</span></span></span>

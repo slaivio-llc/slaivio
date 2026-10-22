@@ -1,5 +1,6 @@
 "use client";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import axios from "axios";
 import {
   Calculator,
@@ -225,7 +226,7 @@ export function PricingEnginePage() {
   );
 }
 
-export function PricingManagementSection() {
+export function PricingManagementSection({ headerActionsTarget }: { headerActionsTarget?: HTMLElement | null } = {}) {
   const [data, setData] = useState<Dashboard | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -277,10 +278,12 @@ export function PricingManagementSection() {
     return `${grid?.currency_code || "USD"} / ${unit}`;
   }
 
+  const createAction = <PermissionGuard permission="pricing.create"><button type="button" className="inline-flex h-9 items-center gap-2 bg-[#111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]" onClick={() => { setCreateTarget(null); setCreateOpen(true); }}><Plus size={14}/>Ajouter un tarif</button></PermissionGuard>;
+
   return <section className="min-w-0 space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="text-[14px] font-semibold text-[#25292e]">Tarification</h2><p className="mt-1 text-[11px] text-[#697178]">Configurez les prix applicables à vos services.</p></div>
-      <PermissionGuard permission="pricing.create"><button type="button" className="inline-flex h-9 items-center gap-2 bg-[#111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]" onClick={() => { setCreateTarget(null); setCreateOpen(true); }}><Plus size={14}/>Ajouter un tarif</button></PermissionGuard>
+      {headerActionsTarget === undefined ? createAction : headerActionsTarget && createPortal(createAction, headerActionsTarget)}
     </div>
     <div className="space-y-2">
       {hasUnpricedService && <div className="flex items-start gap-2 border border-[#e2e5e5] bg-[#fafbfb] p-3">

@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { OrganizationTransportSettings } from "./organization-transport-settings";
 import { catalog, createRoute } from "@/services/route-catalog";
 import { createService } from "@/services/service-catalog";
+import { getOfficeContext } from "@/services/organization-admin";
 
 vi.mock("@/services/route-catalog", () => ({
   catalog: vi.fn(),
@@ -17,6 +18,9 @@ vi.mock("@/services/service-catalog", () => ({
 }));
 vi.mock("@/components/permissions/permission-guard", () => ({
   PermissionGuard: ({ children }: { children: ReactNode }) => children,
+}));
+vi.mock("@/services/organization-admin", () => ({
+  getOfficeContext: vi.fn().mockResolvedValue({ offices: [], selected_office_id: null }),
 }));
 vi.mock("@/components/ui/geography-fields", () => ({
   FormGeographyFields: ({
@@ -66,12 +70,31 @@ const fixture = {
 } as Awaited<ReturnType<typeof catalog>>;
 
 beforeEach(() => {
+  vi.mocked(getOfficeContext).mockResolvedValue({ offices: [], selected_office_id: null } as Awaited<ReturnType<typeof getOfficeContext>>);
   vi.mocked(catalog).mockResolvedValue(fixture);
   vi.mocked(createRoute).mockResolvedValue({});
   vi.mocked(createService).mockResolvedValue({});
 });
 
 describe("agency transport settings", () => {
+  it("places management creation actions in the page header without a duplicate title", async () => {
+    const header = document.createElement("header");
+    document.body.appendChild(header);
+    const view = render(<OrganizationTransportSettings section="management" headerActionsTarget={header} />);
+    try {
+      const createServiceButton = await within(header).findByRole("button", { name: "Nouveau service" });
+      expect(within(header).getByRole("button", { name: "Nouvelle route" })).toBeVisible();
+      expect(within(view.container).queryByRole("button", { name: "Nouveau service" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Services & Routes" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Prestations et corridors de transport.")).not.toBeInTheDocument();
+      fireEvent.click(createServiceButton);
+      expect(await screen.findByRole("dialog")).toBeVisible();
+    } finally {
+      view.unmount();
+      header.remove();
+    }
+  });
+
   it("shows services as configuration cards rather than a module table", async () => {
     render(<OrganizationTransportSettings section="services" />);
 

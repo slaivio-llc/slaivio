@@ -7,26 +7,24 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationTab } from "@/components/ui/operation-controls";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
-import { getAdmin, getOfficeContext, setOfficeContext, type AdminData, type OfficeContext } from "@/services/organization-admin";
+import { getAdmin, type AdminData } from "@/services/organization-admin";
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
 import { PricingManagementSection } from "@/components/pricing/pricing-engine-page";
 
 type Section = "organization" | "services" | "pricing";
 const tabs: Array<[Section, string]> = [["organization", "Organisation"], ["services", "Services & Routes"], ["pricing", "Tarification"]];
 const button = "inline-flex h-9 items-center gap-2 rounded-full border border-[#d8dddf] bg-white px-3 text-[12px] font-medium text-[#30363a] hover:bg-[#f5f7f6]";
-const primary = "inline-flex h-9 items-center gap-2 rounded-full bg-[#111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]";
 
 export function ParcelManagementHub() {
   const [data, setData] = useState<AdminData | null>(null);
-  const [office, setOffice] = useState<OfficeContext | null>(null);
+  const [headerActionsTarget, setHeaderActionsTarget] = useState<HTMLDivElement | null>(null);
   const [section, setSection] = useState<Section>("organization");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [admin, context] = await Promise.all([getAdmin(), getOfficeContext()]);
-      setData(admin); setOffice(context);
+      setData(await getAdmin());
     } catch { setError("Les informations de gestion de l’agence sont indisponibles."); }
     finally { setLoading(false); }
   }, []);
@@ -35,14 +33,11 @@ export function ParcelManagementHub() {
   const offices = locations.filter((item) => item.location_type === "OFFICE");
   const warehouses = locations.filter((item) => item.location_type === "WAREHOUSE");
   const activeMembers = data?.members.filter((member) => member.status === "ACTIVE") || [];
-  async function selectOffice(id: string) {
-    try { setOffice(await setOfficeContext(id || null)); } catch { /* Keep the last confirmed active office. */ }
-  }
   if (loading) return <LoadingState label="Chargement de la gestion…" />;
   if (error || !data) return <ErrorState title="Gestion indisponible" description={error || "Les informations de l’agence ne sont pas disponibles."} retry={load} />;
   return <div className="min-h-full min-w-0 bg-white">
     <OperationPageHeader title="Gestion" description="Structure, services, tarifs et collaborateurs de votre agence."
-      actions={<label className="grid gap-1 text-[11px] text-[#697178]">Bureau actif<select className="h-9 min-w-[160px] rounded-full border border-[#d8dddf] bg-white px-3 text-[12px] text-[#30363a]" value={office?.selected_office_id || ""} onChange={(event) => void selectOffice(event.target.value)}><option value="">Tous les bureaux autorisés</option>{(office?.offices || []).map((item) => <option key={item.location_id} value={item.location_id}>{item.city || item.name}</option>)}</select></label>}
+      actions={section !== "organization" ? <div ref={setHeaderActionsTarget} className="flex flex-wrap items-center gap-2" /> : undefined}
       />
     <main className="mx-auto w-full min-w-0 max-w-[1200px] px-6 pb-10 sm:px-8">
       <nav aria-label="Sections Gestion" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
@@ -50,23 +45,19 @@ export function ParcelManagementHub() {
       </nav>
       <div className="w-full min-w-0 bg-white">
         <div className="min-w-0 space-y-4 pt-0">
-          {section === "organization" && <><div className="flex flex-wrap items-center justify-between gap-3"><Heading title="Organisation" subtitle="Gérez vos implantations et vos entrepôts." /><PermissionGuard permission="locations.manage"><Link href="/app/settings?section=locations" className={primary}><Plus size={14}/>Nouveau bureau</Link></PermissionGuard></div>
+          {section === "organization" && <><Heading title="Organisation" subtitle="Gérez vos implantations et vos entrepôts." />
             <div className="grid gap-2 sm:grid-cols-3"><Metric label="Bureaux" value={offices.length}/><Metric label="Entrepôts" value={warehouses.length}/><Metric label="Membres" value={activeMembers.length}/></div>
             <LocationGroup title="Bureaux">{offices.map((item) => <LocationRow key={String(item.id)} name={String(item.name || item.city || "Bureau")} detail={[item.city, item.address].filter(Boolean).join(" · ")} icon="office" badge={activeMembers.filter((member) => member.office_access_scope === "ALL_OFFICES" || member.office_ids.includes(String(item.id))).length + " membres"}/>)}</LocationGroup>
             {!offices.length && <Empty label="Aucun bureau n’est configuré."/>}
             <LocationGroup title="Entrepôts" action={<PermissionGuard permission="locations.manage"><Link href="/app/settings?section=locations" className={button}><Plus size={13}/>Ajouter</Link></PermissionGuard>}>{warehouses.map((item) => <LocationRow key={String(item.id)} name={String(item.name || "Entrepôt")} detail={[item.city, item.country].filter(Boolean).join(" · ")} icon="warehouse"/>)}</LocationGroup>
             {!warehouses.length && <Empty label="Aucun entrepôt n’est configuré."/>}</>}
-          {section === "services" && <ServicesRoutesSection />}
-          {section === "pricing" && <PricingManagementSection />}
+          {section === "services" && <OrganizationTransportSettings section="management" headerActionsTarget={headerActionsTarget} />}
+          {section === "pricing" && <PricingManagementSection headerActionsTarget={headerActionsTarget} />}
           <p className="text-[10px] text-[#8a9297]">Les éléments affichés proviennent des paramètres et des données de votre agence.</p>
         </div>
       </div>
     </main>
   </div>;
-}
-
-function ServicesRoutesSection() {
-  return <OrganizationTransportSettings section="management" />;
 }
 
 function Heading({title,subtitle}:{title:string;subtitle:string}) { return <div><h2 className="text-[14px] font-semibold text-[#25292e]">{title}</h2><p className="mt-1 text-[11px] text-[#697178]">{subtitle}</p></div>; }

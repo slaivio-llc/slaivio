@@ -1,7 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PricingEnginePage } from "./pricing-engine-page";
+import { PricingEnginePage, PricingManagementSection } from "./pricing-engine-page";
 
 const pricingService = vi.hoisted(() => ({
   addGridFee: vi.fn(), addGridRule: vi.fn(), addGridTier: vi.fn(), approveGrid: vi.fn(),
@@ -65,5 +65,21 @@ describe("PricingEnginePage tariff creation", () => {
       calculation_method: "PER_KG", initial_price: 8.5, initial_category_code: "FRAGILE",
       initial_package_type: "carton", currency_code: "USD", requires_approval: true,
     }));
+  });
+
+  it("places the management tariff action in the page header and opens its form", async () => {
+    const header = document.createElement("header");
+    document.body.appendChild(header);
+    const view = render(<PricingManagementSection headerActionsTarget={header} />);
+    try {
+      await screen.findByText("Service 1");
+      const createButton = within(header).getByRole("button", { name: "Ajouter un tarif" });
+      expect(within(view.container).queryByRole("button", { name: "Ajouter un tarif" })).not.toBeInTheDocument();
+      fireEvent.click(createButton);
+      expect(await screen.findByLabelText(/Nom du tarif/)).toBeVisible();
+    } finally {
+      view.unmount();
+      header.remove();
+    }
   });
 });

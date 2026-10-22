@@ -12,7 +12,6 @@ import {
   Languages,
   MapPin,
   ImagePlus,
-  Plug,
   Plus,
   Route as RouteIcon,
   ShieldCheck,
@@ -27,7 +26,6 @@ import {
   inviteMember,
   requestDataOperation,
   revokeInvitation,
-  saveIntegration,
   saveLocation,
   saveNumbering,
   saveRole,
@@ -70,8 +68,6 @@ const tabs = [
   ["routes", "Routes", RouteIcon],
   ["documents", "Documents & étiquettes", FileText],
   ["notifications", "Notifications & messages", Bell],
-  ["assistant", "Assistant IA", Building2],
-  ["integrations", "Intégrations", Plug],
   ["team", "Équipe & accès", Users],
   ["roles", "Rôles & permissions", KeyRound],
   ["billing", "Paiements & facturation", CreditCard],
@@ -83,13 +79,13 @@ const settingGroups: Array<[string, Section[]]> = [
   ["Identité & présence", ["agency", "locations"]],
   ["Opérations Cargo", ["services", "routes", "documents"]],
   ["Clients & finance", ["notifications", "billing"]],
-  ["Administration", ["team", "roles", "security", "integrations", "general", "workspaces", "data"]],
+  ["Administration", ["team", "roles", "security", "general", "workspaces", "data"]],
 ];
 settingGroups.push(
   ["IDENTIT\u00c9 & PR\u00c9SENCE", ["agency", "visual", "tracking", "locations", "hours"]],
   ["OP\u00c9RATIONS CARGO", ["packages", "delivery", "numbering", "goods", "documents"]],
-  ["CLIENTS & FINANCE", ["clients", "billing", "notifications", "assistant"]],
-  ["ADMINISTRATION", ["security", "integrations", "general", "subscription"]],
+  ["CLIENTS & FINANCE", ["clients", "billing", "notifications"]],
+  ["ADMINISTRATION", ["security", "general", "subscription"]],
 );
 const visibleSettings = settingGroups.slice(4).flatMap(([, sections]) => sections);
 const sectionTitles: Partial<Record<Section, [string, string]>> = {
@@ -101,7 +97,6 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   numbering: ["Références & numérotation", "Configurez le format des références générées pour vos colis."],
   goods: ["Marchandises & restrictions", "Définissez les contrôles et consignes applicables aux marchandises."],
   clients: ["Clients & conditions", "Définissez les conditions de crédit et les règles applicables aux clients."],
-  assistant: ["Assistant IA", "Cette section sera complétée avec sa maquette dédiée."],
   subscription: ["Abonnement Slaivio", "Plan et usage de votre abonnement à la plateforme."],
   general: ["Langues & devises", "Configurez les règles applicables à votre agence."],
   agency: ["Profil de l’agence", "Informations officielles utilisées sur les espaces publics et documents."],
@@ -112,7 +107,6 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   team: ["Utilisateurs & équipe", "Invitations, affectations et accès des collaborateurs."],
   roles: ["Rôles & permissions", "Responsabilités et droits accordés à chaque rôle."],
   notifications: ["Notifications & messages", "Configurez les notifications automatiques envoyées à vos clients."],
-  integrations: ["Canaux & intégrations", "Comptes externes connectés aux opérations de l’agence."],
   documents: ["Documents & étiquettes", "Configurez l’apparence et le format des documents de l’agence."],
   billing: ["Abonnement Slaivio", "Plan, usage et facturation de votre abonnement à la plateforme."],
   security: ["Accès & sécurité", "Configurez les règles applicables à votre agence."],
@@ -188,9 +182,9 @@ export function OrganizationAdminPage() {
         <div className="grid min-h-[620px] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden border-b border-[#e0e2e4] p-2.5 lg:block lg:border-b-0 lg:border-r lg:p-3">
           {settingGroups.slice(4).map(([group, sections]) => <SettingsGroup key={group} label={group}>
-            {sections.map(id => { const item = tabs.find(([key]) => key === id)!; const [key, label, Icon] = item; return <SettingsItem key={key} active={tab === key} icon={<Icon size={13} />} label={label} onClick={() => select(key)}/>; })}
+            {sections.map(id => { const item = tabs.find(([key]) => key === id)!; const [key, label] = item; return <SettingsItem key={key} active={tab === key} label={label} onClick={() => select(key)}/>; })}
           </SettingsGroup>)}
-          <PermissionGuard permission="platform.admin.read"><SettingsGroup label="Plateforme"><SettingsLink href="/app/platform" icon={<ShieldCheck size={13}/>} label="Console Super Admin"/></SettingsGroup></PermissionGuard>
+          <PermissionGuard permission="platform.admin.read"><SettingsGroup label="Plateforme"><SettingsLink href="/app/platform" label="Console Super Admin"/></SettingsGroup></PermissionGuard>
         </aside>
         <main className="min-w-0 p-4 sm:p-6 [&_form_label]:text-[13px] [&_form_input]:text-[14px] [&_form_textarea]:text-[14px]">
           <div className="mx-auto max-w-[640px]">
@@ -215,12 +209,11 @@ export function OrganizationAdminPage() {
             {tab === "team" && <Team data={data} run={run} />}{" "}
             {tab === "roles" && <Roles data={data} run={run} />}{" "}
             {tab === "notifications" && <CustomerMilestoneNotifications data={data} run={run} />}{" "}
-            {tab === "integrations" && <Integrations data={data} run={run} />}{" "}
             {tab === "documents" && <DocumentsSettings data={data} run={run} />}{" "}
             {tab === "billing" && <BillingSettings data={data} />}{" "}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "goods", "clients", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "integrations", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
+            {!["general", "agency", "visual", "tracking", "packages", "delivery", "numbering", "goods", "clients", "workspaces", "locations", "services", "routes", "team", "roles", "notifications", "documents", "billing", "security", "data"].includes(tab) && <div className="rounded-lg border border-[#e7eaec] bg-[#fafbfb] p-5 text-[14px] leading-6 text-[#59636e]">Cette section sera détaillée à partir de sa maquette dédiée. Sa navigation est en place.</div>}
             <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
             <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
@@ -254,15 +247,13 @@ function SettingsGroup({
   );
 }
 const settingsItemClass =
-  "flex min-h-8 w-full items-center gap-2 rounded-[5px] px-2 text-left text-[12px]";
+  "flex min-h-8 w-full items-center rounded-[5px] px-2 text-left text-[12px]";
 function SettingsItem({
   active,
-  icon,
   label,
   onClick,
 }: {
   active: boolean;
-  icon: React.ReactNode;
   label: string;
   onClick: () => void;
 }) {
@@ -272,18 +263,15 @@ function SettingsItem({
       onClick={onClick}
       className={`${settingsItemClass} ${active ? "bg-[#f0f1f1] font-semibold text-[#25292e]" : "text-[#444b52] hover:bg-[#f5f6f6]"}`}
     >
-      {icon}
       <span className="truncate">{label}</span>
     </button>
   );
 }
 function SettingsLink({
   href,
-  icon,
   label,
 }: {
   href: string;
-  icon: React.ReactNode;
   label: string;
 }) {
   return (
@@ -291,7 +279,6 @@ function SettingsLink({
       href={href}
       className={`${settingsItemClass} text-[#444b52] hover:bg-[#eeeeed]`}
     >
-      {icon}
       <span className="truncate">{label}</span>
     </Link>
   );
@@ -1514,53 +1501,6 @@ function Locations({
       </Card>
     </div>
   );
-}
-function Integrations({
-  data,
-  run,
-}: {
-  data: AdminData;
-  run: (a: () => Promise<unknown>, m: string) => void;
-}) {
-  async function connect(provider: "WHATSAPP" | "GMAIL") {
-    run(
-      () =>
-        saveIntegration({
-          provider,
-          account_label: provider === "WHATSAPP" ? "WhatsApp Business de l’agence" : "Gmail de l’agence",
-          status: "CONNECTING",
-          granted_permissions: [],
-          configuration: {},
-        }),
-      "Connexion initialisée. Finalisez le consentement OAuth du fournisseur.",
-    );
-  }
-  return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {(["WHATSAPP", "GMAIL", "TIKTOK"] as const).map((provider) => {
-        const current = data.integrations.find((x) => x.provider === provider);
-        const available = provider === "WHATSAPP";
-        return (
-          <Card
-            key={provider}
-            title={provider === "WHATSAPP" ? "WhatsApp Business" : provider === "GMAIL" ? "Gmail" : "TikTok Business"}
-            description={provider === "WHATSAPP" ? "Messages clients, Inbox, campagnes et réponses de l’agence." : "Ce canal pourra être ajouté à votre espace de communication."}
-          >
-            <p className="mb-4 text-[13px]">État : <b>{integrationStatusLabel(String(current?.status || "DISCONNECTED"), available)}</b>
-              {current?.last_sync_at
-                ? ` · Sync ${new Date(String(current.last_sync_at)).toLocaleString("fr-FR")}`
-                : ""}
-            </p>
-            {available ? <button className={primary} onClick={() => connect("WHATSAPP")}>{current ? "Reconnecter WhatsApp" : "Connecter WhatsApp"}</button> : <span className="inline-flex h-9 items-center rounded-md bg-[#f1f3f4] px-3 text-[12px] font-medium text-[#707780]">Disponible prochainement</span>}
-          </Card>
-        );
-      })}
-    </div>
-  );
-}
-function integrationStatusLabel(status: string, available: boolean) {
-  if (!available) return "Bientôt disponible";
-  return ({ CONNECTED: "Connecté", CONNECTING: "Connexion à finaliser", ERROR: "Attention requise", DISCONNECTED: "Non connecté" } as Record<string,string>)[status] || status;
 }
 function DocumentsSettings({
   data,

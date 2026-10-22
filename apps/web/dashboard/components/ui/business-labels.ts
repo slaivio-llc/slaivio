@@ -49,6 +49,7 @@ const businessLabels: Record<string, string> = {
   WAREHOUSE_PROCESSING: "En traitement à l’entrepôt",
   BATCHED: "Groupé",
   SHIPPED: "Expédié",
+  DISPATCHED: "Expédiée",
   IN_TRANSIT: "En transit",
   ARRIVED: "Arrivé",
   ARRIVED_DESTINATION: "Arrivé à destination",

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, Plus, Search, SquarePen, PackageCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, PackageCheck } from "lucide-react";
 import { api } from "@/services/api";
 import { createPackage, getPackage, getPackageStats, type PackageRecord, type PackageStats } from "@/services/packages";
 import { getParcelOverview, type ParcelEntry, type ParcelOverview, type ParcelHistoryResult, type RegisterResult } from "@/services/parcel-register";
@@ -143,7 +143,7 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
       </div>
     </section>
     {createOpen && <ParcelPackageCreateDrawer warehouses={[]} saving={saving} error={saveError} onClose={() => setCreateOpen(false)} onSubmit={receive} />}
-    {opening && <OperationDrawer open close={() => setOpening(null)} title="Colis" placement="center" width="max-w-[650px]">{detailError ? <p role="alert" className="text-sm">Impossible d’ouvrir ce colis. Fermez la fiche et réessayez.</p> : <TableSkeleton rows={4} columns={2} label="Chargement du colis" />}</OperationDrawer>}
+    {opening && <OperationDrawer open close={() => setOpening(null)} title="Colis" placement="center" width="max-w-[650px]" variant="detail" panelClassName="min-h-[min(680px,calc(100dvh-48px))]">{detailError ? <p role="alert" className="text-sm">Impossible d’ouvrir ce colis. Fermez la fiche et réessayez.</p> : <TableSkeleton rows={4} columns={2} label="Chargement du colis" />}</OperationDrawer>}
     {selected && <ParcelDetails key={selected.id} item={selected} changed={updated=>{setSelected(updated);setRevision(value=>value+1);}} close={() => { setSelected(null); clearLink(); }} />}
   </div>;
 }
@@ -184,7 +184,7 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
       .catch(() => { if (!controller.signal.aborted) setHistoryError(true); });
     return () => controller.abort();
   }, [item.id, item.row_version, historyPage]);
-  return <OperationDrawer open close={()=>{if(!busy)close();}} placement="center" width="max-w-[650px]" title={item.reference || "Colis"} headerMeta={<Status item={item} />} headerActions={!editing&&item.stage!=="delivered"&&!["CANCELLED","RETURNED"].includes(item.status)?<PermissionGuard permission="packages.update"><OperationButton className="w-9 px-0" aria-label="Modifier le colis" title="Modifier" disabled={busy} onClick={()=>{setEditing(true);setConfirmReady(false);setMutationError("");}}><SquarePen size={15}/></OperationButton></PermissionGuard>:undefined}>
+  return <OperationDrawer open close={()=>{if(!busy)close();}} placement="center" width="max-w-[650px]" panelClassName="min-h-[min(680px,calc(100dvh-48px))]" title={item.reference || "Colis"} headerMeta={<Status item={item} />} headerActions={!editing&&item.stage!=="delivered"&&!["CANCELLED","RETURNED"].includes(item.status)?<PermissionGuard permission="packages.update"><OperationButton aria-label="Modifier le colis" title="Modifier" disabled={busy} onClick={()=>{setEditing(true);setConfirmReady(false);setMutationError("");}}>Modifier</OperationButton></PermissionGuard>:undefined}>
     {notice&&<p role="status" className="mb-4 text-sm text-emerald-800">{notice}</p>}
     {editing?<ParcelEditForm item={item} saving={busy} error={mutationError} cancel={()=>setEditing(false)} save={(changes,reason)=>void command("edit",changes,reason)}/>:
       <div className="divide-y divide-slate-200">

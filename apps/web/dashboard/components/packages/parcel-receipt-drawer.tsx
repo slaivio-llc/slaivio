@@ -78,7 +78,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
 
   return <OperationDrawer open close={() => { if (!saving) onClose(); }} title="Nouveau colis"
     description="Enregistrez la réception, puis affectez le colis à un départ."
-    placement="center" width="max-w-4xl" bodyClassName="sm:!px-8 sm:!py-7" footer={<div className="mx-auto flex w-full max-w-3xl justify-end gap-2">
+    placement="center" width="max-w-4xl" panelClassName="min-h-[min(680px,calc(100dvh-48px))]" bodyClassName="sm:!px-8 sm:!py-7" footer={<div className="mx-auto flex w-full max-w-3xl justify-end gap-2">
       <OperationButton type="button" disabled={saving} onClick={onClose}>Annuler</OperationButton>
       <OperationButton form="parcel-receipt" type="submit" variant="primary" disabled={!canSubmit}>
         {saving ? "Enregistrement…" : "Enregistrer le colis"}

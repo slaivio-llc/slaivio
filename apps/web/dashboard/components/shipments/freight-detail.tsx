@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/services/api";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
@@ -36,7 +36,7 @@ export function FreightShipmentDetail({shipmentId,onClose}:{shipmentId:string;on
   const {data:item,error}=useResource<Overview>(`/shipments/workspace/${encodeURIComponent(shipmentId)}`,revision);
   const refresh=()=>setRevision(value=>value+1);
   const close=()=>onClose?onClose():router.replace("/app/operations?view=shipments");
-  return <OperationDrawer open close={close} title={item ? `Expédition ${item.reference}` : "Fiche expédition"} description={item ? date(item.created_at) : "Opérations / Expéditions"} placement="center" width="max-w-[650px]" variant="detail" headerMeta={item ? <ShipmentStatus item={item}/> : undefined} headerActions={<OperationButton aria-label="Actualiser l’expédition" className="w-9 px-0" onClick={refresh}><RefreshCw size={14}/></OperationButton>}>
+  return <OperationDrawer open close={close} title={item ? `Expédition ${item.reference}` : "Fiche expédition"} description={item ? date(item.created_at) : "Opérations / Expéditions"} placement="center" width="max-w-[650px]" variant="detail" panelClassName="min-h-[min(680px,calc(100dvh-48px))]" headerMeta={item ? <ShipmentStatus item={item}/> : undefined}>
       {error?<p role="alert" className="rounded-xl border border-red-200 bg-white p-5 text-sm">Expédition indisponible ou accès non autorisé. <button className="underline" onClick={refresh}>Réessayer</button></p>:!item?<TableSkeleton rows={5} columns={2}/>:<div className="grid w-full gap-3">
         <section className="rounded-lg bg-slate-50 p-3" aria-label="Résumé de l’expédition"><div className="mb-2 flex items-center justify-between gap-3"><p className="text-xs font-semibold text-slate-900">{item.reference}</p><ShipmentStatus item={item}/></div><div className="flex items-start justify-between gap-3"><p className="text-xs font-medium text-slate-800">{location(item.origin_city,item.origin_country)} <span className="text-slate-400">→</span> {location(item.destination_city,item.destination_country)}</p><span className="shrink-0 text-[11px] text-slate-500">{modeLabel(item.mode)}</span></div><dl className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-200 pt-3 text-xs"><Fact label="Départ prévu">{item.planned_departure_at?shortDate(item.planned_departure_at):"Non planifié"}</Fact><Fact label="Arrivée">{item.arrived_at?shortDate(item.arrived_at):"Non confirmée"}</Fact></dl>{item.is_delayed&&item.delay_reason&&<p className="mt-2 text-xs text-amber-800">{item.delay_reason}</p>}</section>
         <section className="grid grid-cols-3 gap-2" aria-label="Indicateurs de l’expédition"><Metric label="Colis" value={item.packages_count}/><Metric label="Clients" value={item.clients_count}/><Metric label="Poids" value={item.known_weight_kg===null?"—":`${new Intl.NumberFormat("fr-FR",{maximumFractionDigits:1}).format(Number(item.known_weight_kg))} kg`}/></section>

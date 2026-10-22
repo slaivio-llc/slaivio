@@ -121,7 +121,7 @@ export function ShipmentCreation({close,created}:{close:()=>void;created:(item:{
       else setError("Confirmation non reçue. Réessayez ici avec la même demande avant de créer une autre expédition.");
     }finally{pending.current=false;setSaving(false);}
   }
-  return <OperationDrawer open title="Planifier un départ" description="Programmer une prochaine expédition" placement="center" width="max-w-xl" close={()=>{if(!pending.current)close();}}>
+  return <OperationDrawer open title="Planifier un départ" description="Programmer une prochaine expédition" placement="center" width="max-w-xl" panelClassName="min-h-[min(600px,calc(100dvh-48px))]" close={()=>{if(!pending.current)close();}}>
     {loadError?<p role="alert">Routes indisponibles. <button className="underline" onClick={()=>setRetry(n=>n+1)}>Réessayer</button></p>:!routes?<TableSkeleton rows={3} columns={1}/>:!routes.length?<p className="text-sm">Configurez une route active dans Routes et services avant de planifier un départ.</p>:<form onSubmit={submit} className="grid gap-4">
       <fieldset disabled={saving||frozen} className="grid gap-3">
         <label className="grid gap-1.5 text-xs font-medium text-slate-700"><span>Origine <span aria-hidden="true" className="text-red-600">*</span></span><select required className={field} value={origin} onChange={e=>{setOrigin(e.target.value);setRouteId("");}}><option value="">Choisir l’origine</option>{origins.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>

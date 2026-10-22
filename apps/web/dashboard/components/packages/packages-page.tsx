@@ -296,7 +296,7 @@ type DetailTab =
   | "history"
   | "settings";
 
-export function PackagesPage({ embedded = false }: { embedded?: boolean }) {
+export function PackagesPage({ embedded = false, createRequest = 0 }: { embedded?: boolean; createRequest?: number }) {
   const [parcel, setParcel] = useState<boolean | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -309,7 +309,7 @@ export function PackagesPage({ embedded = false }: { embedded?: boolean }) {
   }, [retry]);
   if (error) return <div role="alert" className="p-8 text-sm">Impossible de charger les colis. <button type="button" className="underline" onClick={() => setRetry(value => value+1)}>Réessayer</button></div>;
   if (parcel === null) return <TableSkeleton rows={6} columns={4} label="Chargement des colis" />;
-  return parcel ? <ParcelRegisterPage embedded={embedded} /> : <LegacyPackagesPage />;
+  return parcel ? <ParcelRegisterPage embedded={embedded} createRequest={createRequest} /> : <LegacyPackagesPage />;
 }
 
 function LegacyPackagesPage() {

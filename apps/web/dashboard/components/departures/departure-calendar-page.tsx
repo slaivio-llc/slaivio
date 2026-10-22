@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, RefreshCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -13,12 +13,13 @@ const monthLabel = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "nume
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const routeLabel=(item:ShipmentDepartureCalendarItem)=>item.route_label||`${item.origin_city||item.origin_country||"Origine"} → ${item.destination_city||item.destination_country||"Destination"}`;
 
-export function DepartureCalendarPage({ embedded = false }: { embedded?: boolean }) {
+export function DepartureCalendarPage({ embedded = false, planRequest = 0 }: { embedded?: boolean; planRequest?: number }) {
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
   const [items,setItems]=useState<ShipmentDepartureCalendarItem[]>([]);
   const [selected,setSelected]=useState(dateKey(new Date()));
   const [loading,setLoading]=useState(true);const [error,setError]=useState("");const [truncated,setTruncated]=useState(false);
   const [planning,setPlanning]=useState(false);
+  useEffect(()=>{if(planRequest)setPlanning(true)},[planRequest]);
   const [created,setCreated]=useState<{id:string;reference:string}|null>(null);
   const [selectedShipment,setSelectedShipment]=useState<string|null>(null);
   const load=useCallback(async()=>{
@@ -36,7 +37,7 @@ export function DepartureCalendarPage({ embedded = false }: { embedded?: boolean
   return <div className="min-h-full bg-white">
     <div className={embedded ? "w-full pb-10" : "mx-auto w-full max-w-[1200px] px-4 pb-10 sm:px-8"}>
       {created&&<p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Départ planifié : <button type="button" className="font-medium underline" onClick={()=>setSelectedShipment(created.id)}>{created.reference}</button>. L’expédition est en préparation; aucun colis n’est encore parti.</p>}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><OperationButton aria-label="Mois précédent" onClick={()=>move(-1)}><ChevronLeft size={16}/></OperationButton><h2 className="min-w-32 text-sm font-semibold capitalize text-slate-800">{monthLabel.format(month)}</h2><OperationButton aria-label="Mois suivant" onClick={()=>move(1)}><ChevronRight size={16}/></OperationButton></div><div className="flex items-center gap-2"><PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setPlanning(true)}><Plus size={14}/>Planifier</OperationButton></PermissionGuard><OperationButton onClick={()=>void load()} aria-label="Actualiser le calendrier"><RefreshCcw size={14}/>Actualiser</OperationButton></div></div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><OperationButton aria-label="Mois précédent" onClick={()=>move(-1)}><ChevronLeft size={16}/></OperationButton><h2 className="min-w-32 text-sm font-semibold capitalize text-slate-800">{monthLabel.format(month)}</h2><OperationButton aria-label="Mois suivant" onClick={()=>move(1)}><ChevronRight size={16}/></OperationButton></div>{!embedded&&<PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setPlanning(true)}><Plus size={14}/>Planifier</OperationButton></PermissionGuard>}</div>
       {loading&&<LoadingState label="Chargement du calendrier…"/>}{!loading&&error&&<ErrorState title="Calendrier indisponible" description={error} retry={()=>void load()}/>}
       {!loading&&!error&&<>
         <section className="bg-white" aria-label="Calendrier mensuel des départs">

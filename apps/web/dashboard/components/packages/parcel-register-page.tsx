@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import axios from "axios";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, Search, SquarePen, PackageCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, SquarePen, PackageCheck } from "lucide-react";
 import { api } from "@/services/api";
 import { createPackage, getPackage, getPackageStats, type PackageRecord, type PackageStats } from "@/services/packages";
 import { getParcelOverview, type ParcelEntry, type ParcelOverview, type ParcelHistoryResult, type RegisterResult } from "@/services/parcel-register";
@@ -34,7 +34,7 @@ function formatDate(value: string | null) {
   return value && !Number.isNaN(Date.parse(value)) ? new Intl.DateTimeFormat("fr", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Non renseignée";
 }
 
-export function ParcelRegisterPage({ embedded = false }: { embedded?: boolean }) {
+export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { embedded?: boolean; createRequest?: number }) {
   const [query, setQuery] = useState("");
   const [stage, setStage] = useState("");
   const [dates, setDates] = useState({ start: "", end: "" });
@@ -53,6 +53,12 @@ export function ParcelRegisterPage({ embedded = false }: { embedded?: boolean })
   const [statsError, setStatsError] = useState(false);
   const invalidDates = Boolean(dates.start && dates.end && dates.start > dates.end);
   const clearLink = useResourceLink(getParcelOverview, setSelected, setError);
+
+  useEffect(() => {
+    if (!createRequest) return;
+    setSaveError("");
+    setCreateOpen(true);
+  }, [createRequest]);
 
   useEffect(() => {
     if (!embedded) return;
@@ -118,14 +124,12 @@ export function ParcelRegisterPage({ embedded = false }: { embedded?: boolean })
         <div className={`flex flex-wrap items-center gap-2 ${embedded ? "py-2" : "p-4"}`}>
           <label className={`relative ${embedded ? "w-full sm:flex-1" : "mr-auto w-full sm:max-w-xs"}`}><Search size={15} className="absolute left-3 top-3 text-slate-400" aria-hidden="true" />
             <input type="search" aria-label="Rechercher un colis" placeholder={embedded ? "Rechercher un colis ou un client…" : "Référence, client ou téléphone…"} maxLength={120} className={`${field} pl-9`} value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
-          {embedded && <PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={14} />Nouveau colis</OperationButton></PermissionGuard>}
           {!embedded && <>
           <OperationFilterPopover title="Filtrer les colis" activeCount={Number(Boolean(stage)) + Number(Boolean(dates.start || dates.end))} onReset={reset}>
             <label className="grid gap-1.5 text-xs font-medium">État<select className={field} value={stage} onChange={event => { setStage(event.target.value); setPage(1); }}><option value="">Tous les états</option>{stages.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
             <label className="grid gap-1.5 text-xs font-medium">Enregistré à partir du (UTC)<input type="date" className={field} value={dates.start} onChange={event => { setDates(value => ({ ...value, start: event.target.value })); setPage(1); }} /></label>
             <label className="grid gap-1.5 text-xs font-medium">Jusqu’au (UTC)<input type="date" className={field} value={dates.end} min={dates.start || undefined} onChange={event => { setDates(value => ({ ...value, end: event.target.value })); setPage(1); }} /></label>
           </OperationFilterPopover>
-          <OperationButton className="w-9 px-0" aria-label="Actualiser les colis" title="Actualiser" disabled={loading} onClick={() => setRevision(value => value + 1)}><RefreshCw size={15} /></OperationButton>
           </>}
         </div>
         {embedded && <nav aria-label="Filtrer les colis par statut" className="flex flex-wrap gap-1 px-3 py-2">{[["", "Tous"], ["received", "Reçus"], ["shipped", "Expédiés"], ["arrived", "Arrivés"], ["delivered", "Livrés"]].map(([key, label]) => <button key={key} type="button" aria-pressed={stage === key} onClick={() => { setStage(key); setPage(1); }} className={`rounded-full px-2.5 py-1 text-[11px] ${stage === key ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-500 hover:bg-slate-50"}`}>{label}</button>)}</nav>}

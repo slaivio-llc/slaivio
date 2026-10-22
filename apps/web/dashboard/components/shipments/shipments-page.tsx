@@ -132,7 +132,7 @@ type Pagination = {
   total_pages: number;
 };
 
-export function ShipmentsPage({ embedded = false }: { embedded?: boolean }) {
+export function ShipmentsPage({ embedded = false, createRequest = 0 }: { embedded?: boolean; createRequest?: number }) {
   const [parcel, setParcel] = useState<boolean | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -144,7 +144,7 @@ export function ShipmentsPage({ embedded = false }: { embedded?: boolean }) {
   }, [retry]);
   if (error) return <div role="alert" className="p-8">Impossible de charger les expéditions. <button className="underline" onClick={() => setRetry(n => n+1)}>Réessayer</button></div>;
   if (parcel === null) return <TableSkeleton rows={6} columns={4}/>;
-  return parcel ? <FreightShipmentRegister embedded={embedded}/> : <LegacyShipmentsPage/>;
+  return parcel ? <FreightShipmentRegister embedded={embedded} createRequest={createRequest}/> : <LegacyShipmentsPage/>;
 }
 
 function LegacyShipmentsPage() {

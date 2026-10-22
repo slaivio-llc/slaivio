@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, RefreshCw, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Search } from "lucide-react";
 import axios from "axios";
 import { api } from "@/services/api";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -29,7 +29,7 @@ function departure(item:Shipment) {
   return value ? `${item.departed_at?"Réel":"Prévu"} · ${new Intl.DateTimeFormat("fr",{dateStyle:"medium"}).format(new Date(value))}` : "Date à définir";
 }
 
-export function FreightShipmentRegister({embedded=false}:{embedded?:boolean}) {
+export function FreightShipmentRegister({embedded=false,createRequest=0}:{embedded?:boolean;createRequest?:number}) {
   const [result,setResult]=useState<Result|null>(null);
   const [q,setQ]=useState("");const [stage,setStage]=useState("");const [page,setPage]=useState(1);
   const [start,setStart]=useState("");const [end,setEnd]=useState("");
@@ -39,6 +39,7 @@ export function FreightShipmentRegister({embedded=false}:{embedded?:boolean}) {
   const [revision,setRevision]=useState(0);const [loading,setLoading]=useState(true);const [error,setError]=useState(false);
   const [creating,setCreating]=useState(false);const [created,setCreated]=useState<{id:string;reference:string}|null>(null);
   const [selectedShipment,setSelectedShipment]=useState<string|null>(null);
+  useEffect(()=>{if(createRequest)setCreating(true)},[createRequest]);
   const [analytics,setAnalytics]=useState<ShipmentAnalytics|null>(null);const [analyticsError,setAnalyticsError]=useState(false);
   useEffect(()=>{if(!embedded)return;let active=true;getShipmentAnalytics().then(value=>{if(active){setAnalytics(value);setAnalyticsError(false)}}).catch(()=>{if(active)setAnalyticsError(true)});return()=>{active=false}},[embedded,revision]);
   const invalid=Boolean(start&&end&&start>end);
@@ -69,7 +70,6 @@ export function FreightShipmentRegister({embedded=false}:{embedded?:boolean}) {
         {embedded&&<div className="grid grid-cols-4 gap-2 py-3" aria-label="Indicateurs expéditions">{[["Total",analytics?.summary.total],["Prévues",countStages(["DRAFT","PREPARING","LOADING","READY_FOR_DEPARTURE"])],["En transit",countStages(["DISPATCHED","IN_TRANSIT"])],["Arrivées",countStages(["ARRIVED_DESTINATION","CUSTOMS_CLEARANCE","AVAILABLE_FOR_PICKUP","OUT_FOR_DELIVERY","DELIVERED"]) ]].map(([label,value])=><div key={String(label)} className="min-w-0"><span className="block truncate text-[10px] text-slate-500">{label}</span><strong className="mt-1 block text-sm font-semibold text-slate-900">{analyticsError?"—":value??"—"}</strong></div>)}</div>}
         <div className={`flex flex-wrap items-center gap-2 ${embedded?"py-2":"p-4"}`}>
           <label className={`relative ${embedded?"w-full sm:flex-1":"mr-auto w-full sm:max-w-xs"}`}><Search size={15} aria-hidden="true" className="absolute left-3 top-3 text-slate-400"/><input aria-label="Rechercher une expédition" type="search" maxLength={120} placeholder={embedded?"Rechercher une expédition, une route…":"Référence d’expédition…"} value={q} onChange={e=>{setQ(e.target.value);setPage(1);}} className={`${field} pl-9`}/></label>
-          {embedded&&<PermissionGuard permission="shipments.create"><OperationButton variant="primary" onClick={()=>setCreating(true)}><Plus size={14}/>Nouvelle expédition</OperationButton></PermissionGuard>}
           {!embedded&&<>
           <OperationFilterPopover title="Filtrer les expéditions" activeCount={Number(Boolean(stage))+Number(Boolean(start||end))+Number(Boolean(origin))+Number(Boolean(destination))} onReset={reset}>
             {locations.origins.length>1&&<label className="grid gap-1.5 text-xs">Origine<select className={field} value={origin} onChange={e=>{setOrigin(e.target.value);setPage(1);}}><option value="">Toutes les origines</option>{locations.origins.map(value=><option key={value}>{value}</option>)}</select></label>}
@@ -78,7 +78,6 @@ export function FreightShipmentRegister({embedded=false}:{embedded?:boolean}) {
             <label className="grid gap-1.5 text-xs">Créée à partir du (UTC)<input type="date" value={start} className={field} onChange={e=>{setStart(e.target.value);setPage(1);}}/></label>
             <label className="grid gap-1.5 text-xs">Jusqu’au (UTC)<input type="date" value={end} min={start||undefined} className={field} onChange={e=>{setEnd(e.target.value);setPage(1);}}/></label>
           </OperationFilterPopover>
-          <OperationButton className="w-9 px-0" aria-label="Actualiser les expéditions" disabled={loading&&!invalid&&!incomplete} onClick={()=>setRevision(n=>n+1)}><RefreshCw size={15}/></OperationButton>
           </>}
         </div>
         {embedded&&<nav aria-label="Filtrer les expéditions par statut" className="flex flex-wrap gap-1 py-2">{statusTabs.map(([key,label])=><button key={key} type="button" aria-pressed={stage===key} onClick={()=>{setStage(key);setPage(1)}} className={`rounded-full px-2.5 py-1 text-[11px] ${stage===key?"bg-slate-100 font-semibold text-slate-900":"text-slate-500 hover:bg-slate-50"}`}>{label}</button>)}</nav>}

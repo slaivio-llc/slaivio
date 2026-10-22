@@ -2,10 +2,11 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { CalendarDays, Package, RefreshCw, Truck } from "lucide-react";
+import { CalendarDays, Package, Plus, Truck } from "lucide-react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { OperationTab } from "@/components/ui/operation-controls";
+import { OperationButton } from "@/components/ui/operation-controls";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { businessLabel } from "@/components/ui/business-labels";
 import { getPackageStats, type PackageStats } from "@/services/packages";
@@ -47,14 +48,23 @@ export function ParcelOperationsHub() {
   const canTracking = available && permissions.includes("tracking.read");
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
   const [view, setView] = useState<OperationsView>("overview");
   const [visited, setVisited] = useState<Set<OperationsView>>(() => new Set(["overview"]));
   const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
+  const [packageCreateRequest, setPackageCreateRequest] = useState(0);
+  const [shipmentCreateRequest, setShipmentCreateRequest] = useState(0);
+  const [calendarPlanRequest, setCalendarPlanRequest] = useState(0);
 
   function selectView(next: OperationsView) {
     setView(next);
     setVisited(current => current.has(next) ? current : new Set(current).add(next));
+  }
+
+  function requestCreate(view: "packages" | "shipments" | "calendar") {
+    selectView(view);
+    if (view === "packages") setPackageCreateRequest(value => value + 1);
+    if (view === "shipments") setShipmentCreateRequest(value => value + 1);
+    if (view === "calendar") setCalendarPlanRequest(value => value + 1);
   }
 
   useEffect(() => {
@@ -107,10 +117,14 @@ export function ParcelOperationsHub() {
     });
 
     return () => { active = false; };
-  }, [canPackages, canShipments, canTracking, permissionsLoading, revision]);
+  }, [canPackages, canShipments, canTracking, permissionsLoading]);
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader title="Opérations" description="Vue d’ensemble de l’activité cargo" actions={<button type="button" onClick={() => setRevision(value => value + 1)} aria-label="Actualiser les opérations" className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><RefreshCw size={15}/></button>}/>
+    <OperationPageHeader title="Opérations" description="Vue d’ensemble de l’activité cargo" actions={<div className="flex flex-wrap items-center justify-end gap-2">
+      {available && permissions.includes("packages.create") && <OperationButton variant="primary" onClick={() => requestCreate("packages")}><Plus size={14}/>Créer un colis</OperationButton>}
+      {available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("shipments")}><Plus size={14}/>Nouvelle expédition</OperationButton>}
+      {available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("calendar")}><CalendarDays size={14}/>Planifier calendrier</OperationButton>}
+    </div>}/>
     <main className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-8">
       <nav aria-label="Sections Opérations" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
         <ViewTab active={view === "overview"} onClick={() => selectView("overview")}>Vue d’ensemble</ViewTab>
@@ -145,10 +159,10 @@ export function ParcelOperationsHub() {
         </ul>}
       </section>}
       </>}
-      {visited.has("packages") && <div hidden={view !== "packages"}><PackagesPage embedded /></div>}
-      {visited.has("shipments") && <div hidden={view !== "shipments"}><ShipmentsPage embedded /></div>}
-      {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage embedded /></div>}
-      {visited.has("tracking") && <div hidden={view !== "tracking"}><CargoTrackingView revision={revision} open={setSelectedShipment} embedded /></div>}
+      {visited.has("packages") && <div hidden={view !== "packages"}><PackagesPage embedded createRequest={packageCreateRequest} /></div>}
+      {visited.has("shipments") && <div hidden={view !== "shipments"}><ShipmentsPage embedded createRequest={shipmentCreateRequest} /></div>}
+      {visited.has("calendar") && <div hidden={view !== "calendar"}><DepartureCalendarPage embedded planRequest={calendarPlanRequest} /></div>}
+      {visited.has("tracking") && <div hidden={view !== "tracking"}><CargoTrackingView revision={0} open={setSelectedShipment} embedded /></div>}
     </main>
     {selectedShipment && <FreightShipmentDetail shipmentId={selectedShipment} onClose={() => setSelectedShipment(null)} />}
   </div>;

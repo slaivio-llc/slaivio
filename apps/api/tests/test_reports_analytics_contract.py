@@ -3,6 +3,8 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
 from app.reports import repository
 
 
@@ -91,6 +93,30 @@ def test_dashboard_trend_uses_non_reserved_date_alias(monkeypatch):
     assert "as report_day" in trend_query
     assert "using(report_day)" in trend_query
     assert "::date day)" not in trend_query
+
+
+@pytest.mark.parametrize("office_ids", [None, [], ["office-1"]])
+def test_monthly_finance_uses_explicit_month_alias(monkeypatch, office_ids):
+    fake_engine = FakeEngine()
+    monkeypatch.setattr(repository, "engine", fake_engine)
+
+    data = repository.dashboard("org-1", date(2026, 10, 1), date(2026, 10, 23), office_ids)
+
+    query, params = next(
+        (query, params)
+        for query, params in fake_engine.connection.calls
+        if "invoice_monthly as" in query
+    )
+    # MONTH cannot be a bare PostgreSQL column alias. Keep the API's `month`
+    # field, but use AS just like the operational monthly trend query.
+    assert "months.month_start as month," in query
+    assert "months.month_start month," not in query
+    assert "group by 1,fd.currency" in query
+    assert "group by 1,payment.currency" in query
+    assert params["o"] == "org-1"
+    assert params["end"] == date(2026, 10, 24)
+    assert data["monthly_finance"] == []
+    assert "kpis" in data and "monthly_trend" in data
 
 
 def test_report_preview_applies_selected_office_scope(monkeypatch):

@@ -284,7 +284,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                     ), currencies as (
                       select currency from invoice_monthly union select currency from payment_monthly
                     )
-                    select months.month_start month,currencies.currency,
+                    select months.month_start as month,currencies.currency,
                       coalesce(invoice_monthly.invoiced,'0') invoiced,coalesce(payment_monthly.collected,'0') collected
                     from months cross join currencies
                     left join invoice_monthly using(month_start,currency)

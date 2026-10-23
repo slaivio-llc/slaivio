@@ -8,12 +8,22 @@ type RetriableRequest = {
   _slaivioNetworkRetries?: number;
 };
 let accessTokenProvider: AccessTokenProvider | null = null;
+let billingRedirectPending = false;
 export const SESSION_EXPIRED_EVENT = "slaivio:session-expired";
 export const MFA_REQUIRED_EVENT = "slaivio:mfa-required";
 export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  subscription_expired:"Votre essai ou votre abonnement est terminé. Ouvrez les paramètres d’abonnement pour continuer.",
+  saspay_not_configured:"Le paiement en ligne n’est pas encore activé. Contactez le support SLAIVIO.",
+  saspay_unavailable:"Le service de paiement est temporairement indisponible. Vérifiez l’état du paiement avant de réessayer.",
+  saspay_invalid_response:"Le service de paiement n’a pas renvoyé une réponse valide. Contactez le support SLAIVIO.",
+  saspay_payment_mismatch:"Le paiement ne correspond pas à cet abonnement. Contactez le support SLAIVIO.",
+  billing_checkout_creation_uncertain:"Un paiement est déjà en préparation. Ne le relancez pas ; vérifiez son état ou contactez le support SLAIVIO.",
+  billing_plan_unavailable:"Ce forfait n’est pas disponible actuellement.",
+  billing_currency_not_enabled:"La devise de ce forfait n’est pas encore activée pour le paiement. Contactez le support SLAIVIO.",
+  billing_checkout_plan_locked:"Un paiement pour un autre forfait est déjà en cours. Vérifiez-le avant de changer de forfait.",
   ...invitationErrorMessages,
   package_category_required:"La catégorie de marchandise est obligatoire.",
   reference_office_required:"Sélectionnez un bureau pour générer la référence du colis, ou configurez un bureau dans les paramètres.",
@@ -188,6 +198,10 @@ api.interceptors.response.use(
       if (hadAuthorization) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }
     if (typeof window !== "undefined" && axios.isAxiosError(error)) {
+      if (error.response?.status===402 && error.response.data?.detail==='subscription_expired' && !billingRedirectPending && !window.location.pathname.startsWith('/app/settings')) {
+        billingRedirectPending=true;
+        window.location.assign('/app/settings?section=subscription');
+      }
       const method = String(error.config?.method || "get").toUpperCase();
       const requestUrl = String(error.config?.url || "").split("?")[0];
       // Onboarding forms render an error beside the field group. A second

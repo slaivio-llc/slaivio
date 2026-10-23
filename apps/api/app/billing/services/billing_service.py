@@ -5,13 +5,10 @@ from app.billing.repositories.invoice_repository import (
     mark_invoice_paid,
 )
 from app.billing.repositories.payment_repository import create_billing_payment
-from app.billing.repositories.plan_repository import get_pricing_plan
 from app.billing.repositories.subscription_repository import (
     get_subscription,
     update_subscription_status,
-    upsert_subscription,
 )
-from app.billing.services.billing_cycle_service import monthly_window, trial_window
 from app.billing.services.invoice_number_service import generate_invoice_number
 from app.financial.services.financial_service import record_money_event
 
@@ -20,21 +17,10 @@ def start_trial_subscription(
     org_id: str,
     plan_code: str = "STARTER",
 ):
-    plan = get_pricing_plan(plan_code)
-
-    if not plan:
-        raise ValueError("pricing_plan_not_found")
-
-    window = trial_window()
-
-    return upsert_subscription(
-        org_id=org_id,
-        plan_id=str(plan["id"]),
-        status="TRIAL",
-        starts_at=window["starts_at"],
-        trial_ends_at=window["trial_ends_at"],
-        current_period_ends_at=window["current_period_ends_at"],
-    )
+    from app.billing.repositories.saspay_repository import ensure_trial
+    if plan_code != 'STARTER':
+        raise ValueError('trial_plan_not_available')
+    return ensure_trial(org_id)
 
 
 def create_monthly_invoice(
@@ -82,6 +68,8 @@ def confirm_invoice_payment(
 
     if not invoice:
         raise ValueError("invoice_not_found")
+    if invoice['org_id'] != org_id:
+        raise ValueError("invoice_not_found")
 
     payment = create_billing_payment(
         org_id=org_id,
@@ -118,6 +106,11 @@ def get_billing_overview(
     org_id: str,
 ):
     from sqlalchemy import text
+    from app.billing.repositories.saspay_repository import account_id, ensure_trial, pending_checkout
+    from app.billing.services.saspay_client import configured
+    from app.billing.services.saspay_service import subscription_access
+    org_id = account_id(org_id)
+    ensure_trial(org_id)
     from app.db.database import engine
     with engine.connect() as connection:
         usage=dict(connection.execute(text("""select
@@ -126,8 +119,14 @@ def get_billing_overview(
             (select count(*) from organization_memberships where org_id=:org and status='ACTIVE') members,
             (select count(*) from organization_locations where org_id=:org and status='ACTIVE' and location_type='OFFICE') offices
             """),{'org':org_id}).mappings().one())
+    subscription = get_subscription(org_id)
     return {
-        "subscription": get_subscription(org_id),
+        "billing_account_id":org_id,
+        "subscription": subscription,
+        "access_active":subscription_access(subscription),
+        "trial_days":30,
+        "checkout_available":configured(),
+        "pending_checkout":pending_checkout(org_id),
         "invoices": list_invoices(org_id),
         "usage":usage,
     }

@@ -30,11 +30,14 @@ def get_org_plan_code(
                 select p.code as plan_code
                 from organizations active_org
                 join agency_subscriptions s
-                  on s.org_id = active_org.id or s.org_id = active_org.parent_org_id
+                  on s.org_id = coalesce(active_org.parent_org_id,active_org.id)
                 join pricing_plans p
                     on p.id = s.pricing_plan_id
                 where active_org.id = :org_id
                   and s.status in ('TRIAL', 'ACTIVE', 'GRACE')
+                  and (case when s.status='TRIAL' then s.trial_ends_at>now()
+                       when s.status='GRACE' then s.grace_until>now()
+                       else s.ends_at is null or s.ends_at>now() end)
                 order by (s.org_id = active_org.id) desc
                 limit 1
             """),

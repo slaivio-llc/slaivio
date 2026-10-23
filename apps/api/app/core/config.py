@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     supabase_db_name: str | None = None
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
+    saspay_api_key: str | None = None
+    saspay_webhook_secret: str | None = None
+    saspay_merchant_id: str | None = None
+    saspay_billing_currencies: str = ""
     dossier_documents_bucket: str = "dossier-documents"
     dossier_document_max_bytes: int = Field(default=10_485_760, ge=1_048_576, le=52_428_800)
     clamav_host: str | None = None

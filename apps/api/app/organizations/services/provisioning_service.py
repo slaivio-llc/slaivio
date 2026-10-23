@@ -175,4 +175,6 @@ def provision_organization(
         ensure_dossier_role_permissions(org_id)
         ensure_shipment_role_permissions(org_id)
         ensure_tracking_role_permissions(org_id)
+        from app.billing.repositories.saspay_repository import ensure_trial
+        ensure_trial(org_id)
     return org

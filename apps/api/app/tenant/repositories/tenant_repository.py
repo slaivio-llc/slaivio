@@ -103,6 +103,10 @@ def get_active_tenant(
                     (coalesce((agency_settings.security->>'require_mfa')::boolean,false)
                      and coalesce((agency_settings.security->>'mfa_enforced')::boolean,false)) require_mfa,
                     m.role_code,
+                    subscription.status as subscription_status,
+                    subscription.ends_at as subscription_ends_at,
+                    subscription.trial_ends_at as subscription_trial_ends_at,
+                    subscription.grace_until as subscription_grace_until,
                     coalesce(o.organization_name, o.name, o.id) as organization_name,
                     coalesce(o.organization_code, o.id) as organization_code,
                     o.organization_type, o.agency_type as workspace_kind
@@ -115,6 +119,8 @@ def get_active_tenant(
                 from tenant_sessions s
                 join organizations o
                     on o.id = s.org_id
+                left join agency_subscriptions subscription
+                    on subscription.org_id=coalesce(o.parent_org_id,o.id)
                 left join organization_settings agency_settings on agency_settings.org_id=o.id
                 left join organization_groups g on g.id = o.group_id
                 join organization_memberships m

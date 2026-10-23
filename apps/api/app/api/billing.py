@@ -1,4 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import Field
+from uuid import UUID
+from starlette.concurrency import run_in_threadpool
+from app.core.permissions import require_permission
+from app.core.platform_permissions import require_platform_permission
+from app.billing.services import saspay_service, saspay_client
 from pydantic import BaseModel
 
 from app.core.tenant_context import get_current_tenant
@@ -43,7 +49,7 @@ def get_billing(tenant=Depends(get_current_tenant)):
     }
 
 
-@router.post("/billing/trial")
+@router.post("/billing/trial",dependencies=[Depends(require_permission('organization.manage'))])
 def start_trial(body: StartTrialRequest, tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 
@@ -61,7 +67,7 @@ def start_trial(body: StartTrialRequest, tenant=Depends(get_current_tenant)):
     }
 
 
-@router.post("/billing/invoices/monthly")
+@router.post("/billing/invoices/monthly",dependencies=[Depends(require_platform_permission('platform.billing.manage'))])
 def create_monthly_billing_invoice(tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 
@@ -76,7 +82,7 @@ def create_monthly_billing_invoice(tenant=Depends(get_current_tenant)):
     }
 
 
-@router.post("/billing/payments/confirm")
+@router.post("/billing/payments/confirm",dependencies=[Depends(require_platform_permission('platform.billing.manage'))])
 def confirm_payment(body: ConfirmPaymentRequest, tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 
@@ -95,3 +101,35 @@ def confirm_payment(body: ConfirmPaymentRequest, tenant=Depends(get_current_tena
         "status": "ok",
         **result,
     }
+
+
+class CheckoutRequest(BaseModel):
+    plan_code:str=Field(default='STARTER',pattern=r'^[A-Z][A-Z0-9_]{1,39}$')
+    customer_email:str=Field(min_length=3,max_length=254,pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+    customer_name:str=Field(min_length=2,max_length=120)
+
+
+@router.post('/billing/checkout',dependencies=[Depends(require_permission('organization.manage'))])
+def create_checkout(body:CheckoutRequest,tenant=Depends(get_current_tenant)):
+    return saspay_service.start_checkout(tenant['org_id'],body.plan_code,body.customer_email,body.customer_name)
+
+
+@router.post('/billing/checkout/{checkout_id}/verify',dependencies=[Depends(require_permission('organization.manage'))])
+def verify_checkout(checkout_id:UUID,tenant=Depends(get_current_tenant)):
+    return saspay_service.verify_checkout(str(checkout_id),tenant['org_id'])
+
+
+@router.post('/billing/webhooks/saspay')
+async def saspay_webhook(request:Request):
+    body=await request.body()
+    if len(body)>65536:
+        raise HTTPException(413,'webhook_body_too_large')
+    saspay_client.verify_signature(body,request.headers.get('X-Webhook-Signature',''),request.headers.get('X-Webhook-Timestamp',''))
+    try:
+        import json
+        event=json.loads(body)
+        if not isinstance(event,dict) or event.get('event')!=request.headers.get('X-Webhook-Event'):
+            raise ValueError('event_mismatch')
+    except (ValueError,UnicodeDecodeError) as exc:
+        raise HTTPException(400,'saspay_webhook_invalid') from exc
+    return await run_in_threadpool(saspay_service.process_webhook,event)

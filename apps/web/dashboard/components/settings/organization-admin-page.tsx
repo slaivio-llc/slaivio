@@ -19,9 +19,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
-import { api } from "@/services/api";
 import { invitationErrorMessages } from "@/services/invitation-errors";
 import { BrandImageUpload } from "./brand-image-upload";
+import { SubscriptionSettings } from "./subscription-settings";
 import { GoodsRuleSettings } from "./goods-rule-settings";
 import { setDashboardLocale } from "@/components/i18n/dashboard-language";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,7 +32,6 @@ import {
   requestDataOperation,
   revokeInvitation,
   saveLocation,
-  saveAgencyBrand,
   saveNumbering,
   saveRole,
   saveWorkspace,
@@ -60,7 +59,6 @@ const primary =
 const tabs = [
   ["subscription", "Abonnement Slaivio", CreditCard],
   ["agency", "Profil de l’agence", Building2],
-  ["visual", "Identit\u00e9 visuelle", Building2],
   ["tracking", "Page publique de tracking", Building2],
   ["hours", "Horaires & disponibilit\u00e9", Clock3],
   ["packages", "Colis & r\u00e9ception", Boxes],
@@ -89,14 +87,13 @@ const settingGroups: Array<[string, Section[]]> = [
   ["Administration", ["team", "roles", "security", "general", "workspaces", "data"]],
 ];
 settingGroups.push(
-  ["IDENTIT\u00c9 & PR\u00c9SENCE", ["agency", "visual", "tracking", "hours"]],
+  ["IDENTIT\u00c9 & PR\u00c9SENCE", ["agency", "tracking", "hours"]],
   ["OP\u00c9RATIONS CARGO", ["packages", "delivery", "numbering", "goods", "documents"]],
   ["CLIENTS & FINANCE", ["clients", "notifications"]],
   ["ADMINISTRATION", ["team", "security", "general", "subscription"]],
 );
 const visibleSettings = settingGroups.slice(4).flatMap(([, sections]) => sections);
 const sectionTitles: Partial<Record<Section, [string, string]>> = {
-  visual: ["Identité visuelle", "Configurez les règles applicables à votre agence."],
   tracking: ["Page publique de tracking", "Personnalisez l’expérience de suivi de vos clients."],
   hours: ["Horaires & disponibilité", "Configurez les horaires d’ouverture et le fuseau horaire de votre agence."],
   packages: ["Colis & réception", "Configurez les règles d’enregistrement et de réception des colis."],
@@ -136,6 +133,7 @@ export function OrganizationAdminPage() {
       profile: "general",
       preferences: "general",
       organization: "agency",
+      visual: "agency",
       spaces: "workspaces",
       locations: "agency",
       billing: "agency",
@@ -237,10 +235,9 @@ export function OrganizationAdminPage() {
             {tab === "roles" && <Roles data={data} run={run} />}{" "}
             {tab === "notifications" && <CustomerMilestoneNotifications data={data} run={run} />}{" "}
             {tab === "documents" && <DocumentsSettings data={data} run={run} />}{" "}
-            {tab === "subscription" && <BillingSettings />}
+            {tab === "subscription" && <SubscriptionSettings organization={data.organization} />}
             {tab === "security" && <Security data={data} run={run} />}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
-            <VisualIdentitySettings data={data} run={run} active={tab === "visual"} />
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
             <AgencyHoursSettings data={data} run={run} active={tab === "hours"} />
             <ParcelReceiptRulesSettings data={data} run={run} active={tab === "packages"} />
@@ -731,68 +728,6 @@ function ClientConditionsSettings({
         <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>
-  </section>;
-}
-
-function VisualIdentitySettings({
-  data,
-  run,
-  active,
-}: {
-  data: AdminData;
-  run: (action: () => Promise<unknown>, message: string) => void;
-  active: boolean;
-}) {
-  const organization = data.organization;
-  const initialPrimaryColor = String(organization.primary_color || "#137C56");
-  const initialSecondaryColor = String(organization.secondary_color || "#172B4D");
-  const [primaryPreview, setPrimaryPreview] = useState(initialPrimaryColor);
-  const [secondaryPreview, setSecondaryPreview] = useState(initialSecondaryColor);
-  const [darkLogoFile, setDarkLogoFile] = useState<File | null>(null);
-  const [faviconFile, setFaviconFile] = useState<File | null>(null);
-  if (!active) return null;
-  const currentSettings = data.settings?.settings;
-  const visualSettings = currentSettings && typeof currentSettings === "object" && !Array.isArray(currentSettings)
-    ? currentSettings as Record<string, unknown>
-    : {};
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const primaryColor = val(form, "primary_color") || "#137C56";
-    const secondaryColor = val(form, "secondary_color") || "#172B4D";
-    run(async () => {
-      const darkLogo = darkLogoFile ? await uploadAgencyBrandImage(darkLogoFile, "dark_logo") : String(organization.logo_dark_url || "") || null;
-      const favicon = faviconFile ? await uploadAgencyBrandImage(faviconFile, "favicon") : String(visualSettings.brand_favicon_url || "") || null;
-      return saveAgencyBrand({
-        expected_version: Number(organization.row_version),
-        logo_dark_url: darkLogo,
-        primary_color: primaryColor,
-        secondary_color: secondaryColor,
-      }, Number(data.settings?.row_version || 1), favicon);
-    }, "Identité visuelle enregistrée.");
-  }
-
-  return <section className="grid gap-5">
-    <header className="border-b border-[#e7eaec] pb-3">
-      <h3 className="text-[16px] font-semibold text-[#25292e]">Identité visuelle de l’agence</h3>
-      <p className="mt-1 text-[13px] leading-5 text-[#697178]">Couleurs et images complémentaires. Le logo principal se modifie dans le profil de l’agence.</p>
-    </header>
-    <form onSubmit={submit} className="grid max-w-[640px] gap-4">
-      <BrandImageUpload label="Logo pour fond sombre" currentUrl={String(organization.logo_dark_url || "")} file={darkLogoFile} onChange={setDarkLogoFile}/>
-      <BrandImageUpload label="Favicon" currentUrl={String(visualSettings.brand_favicon_url || "")} file={faviconFile} onChange={setFaviconFile}/>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Couleur principale<input name="primary_color" type="text" pattern="#[0-9A-Fa-f]{6}" defaultValue={initialPrimaryColor} onChange={event => setPrimaryPreview(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Couleur secondaire<input name="secondary_color" type="text" pattern="#[0-9A-Fa-f]{6}" defaultValue={initialSecondaryColor} onChange={event => setSecondaryPreview(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal uppercase text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-      </div>
-      <div className="rounded-lg border border-[#d8dddf] p-4">
-        <p className="text-[12px] text-[#697178]">Aperçu de l’identité</p>
-        <div className="mt-3 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-md bg-[#f4f6f5] text-[#4d5860]"><Building2 size={18}/></span><span className="min-w-0"><strong className="block truncate text-[14px] text-[#25292e]">{String(organization.organization_name || "Votre agence")}</strong><span className="mt-0.5 block truncate text-[12px] text-[#697178]">{String(organization.brand_slogan || "Nom et slogan de l’agence")}</span></span></div>
-        <div className="mt-3 flex gap-2"><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(primaryPreview) ? primaryPreview : "#137C56" }}/><span className="h-5 w-8 rounded" style={{ backgroundColor: /^#[0-9A-Fa-f]{6}$/.test(secondaryPreview) ? secondaryPreview : "#172B4D" }}/></div>
-      </div>
-      <p className="text-[12px] leading-5 text-[#697178]">Les images sont téléversées lors de l’enregistrement. Les documents respectent leurs propres préférences d’affichage.</p>
-      <PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div></PermissionGuard>
-    </form>
   </section>;
 }
 
@@ -1559,66 +1494,6 @@ function DocumentsSettings({
       </form>
     </PermissionGuard>
   </section>;
-}
-function BillingSettings() {
-  const [billing,setBilling]=useState<{subscription:Record<string,unknown>|null;invoices:Array<Record<string,unknown>>;usage:Record<string,number>}|null>(null);
-  const [error,setError]=useState(false);
-  const [retry,setRetry]=useState(0);
-  useEffect(()=>{let active=true;api.get('/billing').then(result=>{if(active)setBilling(result.data.billing);}).catch(()=>{if(active)setError(true);});return()=>{active=false;};},[retry]);
-  if(error)return <ErrorState title="Abonnement indisponible" description="Impossible de charger votre abonnement." retry={()=>{setError(false);setRetry(value=>value+1);}}/>;
-  if(!billing)return <LoadingState label="Chargement de l’abonnement…"/>;
-  const subscription=billing.subscription;
-  const b:Record<string,unknown>={plan_code:subscription?.plan_name,status:subscription?.status,monthly_amount:Number(subscription?.monthly_price_minor || 0)/100,billing_currency:'USD',next_billing_at:subscription?.ends_at,usage:billing.usage};
-  const usage = (b.usage || {}) as Record<string, number>,
-    limits = (b.limits || {}) as Record<string, number>;
-  return (
-    <div className="grid gap-4">
-      <Card
-        title="Plan actuel"
-        description="Abonnement Slaivio, distinct des factures clients."
-      >
-        <h3 className="text-xl font-semibold">
-          {String(b.plan_code || "Aucun abonnement configuré")}
-        </h3>
-        <p className="text-[13px]">
-          {String(({TRIAL:'Période d’essai',ACTIVE:'Actif',PAST_DUE:'Paiement en retard',CANCELLED:'Résilié',SUSPENDED:'Suspendu'} as Record<string,string>)[String(b.status)] || 'Non configuré')} · {String(b.monthly_amount || 0)}{" "}
-          {String(b.billing_currency || "USD")} / mois
-        </p>
-        <p className="mt-2 text-[12px] text-[#69707d]">
-          Prochaine facturation :{" "}
-          {b.next_billing_at
-            ? new Date(String(b.next_billing_at)).toLocaleDateString("fr-FR")
-            : "Non planifiée"}
-        </p>
-      </Card>
-      <Card
-        title="Usage"
-        description="Utilisation actuelle de votre agence."
-      >
-        {Object.keys({ ...limits, ...usage }).map((k) => (
-          <div className="mb-3" key={k}>
-            <div className="flex justify-between text-[12px]">
-              <span>{{clients:'Clients',packages:'Colis',members:'Membres',offices:'Bureaux'}[k] || k}</span>
-              <b>
-                {usage[k] || 0}{limits[k] ? ` / ${limits[k]}` : ''}
-              </b>
-            </div>
-            <div className="mt-1 h-1.5 bg-[#e6e8e8]">
-              <div
-                className="h-full bg-[#16855f]"
-                style={{
-                  width: `${Math.min(100, ((usage[k] || 0) / (limits[k] || Infinity)) * 100)}%`,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </Card>
-      <Card title="Factures d’abonnement" description="Historique de facturation de la plateforme.">
-        {!billing.invoices.length ? <p className="text-sm text-slate-500">Aucune facture d’abonnement.</p> : billing.invoices.map(invoice=><div key={String(invoice.id)} className="flex justify-between gap-3 border-b border-slate-100 py-3 text-sm"><span>{String(invoice.invoice_number)}<span className="mt-1 block text-xs text-slate-500">{String(({PAID:'Payée',OPEN:'À régler',VOID:'Annulée',DRAFT:'Brouillon'} as Record<string,string>)[String(invoice.status)] || 'En cours')}</span></span><strong>{new Intl.NumberFormat('fr-FR',{style:'currency',currency:String(invoice.currency_code || 'USD')}).format(Number(invoice.total_minor)/100)}</strong></div>)}
-      </Card>
-    </div>
-  );
 }
 function DataSettings({
   data,

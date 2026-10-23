@@ -2,12 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OrganizationAdminPage } from "./organization-admin-page";
-import { getAdmin, inviteMember, saveAgencyBrand, updateOrganization, uploadAgencyBrandImage, type AdminData } from "@/services/organization-admin";
+import { getAdmin, inviteMember, updateOrganization, uploadAgencyBrandImage, type AdminData } from "@/services/organization-admin";
 
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }), useSearchParams: () => navigation.params }));
 vi.mock("@/services/organization-admin", () => ({
-  getAdmin: vi.fn(), inviteMember: vi.fn(), saveAgencyBrand: vi.fn(), updateOrganization: vi.fn(), uploadAgencyBrandImage: vi.fn(),
+  getAdmin: vi.fn(), inviteMember: vi.fn(), updateOrganization: vi.fn(), uploadAgencyBrandImage: vi.fn(),
 }));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children, permission }: { children: ReactNode; permission: string }) => permission === "platform.admin.read" ? null : children }));
 vi.mock("@/components/ui/geography-fields", () => ({ FormGeographyFields: () => <><input name="country" aria-label="Pays"/><input name="city" aria-label="Ville"/></> }));
@@ -24,7 +24,6 @@ beforeEach(() => {
   vi.mocked(getAdmin).mockResolvedValue(fixture);
   vi.mocked(uploadAgencyBrandImage).mockResolvedValue("https://storage.example.com/agency/logo.webp");
   vi.mocked(updateOrganization).mockResolvedValue({});
-  vi.mocked(saveAgencyBrand).mockResolvedValue({});
   vi.mocked(inviteMember).mockResolvedValue({});
 });
 
@@ -35,6 +34,8 @@ describe("agency settings navigation and uploads", () => {
     const menu = container.querySelector("aside")!;
     expect(within(menu).queryByRole("button", { name: "Bureaux & contacts" })).not.toBeInTheDocument();
     expect(within(menu).queryByRole("button", { name: "Paiements & facturation" })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("button", { name: "Identité visuelle" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Identité visuelle" })).not.toBeInTheDocument();
     expect(menu).toHaveClass("space-y-1");
     for (const group of menu.querySelectorAll("section")) expect(group).not.toHaveClass("mb-5");
     fireEvent.click(within(menu).getByRole("button", { name: "Équipe" }));
@@ -57,16 +58,12 @@ describe("agency settings navigation and uploads", () => {
     expect(uploadAgencyBrandImage).toHaveBeenCalledWith(file);
   });
 
-  it("does not erase the main logo when saving visual identity", async () => {
+  it("opens the agency profile for an old visual identity link", async () => {
     navigation.params = new URLSearchParams("section=visual");
     render(<OrganizationAdminPage/>);
-    const color = await screen.findByLabelText("Couleur principale");
-    expect(screen.queryByLabelText("Logo de l’agence")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Logo pour fond sombre")).toHaveAttribute("type", "file");
-    expect(screen.getByLabelText("Favicon")).toHaveAttribute("type", "file");
-    fireEvent.submit(color.closest("form")!);
-    await waitFor(() => expect(saveAgencyBrand).toHaveBeenCalled());
-    expect(vi.mocked(saveAgencyBrand).mock.calls[0][0]).not.toHaveProperty("logo_url");
+    expect(await screen.findByLabelText("Logo de l’agence")).toHaveAttribute("type", "file");
+    expect(screen.getByRole("heading", { name: "Profil de l’agence", level: 2 })).toBeVisible();
+    expect(screen.queryByLabelText("Couleur principale")).not.toBeInTheDocument();
   });
 
   it("rejects an unsupported logo without sending it to storage", async () => {

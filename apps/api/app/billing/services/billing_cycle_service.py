@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 
 def trial_window(
-    days: int = 14,
+    days: int = 30,
 ):
     now = datetime.now(timezone.utc)
 

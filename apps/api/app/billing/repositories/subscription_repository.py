@@ -12,6 +12,8 @@ def get_subscription(
                 select
                     s.*,
                     p.name as plan_name,
+                    p.code as plan_code,
+                    p.currency_code,
                     p.monthly_price_minor
                 from agency_subscriptions s
                 left join pricing_plans p

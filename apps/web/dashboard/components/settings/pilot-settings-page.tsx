@@ -1,4 +1,5 @@
 "use client";
+import { invitationErrorMessages } from "@/services/invitation-errors";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Copy, Eye, Loader2, Mail, MessageSquare, Moon, Music2, Save, ShieldCheck, Smartphone, Sparkles, Trash2, UserRound, X } from "lucide-react";
@@ -105,10 +106,7 @@ export function PilotSettingsPage({scope="all",embedded=false}:{scope?:"all"|"co
       const detail = (exception as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       const labels: Record<string, string> = {
         pilot_whatsapp_number_not_connected: "Ce numéro WhatsApp n’est pas encore prêt à envoyer et recevoir des messages.",
-        clerk_organizations_not_enabled: "Impossible d’envoyer l’invitation : activez Organizations dans le Clerk Dashboard de l’instance utilisée par l’API, puis réessayez.",
-        invitation_provider_unavailable: "Le service d’invitation est temporairement injoignable. Réessayez plus tard.",
-        invitation_provider_invalid_response: "Le service d’invitation a renvoyé une réponse invalide. Réessayez plus tard.",
-        invitation_delivery_failed: "Le service d’invitation a refusé l’envoi. Vérifiez sa configuration puis réessayez.",
+        ...invitationErrorMessages,
         pilot_knowledge_settings_modified: "Ces réglages ont été modifiés dans une autre session. Rechargez la page.",
         numbering_was_modified: "Cet identifiant a été modifié dans une autre session. Rechargez la page.",
         organization_was_modified: "Les informations de l’entreprise ont été modifiées dans une autre session.",
@@ -204,7 +202,7 @@ function ParcelNetworkSettings({data,run}:{data:PilotSettingsData;run:(action:()
   useEffect(()=>{load();},[load]);
 
   async function setup(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);await run(()=>setupOrganizationNetwork({network_name:String(form.get("network_name")||"").trim(),country_name:String(form.get("country_name")||"").trim(),country_code:String(form.get("country_code")||"").trim(),currency_code:String(form.get("currency_code")||"USD"),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC"}),"Le réseau de bureaux a été activé.");await load();}
-  async function invite(event:FormEvent<HTMLFormElement>){event.preventDefault();const element=event.currentTarget;const form=new FormData(element);const officeIds=form.getAll("office_ids").map(String);if(!officeIds.length){setSelectionError("Sélectionnez au moins un bureau.");return;}setSelectionError("");setInvitationError("");setInvitationNotice("");try{await inviteNetworkMember({email:String(form.get("email")||"").trim(),office_ids:officeIds,role_code:String(form.get("role_code")||"OPERATOR") as NetworkInvitation["role_code"]});element.reset();setInvitationNotice("L’invitation a été envoyée avec les accès aux bureaux sélectionnés.");await load();}catch(exception){const detail=(exception as {response?:{data?:{detail?:string}}})?.response?.data?.detail;setInvitationError(detail==="clerk_organizations_not_enabled"?"Impossible d’envoyer l’invitation : activez Organizations dans le Clerk Dashboard de l’instance utilisée par l’API, puis réessayez.":detail==="invitation_provider_unavailable"?"Le service d’invitation est temporairement injoignable. Réessayez plus tard.":"L’invitation n’a pas pu être envoyée. Vérifiez la configuration de Clerk puis réessayez.");}}
+  async function invite(event:FormEvent<HTMLFormElement>){event.preventDefault();const element=event.currentTarget;const form=new FormData(element);const officeIds=form.getAll("office_ids").map(String);if(!officeIds.length){setSelectionError("Sélectionnez au moins un bureau.");return;}setSelectionError("");setInvitationError("");setInvitationNotice("");try{await inviteNetworkMember({email:String(form.get("email")||"").trim(),office_ids:officeIds,role_code:String(form.get("role_code")||"OPERATOR") as NetworkInvitation["role_code"]});element.reset();setInvitationNotice("L’invitation a été envoyée avec les accès aux bureaux sélectionnés.");await load();}catch(exception){const detail=(exception as {response?:{data?:{detail?:string}}})?.response?.data?.detail;setInvitationError(invitationErrorMessages[detail||""]||"L’invitation n’a pas pu être envoyée. Réessayez ou contactez le support SLAIVIO.");}}
   async function grant(event:FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);const officeIds=form.getAll("office_ids").map(String);if(!officeIds.length){setSelectionError("Sélectionnez au moins un bureau.");return;}setSelectionError("");await run(()=>grantNetworkOffices({user_id:String(form.get("user_id")||""),office_ids:officeIds,role_code:String(form.get("role_code")||"OPERATOR") as NetworkInvitation["role_code"]}),"Les accès du collaborateur ont été mis à jour.");await load();}
 
   if(loading)return <><SectionHeader title="Réseau et équipe" description="Gérez les bureaux du réseau et donnez à chaque collaborateur uniquement les accès nécessaires."/><SettingsCard title="Réseau de bureaux"><p className="text-[13px] text-[#727d85]">Chargement du réseau…</p></SettingsCard></>;

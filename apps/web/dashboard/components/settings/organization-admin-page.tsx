@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { api } from "@/services/api";
+import { invitationErrorMessages } from "@/services/invitation-errors";
 import { BrandImageUpload } from "./brand-image-upload";
 import { GoodsRuleSettings } from "./goods-rule-settings";
 import { setDashboardLocale } from "@/components/i18n/dashboard-language";
@@ -166,6 +167,7 @@ export function OrganizationAdminPage() {
       const detail = (e as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;
       const messages:Record<string,string>={
+        ...invitationErrorMessages,
         settings_were_modified:"Les paramètres ont changé dans une autre session. Rechargez la page avant de réessayer.",
         organization_was_modified:"Le profil a changé dans une autre session. Rechargez la page avant de réessayer.",
         numbering_was_modified:"La numérotation a changé dans une autre session. Rechargez la page avant de réessayer.",

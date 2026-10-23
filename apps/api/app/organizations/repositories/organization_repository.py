@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from contextlib import contextmanager, nullcontext
 
 from app.db.database import engine
 
@@ -75,11 +76,20 @@ def get_organization_by_clerk_org_id(
         return dict(row._mapping) if row else None
 
 
+def get_organization_member(org_id: str, user_id: str):
+    with engine.connect() as conn:
+        row = conn.execute(text("""select role_code, status from organization_memberships
+            where org_id=:org_id and clerk_user_id=:user_id limit 1"""),
+            {"org_id": org_id, "user_id": user_id}).mappings().first()
+        return dict(row) if row else None
+
+
 def link_clerk_organization(
     org_id: str,
     clerk_org_id: str,
+    connection=None,
 ):
-    with engine.begin() as conn:
+    with (nullcontext(connection) if connection is not None else engine.begin()) as conn:
         linked = conn.execute(
             text("""
                 select id
@@ -125,6 +135,18 @@ def link_clerk_organization(
         )
 
         return dict(organization._mapping)
+
+
+@contextmanager
+def organization_clerk_link_lock(org_id: str):
+    """Serialize lazy provisioning, including across API worker processes."""
+    with engine.begin() as conn:
+        conn.execute(text("select pg_advisory_xact_lock(hashtext(:key))"), {"key": f"clerk-link:{org_id}"})
+        organization = conn.execute(text("select * from organizations where id=:org_id"), {"org_id": org_id}).mappings().first()
+        owner = conn.execute(text("""select clerk_user_id from organization_memberships
+            where org_id=:org_id and role_code='OWNER' and status='ACTIVE'
+            order by created_at, id limit 1"""), {"org_id": org_id}).scalar_one_or_none()
+        yield (dict(organization) if organization else None, owner, conn)
 
 
 def get_organization(

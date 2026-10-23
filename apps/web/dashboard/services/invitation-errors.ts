@@ -1,0 +1,16 @@
+export const invitationErrorMessages: Record<string, string> = {
+  clerk_organizations_not_enabled: "L’envoi d’invitations n’est pas activé sur le service de connexion. Contactez le support SLAIVIO.",
+  invitation_provider_not_configured: "Le service d’invitation n’est pas configuré. Contactez le support SLAIVIO.",
+  invitation_provider_configuration_invalid: "La configuration du service d’invitation doit être vérifiée par le support SLAIVIO.",
+  invitation_provider_unavailable: "Le service d’invitation est temporairement indisponible. Réessayez dans quelques instants.",
+  invitation_provider_invalid_response: "L’envoi n’a pas pu être confirmé. Réessayez dans quelques instants.",
+  invitation_delivery_failed: "L’invitation n’a pas pu être envoyée. Vérifiez l’adresse email ; si le problème persiste, contactez le support SLAIVIO.",
+  invitation_already_pending: "Une invitation est déjà en attente pour cette adresse email.",
+  invitation_member_already_exists: "Cette personne fait déjà partie de l’équipe.",
+  invitation_member_limit_reached: "La limite de membres et d’invitations de cette agence est atteinte. Contactez le support SLAIVIO.",
+  invitation_organization_limit_reached: "Le service de connexion a atteint sa limite d’espaces. Contactez le support SLAIVIO.",
+  invitation_organization_not_found: "L’agence n’est pas correctement reliée au service de connexion. Contactez le support SLAIVIO.",
+  invitation_organization_owner_required: "Un propriétaire actif doit être désigné pour activer les invitations de cette agence.",
+  invitation_organization_link_invalid: "La liaison de l’agence doit être vérifiée par le support SLAIVIO.",
+  invitation_rate_limited: "Trop d’invitations ont été demandées. Patientez quelques instants avant de réessayer.",
+};

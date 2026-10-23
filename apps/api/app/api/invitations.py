@@ -33,9 +33,8 @@ def invite_user(
 ):
     org = get_organization(tenant["org_id"])
     clerk_org_id = (
-        tenant.get("clerk_org_id")
-        or manager.get("clerk_org_id")
-        or (org or {}).get("clerk_org_id")
+        (org or {}).get("clerk_org_id")
+        or tenant.get("clerk_org_id")
     )
 
     if not clerk_org_id:

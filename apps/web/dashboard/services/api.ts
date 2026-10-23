@@ -1,4 +1,5 @@
 import axios from "axios";
+import { invitationErrorMessages } from "./invitation-errors";
 
 type TokenOptions = { skipCache?: boolean };
 type AccessTokenProvider = (options?: TokenOptions) => Promise<string | null>;
@@ -13,6 +14,7 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  ...invitationErrorMessages,
   package_category_required:"La catégorie de marchandise est obligatoire.",
   reference_office_required:"Sélectionnez un bureau pour générer la référence du colis, ou configurez un bureau dans les paramètres.",
   package_packaging_required:"Le type de conditionnement est obligatoire.",

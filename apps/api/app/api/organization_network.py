@@ -88,7 +88,7 @@ def invite_network_member(
 ):
     repo.validate_invitation_offices(tenant["org_id"], body.office_ids)
     organization = get_organization(tenant["org_id"])
-    clerk_org_id = tenant.get("clerk_org_id") or (organization or {}).get("clerk_org_id")
+    clerk_org_id = (organization or {}).get("clerk_org_id") or tenant.get("clerk_org_id")
     if not clerk_org_id:
         raise HTTPException(400, "missing_clerk_organization_id")
     try:

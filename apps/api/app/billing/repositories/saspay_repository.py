@@ -64,7 +64,7 @@ def get_checkout(attempt_id, org_id=None):
 
 def pending_checkout(org_id):
     with engine.connect() as conn:
-        row=conn.execute(text("""select c.id,c.status,p.code as plan_code from billing_checkout_sessions c
+        row=conn.execute(text("""select c.id,c.status,c.amount_minor,c.currency_code,p.code as plan_code from billing_checkout_sessions c
             join pricing_plans p on p.id=c.pricing_plan_id
             where c.org_id=:org and c.status in ('CREATING','PENDING','UNKNOWN') limit 1"""),{'org':org_id}).mappings().first()
         return dict(row) if row else None

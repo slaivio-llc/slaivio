@@ -94,6 +94,56 @@ def test_provider_envelope_is_unwrapped_and_secret_stays_in_server_headers(monke
     assert request.call_args.kwargs['follow_redirects'] is False
 
 
+@pytest.mark.parametrize('path,data', [
+    ('/checkout-sessions/', session()),
+    (f'/checkout-sessions/{SESSION}/', session()),
+    ('/checkout-sessions/?page=1', {'results':[session()], 'next':None}),
+    (f'/payments/{PAYMENT}/verify/', payment()),
+])
+def test_provider_accepts_documented_direct_resource_responses(monkeypatch, path, data):
+    response=Mock();response.json.return_value=data
+    monkeypatch.setattr(client.httpx,'request',Mock(return_value=response))
+    assert client.request('GET' if '?' in path or '/verify/' in path else 'POST',path)==data
+
+
+@pytest.mark.parametrize('data', [
+    {'success':False,'data':session()},
+    {'success':True,'data':None},
+    {'message':'Something failed'},
+    {'data':session()},
+    [], None,
+])
+def test_provider_never_accepts_error_or_malformed_envelopes(monkeypatch, data):
+    response=Mock();response.json.return_value=data
+    monkeypatch.setattr(client.httpx,'request',Mock(return_value=response))
+    with pytest.raises(HTTPException) as error:
+        client.request('POST','/checkout-sessions/')
+    assert error.value.detail=='saspay_invalid_response'
+
+
+def test_provider_error_diagnostics_never_log_response_or_credentials(monkeypatch, caplog):
+    response=Mock();response.json.return_value={'success':False,'message':'secret-personal-data'}
+    monkeypatch.setattr(client.httpx,'request',Mock(return_value=response))
+    with pytest.raises(HTTPException):client.request('POST','/checkout-sessions/')
+    assert 'SasPay invalid response' in caplog.text
+    assert 'secret-personal-data' not in caplog.text
+    assert 'sk_test_fake' not in caplog.text
+
+
+def test_direct_checkout_response_still_undergoes_merchant_and_url_checks(monkeypatch):
+    monkeypatch.setattr(repo,'ensure_trial',Mock())
+    monkeypatch.setattr(repo,'reserve_checkout',Mock(return_value=(attempt(),True)))
+    update=Mock();monkeypatch.setattr(repo,'update_checkout',update)
+    response=Mock();response.json.return_value=session()
+    monkeypatch.setattr(client.httpx,'request',Mock(return_value=response))
+    assert service.start_checkout('agency','STARTER','payer@example.com','Payeur')['checkout_url']==session()['checkout_url']
+    update.assert_called_once()
+    update.reset_mock()
+    response.json.return_value={**session(),'checkout_url':'https://evil.example/checkout'}
+    with pytest.raises(HTTPException):service.start_checkout('agency','STARTER','payer@example.com','Payeur')
+    update.assert_called_once_with(ATTEMPT,'UNKNOWN')
+
+
 @pytest.mark.parametrize('field,value',[('status','PENDING'),('status','FAILED'),('currency','EUR'),('requested_amount','0.49'),('merchant','another'),('flow_direction','OUTBOUND'),('id',SESSION)])
 def test_unpaid_or_mismatched_payments_never_activate_subscription(monkeypatch,field,value):
     monkeypatch.setattr(repo,'get_checkout',Mock(return_value=attempt()))

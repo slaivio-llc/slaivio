@@ -1,12 +1,12 @@
 import { api } from "./api";
 
-export type SubscriptionPlan = { code:string;name:string;monthly_price_minor:number;currency_code:string };
+export type SubscriptionPlan = { code:string;name:string;monthly_price_minor:number;currency_code:string;max_users?:number|null;max_whatsapp_numbers?:number|null;max_monthly_messages?:number|null };
 export type BillingOverview = {
   billing_account_id:string;trial_days:number;access_active:boolean;checkout_available:boolean;
   subscription:{plan_code:string;plan_name:string;status:string;monthly_price_minor:number;currency_code:string;trial_ends_at:string|null;ends_at:string|null}|null;
   invoices:Array<{id:string;invoice_number:string;status:string;total_minor:number;currency_code:string}>;
   usage:Record<string,number>;
-  pending_checkout:{id:string;plan_code:string;status:string}|null;
+  pending_checkout:{id:string;plan_code:string;status:string;amount_minor?:number;currency_code?:string}|null;
 };
 export const getSubscriptionBilling=async()=>(await api.get<{billing:BillingOverview}>('/billing')).data.billing;
 export const getSubscriptionPlans=async()=>(await api.get<{plans:SubscriptionPlan[]}>('/billing/plans')).data.plans;

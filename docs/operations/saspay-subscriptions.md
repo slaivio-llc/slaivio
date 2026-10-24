@@ -6,7 +6,7 @@
 - L’essai est créé une seule fois. Une reconnexion, un nouvel appel ou un bureau supplémentaire ne le réinitialise pas.
 - Les bureaux et entrepôts rattachés utilisent l’abonnement de leur agence principale.
 - Après expiration, les API opérationnelles renvoient `402 subscription_expired`. Les paramètres et la facturation restent accessibles pour renouveler.
-- Les forfaits, devises et montants viennent de `pricing_plans`, jamais du navigateur. Les prix existants ne sont pas modifiés par cette intégration.
+- Les forfaits, devises et montants viennent de `pricing_plans`, jamais du navigateur. La migration `156_subscription_plan_prices.sql` fixe le catalogue mensuel à Starter 119 USD, Pro 229 USD et Business 799 USD. Le code historique `ENTERPRISE` conserve ses associations et s’affiche sous le nom Business. Les factures et sessions déjà créées conservent leurs montants initiaux.
 - Paiement sur le checkout hébergé SasPay : mobile money ou carte selon les options proposées par le compte marchand et le pays du payeur.
 - Un paiement confirmé ajoute un mois calendaire après la fin de l’accès existant, ou à partir de maintenant s’il a expiré. Les jours d’essai restants sont conservés.
 - Pas de débit récurrent : chaque renouvellement est validé par le client sur SasPay.
@@ -39,6 +39,8 @@
 7. Confirmer les tarifs et devises du catalogue avant activation LIVE. Le catalogue historique SLAIVIO est en USD : faire confirmer par SasPay les devises encaissables pour ce marchand et ses pays. Renseigner `SASPAY_BILLING_CURRENCIES=USD` uniquement si cet encaissement est confirmé ; sinon, définir explicitement les prix du catalogue dans la devise acceptée (par exemple XOF), puis activer cette devise. Sans cette liste explicite, le checkout reste désactivé même si les clés sont présentes. Une devise de forfait absente de la liste est refusée avant toute création de paiement. L’intégration refuse les montants/devises différents de ceux facturés ; elle ne crédite pas aveuglément un paiement converti. Aucun taux de conversion n’est codé en dur.
 8. Choisir dans SasPay qui supporte les frais. L’intégration laisse le réglage marchand s’appliquer et conserve le montant débité et le net reçu séparément des tarifs nominaux dans les données de rapprochement de la facture.
 9. Appliquer `155_saspay_subscriptions.sql` après les migrations précédentes, puis déployer l’API et le frontend. La migration démarre les essais des agences sans abonnement et étend les anciens essais courts à 30 jours **depuis leur date de début**, sans redémarrer leur compteur ni modifier les abonnements payants.
+   Appliquer ensuite `156_subscription_plan_prices.sql` pour les nouveaux tarifs mensuels. Les anciennes périodicités non proposées sont retirées du catalogue, sans modifier les paiements passés ou en attente.
+
 10. Ajouter une tâche toutes les cinq minutes dans l’environnement API :
 
     `python -m app.jobs.saspay_reconciliation`
@@ -49,6 +51,9 @@
 12. Après validation, créer une clé **LIVE PAYIN**, configurer le webhook LIVE et ses secrets, puis redéployer. `APP_ENV=production` refuse les clés TEST pour éviter d’accorder un abonnement réel à partir d’argent de test.
 
 ## Sécurité et exploitation
+
+- Les réponses SasPay enveloppées (`success/data`) et les ressources directes montrées dans les exemples des endpoints sont reconnues. Une enveloppe explicitement en échec, un objet d’erreur ou une ressource non reconnue reste refusé. Les contrôles marchand, montant, devise, UUID et URL de checkout restent obligatoires.
+- Pour une erreur 502, consulter les logs `SasPay request failed`, `SasPay invalid response` ou `SasPay checkout validation failed`. Ils indiquent l’étape ou le statut HTTP sans publier le corps de réponse, les clés ni les informations du payeur. Ne jamais copier une réponse contenant des secrets dans les logs.
 
 - Signature HMAC-SHA256 sur `timestamp.body` brut, comparaison en temps constant, tolérance de cinq minutes et cohérence du type d’événement.
 - Le webhook ne fait jamais confiance à son seul statut : vérification du paiement auprès de SasPay, liaison de la transaction à la session locale, marchand, devise, montant et sens entrant.

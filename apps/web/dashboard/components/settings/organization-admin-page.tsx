@@ -200,7 +200,7 @@ export function OrganizationAdminPage() {
     : <LoadingState label="Chargement des paramètres…" />;
   return (
     <div className="min-h-full bg-[#fff] px-4 py-5 sm:px-6 lg:py-8">
-      <div className="mx-auto max-w-[1080px] bg-white">
+      <div className={`mx-auto bg-white ${tab === "subscription" ? "max-w-[1400px]" : "max-w-[1080px]"}`}>
         <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 items-center"><h1 className="text-[19px] font-semibold text-[#25292e]">Paramètres de l’agence</h1></div>
         </header>
@@ -212,7 +212,7 @@ export function OrganizationAdminPage() {
           <PermissionGuard permission="platform.admin.read"><SettingsGroup label="Plateforme"><SettingsLink href="/app/platform" label="Console Super Admin"/></SettingsGroup></PermissionGuard>
         </aside>
         <main className="min-w-0 p-4 sm:p-6 [&_form_label]:text-[13px] [&_form_input]:text-[14px] [&_form_textarea]:text-[14px]">
-          <fieldset disabled={saving} aria-busy={saving} className="mx-auto min-w-0 max-w-[640px]" key={`${data.settings?.row_version}-${data.organization.row_version}`}>
+          <fieldset disabled={saving} aria-busy={saving} className={`mx-auto min-w-0 ${tab === "subscription" ? "w-full" : "max-w-[640px]"}`} key={`${data.settings?.row_version}-${data.organization.row_version}`}>
             <label className="mb-5 grid gap-1.5 text-[13px] font-medium text-[#59636e] lg:hidden">Section des paramètres<select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>{visibleSettings.map(id => { const [key, label] = tabs.find(([key]) => key === id)!; return <option key={key} value={key}>{label}</option>; })}</select></label>
             <div className="mb-5 border-b border-[#e7eaec] pb-4"><h2 className="text-[20px] font-semibold text-[#25292e]">{sectionTitles[tab]?.[0] || tab}</h2><p className="mt-1.5 text-[14px] leading-5 text-[#697178]">{sectionTitles[tab]?.[1] || ""}</p></div>
             {notice && (

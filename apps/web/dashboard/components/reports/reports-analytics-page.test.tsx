@@ -129,4 +129,57 @@ describe("ReportsAnalyticsPage", () => {
     expect(screen.queryByText("Analytics indisponibles")).not.toBeInTheDocument();
     expect(screen.queryByText("Dossiers")).not.toBeInTheDocument();
   });
+
+  it("keeps only the top-right export action on every report tab",async()=>{
+    vi.mocked(reportsService.getAnalytics).mockResolvedValue(analytics);
+    render(<ReportsAnalyticsPage/>);
+    await screen.findByRole('heading',{name:'Évolution de l’activité'});
+    for(const name of ['Colis','Expéditions','Clients','Finances','Bureaux','Vue d’ensemble']){
+      fireEvent.click(screen.getByRole('button',{name}));
+      expect(screen.getAllByRole('button',{name:/Exporter/})).toHaveLength(1);
+      expect(screen.getByRole('button',{name:'Exporter un rapport'})).toBeVisible();
+    }
+    await waitFor(()=>expect(screen.queryByRole('status',{name:'Chargement du rapport…'})).not.toBeInTheDocument());
+  });
+
+  it("counts real underscore-based operational statuses in the charts",async()=>{
+    vi.mocked(reportsService.getAnalytics).mockResolvedValue({...analytics,kpis:{packages:9},statuses:{packages:[{label:'IN_TRANSIT',value:3},{label:'ARRIVED_DESTINATION',value:2},{label:'DELIVERED',value:1}],shipments:[{label:'READY_FOR_DEPARTURE',value:4},{label:'IN_TRANSIT',value:3}]}});
+    render(<ReportsAnalyticsPage/>);
+    await screen.findByRole('heading',{name:'Évolution de l’activité'});
+    fireEvent.click(screen.getByRole('button',{name:'Colis'}));
+    expect(screen.getByRole('img',{name:'Enregistrés: 9, Expédiés: 6, Arrivés: 3, Livrés: 1'})).toHaveClass('h-[300px]');
+    fireEvent.click(screen.getByRole('button',{name:'Expéditions'}));
+    expect(screen.getByRole('img',{name:'Prévues: 4, En transit: 3, Arrivées: 0'})).toHaveClass('h-[300px]');
+    await waitFor(()=>expect(screen.queryByRole('status',{name:'Chargement du rapport…'})).not.toBeInTheDocument());
+  });
+
+  it("shows collection-only currencies and separate financial charts",async()=>{
+    vi.mocked(reportsService.getAnalytics).mockResolvedValue({...analytics,finance:[{currency:'XOF',invoices:0,pending_invoices:0,invoiced:'0',collected:'50000',previous_collected:'0',outstanding:'0'}],monthly_finance:[{month:'2026-10-01',currency:'XOF',invoiced:'0',collected:'50000'},{month:'2026-10-01',currency:'XAF',invoiced:'90000',collected:'60000'}]});
+    render(<ReportsAnalyticsPage/>);
+    await screen.findByRole('heading',{name:'Évolution de l’activité'});
+    fireEvent.click(screen.getByRole('button',{name:'Finances'}));
+    expect(screen.getByRole('img',{name:'Montants facturés et encaissés en XOF'})).toBeVisible();
+    expect(screen.getByRole('img',{name:'Montants facturés et encaissés en XAF'})).toBeVisible();
+    expect(screen.getByText(/50.000.*F/,{selector:'p'})).toBeVisible();
+    await waitFor(()=>expect(screen.queryByRole('status',{name:'Chargement du rapport…'})).not.toBeInTheDocument());
+  });
+
+  it("does not turn a failed detailed report into an empty result",async()=>{
+    vi.mocked(reportsService.getAnalytics).mockResolvedValue(analytics);
+    vi.mocked(reportsService.previewReport).mockRejectedValue(new Error('database failure'));
+    render(<ReportsAnalyticsPage/>);
+    await screen.findByRole('heading',{name:'Évolution de l’activité'});
+    fireEvent.click(screen.getByRole('button',{name:'Colis'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Les données détaillées n’ont pas pu être chargées');
+    expect(screen.queryByText('Aucun colis enregistré sur cette période.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Réessayer les données détaillées'})).toBeVisible();
+  });
+
+  it("reloads reports when the global office selector changes",async()=>{
+    vi.mocked(reportsService.getAnalytics).mockResolvedValue(analytics);
+    render(<ReportsAnalyticsPage/>);
+    await screen.findByRole('heading',{name:'Évolution de l’activité'});
+    act(()=>window.dispatchEvent(new CustomEvent('slaivio:office-context-changed',{detail:'office-2'})));
+    await waitFor(()=>expect(reportsService.getAnalytics).toHaveBeenLastCalledWith(expect.any(String),expect.any(String),'office-2'));
+  });
 });

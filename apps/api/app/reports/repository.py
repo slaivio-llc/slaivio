@@ -126,12 +126,12 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                 text(
                     f"""select
                       (select count(*) from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end{client})::int clients,
-                      (select count(*) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package})::int packages,
-                      (select coalesce(sum(p.weight_kg),0) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package})::float weight_kg,
+                      (select count(*) from cargo_packages p where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package})::int packages,
+                      (select coalesce(sum(p.weight_kg),0) from cargo_packages p where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package})::float weight_kg,
                       (select count(*) from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end{expedition})::int shipments,
                       (select count(*) from pickup_orders po where po.org_id=:o and po.created_at>=:start and po.created_at<:end{pickup})::int pickups,
                       (select count(*) from clients c where c.org_id=:o and c.created_at>=:ps and c.created_at<:pe{client})::int previous_clients,
-                      (select count(*) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:ps and p.created_at<:pe{package})::int previous_packages,
+                      (select count(*) from cargo_packages p where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null and p.created_at>=:ps and p.created_at<:pe{package})::int previous_packages,
                       (select count(*) from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:ps and e.created_at<:pe{expedition})::int previous_shipments,
                       (select count(distinct p.client_id) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.client_id is not null and p.created_at>=:start and p.created_at<:end{package})::int active_clients,
                       (select count(distinct p.client_id) from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.client_id is not null and p.created_at>=:ps and p.created_at<:pe{package})::int previous_active_clients"""
@@ -146,7 +146,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                     select d.report_day as day,coalesce(c.clients,0)::int clients,coalesce(p.packages,0)::int packages,coalesce(s.shipments,0)::int shipments
                     from days d
                     left join(select c.created_at::date as report_day,count(*) clients from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end{client} group by 1)c using(report_day)
-                    left join(select p.created_at::date as report_day,count(*) packages from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package} group by 1)p using(report_day)
+                    left join(select p.created_at::date as report_day,count(*) packages from cargo_packages p where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package} group by 1)p using(report_day)
                     left join(select e.created_at::date as report_day,count(*) shipments from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end{expedition} group by 1)s using(report_day)
                     order by d.report_day"""
                 ),
@@ -169,7 +169,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                       and c.created_at<date_trunc('month',cast(:end as date)-interval '1 day')+interval '1 month'{client}
                       group by 1) c using(month_start)
                     left join (select date_trunc('month',p.created_at)::date month_start,count(*) packages
-                      from cargo_packages p where p.org_id=:o and p.deleted_at is null
+                      from cargo_packages p where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null
                       and p.created_at>=date_trunc('month',cast(:end as date)-interval '1 day')-interval '5 months'
                       and p.created_at<date_trunc('month',cast(:end as date)-interval '1 day')+interval '1 month'{package}
                       group by 1) p using(month_start)
@@ -188,7 +188,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                 connection.execute(
                     text(
                         f"""select p.status label,count(*)::int value from cargo_packages p
-                        where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package}
+                        where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null and p.created_at>=:start and p.created_at<:end{package}
                         group by p.status order by value desc"""
                     ),
                     p,
@@ -299,7 +299,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                 text(
                     """select office.id,office.name,office.city,office.status,
                       (select count(distinct package.id)::int from cargo_packages package
-                        where package.org_id=office.org_id and package.deleted_at is null
+                        where (package.org_id=office.org_id or package.destination_org_id=office.org_id) and package.deleted_at is null
                           and package.created_at>=:start and package.created_at<:end
                           and office.id in (package.origin_location_id,package.destination_location_id)) packages,
                       (select count(distinct expedition.id)::int from cargo_expeditions expedition
@@ -334,7 +334,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
                     f"""select coalesce(p.warehouse_name,'Non affecté') warehouse,count(*)::int packages,
                     coalesce(sum(p.weight_kg),0)::float weight_kg,coalesce(sum(p.volume_cbm),0)::float volume_cbm,
                     count(*) filter(where p.is_fragile)::int fragile from cargo_packages p
-                    where p.org_id=:o and p.deleted_at is null and p.inventory_status='IN_STOCK'{package}
+                    where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null and p.inventory_status='IN_STOCK'{package}
                     group by p.warehouse_name order by packages desc"""
                 ),
                 p,
@@ -356,7 +356,7 @@ def dashboard(org_id, start=None, end=None, office_ids=None):
 
 REPORT_SQL = {
     "clients": "select c.id,c.client_reference,coalesce(c.display_name,c.company_name,c.name) name,c.lifecycle_status,c.phone,c.email,c.country,c.created_at from clients c where c.org_id=:o and c.created_at>=:start and c.created_at<:end",
-    "packages": "select p.id,p.package_reference,p.tracking_id,p.status,p.client_id,p.warehouse_name,p.weight_kg,p.volume_cbm,p.destination_country,p.created_at from cargo_packages p where p.org_id=:o and p.deleted_at is null and p.created_at>=:start and p.created_at<:end",
+    "packages": "select p.id,p.package_reference,p.tracking_id,p.status,p.client_id,p.warehouse_name,p.weight_kg,p.volume_cbm,p.destination_country,p.created_at from cargo_packages p where (p.org_id=:o or p.destination_org_id=:o) and p.deleted_at is null and p.created_at>=:start and p.created_at<:end",
     "shipments": "select e.id,e.expedition_reference,e.status,e.route_label,e.origin_city,e.destination_city,e.mode shipping_mode,e.total_weight_kg weight_kg,e.total_volume_cbm volume_cbm,e.billed_total,e.cost_total,e.profit_total,e.currency,e.created_at,e.updated_at from cargo_expeditions e where e.org_id=:o and e.archived_at is null and e.deleted_at is null and e.created_at>=:start and e.created_at<:end",
     "finance": "select fd.id,fd.document_number,fd.document_type,fd.status,fd.currency,fd.total,fd.amount_paid,fd.balance_due,fd.issue_date,fd.due_date,coalesce(c.display_name,c.company_name,c.name,c.phone,'Client') client_name,fd.created_at from finance_documents fd left join clients c on c.org_id=fd.org_id and c.id=fd.client_id where fd.org_id=:o and fd.document_type='INVOICE' and coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date)>=:start and coalesce(fd.issue_date,fd.issued_at::date,fd.created_at::date)<:end",
     "pickups": "select po.pickup_reference,po.status,po.client_id,po.recipient_name,po.recipient_phone,po.payment_status,po.required_amount,po.paid_amount,po.storage_fee,po.currency,po.ready_at,po.checked_in_at,po.released_at,po.created_at from pickup_orders po where po.org_id=:o and po.created_at>=:start and po.created_at<:end",

@@ -44,6 +44,7 @@ def _provider_data(response):
         codes = {error.get("code") for error in data.get("errors", []) if isinstance(error, dict)}
         logger.warning("Clerk invitation request rejected: status=%s codes=%s", getattr(response, "status_code", None), sorted(str(code) for code in codes))
         known = {
+            "organization_slugs_disabled": ("clerk_organization_slugs_disabled", 503),
             "organization_not_enabled_in_instance": ("clerk_organizations_not_enabled", 503),
             "organization_invitation_not_unique": ("invitation_already_pending", 409),
             "organization_membership_quota_exceeded": ("invitation_member_limit_reached", 409),

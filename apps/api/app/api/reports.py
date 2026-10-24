@@ -10,7 +10,11 @@ from app.reports import repository as repo
 router=APIRouter(prefix='/reports',tags=['reports'])
 def user(m):return str(m.get('user_id') or m.get('id'))
 def report_office_scope(context,office_id):
- if office_id=='ALL':return context.get('allowed_office_ids',[])
+ if office_id=='ALL':
+  # Include legacy/unassigned records only for agency-wide access. An empty
+  # office catalogue is not equivalent to an empty restricted access grant.
+  if context.get('office_access_scope')=='ALL_OFFICES':return None
+  return context.get('allowed_office_ids',[])
  if not office_id:return office_scope_ids(context)
  if office_id not in context.get('allowed_office_ids',[]):
   raise HTTPException(403,'office_access_denied')

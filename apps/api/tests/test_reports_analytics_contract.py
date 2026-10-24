@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import pytest
 
 from app.reports import repository
+from app.api.reports import report_office_scope
+from fastapi import HTTPException
 
 
 REPOSITORY = Path(__file__).parents[1] / "app" / "reports" / "repository.py"
@@ -134,3 +136,31 @@ def test_numeric_database_values_remain_exact_decimal_strings():
     values = repository._rows([SimpleNamespace(_mapping={"amount": Decimal("123456789012345.67")})])
 
     assert values == [{"amount": "123456789012345.67"}]
+
+
+def test_all_offices_includes_unassigned_history_only_for_agency_wide_access():
+    assert report_office_scope({'office_access_scope':'ALL_OFFICES','allowed_office_ids':[]},'ALL') is None
+    assert report_office_scope({'office_access_scope':'ALL_OFFICES','allowed_office_ids':['office-1'],'selected_office_id':'office-1'},'ALL') is None
+    assert report_office_scope({'office_access_scope':'SELECTED_OFFICES','allowed_office_ids':[]},'ALL') == []
+    assert report_office_scope({'office_access_scope':'SELECTED_OFFICES','allowed_office_ids':['office-1']},'ALL') == ['office-1']
+
+
+def test_explicit_office_never_bypasses_member_grants():
+    context={'office_access_scope':'SELECTED_OFFICES','allowed_office_ids':['office-1'],'selected_office_id':'office-1'}
+    assert report_office_scope(context,None) == ['office-1']
+    assert report_office_scope(context,'office-1') == ['office-1']
+    with pytest.raises(HTTPException) as error:report_office_scope(context,'office-2')
+    assert error.value.status_code == 403
+
+
+def test_package_reports_match_the_operational_origin_and_destination_scope(monkeypatch):
+    fake_engine=FakeEngine()
+    monkeypatch.setattr(repository,'engine',fake_engine)
+    repository.dashboard('agency',date(2026,10,1),date(2026,10,24),None)
+    for query,params in fake_engine.connection.calls:
+        if any(marker in query for marker in ('as report_day','invoice_monthly as','invoice_totals as','cargo_expeditions e where')) and 'cargo_packages p' not in query:
+            continue
+        if 'from cargo_packages p where' in query:
+            assert '(p.org_id=:o or p.destination_org_id=:o)' in query
+            assert params['o']=='agency'
+    assert '(p.org_id=:o or p.destination_org_id=:o)' in repository.REPORT_SQL['packages']

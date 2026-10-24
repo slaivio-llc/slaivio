@@ -1,4 +1,5 @@
 export const invitationErrorMessages: Record<string, string> = {
+  clerk_organization_slugs_disabled: "Les invitations nécessitent l’activation de « Organization slugs » dans Clerk. Contactez l’administrateur SLAIVIO.",
   clerk_organizations_not_enabled: "L’envoi d’invitations n’est pas activé sur le service de connexion. Contactez le support SLAIVIO.",
   invitation_provider_not_configured: "Le service d’invitation n’est pas configuré. Contactez le support SLAIVIO.",
   invitation_provider_configuration_invalid: "La configuration du service d’invitation doit être vérifiée par le support SLAIVIO.",

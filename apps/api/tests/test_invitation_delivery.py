@@ -73,6 +73,7 @@ def test_invitation_uses_clerk_response_id_and_persists_on_success(monkeypatch):
 
 
 @pytest.mark.parametrize("code,status,expected", [
+    ("organization_slugs_disabled", 403, "clerk_organization_slugs_disabled"),
     ("organization_invitation_not_unique", 400, "invitation_already_pending"),
     ("organization_membership_quota_exceeded", 403, "invitation_member_limit_reached"),
     ("resource_not_found", 404, "invitation_organization_not_found"),

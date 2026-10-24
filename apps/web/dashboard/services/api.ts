@@ -15,6 +15,9 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  billing_checkout_already_paid:"Ce paiement est déjà confirmé. Actualisez votre abonnement avant de continuer.",
+  billing_payment_processing:"Un paiement est en cours de traitement. Attendez sa confirmation avant de changer d’offre.",
+  billing_checkout_cancellation_unconfirmed:"L’annulation du précédent paiement n’a pas encore été confirmée. Aucun nouveau paiement n’a été créé.",
   subscription_expired:"Votre essai ou votre abonnement est terminé. Ouvrez les paramètres d’abonnement pour continuer.",
   saspay_not_configured:"Le paiement en ligne n’est pas encore activé. Contactez le support SLAIVIO.",
   saspay_unavailable:"Le service de paiement est temporairement indisponible. Vérifiez l’état du paiement avant de réessayer.",

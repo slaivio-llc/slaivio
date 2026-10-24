@@ -63,7 +63,7 @@ def request(method, path, payload=None):
 def safe_checkout_url(url):
     try:
         parsed = urlsplit(str(url or ""))
-        valid = parsed.scheme == "https" and parsed.hostname == "pay.saspay.me" and parsed.port in (None,443) and not parsed.username and not parsed.password
+        valid = parsed.scheme == "https" and parsed.hostname in {"pay.saspay.me", "checkout.saspay.me"} and parsed.port in (None,443) and not parsed.username and not parsed.password
     except ValueError:
         valid = False
     if not valid:

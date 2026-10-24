@@ -7,7 +7,7 @@ import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiErrorDetail } from "@/services/api";
-import { createSubscriptionCheckout, getSubscriptionBilling, getSubscriptionPlans, openSubscriptionCheckout, verifySubscriptionCheckout, type BillingOverview, type SubscriptionPlan } from "@/services/subscription-billing";
+import { cancelSubscriptionCheckout, createSubscriptionCheckout, getSubscriptionBilling, getSubscriptionPlans, openSubscriptionCheckout, verifySubscriptionCheckout, type BillingOverview, type SubscriptionPlan } from "@/services/subscription-billing";
 
 const input="h-10 w-full rounded-lg border border-[#d8dddf] bg-white px-3 text-[14px] text-[#30363a]";
 const money=(minor:number,currency:string)=>new Intl.NumberFormat('fr-FR',{style:'currency',currency,minimumFractionDigits:0,maximumFractionDigits:2}).format(minor/100);
@@ -21,11 +21,12 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const [busy,setBusy]=useState(false);
+  const [checking,setChecking]=useState(false);
   const [pending,setPending]=useState('');
   const [selectedPlan,setSelectedPlan]=useState('');
   const load=useCallback(async()=>{
     const [data,catalog]=await Promise.all([getSubscriptionBilling(),getSubscriptionPlans()]);
-    setBilling(data);setPlans(catalog);setSelectedPlan(current=>data.pending_checkout?.plan_code||current);
+    setBilling(data);setPlans(catalog);
     return data;
   },[]);
   useEffect(()=>{
@@ -35,17 +36,17 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
       const key=`slaivio:subscription-checkout:${data.billing_account_id}`;
       const id=returnedCheckout||data.pending_checkout?.id||window.sessionStorage.getItem(key);
       if(!id)return;
-      setPending(id);setBusy(true);
+      setPending(id);setChecking(true);
       try{
         const result=await verifySubscriptionCheckout(id);
         if(!active)return;
         if(result.status==='SUCCESS'){
           window.sessionStorage.removeItem(key);setPending('');setNotice('Paiement confirmé. Votre abonnement est actif.');await load();
         }else if(result.status==='FAILED'){
-          window.sessionStorage.removeItem(key);setPending('');setNotice('Le paiement n’a pas abouti. Aucun abonnement payant n’a été activé.');
+          window.sessionStorage.removeItem(key);setPending('');setNotice('Le paiement n’a pas abouti. Aucun abonnement payant n’a été activé.');await load();
         }else setNotice('Le paiement est en attente de confirmation.');
       }catch(exception){if(active)setError(apiErrorDetail(exception)||'Le paiement n’a pas pu être vérifié.');}
-      finally{if(active)setBusy(false);}
+      finally{if(active)setChecking(false);}
     }).catch(exception=>{if(active)setError(apiErrorDetail(exception)||'Impossible de charger votre abonnement.');});
     return()=>{active=false;};
   },[load,returnedCheckout]);
@@ -73,17 +74,29 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
     }catch(exception){setError(apiErrorDetail(exception)||'Le paiement n’a pas pu être préparé.');setBusy(false);}
   }
 
+  async function cancel(){
+    if(!billing||!pending||busy)return;
+    setBusy(true);setError('');
+    try{
+      await cancelSubscriptionCheckout(pending);
+      window.sessionStorage.removeItem(`slaivio:subscription-checkout:${billing.billing_account_id}`);
+      setPending('');setNotice('L’ancien paiement a été annulé. Vous pouvez choisir votre offre au tarif actuel.');await load();
+    }catch(exception){setError(apiErrorDetail(exception)||'L’annulation n’a pas pu être confirmée.');}
+    finally{setBusy(false);}
+  }
+
   if(!billing)return error?<ErrorState title="Abonnement indisponible" description={error} retry={()=>{setError('');void load().catch(()=>setError('Impossible de charger votre abonnement.'));}}/>:<LoadingState label="Chargement de l’abonnement…"/>;
   const subscription=billing.subscription;
   const trial=subscription?.status==='TRIAL';
   const daysLeft=trial&&subscription.trial_ends_at?Math.max(0,Math.ceil((new Date(subscription.trial_ends_at).getTime()-Date.now())/86400000)):0;
   const selected=plans.find(plan=>plan.code===selectedPlan);
-  const frozen=billing.pending_checkout?.plan_code===selectedPlan?billing.pending_checkout:null;
-  const paymentPrice=selected?money(frozen?.amount_minor??selected.monthly_price_minor,frozen?.currency_code??selected.currency_code):'';
+  const paymentPrice=selected?money(selected.monthly_price_minor,selected.currency_code):'';
   const currentName=subscription?.plan_code==='ENTERPRISE'?'Business':subscription?.plan_name||'Starter';
-  return <div className="grid gap-8 text-[#20252a]" aria-busy={busy}>
+  return <div className="grid gap-8 text-[#20252a]" aria-busy={busy||checking}>
     {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
     {notice&&<p role="status" className="rounded-lg bg-[#f4f6f5] p-3 text-[14px] text-[#30363a]">{notice}</p>}
+    {checking&&<p role="status" className="text-[13px] text-[#697178]">Vérification de l’ancien paiement… Vous pouvez déjà comparer les offres.</p>}
+    {pending&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e0e4e7] p-4 text-[13px]"><p className="max-w-xl leading-6 text-[#697178]">Un ancien paiement est en attente. Vous pouvez l’annuler ou choisir une offre : avant tout nouveau paiement, la session précédente sera vérifiée et annulée si elle n’est pas déjà payée ou en cours de traitement.</p><OperationButton disabled={busy} onClick={()=>void cancel()}>Annuler l’ancien paiement</OperationButton></div>}
     <section className="flex flex-wrap items-center justify-between gap-5 rounded-2xl border border-[#e4e7e9] bg-[#f8f9fa] p-5 sm:p-6" aria-label="Abonnement actuel">
       <div><div className="mb-2 flex flex-wrap items-center gap-2"><span className="text-[12px] font-medium uppercase tracking-wider text-[#737b83]">Votre offre · {currentName}</span><span className="rounded-full border border-[#dce4df] bg-white px-2.5 py-1 text-[12px] font-medium">{!billing.access_active?'À renouveler':trial?'Essai en cours':'Actif'}</span></div>
         <h3 className="text-[21px] font-semibold tracking-tight">{trial?'Essai gratuit de 30 jours':'Votre espace, votre abonnement'}</h3>
@@ -102,19 +115,18 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
             const chosen=selectedPlan===plan.code;
             const current=subscription?.plan_code===plan.code;
             const description=plan.code==='STARTER'?'Les bases pour structurer votre activité cargo.':pro?'Pour accompagner le développement de votre agence.':'Pour les équipes et les activités à grande échelle.';
-            const features=[plan.max_users?`${plan.max_users.toLocaleString('fr-FR')} utilisateurs`:null,plan.max_whatsapp_numbers?`${plan.max_whatsapp_numbers.toLocaleString('fr-FR')} numéro${plan.max_whatsapp_numbers>1?'s':''} WhatsApp`:null,plan.max_monthly_messages?`${plan.max_monthly_messages.toLocaleString('fr-FR')} messages par mois`:null].filter(Boolean);
-            return <article key={plan.code} aria-label={`Offre ${name}`} className={`relative flex flex-col rounded-2xl border p-5 transition-colors ${chosen?'border-[#18794e] ring-1 ring-[#18794e]':pro?'border-[#343b41]':'border-[#e0e4e7]'} ${pro?'bg-[#f9fafb]':'bg-white'}`}>
+            const features=plan.included_features||[];
+            return <article key={plan.code} aria-label={`Offre ${name}`} className="relative flex flex-col rounded-2xl border border-[#e0e4e7] bg-white p-5 transition-colors hover:border-[#18794e] hover:bg-[#f7fbf9]">
               <div className="mb-4 flex min-h-6 items-center justify-between gap-2"><h4 className="text-[19px] font-semibold">{name}</h4>{current?<span className="rounded-md bg-[#edf0f2] px-2 py-1 text-[11px] font-medium">{trial?'En essai':'Offre actuelle'}</span>:pro?<span className="rounded-md bg-[#252b30] px-2 py-1 text-[11px] font-medium text-white">Pour grandir</span>:null}</div>
               <p className="min-h-12 text-[13px] leading-6 text-[#697178]">{description}</p>
               <div className="mb-1 mt-6"><strong className="text-[32px] font-semibold tracking-tight">{money(plan.monthly_price_minor,plan.currency_code)}</strong><span className="ml-1 text-[13px] text-[#737b83]">/ mois</span></div><p className="mb-6 text-[12px] text-[#737b83]">Par agence · {plan.currency_code}</p>
-              <button type="button" aria-pressed={chosen} disabled={busy||!billing.checkout_available||Boolean(pending&&selectedPlan!==plan.code)} onClick={()=>setSelectedPlan(plan.code)} className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg border text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18794e] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${chosen?'border-[#18794e] bg-[#18794e] text-white':pro?'border-[#252b30] bg-[#252b30] text-white hover:bg-[#111]':'border-[#d6dce0] bg-white hover:bg-[#f4f6f7]'}`}>{chosen?<><Check size={16}/>Offre sélectionnée</>:<>{current&&!trial?'Renouveler':`Choisir ${name}`}<ArrowRight size={15}/></>}</button>
+              <button type="button" aria-pressed={chosen} disabled={busy} onClick={()=>setSelectedPlan(plan.code)} className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#d6dce0] text-[14px] font-medium transition-colors hover:border-[#18794e] hover:bg-[#18794e] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18794e] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${chosen?'bg-[#eff8f3] text-[#18794e]':'bg-white text-[#30363a]'}`}>{chosen?<><Check size={16}/>Offre sélectionnée</>:<>{current&&!trial?'Renouveler':`Choisir ${name}`}<ArrowRight size={15}/></>}</button>
               {features.length>0&&<ul className="mt-6 grid gap-3 border-t border-[#e4e7e9] pt-5 text-[13px] text-[#59636e]">{features.map(feature=><li key={feature} className="flex items-start gap-2"><Check size={15} className="mt-0.5 shrink-0 text-[#18794e]"/>{feature}</li>)}</ul>}
             </article>;
           })}
         </div>
         {selected&&<form onSubmit={event=>void checkout(event)} className="mt-6 grid gap-6 rounded-2xl border border-[#e0e4e7] p-5 sm:p-6" aria-label="Finaliser l’abonnement">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8ebed] pb-5"><div><h3 className="text-[17px] font-semibold">Finaliser votre abonnement</h3><p className="mt-1 text-[13px] text-[#697178]">{selected.code==='ENTERPRISE'?'Business':selected.name} · 1 mois d’accès</p></div><strong className="text-[24px] font-semibold">{paymentPrice}</strong></div>
-          {frozen&&<p className="text-[13px] leading-6 text-[#697178]">Un paiement est déjà en cours pour cette offre. Son montant initial est conservé ; aucun second paiement ne sera créé.</p>}
           <fieldset disabled={busy||!billing.checkout_available} className="grid gap-4 disabled:opacity-60">
             <div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-[13px] font-medium">Nom du payeur<input name="name" required minLength={2} maxLength={120} className={input} defaultValue={String(organization.organization_name||'')}/></label><label className="grid gap-2 text-[13px] font-medium">Email de facturation<input name="email" required type="email" maxLength={254} className={input} defaultValue={String(organization.email||'')}/></label></div>
             <p className="text-[13px] leading-6 text-[#697178]">Les jours d’essai ou d’abonnement restants sont conservés. Les éventuels frais de paiement sont présentés par SasPay avant validation.</p>

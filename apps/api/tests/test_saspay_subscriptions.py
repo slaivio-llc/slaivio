@@ -26,6 +26,7 @@ def setup(monkeypatch):
     monkeypatch.setattr(client.settings,'saspay_webhook_secret','webhook-test')
     monkeypatch.setattr(client.settings,'saspay_merchant_id','merchant-test')
     monkeypatch.setattr(client.settings,'saspay_billing_currencies','USD')
+    monkeypatch.setattr(service,'get_pricing_plan',Mock(return_value={'monthly_price_minor':4900,'currency_code':'USD'}))
 
 
 def attempt():
@@ -137,11 +138,11 @@ def test_direct_checkout_response_still_undergoes_merchant_and_url_checks(monkey
     response=Mock();response.json.return_value=session()
     monkeypatch.setattr(client.httpx,'request',Mock(return_value=response))
     assert service.start_checkout('agency','STARTER','payer@example.com','Payeur')['checkout_url']==session()['checkout_url']
-    update.assert_called_once()
+    assert update.call_args.args==(ATTEMPT,'PENDING')
     update.reset_mock()
     response.json.return_value={**session(),'checkout_url':'https://evil.example/checkout'}
     with pytest.raises(HTTPException):service.start_checkout('agency','STARTER','payer@example.com','Payeur')
-    update.assert_called_once_with(ATTEMPT,'UNKNOWN')
+    assert update.call_args.args==(ATTEMPT,'UNKNOWN')
 
 
 @pytest.mark.parametrize('field,value',[('status','PENDING'),('status','FAILED'),('currency','EUR'),('requested_amount','0.49'),('merchant','another'),('flow_direction','OUTBOUND'),('id',SESSION)])
@@ -206,6 +207,83 @@ def test_lost_checkout_response_is_recovered_with_get_requests_only(monkeypatch)
     assert recovered['provider_session_id']==SESSION
     assert request.call_args.args==('GET','/checkout-sessions/?page=1')
     assert update.call_args.args==(ATTEMPT,'PENDING')
+
+
+@pytest.mark.parametrize('url',['https://checkout.saspay.me/abc','https://pay.saspay.me/checkout/abc'])
+def test_both_exact_saspay_checkout_origins_are_accepted(url):
+    assert client.safe_checkout_url(url)==url
+
+
+@pytest.mark.parametrize('url',['http://checkout.saspay.me/abc','https://checkout.saspay.me.evil.test/a','https://evil@checkout.saspay.me/a','https://checkout.saspay.me:444/a'])
+def test_new_checkout_origin_does_not_weaken_redirect_validation(url):
+    with pytest.raises(HTTPException):client.safe_checkout_url(url)
+
+
+def test_cancel_verifies_provider_cancellation_before_releasing_reservation(monkeypatch):
+    monkeypatch.setattr(repo,'get_checkout',Mock(return_value=attempt()))
+    remote={**session(),'status':'PENDING','transaction':None}
+    cancelled={**remote,'status':'CANCELLED'}
+    request=Mock(side_effect=[remote,cancelled,cancelled]);monkeypatch.setattr(client,'request',request)
+    close=Mock();monkeypatch.setattr(repo,'close_cancelled_checkout',close)
+    assert service.cancel_checkout(ATTEMPT,'agency')['status']=='CANCELLED'
+    assert request.call_args_list[1].args==('POST',f'/checkout-sessions/{SESSION}/cancel/',{})
+    close.assert_called_once_with(ATTEMPT)
+
+
+def test_cancel_never_releases_a_checkout_with_a_processing_payment(monkeypatch):
+    monkeypatch.setattr(repo,'get_checkout',Mock(return_value=attempt()))
+    monkeypatch.setattr(repo,'update_checkout',Mock())
+    remote={**session(),'status':'PENDING'}
+    request=Mock(side_effect=[remote,{**payment(),'status':'PENDING'}]);monkeypatch.setattr(client,'request',request)
+    close=Mock();monkeypatch.setattr(repo,'close_cancelled_checkout',close)
+    with pytest.raises(HTTPException) as error:service.cancel_checkout(ATTEMPT,'agency')
+    assert error.value.detail=='billing_payment_processing'
+    assert all(call.args[0]=='GET' for call in request.call_args_list)
+    close.assert_not_called()
+
+
+def test_cancel_never_voids_an_already_paid_checkout(monkeypatch):
+    monkeypatch.setattr(repo,'get_checkout',Mock(return_value={**attempt(),'status':'SUCCESS'}))
+    request,close=Mock(),Mock()
+    monkeypatch.setattr(client,'request',request);monkeypatch.setattr(repo,'close_cancelled_checkout',close)
+    with pytest.raises(HTTPException) as error:service.cancel_checkout(ATTEMPT,'agency')
+    assert error.value.detail=='billing_checkout_already_paid'
+    request.assert_not_called();close.assert_not_called()
+
+
+def test_old_price_is_cancelled_before_creating_checkout_at_current_server_price(monkeypatch):
+    monkeypatch.setattr(repo,'ensure_trial',Mock())
+    old={**attempt(),'plan_code':'STARTER'}
+    new={**attempt(),'id':'44444444-4444-4444-8444-444444444444','amount_minor':11900}
+    monkeypatch.setattr(repo,'reserve_checkout',Mock(side_effect=[(old,False),(new,True)]))
+    monkeypatch.setattr(service,'get_pricing_plan',Mock(return_value={'monthly_price_minor':11900,'currency_code':'USD'}))
+    cancel=Mock();monkeypatch.setattr(service,'cancel_checkout',cancel)
+    monkeypatch.setattr(repo,'update_checkout',Mock())
+    request=Mock(return_value={**session(),'amount':'119.00','checkout_url':'https://checkout.saspay.me/new'})
+    monkeypatch.setattr(client,'request',request)
+    assert service.start_checkout('agency','STARTER','payer@example.com','Payeur')['id']==new['id']
+    cancel.assert_called_once_with(ATTEMPT,'agency')
+    assert request.call_args.args[2]['amount']=='119.00'
+
+
+def test_a_different_selected_plan_never_reuses_the_previous_plan_checkout(monkeypatch):
+    monkeypatch.setattr(repo,'ensure_trial',Mock())
+    monkeypatch.setattr(repo,'reserve_checkout',Mock(return_value=({**attempt(),'plan_code':'STARTER'},False)))
+    cancel=Mock(side_effect=HTTPException(409,'billing_payment_processing'))
+    monkeypatch.setattr(service,'cancel_checkout',cancel)
+    request=Mock();monkeypatch.setattr(client,'request',request)
+    with pytest.raises(HTTPException):service.start_checkout('agency','PRO','payer@example.com','Payeur')
+    cancel.assert_called_once_with(ATTEMPT,'agency');request.assert_not_called()
+
+
+def test_failed_cancellation_does_not_create_a_new_payment(monkeypatch):
+    monkeypatch.setattr(repo,'get_checkout',Mock(return_value=attempt()))
+    remote={**session(),'status':'PENDING','transaction':None}
+    request=Mock(side_effect=[remote,remote,remote]);monkeypatch.setattr(client,'request',request)
+    close=Mock();monkeypatch.setattr(repo,'close_cancelled_checkout',close)
+    with pytest.raises(HTTPException) as error:service.cancel_checkout(ATTEMPT,'agency')
+    assert error.value.detail=='billing_checkout_cancellation_unconfirmed'
+    close.assert_not_called()
 
 
 def test_webhook_never_trusts_the_success_status_without_provider_verification(monkeypatch):

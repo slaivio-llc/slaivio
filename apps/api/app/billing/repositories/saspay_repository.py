@@ -32,8 +32,6 @@ def reserve_checkout(org_id, plan_code):
         pending = conn.execute(text("""select c.*,p.code as plan_code from billing_checkout_sessions c
             join pricing_plans p on p.id=c.pricing_plan_id where c.org_id=:org and c.status in ('CREATING','PENDING','UNKNOWN')"""), {"org": org_id}).mappings().first()
         if pending:
-            if pending['plan_code'] != plan_code:
-                raise HTTPException(409,'billing_checkout_plan_locked')
             return dict(pending), False
         plan = conn.execute(text("select * from pricing_plans where code=:code and active=true"), {"code": plan_code}).mappings().first()
         if not plan or plan['monthly_price_minor'] <= 0:
@@ -80,6 +78,19 @@ def pending_reconciliation(limit=25):
 def touch_checkout(attempt_id):
     with engine.begin() as conn:
         conn.execute(text("update billing_checkout_sessions set updated_at=now() where id=cast(:id as uuid)"),{'id':attempt_id})
+
+
+def close_cancelled_checkout(attempt_id):
+    """Release the reservation only AFTER the provider confirms cancellation."""
+    with engine.begin() as conn:
+        row=conn.execute(text("select * from billing_checkout_sessions where id=cast(:id as uuid) for update"),{'id':attempt_id}).mappings().one()
+        if row['status']=='SUCCESS':
+            raise HTTPException(409,'billing_checkout_already_paid')
+        invoice=conn.execute(text("select status from billing_invoices where id=:id for update"),{'id':row['invoice_id']}).scalar_one()
+        if invoice=='PAID':
+            raise HTTPException(409,'billing_checkout_already_paid')
+        conn.execute(text("update billing_checkout_sessions set status='FAILED',verified_at=now(),updated_at=now() where id=cast(:id as uuid)"),{'id':attempt_id})
+        conn.execute(text("update billing_invoices set status='VOID',updated_at=now() where id=:id and status='OPEN'"),{'id':row['invoice_id']})
 
 
 def update_checkout(attempt_id, status, session_id=None, checkout_url=None, transaction_id=None, expires_at=None):

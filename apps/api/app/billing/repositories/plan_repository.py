@@ -17,7 +17,23 @@ def list_pricing_plans():
             """),
         ).fetchall()
 
-        return [dict(row._mapping) for row in rows]
+        # Public catalogue reflects implemented capabilities, not historical
+        # numeric quotas that are not currently enforced by operation routes.
+        common = ['Gestion des colis et des expéditions', 'Suivi des colis et page de tracking',
+                  'Gestion des clients', 'Services, routes et tarifs',
+                  'Documents et étiquettes', 'Rapports et exports', 'Équipe et permissions']
+        flags = conn.execute(text("""select plan_code,entitlement_key from plan_entitlements
+            where entitlement_type='BOOLEAN' and boolean_value=true
+              and entitlement_key in ('finance_dashboard','wallet')""")).fetchall()
+        enabled = {(row._mapping['plan_code'],row._mapping['entitlement_key']) for row in flags}
+        plans=[]
+        for row in rows:
+            plan=dict(row._mapping)
+            plan['included_features']=list(common)
+            for key,label in [('finance_dashboard','Tableau de bord financier (selon activation)'),('wallet','Éligibilité au portefeuille agence (activation requise)')]:
+                if (plan['code'],key) in enabled:plan['included_features'].append(label)
+            plans.append(plan)
+        return plans
 
 
 def get_pricing_plan(

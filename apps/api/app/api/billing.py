@@ -133,3 +133,8 @@ async def saspay_webhook(request:Request):
     except (ValueError,UnicodeDecodeError) as exc:
         raise HTTPException(400,'saspay_webhook_invalid') from exc
     return await run_in_threadpool(saspay_service.process_webhook,event)
+
+
+@router.post('/billing/checkout/{checkout_id}/cancel',dependencies=[Depends(require_permission('organization.manage'))])
+def cancel_checkout(checkout_id:UUID,tenant=Depends(get_current_tenant)):
+    return saspay_service.cancel_checkout(str(checkout_id),tenant['org_id'])

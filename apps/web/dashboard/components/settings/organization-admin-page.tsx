@@ -57,7 +57,7 @@ const button =
 const primary =
   "h-9 rounded-[6px] bg-[#12c76f] px-4 text-[13px] font-semibold text-white hover:bg-[#0fb766]";
 const tabs = [
-  ["subscription", "Abonnement Slaivio", CreditCard],
+  ["subscription", "Abonnement", CreditCard],
   ["agency", "Profil de l’agence", Building2],
   ["tracking", "Page publique de tracking", Building2],
   ["hours", "Horaires & disponibilit\u00e9", Clock3],
@@ -101,7 +101,7 @@ const sectionTitles: Partial<Record<Section, [string, string]>> = {
   numbering: ["Références & numérotation", "Configurez le format des références générées pour vos colis."],
   goods: ["Marchandises & restrictions", "Définissez les contrôles et consignes applicables aux marchandises."],
   clients: ["Clients & conditions", "Définissez les conditions de crédit et les règles applicables aux clients."],
-  subscription: ["Abonnement Slaivio", "Plan et usage de votre abonnement à la plateforme."],
+  subscription: ["Abonnement", "Gérez votre offre, votre essai gratuit et vos paiements."],
   general: ["Langues & devises", "Configurez les règles applicables à votre agence."],
   agency: ["Profil de l’agence", "Informations officielles utilisées sur les espaces publics et documents."],
   workspaces: ["Workspaces", "Espaces opérationnels, responsables et périmètres de travail."],

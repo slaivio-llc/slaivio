@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from app.core.config import settings
 from app.billing.repositories import saspay_repository as repo
 from app.billing.services import saspay_client as provider
+from app.billing.repositories.plan_repository import get_pricing_plan
 
 
 def start_checkout(org_id, plan_code, email, name):
@@ -13,11 +14,37 @@ def start_checkout(org_id, plan_code, email, name):
     repo.ensure_trial(org_id)
     attempt, created = repo.reserve_checkout(org_id, plan_code)
     if not created:
-        if attempt['status']=='UNKNOWN':
+        plan=get_pricing_plan(plan_code)
+        if not plan:
+            raise HTTPException(422,'billing_plan_unavailable')
+        if (attempt.get('plan_code',plan_code)!=plan_code or attempt['amount_minor']!=plan['monthly_price_minor'] or attempt['currency_code']!=plan['currency_code']):
+            cancel_checkout(str(attempt['id']),org_id)
+            attempt,created=repo.reserve_checkout(org_id,plan_code)
+            if not created and attempt.get('plan_code',plan_code)!=plan_code:
+                raise HTTPException(409,'billing_checkout_creation_uncertain')
+        if not created:
+            return resume_checkout(attempt)
+    return create_provider_checkout(attempt,email,name)
+
+
+def resume_checkout(attempt):
+    if attempt['status']=='UNKNOWN':
+        if attempt.get('provider_session_id'):
+            session=provider.request('GET',f"/checkout-sessions/{provider.checkout_id(attempt['provider_session_id'])}/")
+            validate_amounts(session,attempt,'amount')
+            if str(session.get('id'))!=attempt['provider_session_id']:
+                raise HTTPException(409,'saspay_payment_mismatch')
+            url=provider.safe_checkout_url(session.get('checkout_url'))
+            repo.update_checkout(str(attempt['id']),'PENDING',checkout_url=url)
+            attempt={**attempt,'status':'PENDING','checkout_url':url}
+        else:
             attempt=recover_session(attempt)
-        if attempt['status'] == 'PENDING' and attempt.get('checkout_url'):
-            return {"id":str(attempt['id']),"checkout_url":provider.safe_checkout_url(attempt['checkout_url']),"status":"PENDING"}
-        raise HTTPException(409, "billing_checkout_creation_uncertain")
+    if attempt['status'] == 'PENDING' and attempt.get('checkout_url'):
+        return {"id":str(attempt['id']),"checkout_url":provider.safe_checkout_url(attempt['checkout_url']),"status":"PENDING"}
+    raise HTTPException(409, "billing_checkout_creation_uncertain")
+
+
+def create_provider_checkout(attempt,email,name):
     attempt_id = str(attempt['id'])
     # SasPay checkout creation is NOT idempotent. Never retry a POST after an
     # ambiguous timeout: the local reservation remains available for recovery.
@@ -30,8 +57,11 @@ def start_checkout(org_id, plan_code, email, name):
             "return_url":settings.public_web_base_url.rstrip('/')+f"/app/settings?section=subscription&checkout={attempt_id}",
         })
         session_id = provider.checkout_id(session.get('id'))
-        url = provider.safe_checkout_url(session.get('checkout_url'))
         validate_amounts(session, attempt, "amount")
+        # Save the authenticated provider ID even if its redirect URL is invalid.
+        # Verification/cancellation must remain possible without another POST.
+        repo.update_checkout(attempt_id,"UNKNOWN",session_id=session_id,expires_at=session.get('expires_at'))
+        url = provider.safe_checkout_url(session.get('checkout_url'))
         repo.update_checkout(attempt_id,"PENDING",session_id=session_id,checkout_url=url,expires_at=session.get('expires_at'))
         return {"id":attempt_id,"checkout_url":url,"status":"PENDING"}
     except Exception:
@@ -46,7 +76,7 @@ def validate_amounts(remote, attempt, amount_key):
         raise HTTPException(409, "saspay_payment_mismatch")
 
 
-def recover_session(attempt):
+def recover_session(attempt, require_url=True):
     """Read-only recovery after an ambiguous POST. Never create a second charge."""
     if attempt['status']=='CREATING':
         created=attempt.get('created_at')
@@ -59,7 +89,7 @@ def recover_session(attempt):
                 continue
             validate_amounts(remote,attempt,'amount')
             session_id=provider.checkout_id(remote.get('id'))
-            url=provider.safe_checkout_url(remote.get('checkout_url'))
+            url=provider.safe_checkout_url(remote.get('checkout_url')) if require_url else None
             repo.update_checkout(str(attempt['id']),'PENDING',session_id=session_id,checkout_url=url,expires_at=remote.get('expires_at'))
             return {**attempt,'provider_session_id':session_id,'checkout_url':url,'status':'PENDING'}
         if not result.get('next'):
@@ -67,10 +97,43 @@ def recover_session(attempt):
     raise HTTPException(409,'billing_checkout_creation_uncertain')
 
 
+def cancel_checkout(attempt_id,org_id):
+    attempt=repo.get_checkout(attempt_id,org_id)
+    if attempt['status']=='SUCCESS':
+        raise HTTPException(409,'billing_checkout_already_paid')
+    if not attempt.get('provider_session_id'):
+        attempt=recover_session(attempt,require_url=False)
+    session_id=provider.checkout_id(attempt['provider_session_id'])
+    path=f'/checkout-sessions/{session_id}/'
+    session=provider.request('GET',path)
+    validate_amounts(session,attempt,'amount')
+    if str(session.get('id'))!=session_id:
+        raise HTTPException(409,'saspay_payment_mismatch')
+    if session.get('transaction') or session.get('status')=='PAID':
+        verified=verify_checkout(attempt_id,org_id,verified_session=session)
+        if verified['status']=='SUCCESS':
+            raise HTTPException(409,'billing_checkout_already_paid')
+        # Never replace a payment currently being processed by an operator.
+        if verified['status']=='PENDING':
+            raise HTTPException(409,'billing_payment_processing')
+    if session.get('status') not in ('CANCELLED','EXPIRED'):
+        provider.request('POST',path+'cancel/',{})
+        session=provider.request('GET',path)
+        validate_amounts(session,attempt,'amount')
+    if str(session.get('id'))!=session_id or session.get('status') not in ('CANCELLED','EXPIRED'):
+        raise HTTPException(409,'billing_checkout_cancellation_unconfirmed')
+    if session.get('transaction'):
+        verified=verify_checkout(attempt_id,org_id,verified_session=session)
+        if verified['status']=='SUCCESS':raise HTTPException(409,'billing_checkout_already_paid')
+        if verified['status']=='PENDING':raise HTTPException(409,'billing_payment_processing')
+    repo.close_cancelled_checkout(attempt_id)
+    return {'id':attempt_id,'status':'CANCELLED'}
+
+
 def verify_checkout(attempt_id, org_id=None, verified_payment=None, verified_session=None):
     attempt = repo.get_checkout(attempt_id,org_id)
     if not attempt.get('provider_session_id'):
-        attempt=recover_session(attempt)
+        attempt=recover_session(attempt,require_url=False)
     session = verified_session or provider.request("GET",f"/checkout-sessions/{provider.checkout_id(attempt['provider_session_id'])}/")
     if str(session.get('id')) != attempt['provider_session_id']:
         raise HTTPException(409,"saspay_payment_mismatch")

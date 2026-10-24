@@ -52,6 +52,11 @@
 
 ## Sécurité et exploitation
 
+- Les deux origines de checkout reconnues sont `https://pay.saspay.me` (exemples de documentation) et `https://checkout.saspay.me` (URL observée du prestataire). Aucun autre domaine, sous-domaine ressemblant, port personnalisé, HTTP ou identifiant dans l’URL n’est accepté. Le frontend et l’API appliquent la même liste.
+- Une ancienne session ne verrouille plus la comparaison des offres. Le récapitulatif affiche le tarif du catalogue actuel. Au clic de paiement, si le forfait ou le tarif diffère, le serveur vérifie puis annule l’ancienne session auprès de SasPay avant de réserver la nouvelle. Le bouton « Annuler l’ancien paiement » utilise le même contrôle. Aucun montant de facture existante n’est réécrit.
+- L’annulation est refusée pour un paiement confirmé ou encore en traitement. La réservation et sa facture ouverte ne sont clôturées localement qu’après confirmation distante `CANCELLED` ou `EXPIRED`. Un timeout ou une confirmation ambiguë conserve le verrou. Une nouvelle session n’est pas créée tant que ce contrôle échoue.
+- Le catalogue affiche les fonctions opérationnelles implémentées et les éligibilités vérifiées dans `plan_entitlements`. Les anciens quotas `max_users`, `max_whatsapp_numbers` et `max_monthly_messages`, non contrôlés par toutes les routes métier, ne sont plus annoncés comme des limites effectives. Une éligibilité ne contourne jamais un feature flag, une permission ou une activation administrative de module.
+
 - Les réponses SasPay enveloppées (`success/data`) et les ressources directes montrées dans les exemples des endpoints sont reconnues. Une enveloppe explicitement en échec, un objet d’erreur ou une ressource non reconnue reste refusé. Les contrôles marchand, montant, devise, UUID et URL de checkout restent obligatoires.
 - Pour une erreur 502, consulter les logs `SasPay request failed`, `SasPay invalid response` ou `SasPay checkout validation failed`. Ils indiquent l’étape ou le statut HTTP sans publier le corps de réponse, les clés ni les informations du payeur. Ne jamais copier une réponse contenant des secrets dans les logs.
 
@@ -70,5 +75,6 @@
 - <https://docs.saspay.me/account-setup>
 - <https://docs.saspay.me/api-reference/payments/checkout-create>
 - <https://docs.saspay.me/api-reference/payments/checkout-list>
+- <https://docs.saspay.me/api-reference/payments/checkout-cancel>
 - <https://docs.saspay.me/api-reference/payments/verify>
 - <https://docs.saspay.me/api-reference/webhooks>

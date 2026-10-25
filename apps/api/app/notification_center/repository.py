@@ -17,13 +17,18 @@ def list_center(org_id,user_id,status=None,category=None,priority=None,source=No
       select e.id,e.org_id,'IN_APP' source,e.event_type category,e.title,e.message,e.priority,e.created_at,
        case when s.notification_id is not null then s.read_at when e.is_read then e.created_at end read_at,s.archived_at,s.snoozed_until,
        case when e.shipment_id is not null then 'LEGACY_SHIPMENT' when e.dossier_id is not null then 'DOSSIER' when e.client_id is not null then 'CLIENT' end resource_kind,
-       coalesce(e.shipment_id::text,e.dossier_id::text,e.client_id::text) resource_id,null::text delivery_status,null::text error_message
-      from manager_events e left join notification_user_states s on s.org_id=e.org_id and s.user_id=:u and s.source='IN_APP' and s.notification_id=e.id where e.org_id=:o
+       coalesce(e.shipment_id::text,e.dossier_id::text,e.client_id::text) resource_id,
+       coalesce(delivery.status,e.payload->>'status') delivery_status,null::text error_message,
+       delivery.recipient_phone,delivery.message notification_content
+      from manager_events e
+      left join notification_outbox delivery on delivery.org_id=e.org_id and delivery.id=e.notification_id
+      left join notification_user_states s on s.org_id=e.org_id and s.user_id=:u and s.source='IN_APP' and s.notification_id=e.id where e.org_id=:o
       union all
       select n.id,n.org_id,'DELIVERY',n.notification_type,concat(upper(n.channel),' · ',coalesce(n.recipient_phone,'Destinataire')),n.message,
        case when n.status='FAILED' then 'HIGH' else 'NORMAL' end,n.created_at,s.read_at,s.archived_at,s.snoozed_until,
        case when expedition.id is not null then 'EXPEDITION' when package.id is not null then 'PACKAGE' when n.dossier_id is not null then 'DOSSIER' when n.client_id is not null then 'CLIENT' end,
-       coalesce(expedition.id::text,package.id::text,n.dossier_id::text,n.client_id::text),n.status,n.error_message
+       coalesce(expedition.id::text,package.id::text,n.dossier_id::text,n.client_id::text),n.status,n.error_message,
+       n.recipient_phone,n.message
       from notification_outbox n
       left join package_notifications pn on pn.org_id=n.org_id and pn.notification_outbox_id=n.id
       left join cargo_packages package on package.org_id=n.org_id and package.id=pn.package_id and package.deleted_at is null

@@ -28,6 +28,16 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it('shows French roles and invitation statuses without invitation separators',async()=>{
+    vi.mocked(getAdmin).mockResolvedValue({...fixture,roles:[{...fixture.roles[0],role_code:'WAREHOUSE',role_name:'Warehouse'}],invitations:[{id:'inv',email:'agent@example.com',role_code:'WAREHOUSE',status:'PENDING'}]});
+    const {container}=render(<OrganizationAdminPage/>);
+    await screen.findByRole('heading',{name:'Paramètres de l’agence'});
+    fireEvent.click(within(container.querySelector('aside')!).getByRole('button',{name:'Équipe'}));
+    expect(screen.getByRole('option',{name:'Responsable d’entrepôt'})).toBeVisible();
+    expect(screen.getByText('Responsable d’entrepôt · En attente')).toBeVisible();
+    expect(container.querySelector('[data-ui="team-invitations"]')).not.toHaveClass('divide-y');
+    expect(screen.queryByText('Warehouse')).not.toBeInTheDocument();
+  });
   it("removes redundant tabs, exposes Équipe, and uses the same spacing between all groups", async () => {
     const { container } = render(<OrganizationAdminPage/>);
     await screen.findByRole("heading", { name: "Paramètres de l’agence" });

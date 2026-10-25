@@ -5,6 +5,7 @@ from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.notification_center import repository as repo
 from app.notification_center.navigation import notification_href
+from app.notification_center.presentation import present_notification
 from app.permissions.services.permission_service import list_permissions_for_user
 from app.services.notification_retry_service import retry_notification
 router=APIRouter(prefix='/notification-center',tags=['notification-center'])
@@ -16,6 +17,7 @@ def listing(status:str|None=None,category:str|None=None,priority:str|None=None,s
  result=repo.list_center(tenant['org_id'],uid(manager),status,category,priority,source,q,page,page_size)
  permissions=list_permissions_for_user(user_id=uid(manager),org_id=tenant['org_id'])
  for item in result['items']:
+  present_notification(item)
   item['href']=notification_href(item,permissions)
  return {'status':'ok',**result}
 @router.patch('/{source}/{notification_id}',dependencies=[Depends(require_permission('notifications.manage'))])

@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { invitationErrorMessages } from "@/services/invitation-errors";
+import { agencyRoleLabel, agencyStatusLabel } from "@/services/agency-labels";
 import { BrandImageUpload } from "./brand-image-upload";
 import { SubscriptionSettings } from "./subscription-settings";
 import { GoodsRuleSettings } from "./goods-rule-settings";
@@ -819,7 +820,7 @@ function Team({
             <select name="role" className={`${input} max-w-[220px]`}>
               {data.roles.map((r) => (
                 <option key={r.id} value={r.role_code}>
-                  {r.role_name}
+                  {agencyRoleLabel(r.role_code,r.role_name)}
                 </option>
               ))}
             </select>
@@ -846,7 +847,7 @@ function Team({
           title="Invitations"
           description="Invitations en attente, acceptées ou révoquées."
         >
-          <div className="divide-y">
+          <div className="grid gap-1" data-ui="team-invitations">
             {data.invitations.map((x) => (
               <div
                 className="flex items-center justify-between py-3 text-[13px]"
@@ -855,7 +856,7 @@ function Team({
                 <div>
                   <b>{String(x.email)}</b>
                   <p className="text-[12px] text-[#69707d]">
-                    {String(x.role_code)} · {String(x.status)}
+                    {agencyRoleLabel(x.role_code,data.roles.find(role=>role.role_code===x.role_code)?.role_name)} · {agencyStatusLabel(x.status)}
                   </p>
                 </div>
                 {x.status === "PENDING" && (
@@ -904,14 +905,14 @@ function MemberRow({
       <div>
         <b>{member.member_display_name || member.member_email || "Membre"}</b>
         <p className="text-[12px] text-[#69707d]">
-          {member.member_email || member.id}
+          {member.member_email || "Adresse email non renseignée"}
         </p>
       </div>
       <PermissionGuard
         permission="team.manage"
         fallback={
           <span>
-            {member.role_name} · {member.status}
+            {agencyRoleLabel(member.role_code,member.role_name)} · {agencyStatusLabel(member.status)}
           </span>
         }
       >
@@ -923,7 +924,7 @@ function MemberRow({
           >
             {roles.map((r) => (
               <option key={r.id} value={r.role_code}>
-                {r.role_name}
+                {agencyRoleLabel(r.role_code,r.role_name)}
               </option>
             ))}
           </select>
@@ -1097,7 +1098,7 @@ function Roles({
       >
         {data.roles.map((r) => (
           <div className="border-b py-3 text-[13px]" key={r.id}>
-            <b>{r.role_name}</b>
+            <b>{agencyRoleLabel(r.role_code,r.role_name)}</b>
             <p className="text-[12px] text-[#69707d]">
               {r.permission_count} droits · {r.member_count} membres{" "}
               {r.system_role ? "· Système" : ""}
@@ -1297,7 +1298,7 @@ function Workspaces({
               <b>{String(x.name)}</b>
               <p className="text-[#69707d]">
                 {String(x.code)} · {String(x.country_code || "—")} ·{" "}
-                {String(x.currency_code)} · {String(x.status)}
+                {String(x.currency_code)} · {agencyStatusLabel(x.status)}
               </p>
             </div>
             {x.status === "ACTIVE" && (

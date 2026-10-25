@@ -48,13 +48,20 @@ const apiDetailMessages: Record<string, string> = {
   invalid_knowledge_file: "Le fichier est vide, trop volumineux ou dans un format non accepté.",
 };
 
+function agencyErrorMessage(raw:string):string {
+  if(apiDetailMessages[raw])return apiDetailMessages[raw];
+  if(/^[A-Za-z][A-Za-z0-9_.:-]*_[A-Za-z0-9_.:-]+$/.test(raw)||/\b[A-Z]+(?:_[A-Z0-9]+)+\b/.test(raw))return "L’action n’a pas pu être effectuée. Réessayez ou contactez le support SLAIVIO si le problème persiste.";
+  if(/^(Input should|Field required|String should|Value error|Invalid |Not found|Internal server)/i.test(raw))return "Vérifiez les informations saisies, puis réessayez. Si le problème persiste, contactez le support SLAIVIO.";
+  return raw;
+}
+
 export function apiErrorDetail(error: unknown): string {
   if (!axios.isAxiosError(error)) return "";
   const detail = error.response?.data?.detail;
   const raw = Array.isArray(detail)
     ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")
     : typeof detail === "string" ? detail : "";
-  return apiDetailMessages[raw] || raw;
+  return agencyErrorMessage(raw);
 }
 
 function normalizeApiBaseUrl(value?: string) {
@@ -215,7 +222,7 @@ api.interceptors.response.use(
         const raw = Array.isArray(detail)
           ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")
           : typeof detail === "string" ? detail : "";
-        const detailMessage = apiDetailMessages[raw] || raw;
+        const detailMessage = agencyErrorMessage(raw);
         const conflictMessage = raw === "workflow_execution_in_progress"
           ? "La création est déjà en cours. Patientez quelques instants avant de réessayer."
           : raw === "workflow_already_decided"

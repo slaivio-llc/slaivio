@@ -65,30 +65,17 @@ describe("ReportsAnalyticsPage", () => {
     await waitFor(() => expect(screen.queryByRole("status", { name: "Chargement du rapport…" })).not.toBeInTheDocument());
   });
 
-  it("reuses loaded reports and never displays another tab's rows while loading", async () => {
+  it("keeps charts without detailed lists, legacy links or preview requests on all tabs",async()=>{
     vi.mocked(reportsService.getAnalytics).mockResolvedValue(analytics);
-    let resolveClients!: (rows: Array<Record<string, unknown>>) => void;
-    vi.mocked(reportsService.previewReport).mockImplementation((key) => key === "clients"
-      ? new Promise((resolve) => { resolveClients = resolve; })
-      : Promise.resolve([{ id: "package-1", package_reference: "COL-123", status: "RECEIVED" }]));
-    render(<ReportsAnalyticsPage />);
-    await screen.findByRole("heading", { name: "Évolution de l’activité" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Colis" }));
-    expect(await screen.findByText("COL-123")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Clients" }));
-    expect(screen.queryByText("COL-123")).not.toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Chargement du rapport…" })).toBeVisible();
-    await act(async () => { resolveClients([{ id: "client-1", name: "Marie", client_reference: "CLI-001" }]); });
-    expect(await screen.findByText("Marie")).toBeVisible();
-
-    fireEvent.click(screen.getByRole("button", { name: "Colis" }));
-    expect(screen.getByText("COL-123")).toBeVisible();
-    expect(screen.queryByRole("status", { name: "Chargement du rapport…" })).not.toBeInTheDocument();
-    expect(reportsService.previewReport).toHaveBeenCalledTimes(2);
-
-    fireEvent.change(screen.getByLabelText("Période"), { target: { value: (screen.getByLabelText("Période") as HTMLSelectElement).options[1].value } });
-    await waitFor(() => expect(reportsService.previewReport).toHaveBeenCalledTimes(3));
+    render(<ReportsAnalyticsPage/>);
+    await screen.findByRole('heading',{name:'Évolution de l’activité'});
+    for(const name of ['Colis','Expéditions','Clients','Finances','Bureaux']){
+      fireEvent.click(screen.getByRole('button',{name}));
+      expect(screen.queryByText('Données du rapport')).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('link')).toHaveLength(0);
+      expect(screen.getAllByRole('button',{name:/Exporter/})).toHaveLength(1);
+    }
+    expect(reportsService.previewReport).not.toHaveBeenCalled();
   });
 
   it("shows one actionable error state when analytics cannot be loaded", async () => {
@@ -162,17 +149,6 @@ describe("ReportsAnalyticsPage", () => {
     expect(screen.getByRole('img',{name:'Montants facturés et encaissés en XAF'})).toBeVisible();
     expect(screen.getByText(/50.000.*F/,{selector:'p'})).toBeVisible();
     await waitFor(()=>expect(screen.queryByRole('status',{name:'Chargement du rapport…'})).not.toBeInTheDocument());
-  });
-
-  it("does not turn a failed detailed report into an empty result",async()=>{
-    vi.mocked(reportsService.getAnalytics).mockResolvedValue(analytics);
-    vi.mocked(reportsService.previewReport).mockRejectedValue(new Error('database failure'));
-    render(<ReportsAnalyticsPage/>);
-    await screen.findByRole('heading',{name:'Évolution de l’activité'});
-    fireEvent.click(screen.getByRole('button',{name:'Colis'}));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Les données détaillées n’ont pas pu être chargées');
-    expect(screen.queryByText('Aucun colis enregistré sur cette période.')).not.toBeInTheDocument();
-    expect(screen.getByRole('button',{name:'Réessayer les données détaillées'})).toBeVisible();
   });
 
   it("reloads reports when the global office selector changes",async()=>{

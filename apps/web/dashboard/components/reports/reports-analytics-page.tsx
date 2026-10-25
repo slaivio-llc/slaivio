@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import Link from "next/link";
-import { ChevronRight, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { API_BASE_URL } from "@/services/api";
-import { exportReport, getAnalytics, previewReport, type Analytics } from "@/services/reports";
+import { exportReport, getAnalytics, type Analytics } from "@/services/reports";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationButton, OperationTab } from "@/components/ui/operation-controls";
@@ -13,7 +12,6 @@ import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { getOfficeContext, type OfficeContext } from "@/services/organization-admin";
 
 type ReportTab = "overview" | "packages" | "shipments" | "clients" | "finance" | "offices";
-type ReportRow = Record<string, unknown>;
 
 const tabs: Array<{ id: ReportTab; label: string }> = [
   { id: "overview", label: "Vue d’ensemble" },
@@ -42,15 +40,8 @@ export function ReportsAnalyticsPage() {
   const [officeId, setOfficeId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [reportRows, setReportRows] = useState<Record<string, ReportRow[]>>({});
-  const [rowErrors, setRowErrors] = useState<Record<string,string>>({});
   const requestVersion = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
-  const reportKey = JSON.stringify([tab, start, end, officeId]);
-  const cachedRows = reportRows[reportKey];
-  const rows = cachedRows ?? [];
-  const rowError = rowErrors[reportKey] || '';
-  const rowsLoading = cachedRows === undefined && !rowError;
 
   function selectTab(nextTab: ReportTab) {
     if (nextTab === tab) return;
@@ -87,19 +78,10 @@ export function ReportsAnalyticsPage() {
   }, []);
 
   useEffect(()=>{
-    const update=(event:Event)=>{setOfficeId((event as CustomEvent<string|null>).detail||'');setReportRows({});setRowErrors({});};
+    const update=(event:Event)=>{setOfficeId((event as CustomEvent<string|null>).detail||'');};
     window.addEventListener('slaivio:office-context-changed',update);
     return()=>window.removeEventListener('slaivio:office-context-changed',update);
   },[]);
-
-  useEffect(() => {
-    if (tab === "overview" || tab === "offices" || cachedRows !== undefined || rowError) return;
-    let active = true;
-    previewReport(tab, start, end, officeId || undefined)
-      .then((result) => { if (active) setReportRows((previous) => ({ ...previous, [reportKey]: result })); })
-      .catch(() => { if (active) setRowErrors(previous=>({...previous,[reportKey]:'Les données détaillées n’ont pas pu être chargées. Aucun résultat vide n’a été substitué.'})); });
-    return () => { active = false; };
-  }, [tab, start, end, officeId, reportKey, cachedRows, rowError]);
 
   async function download(key: string) {
     const blob = await exportReport(key, start, end, officeId || undefined);
@@ -143,7 +125,7 @@ export function ReportsAnalyticsPage() {
           <label className="min-w-0 text-[12px] text-[#697178]">Période
             <select aria-label="Période" className={selectClass} value={`${start}|${end}`} onChange={(event) => {
               const [nextStart, nextEnd] = event.target.value.split("|");
-              setReportRows({});setRowErrors({});setStart(nextStart);
+              setStart(nextStart);
               setEnd(nextEnd);
             }}>
               <option value={`${currentMonthStart}|${today}`}>Ce mois</option>
@@ -153,7 +135,7 @@ export function ReportsAnalyticsPage() {
             </select>
           </label>
           <label className="min-w-0 text-[12px] text-[#697178]">Bureau
-            <select aria-label="Bureau" className={selectClass} value={officeId} onChange={(event) => {setReportRows({});setRowErrors({});setOfficeId(event.target.value);}}>
+            <select aria-label="Bureau" className={selectClass} value={officeId} onChange={(event) => {setOfficeId(event.target.value);}}>
               <option value="">Tous les bureaux autorisés</option>
               {(officeContext?.offices || []).map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}
             </select>
@@ -165,12 +147,11 @@ export function ReportsAnalyticsPage() {
           <div className="min-w-0 space-y-5">
             {!hasPeriodActivity && <div role="status" className="border border-[#dfe3e4] bg-white px-4 py-3 text-[13px] text-[#697178]">Aucune opération n’a été enregistrée sur la période sélectionnée. Les vues d’état courant peuvent toutefois afficher le stock existant.</div>}
             {tab === "overview" && <Overview data={data} />}
-            {tab === "packages" && <PackagesView data={data} rows={rows} loading={rowsLoading} error={rowError} />}
-            {tab === "shipments" && <ShipmentsView data={data} rows={rows} loading={rowsLoading} error={rowError} />}
-            {tab === "clients" && <ClientsView data={data} rows={rows} loading={rowsLoading} error={rowError} />}
-            {tab === "finance" && <FinanceView data={data} rows={rows} loading={rowsLoading} error={rowError} />}
+            {tab === "packages" && <PackagesView data={data} />}
+            {tab === "shipments" && <ShipmentsView data={data} />}
+            {tab === "clients" && <ClientsView data={data} />}
+            {tab === "finance" && <FinanceView data={data} />}
             {tab === "offices" && <OfficesView offices={data.offices} />}
-            {rowError&&<OperationButton onClick={()=>setRowErrors(previous=>{const next={...previous};delete next[reportKey];return next;})}>Réessayer les données détaillées</OperationButton>}
           </div>
         ) : (
           <ErrorState title="Analytics indisponibles" description={error || "Aucune donnée analytique n’a pu être chargée."} retry={load} />
@@ -263,35 +244,32 @@ function ActivityChart({ data }: { data: Analytics["monthly_trend"] }) {
   </div>;
 }
 
-type DetailedViewProps = { data: Analytics; rows: ReportRow[]; loading: boolean; error: string };
-function PackagesView({ data, rows, loading, error }: DetailedViewProps) {
+type DetailedViewProps = { data: Analytics };
+function PackagesView({ data }: DetailedViewProps) {
   const statuses = statusValues(data, "packages", ["Enregistrés", "Expédiés", "Arrivés", "Livrés"], Number(data.kpis.packages || 0));
   return <ReportView title="Rapport des colis" description="Réception, expédition, arrivée et livraison">
     <SummaryStats items={statuses} columns={2} />
     <StatusChart items={statuses} />
-    <ReportRows rows={rows} loading={loading} error={error} empty="Aucun colis enregistré sur cette période." kind="packages" />
   </ReportView>;
 }
 
-function ShipmentsView({ data, rows, loading, error }: DetailedViewProps) {
+function ShipmentsView({ data }: DetailedViewProps) {
   const statuses = statusValues(data, "shipments", ["Prévues", "En transit", "Arrivées"]);
   return <ReportView title="Rapport des expéditions" description="Départs, arrivées et expéditions en transit">
     <SummaryStats items={statuses} columns={3} />
     <StatusChart items={statuses} />
-    <ReportRows rows={rows} loading={loading} error={error} empty="Aucune expédition enregistrée sur cette période." kind="shipments" />
   </ReportView>;
 }
 
-function ClientsView({ data, rows, loading, error }: DetailedViewProps) {
+function ClientsView({ data }: DetailedViewProps) {
   const stats = [{ label: "Clients actifs", value: Number(data.kpis.active_clients || 0) }, { label: "Nouveaux clients", value: Number(data.kpis.clients || 0) }];
   return <ReportView title="Rapport des clients" description="Nouveaux clients et activité">
     <SummaryStats items={stats} columns={2} />
     <section className="min-w-0" aria-label="Évolution des nouveaux clients"><ClientChart data={data.monthly_trend || []} /></section>
-    <ReportRows rows={rows} loading={loading} error={error} empty="Aucun nouveau client sur cette période." kind="clients" />
   </ReportView>;
 }
 
-function FinanceView({ data, rows, loading, error }: DetailedViewProps) {
+function FinanceView({ data }: DetailedViewProps) {
   const invoices = data.finance;
   const metrics = [
     { label: "Facturé", value: invoices.length ? invoices.map((row) => money(row.invoiced, row.currency)).join(" · ") : money(0, "USD") },
@@ -303,7 +281,6 @@ function FinanceView({ data, rows, loading, error }: DetailedViewProps) {
   return <ReportView title="Rapport financier" description="Facturation, encaissements et soldes">
     <SummaryStats items={metrics} columns={2} />
     <section className="min-w-0" aria-label="Facturation et encaissements par mois">{(currencies.length?currencies:['USD']).map(currency=><FinanceChart key={currency} data={data.monthly_finance.filter(row=>row.currency===currency)} currency={currency}/>)}</section>
-    <ReportRows rows={rows} loading={loading} error={error} empty="Aucune facture sur cette période." kind="finance" />
   </ReportView>;
 }
 
@@ -311,11 +288,7 @@ function OfficesView({ offices }: { offices: Analytics["offices"] }) {
   return <div className="min-w-0 space-y-4">
     <div><h2 className="text-[16px] font-semibold text-[#25292e]">Performances bureaux</h2><p className="mt-1 text-[13px] text-[#697178]">Activité et résultats par bureau</p></div>
     {offices.length>0&&<StatusChart items={offices.map(office=>({label:office.name||office.city,value:office.packages}))}/>}
-    {offices.length ? <div className="grid min-w-0 gap-3 lg:grid-cols-2">{offices.map((office) => <section key={office.id} className="min-w-0 border border-[#dfe3e4] bg-white px-4 py-4">
-      <div className="mb-4 flex items-center justify-between gap-3"><h3 className="truncate text-[15px] font-semibold text-[#25292e]">{office.name || office.city}</h3><span className="shrink-0 bg-[#f1f2f1] px-2 py-1 text-[11px] text-[#59636b]">{number(office.packages)} colis</span></div>
-      <div className="grid gap-3 text-[13px] sm:grid-cols-2"><Metric label="Expéditions" value={number(office.expeditions)} /><Metric label="Paiements reçus" value={office.payments.length ? office.payments.map((payment) => money(payment.amount, payment.currency)).join(" · ") : "0"} /></div>
-      <p className="mt-4 border-t border-[#e8ebec] pt-3 text-[12px] text-[#697178]">{office.city} · {office.status === "ACTIVE" ? "Actif" : "Inactif"}</p>
-    </section>)}</div> : <EmptyState>Aucun bureau accessible pour cette sélection.</EmptyState>}
+    {!offices.length && <EmptyState>Aucun bureau accessible pour cette sélection.</EmptyState>}
   </div>;
 }
 
@@ -373,44 +346,6 @@ function FinanceChart({ data, currency }: { data: Analytics["monthly_finance"]; 
   </div>;
 }
 
-function ReportRows({ rows, loading, error, empty, kind }: { rows: ReportRow[]; loading: boolean; error: string; empty: string; kind: ReportTab }) {
-  return <section className="min-h-[280px] min-w-0" aria-labelledby="report-data-title" aria-busy={loading}>
-    <h3 id="report-data-title" className="mb-3 text-[14px] font-semibold text-[#25292e]">Données du rapport</h3>
-    {error?<p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-[14px] text-red-800">{error}</p>:loading ? <div role="status" aria-label="Chargement du rapport…" className="grid min-w-0 gap-2 md:grid-cols-2">
-      <span className="sr-only">Chargement du rapport…</span>
-      {Array.from({ length: 6 }, (_, index) => <div key={index} aria-hidden="true" className="flex h-[76px] items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3"><div className="w-2/3 animate-pulse space-y-2"><div className="h-3 w-1/2 rounded bg-[#e7ebed]"/><div className="h-3 w-full rounded bg-[#edf0f1]"/></div><div className="h-5 w-16 animate-pulse rounded bg-[#edf0f1]"/></div>)}
-    </div> : rows.length ? <div className="grid min-w-0 gap-2 md:grid-cols-2">
-      {rows.slice(0, 12).map((row, index) => <ReportRowCard key={String(row.id || row.reference || index)} row={row} index={index} kind={kind} />)}
-    </div> : <EmptyState>{empty}</EmptyState>}
-  </section>;
-}
-
-function ReportRowCard({ row, index, kind }: { row: ReportRow; index: number; kind: ReportTab }) {
-  let reference = "", subtitle = "", status = "";
-  if (kind === "packages") {
-    reference = String(row.package_reference || row.tracking_id || row.reference || `COL-${String(index + 1).padStart(4, "0")}`);
-    subtitle = String(row.destination_country || row.warehouse_name || row.description || row.package_type || "Colis");
-    status = packageStatusLabel(String(row.status || ""));
-  } else if (kind === "shipments") {
-    reference = String(row.expedition_reference || row.reference || `EXP-${String(index + 1).padStart(4, "0")}`);
-    subtitle = String(row.route_label || [row.origin_city, row.destination_city].filter(Boolean).join(" → ") || "Trajet à préciser");
-    status = shipmentStatusLabel(String(row.status || ""));
-  } else if (kind === "clients") {
-    reference = String(row.client_reference || `CLI-${String(index + 1).padStart(3, "0")}`);
-    subtitle = String(row.name || "Client");
-    status = String(row.lifecycle_status === "active" ? "Actif" : row.lifecycle_status || "Nouveau").replaceAll("_", " ");
-  } else {
-    reference = String(row.document_number || row.invoice_number || `FAC-${String(index + 1).padStart(4, "0")}`);
-    subtitle = String(row.client_name || "Client");
-    status = invoiceStatusLabel(String(row.status || ""));
-  }
-  const id = row.id ? String(row.id) : "";
-  const href = kind === "packages" && id ? `/app/packages?open=${encodeURIComponent(id)}` : kind === "shipments" && id ? `/app/shipments/${encodeURIComponent(id)}` : null;
-  const content = <><span className="min-w-0"><span className="block truncate text-[13px] font-medium text-[#25292e]">{reference}</span><span className="mt-1 block truncate text-[12px] text-[#697178]">{subtitle}</span></span><span className="flex shrink-0 items-center gap-2 text-[11px] text-[#59636b]"><span className="max-w-[160px] truncate bg-[#f1f2f1] px-2 py-1">{status}</span><ChevronRight size={14} /></span></>;
-  const className = "flex min-w-0 items-center justify-between gap-3 border border-[#dfe3e4] bg-white px-3 py-3 hover:bg-[#fafbfb]";
-  return href ? <Link href={href} className={className}>{content}</Link> : <div className={className}>{content}</div>;
-}
-
 function statusValues(data: Analytics, key: string, labels: string[], registeredPackages?: number) {
   const raw = data.statuses[key] || [];
   if (!raw.length) return labels.map((label) => ({ label, value: label === "Enregistrés" && registeredPackages !== undefined ? registeredPackages : 0 }));
@@ -436,21 +371,6 @@ function number(value: number | string | undefined) { return Number(value || 0).
 function money(value: string | number, currency: string) {
   try { return new Intl.NumberFormat("fr-FR", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 2 }).format(Number(value || 0)); }
   catch { return `${number(Number(value || 0))} ${currency}`; }
-}
-function packageStatusLabel(status: string) {
-  const labels: Record<string, string> = { RECEIVED: "Reçu", IN_TRANSIT: "En transit", ARRIVED: "Arrivé", ARRIVED_DESTINATION: "Arrivé", AVAILABLE_FOR_PICKUP: "À retirer", DELIVERED: "Livré", PICKED_UP: "Retiré", CANCELLED: "Annulé" };
-  return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase() || "Enregistré";
-}
-function shipmentStatusLabel(status: string) {
-  const labels: Record<string, string> = { DRAFT: "Brouillon", PREPARING: "Prévue", LOADING: "En chargement", READY: "Prête", READY_FOR_DEPARTURE: "Prête au départ", DISPATCHED: "Partie", IN_TRANSIT: "En transit", CUSTOMS_CLEARANCE: "En douane", ARRIVED: "Arrivée", ARRIVED_DESTINATION: "Arrivée", AVAILABLE_FOR_PICKUP: "Disponible au retrait", OUT_FOR_DELIVERY: "En livraison", DELIVERED: "Livrée", CANCELLED: "Annulée", ARCHIVED: "Archivée" };
-  return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase() || "Enregistrée";
-}
-function invoiceStatusLabel(status: string) {
-  const labels: Record<string, string> = { ISSUED: "À payer", PARTIALLY_PAID: "Partiellement payée", PAID: "Payée", OVERDUE: "En retard", DRAFT: "Brouillon", VOID: "Annulée" };
-  return labels[status.toUpperCase()] || status.replaceAll("_", " ").toLowerCase() || "Facture";
-}
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><p className="text-[12px] text-[#697178]">{label}</p><p className="mt-1 break-words text-[14px] font-medium text-[#25292e]">{value}</p></div>;
 }
 function EmptyState({ children }: { children: React.ReactNode }) {
   return <p className="border border-[#dfe3e4] bg-white px-4 py-5 text-[13px] text-[#697178]">{children}</p>;

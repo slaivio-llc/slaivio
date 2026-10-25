@@ -1,6 +1,7 @@
 "use client";
 
 import { useClerk, useUser } from "@clerk/nextjs";
+import { accountDisplayName } from "./account-identity";
 import {
   ArrowLeft,
   BarChart3,
@@ -499,7 +500,7 @@ function AccountTrigger({ onClick, rail = false }: { onClick: () => void; rail?:
 
 function ClerkAccountTrigger({ onClick, rail }: { onClick: () => void; rail: boolean }) {
   const { user } = useUser();
-  const name = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Compte";
+  const name = accountDisplayName(user);
   return (
     <button type="button" onClick={onClick} aria-label="Compte" className={rail ? "flex min-h-[58px] w-full flex-col items-center justify-center gap-1 rounded-none text-[10px] leading-3 text-[#4b545c] hover:bg-[#f2f4f4]" : "ml-1 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#087a46] text-[12px] font-semibold text-white ring-1 ring-black/5"}>
       <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#087a46] text-[12px] font-semibold text-white ring-1 ring-black/5"><UserAvatar imageUrl={user?.imageUrl} name={name} size={32} /></span>
@@ -517,7 +518,7 @@ function AccountMenu({ close }: { close: () => void }) {
 function ClerkAccountMenu({ close }: { close: () => void }) {
   const { user } = useUser();
   const { signOut, openUserProfile } = useClerk();
-  const name = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Compte";
+  const name = accountDisplayName(user);
   const email = user?.primaryEmailAddress?.emailAddress || "";
   return <AccountMenuContent close={close} name={name} email={email} imageUrl={user?.imageUrl} openProfile={() => { close(); openUserProfile(); }} logout={() => signOut({ redirectUrl: "/sign-in" })} />;
 }

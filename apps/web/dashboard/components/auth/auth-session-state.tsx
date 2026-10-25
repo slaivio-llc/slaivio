@@ -7,8 +7,8 @@ import { ArrowRight, LogOut } from "lucide-react";
 import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 
 export function AuthSessionState({
-  title = "Vous êtes déjà connecté",
-  description = "Votre session SLAIVIO est active. Vous pouvez ouvrir le dashboard ou vous déconnecter pour utiliser un autre compte.",
+  title = "Votre espace est prêt",
+  description = "Votre compte est connecté. Retrouvez vos colis et vos expéditions là où vous les avez laissés.",
 }: {
   title?: string;
   description?: string;
@@ -30,8 +30,8 @@ export function AuthSessionState({
     <>
       {signingOut ? <SlaivioLogoLoader overlay label="Déconnexion…" /> : null}
       <div className="space-y-4">
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm">
-        <h2 className="text-xl font-black tracking-tight text-slate-950">
+      <div className="rounded-xl border border-[#e3e6e5] bg-[#fafbfa] p-4 text-left">
+        <h2 className="text-[15px] font-medium text-[#25292e]">
           {title}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -41,9 +41,9 @@ export function AuthSessionState({
 
       <Link
         href="/app"
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:-translate-y-0.5 hover:bg-slate-800"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#16855f] px-4 text-sm font-medium text-white transition-colors hover:bg-[#126c4e]"
       >
-        Ouvrir le dashboard
+        Reprendre mon activité
         <ArrowRight size={16} />
       </Link>
 
@@ -51,7 +51,7 @@ export function AuthSessionState({
           type="button"
           disabled={signingOut}
           onClick={() => void signOutAccount()}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:-translate-y-0.5 hover:border-red-200 hover:text-red-600 disabled:pointer-events-none disabled:opacity-60"
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm text-[#69717a] transition-colors hover:bg-[#f4f5f4] disabled:pointer-events-none disabled:opacity-60"
         >
           <LogOut size={16} />
           Se déconnecter

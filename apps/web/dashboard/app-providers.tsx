@@ -12,6 +12,7 @@ import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 import { ApiMutationFeedback } from "@/components/ui/api-mutation-feedback";
 import { PilotOfflineProvider } from "@/components/offline/pilot-offline-provider";
 import { clearPilotOfflineData } from "@/services/pilot-offline";
+import { ConnectionRecovery } from "@/components/auth/connection-recovery";
 
 export function AppProviders({
   children,
@@ -76,12 +77,7 @@ function ClerkApiAuthBridge({ children }: { children: ReactNode }) {
 
   if (!ready) {
     if (timedOut) {
-      return <main role="alert" className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-4 px-6 text-sm">
-        <h1 className="text-xl font-semibold">Connexion temporairement indisponible</h1>
-        <p>Le service d’authentification ne répond pas. Réessayez dans quelques instants.</p>
-        <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-[#16855f] px-4 py-2 text-white">Réessayer</button>
-        <a href="/fr" className="text-center text-[#16855f]">Retour à l’accueil</a>
-      </main>;
+      return <ConnectionRecovery />;
     }
     return <SlaivioLogoLoader label="Préparation de votre espace SLAIVIO" />;
   }

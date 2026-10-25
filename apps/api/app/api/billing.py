@@ -8,6 +8,8 @@ from app.billing.services import saspay_service, saspay_client
 from pydantic import BaseModel
 
 from app.core.tenant_context import get_current_tenant
+from app.core.auth import get_current_manager
+from app.billing.services.billing_identity import billing_identity
 from app.billing.repositories.plan_repository import list_pricing_plans
 from app.billing.services.billing_service import (
     confirm_invoice_payment,
@@ -40,12 +42,18 @@ def get_billing_plans():
 
 
 @router.get("/billing")
-def get_billing(tenant=Depends(get_current_tenant)):
+def get_billing(tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
     org_id = tenant["org_id"]
 
+    overview = get_billing_overview(org_id)
+    try:
+        overview['payer'] = billing_identity(manager)
+    except HTTPException:
+        # An identity outage must not hide invoices or the current subscription.
+        overview['payer'] = None
     return {
         "status": "ok",
-        "billing": get_billing_overview(org_id),
+        "billing": overview,
     }
 
 
@@ -115,13 +123,12 @@ def confirm_payment(body: ConfirmPaymentRequest, tenant=Depends(get_current_tena
 
 class CheckoutRequest(BaseModel):
     plan_code:str=Field(default='STARTER',pattern=r'^[A-Z][A-Z0-9_]{1,39}$')
-    customer_email:str=Field(min_length=3,max_length=254,pattern=r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-    customer_name:str=Field(min_length=2,max_length=120)
 
 
 @router.post('/billing/checkout',dependencies=[Depends(require_permission('organization.manage'))])
-def create_checkout(body:CheckoutRequest,tenant=Depends(get_current_tenant)):
-    return saspay_service.start_checkout(tenant['org_id'],body.plan_code,body.customer_email,body.customer_name)
+def create_checkout(body:CheckoutRequest,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+    payer = billing_identity(manager)
+    return saspay_service.start_checkout(tenant['org_id'],body.plan_code,payer['email'],payer['name'])
 
 
 @router.post('/billing/checkout/{checkout_id}/verify',dependencies=[Depends(require_permission('organization.manage'))])

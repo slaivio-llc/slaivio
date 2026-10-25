@@ -20,6 +20,7 @@ const apiDetailMessages: Record<string, string> = {
   billing_checkout_cancellation_unconfirmed:"L’annulation du précédent paiement n’a pas encore été confirmée. Aucun nouveau paiement n’a été créé.",
   subscription_expired:"Votre essai ou votre abonnement est terminé. Ouvrez les paramètres d’abonnement pour continuer.",
   saspay_not_configured:"Le paiement en ligne n’est pas encore activé. Contactez le support SLAIVIO.",
+  billing_account_identity_unavailable:"L’adresse e-mail de votre compte n’a pas pu être vérifiée. Réessayez dans quelques instants ou contactez le support SLAIVIO.",
   saspay_unavailable:"Le service de paiement est temporairement indisponible. Vérifiez l’état du paiement avant de réessayer.",
   saspay_invalid_response:"Le service de paiement n’a pas renvoyé une réponse valide. Contactez le support SLAIVIO.",
   saspay_payment_mismatch:"Le paiement ne correspond pas à cet abonnement. Contactez le support SLAIVIO.",

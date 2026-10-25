@@ -27,6 +27,16 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllEnvs(); });
 
 describe("public landing isolation", () => {
+  it('recovers when authentication becomes available without navigating away',()=>{
+    vi.useFakeTimers(); state.pathname='/app/settings';
+    const view=render(<AppProviders><h1>Espace retrouvé</h1></AppProviders>);
+    act(()=>vi.advanceTimersByTime(15000));
+    expect(screen.getByRole('alert')).toBeVisible();
+    state.loaded=true;
+    view.rerender(<AppProviders><h1>Espace retrouvé</h1></AppProviders>);
+    expect(screen.getByText('Espace retrouvé')).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
   it.each(["/", "/fr", "/en", "/landing", "/fr/pricing"])("renders %s without authentication or private providers", pathname => {
     state.pathname = pathname;
     render(<AppProviders><h1>Accueil public</h1></AppProviders>);

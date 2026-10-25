@@ -36,11 +36,27 @@ it('does not repeat the header trial reminder in subscription settings or charge
 it('creates a hosted checkout without sending an amount or a success status from the browser',async()=>{
   render(<SubscriptionSettings organization={{organization_name:'Cargo',email:'owner@example.com'}}/>);
   fireEvent.click(await screen.findByRole('button',{name:'Choisir Starter'}));
+  expect(screen.queryByRole('textbox',{name:/email/i})).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox',{name:'Nom du payeur'})).not.toBeInTheDocument();
   const button=await screen.findByRole('button',{name:/Payer .* avec SasPay/});
   fireEvent.submit(button.closest('form')!);
   await waitFor(()=>expect(billing.openSubscriptionCheckout).toHaveBeenCalledWith('https://pay.saspay.me/checkout/test'));
-  expect(billing.createSubscriptionCheckout).toHaveBeenCalledWith({plan_code:'STARTER',customer_name:'Cargo',customer_email:'owner@example.com'});
+  expect(billing.createSubscriptionCheckout).toHaveBeenCalledWith({plan_code:'STARTER'});
   expect(window.sessionStorage.getItem('slaivio:subscription-checkout:agency')).toBe('checkout');
+});
+
+it('shows real account details, history and a working offer toggle without fake saved payment methods',async()=>{
+  vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,payer:{name:'Awa Sossou',email:'awa@example.com'},invoices:[{id:'invoice',invoice_number:'SLA-2026-1',status:'PAID',total_minor:11900,currency_code:'USD',created_at:'2026-10-25T10:00:00Z'}]});
+  render(<SubscriptionSettings organization={{email:'wrong-agency@example.com'}}/>);
+  expect(await screen.findByText('awa@example.com')).toBeVisible();
+  expect(screen.queryByText('wrong-agency@example.com')).not.toBeInTheDocument();
+  expect(screen.getByText('SLA-2026-1')).toBeVisible();
+  expect(screen.getByText('Payée')).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:'Masquer les offres'}));
+  expect(screen.queryByRole('article',{name:'Offre Starter'})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Gérer mon offre'}));
+  expect(screen.getByRole('article',{name:'Offre Starter'})).toBeVisible();
+  expect(screen.queryByRole('button',{name:/Ajouter.*carte/i})).not.toBeInTheDocument();
 });
 
 it('does not display an active paid subscription just because the browser returned from checkout',async()=>{
@@ -73,7 +89,7 @@ it('chooses Pro from its card and charges only the server-side plan code',async(
   fireEvent.click(await screen.findByRole('button',{name:'Choisir Pro'}));
   expect(screen.getByRole('button',{name:'Offre sélectionnée'})).toHaveAttribute('aria-pressed','true');
   fireEvent.submit(screen.getByRole('form',{name:'Finaliser l’abonnement'}));
-  await waitFor(()=>expect(billing.createSubscriptionCheckout).toHaveBeenCalledWith({plan_code:'PRO',customer_name:'Cargo',customer_email:'owner@example.com'}));
+  await waitFor(()=>expect(billing.createSubscriptionCheckout).toHaveBeenCalledWith({plan_code:'PRO'}));
 });
 
 it('recovers a pending payment from the server even if the browser storage was cleared',async()=>{

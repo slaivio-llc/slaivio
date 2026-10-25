@@ -9,7 +9,6 @@ import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { apiErrorDetail } from "@/services/api";
 import { cancelSubscriptionCheckout, createSubscriptionCheckout, getSubscriptionBilling, getSubscriptionPlans, openSubscriptionCheckout, verifySubscriptionCheckout, type BillingOverview, type SubscriptionPlan } from "@/services/subscription-billing";
 
-const input="h-10 w-full rounded-lg border border-[#d8dddf] bg-white px-3 text-[14px] text-[#30363a]";
 const money=(minor:number,currency:string)=>new Intl.NumberFormat('fr-FR',{style:'currency',currency,minimumFractionDigits:0,maximumFractionDigits:2}).format(minor/100);
 const date=(value:string|null|undefined)=>value?new Date(value).toLocaleDateString('fr-FR'):'Non définie';
 
@@ -24,6 +23,7 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
   const [checking,setChecking]=useState(false);
   const [pending,setPending]=useState('');
   const [selectedPlan,setSelectedPlan]=useState('');
+  const [showOffers,setShowOffers]=useState<boolean|null>(null);
   const load=useCallback(async()=>{
     const [data,catalog]=await Promise.all([getSubscriptionBilling(),getSubscriptionPlans()]);
     setBilling(data);setPlans(catalog);
@@ -66,9 +66,9 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
 
   async function checkout(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();if(busy||!billing)return;
-    const form=new FormData(event.currentTarget);setBusy(true);setError('');setNotice('');
+    setBusy(true);setError('');setNotice('');
     try{
-      const result=await createSubscriptionCheckout({plan_code:selectedPlan,customer_email:String(form.get('email')||'').trim(),customer_name:String(form.get('name')||'').trim()});
+      const result=await createSubscriptionCheckout({plan_code:selectedPlan});
       window.sessionStorage.setItem(`slaivio:subscription-checkout:${billing.billing_account_id}`,result.id);setPending(result.id);
       openSubscriptionCheckout(result.checkout_url);
     }catch(exception){setError(apiErrorDetail(exception)||'Le paiement n’a pas pu être préparé.');setBusy(false);}
@@ -88,17 +88,23 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
   if(!billing)return error?<ErrorState title="Abonnement indisponible" description={error} retry={()=>{setError('');void load().catch(()=>setError('Impossible de charger votre abonnement.'));}}/>:<LoadingState label="Chargement de l’abonnement…"/>;
   const subscription=billing.subscription;
   const trial=subscription?.status==='TRIAL';
+  const offersVisible=showOffers??trial;
   const selected=plans.find(plan=>plan.code===selectedPlan);
   const paymentPrice=selected?money(selected.monthly_price_minor,selected.currency_code):'';
   const currentName=subscription?.plan_code==='ENTERPRISE'?'Business':subscription?.plan_name||'Starter';
-  return <div className="grid gap-8 text-[#20252a]" aria-busy={busy||checking}>
+  return <div className="mx-auto grid w-full max-w-[960px] gap-8 text-[#20252a]" aria-label={`Abonnement de ${String(organization.organization_name||'l’agence')}`} aria-busy={busy||checking}>
     {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
     {notice&&<p role="status" className="rounded-lg bg-[#f4f6f5] p-3 text-[14px] text-[#30363a]">{notice}</p>}
     {checking&&<p role="status" className="text-[13px] text-[#697178]">Vérification de l’ancien paiement… Vous pouvez déjà comparer les offres.</p>}
     {pending&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e0e4e7] p-4 text-[13px]"><p className="max-w-xl leading-6 text-[#697178]">Un ancien paiement est en attente. Vous pouvez l’annuler ou choisir une offre : avant tout nouveau paiement, la session précédente sera vérifiée et annulée si elle n’est pas déjà payée ou en cours de traitement.</p><OperationButton disabled={busy} onClick={()=>void cancel()}>Annuler l’ancien paiement</OperationButton></div>}
-    {!trial&&<section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#e4e7e9] p-4" aria-label="Abonnement actuel"><div><h3 className="text-[17px] font-semibold">{currentName}</h3><p className="mt-1 text-[13px] text-[#697178]">Accès jusqu’au {date(subscription?.ends_at)} · Renouvellement manuel</p></div><span className="rounded-full bg-[#f4f6f5] px-3 py-1 text-[12px]">{billing.access_active?'Actif':'À renouveler'}</span></section>}
-    <section aria-labelledby="subscription-offers-title">
-      <div className="mb-6"><h3 id="subscription-offers-title" className="text-[24px] font-semibold tracking-tight">Une offre adaptée à votre agence</h3><p className="mt-2 text-[14px] leading-6 text-[#697178]">Tarifs mensuels par agence. Choisissez votre offre, puis réglez en toute sécurité.</p></div>
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#e4e7e9] p-4" aria-label="Abonnement actuel"><div><h3 className="text-[15px] font-semibold">{currentName}{trial?' · En essai':''}</h3><p className="mt-1 text-[13px] text-[#697178]">{trial?'Choisissez votre offre quand vous êtes prêt.':`Accès jusqu’au ${date(subscription?.ends_at)} · Renouvellement manuel`}</p></div><button type="button" onClick={()=>setShowOffers(!offersVisible)} aria-expanded={offersVisible} className="rounded-full bg-[#f3f4f3] px-4 py-2 text-[13px] font-medium hover:bg-[#e9edeb]">{offersVisible?'Masquer les offres':'Gérer mon offre'}</button></section>
+    <section aria-labelledby="subscription-history-title">
+      <h3 id="subscription-history-title" className="mb-3 text-[14px] font-medium">Historique de facturation</h3>
+      {!billing.invoices.length?<p className="rounded-xl border border-[#e4e7e9] p-4 text-[13px] text-[#697178]">Aucune facture pour le moment. L’essai gratuit ne nécessite pas de paiement.</p>:<ul className="divide-y divide-[#e7eaec] overflow-hidden rounded-xl border border-[#e4e7e9]">{billing.invoices.map(invoice=><li key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-[13px]"><div><p>{invoice.invoice_number}</p>{invoice.created_at&&<p className="mt-1 text-[12px] text-[#697178]">{date(invoice.created_at)}</p>}</div><span className="ml-auto rounded bg-[#f3f4f3] px-2 py-1 text-[12px]">{({PAID:'Payée',OPEN:'À régler',VOID:'Annulée'} as Record<string,string>)[invoice.status]||'En cours'}</span><strong className="min-w-20 text-right font-medium">{money(invoice.total_minor,invoice.currency_code)}</strong></li>)}</ul>}
+    </section>
+    <section aria-labelledby="billing-account-title"><h3 id="billing-account-title" className="mb-3 text-[14px] font-medium">Compte de facturation</h3><div className="rounded-xl border border-[#e4e7e9] p-4 text-[13px]">{billing.payer?<><p className="font-medium">{billing.payer.name!==billing.payer.email?billing.payer.name:'Compte Slaivio'}</p><p className="mt-1 text-[#697178]">{billing.payer.email}</p></>:<p className="text-[#697178]">L’adresse e-mail de votre compte Slaivio sera utilisée au moment du paiement.</p>}<p className="mt-3 text-[12px] leading-5 text-[#697178]">Paiement sécurisé par SasPay. Aucun moyen de paiement n’est enregistré dans Slaivio et aucun prélèvement automatique n’est effectué.</p></div></section>
+    {offersVisible&&<section aria-labelledby="subscription-offers-title">
+      <div className="mb-5"><h3 id="subscription-offers-title" className="text-[18px] font-semibold tracking-tight">Une offre adaptée à votre agence</h3><p className="mt-2 text-[13px] leading-6 text-[#697178]">Tarifs mensuels par agence de colis et de fret. Les montants et fonctionnalités proviennent du catalogue Slaivio.</p></div>
       {!billing.checkout_available&&<p className="mb-5 rounded-xl border border-[#e4e7e9] p-4 text-[14px] text-[#697178]">Le paiement SasPay est en cours d’activation. Votre essai gratuit reste disponible. Contactez le support SLAIVIO pour toute question.</p>}
       <PermissionGuard permission="organization.manage" fallback={<p className="text-[13px] text-[#697178]">Demandez au responsable de votre agence de gérer l’abonnement.</p>}>
         <div className="grid gap-4 xl:grid-cols-3">
@@ -121,7 +127,7 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
         {selected&&<form onSubmit={event=>void checkout(event)} className="mt-6 grid gap-6 rounded-2xl border border-[#e0e4e7] p-5 sm:p-6" aria-label="Finaliser l’abonnement">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8ebed] pb-5"><div><h3 className="text-[17px] font-semibold">Finaliser votre abonnement</h3><p className="mt-1 text-[13px] text-[#697178]">{selected.code==='ENTERPRISE'?'Business':selected.name} · 1 mois d’accès</p></div><strong className="text-[24px] font-semibold">{paymentPrice}</strong></div>
           <fieldset disabled={busy||!billing.checkout_available} className="grid gap-4 disabled:opacity-60">
-            <div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-[13px] font-medium">Nom du payeur<input name="name" required minLength={2} maxLength={120} className={input} defaultValue={String(organization.organization_name||'')}/></label><label className="grid gap-2 text-[13px] font-medium">Email de facturation<input name="email" required type="email" maxLength={254} className={input} defaultValue={String(organization.email||'')}/></label></div>
+            <p className="text-[13px] text-[#697178]">Le paiement utilisera automatiquement l’adresse e-mail de votre compte Slaivio{billing.payer?` : ${billing.payer.email}`:'.'}</p>
             <p className="text-[13px] leading-6 text-[#697178]">Les jours d’essai ou d’abonnement restants sont conservés. Les éventuels frais de paiement sont présentés par SasPay avant validation.</p>
             <button type="submit" disabled={busy||!billing.checkout_available} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#20262b] px-5 text-[14px] font-medium text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"><CreditCard size={16}/>{busy?'Vérification…':`Payer ${paymentPrice} avec SasPay`}<ArrowRight size={16}/></button>
             <p className="flex items-center justify-center gap-2 text-[12px] text-[#737b83]"><ShieldCheck size={14}/>Paiement sécurisé · Aucun prélèvement automatique</p>
@@ -129,10 +135,7 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
         </form>}
         {pending&&<OperationButton className="mt-3" disabled={busy} onClick={()=>void verify()}>Vérifier mon paiement</OperationButton>}
       </PermissionGuard>
-    </section>
-    <div className="grid gap-6 border-t border-[#e4e7e9] pt-7 sm:grid-cols-2">
-      <section><h3 className="mb-4 text-[16px] font-semibold">Utilisation de l’agence</h3><div className="grid grid-cols-2 gap-4">{Object.entries(billing.usage).map(([key,value])=><div key={key}><p className="text-[13px] text-[#697178]">{({clients:'Clients',packages:'Colis',members:'Membres',offices:'Bureaux'} as Record<string,string>)[key]||key}</p><p className="mt-1 text-[22px] font-semibold">{value}</p></div>)}</div></section>
-      <section><h3 className="mb-4 text-[16px] font-semibold">Factures d’abonnement</h3>{!billing.invoices.length?<p className="text-[13px] leading-6 text-[#697178]">Aucune facture pendant l’essai gratuit.</p>:<div className="divide-y divide-[#e7eaec]">{billing.invoices.map(invoice=><div key={invoice.id} className="flex flex-wrap justify-between gap-2 py-3 text-[13px]"><span>{invoice.invoice_number}<span className="mt-1 block text-[#697178]">{({PAID:'Payée',OPEN:'À régler',VOID:'Annulée'} as Record<string,string>)[invoice.status]||'En cours'}</span></span><strong>{money(invoice.total_minor,invoice.currency_code)}</strong></div>)}</div>}</section>
-    </div>
+    </section>}
+    <section aria-label="Utilisation de l’agence" className="border-t border-[#e4e7e9] pt-6"><h3 className="mb-4 text-[14px] font-medium">Utilisation de l’agence</h3><div className="grid grid-cols-2 gap-4 sm:grid-cols-4">{Object.entries(billing.usage).map(([key,value])=><div key={key}><p className="text-[12px] text-[#697178]">{({clients:'Clients',packages:'Colis',members:'Membres',offices:'Bureaux'} as Record<string,string>)[key]||'Activité'}</p><p className="mt-1 text-[20px] font-semibold">{value}</p></div>)}</div></section>
   </div>;
 }

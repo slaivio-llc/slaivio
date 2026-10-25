@@ -5,7 +5,7 @@ export default function Page() {
   return (
     <AuthShell
       title="Connectez-vous à Slaivio"
-      description="Pilotez vos clients, dossiers, colis et expéditions depuis un espace opérationnel unique."
+      description="Retrouvez vos colis, vos expéditions et votre équipe dans un espace dédié au fret."
     >
       <ClerkAuthPanel mode="sign-in" />
     </AuthShell>

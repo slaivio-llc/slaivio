@@ -88,7 +88,6 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
   if(!billing)return error?<ErrorState title="Abonnement indisponible" description={error} retry={()=>{setError('');void load().catch(()=>setError('Impossible de charger votre abonnement.'));}}/>:<LoadingState label="Chargement de l’abonnement…"/>;
   const subscription=billing.subscription;
   const trial=subscription?.status==='TRIAL';
-  const daysLeft=trial&&subscription.trial_ends_at?Math.max(0,Math.ceil((new Date(subscription.trial_ends_at).getTime()-Date.now())/86400000)):0;
   const selected=plans.find(plan=>plan.code===selectedPlan);
   const paymentPrice=selected?money(selected.monthly_price_minor,selected.currency_code):'';
   const currentName=subscription?.plan_code==='ENTERPRISE'?'Business':subscription?.plan_name||'Starter';
@@ -97,13 +96,7 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
     {notice&&<p role="status" className="rounded-lg bg-[#f4f6f5] p-3 text-[14px] text-[#30363a]">{notice}</p>}
     {checking&&<p role="status" className="text-[13px] text-[#697178]">Vérification de l’ancien paiement… Vous pouvez déjà comparer les offres.</p>}
     {pending&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e0e4e7] p-4 text-[13px]"><p className="max-w-xl leading-6 text-[#697178]">Un ancien paiement est en attente. Vous pouvez l’annuler ou choisir une offre : avant tout nouveau paiement, la session précédente sera vérifiée et annulée si elle n’est pas déjà payée ou en cours de traitement.</p><OperationButton disabled={busy} onClick={()=>void cancel()}>Annuler l’ancien paiement</OperationButton></div>}
-    <section className="flex flex-wrap items-center justify-between gap-5 rounded-2xl border border-[#e4e7e9] bg-[#f8f9fa] p-5 sm:p-6" aria-label="Abonnement actuel">
-      <div><div className="mb-2 flex flex-wrap items-center gap-2"><span className="text-[12px] font-medium uppercase tracking-wider text-[#737b83]">Votre offre · {currentName}</span><span className="rounded-full border border-[#dce4df] bg-white px-2.5 py-1 text-[12px] font-medium">{!billing.access_active?'À renouveler':trial?'Essai en cours':'Actif'}</span></div>
-        <h3 className="text-[21px] font-semibold tracking-tight">{trial?'Essai gratuit de 30 jours':'Votre espace, votre abonnement'}</h3>
-        <p className="mt-2 text-[14px] leading-6 text-[#636d76]">{trial?'Aucun paiement requis pendant l’essai. Aucun prélèvement automatique.':'Un renouvellement mensuel, sans prélèvement automatique.'}</p>
-      </div>
-      <div className="min-w-[180px] text-left sm:text-right"><p className="text-[23px] font-semibold tracking-tight">{trial?`${daysLeft} jours restants`:date(subscription?.ends_at)}</p><p className="mt-1 text-[13px] text-[#737b83]">{trial?`Fin de l’essai : ${date(subscription?.trial_ends_at)}`:'Date de fin d’accès'}</p>{trial&&<div role="progressbar" aria-label="Jours d’essai restants" aria-valuenow={Math.min(30,daysLeft)} aria-valuemin={0} aria-valuemax={30} className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#e2e6e4]"><div className="h-full rounded-full bg-[#18794e]" style={{width:`${Math.min(100,daysLeft/30*100)}%`}}/></div>}</div>
-    </section>
+    {!trial&&<section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#e4e7e9] p-4" aria-label="Abonnement actuel"><div><h3 className="text-[17px] font-semibold">{currentName}</h3><p className="mt-1 text-[13px] text-[#697178]">Accès jusqu’au {date(subscription?.ends_at)} · Renouvellement manuel</p></div><span className="rounded-full bg-[#f4f6f5] px-3 py-1 text-[12px]">{billing.access_active?'Actif':'À renouveler'}</span></section>}
     <section aria-labelledby="subscription-offers-title">
       <div className="mb-6"><h3 id="subscription-offers-title" className="text-[24px] font-semibold tracking-tight">Une offre adaptée à votre agence</h3><p className="mt-2 text-[14px] leading-6 text-[#697178]">Tarifs mensuels par agence. Choisissez votre offre, puis réglez en toute sécurité.</p></div>
       {!billing.checkout_available&&<p className="mb-5 rounded-xl border border-[#e4e7e9] p-4 text-[14px] text-[#697178]">Le paiement SasPay est en cours d’activation. Votre essai gratuit reste disponible. Contactez le support SLAIVIO pour toute question.</p>}

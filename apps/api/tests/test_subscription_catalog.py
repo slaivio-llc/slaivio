@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, Mock
 
 from app.billing.repositories import plan_repository, saspay_repository
 from app.organizations.services import provisioning_service
+from app.api import billing
 
 
 def test_catalog_features_come_from_implemented_products_and_enabled_entitlements(monkeypatch):
@@ -31,3 +32,10 @@ def test_provisioning_a_new_agency_creates_its_trial_automatically(monkeypatch):
     trial=Mock();monkeypatch.setattr(saspay_repository,'ensure_trial',trial)
     provisioning_service.provision_organization('clerk_org','Nouvelle agence')
     trial.assert_called_once_with('new-agency')
+
+
+def test_header_status_uses_the_existing_agency_trial_without_invoice_queries(monkeypatch):
+    trial=Mock(return_value={'status':'TRIAL','trial_ends_at':'2026-11-24','ends_at':'2026-11-24'})
+    monkeypatch.setattr(saspay_repository,'ensure_trial',trial)
+    assert billing.billing_status({'org_id':'office'})['subscription']['trial_ends_at']=='2026-11-24'
+    trial.assert_called_once_with('office')

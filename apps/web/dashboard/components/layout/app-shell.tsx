@@ -47,6 +47,7 @@ import { getOrganizationProductProfile, getProductProfile, usesCompactAgencyShel
 import { SESSION_EXPIRED_EVENT,MFA_REQUIRED_EVENT } from "@/services/api";
 import { listNotifications } from "@/services/notification-center";
 import { NotificationsMenu } from "@/components/notifications/notifications-menu";
+import { TrialBanner } from "@/components/layout/trial-banner";
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
 import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 import { PilotOfflineIndicator } from "@/components/offline/pilot-offline-indicator";
@@ -328,14 +329,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header data-ui="topbar" className={`slaivio-topbar relative z-30 flex h-[60px] shrink-0 items-center ${cargo ? "" : "border-b border-[#dfe1e3]"} bg-white px-3 sm:px-5 lg:px-8`}>
+        <header data-ui="topbar" className={`slaivio-topbar relative z-30 flex h-[60px] shrink-0 items-center max-sm:has-[[data-trial-banner]]:h-[96px] max-sm:has-[[data-trial-banner]]:pb-9 ${cargo ? "" : "border-b border-[#dfe1e3]"} bg-white px-3 sm:px-5 lg:px-8`}>
           <button onClick={() => setMobileOpen(true)} aria-label="Ouvrir la navigation" className="mr-2 rounded-[5px] p-2 text-[#5f666e] hover:bg-[#f0f1f1] lg:hidden">
             <Menu size={19} />
           </button>
 
           {!pilot && <button
             onClick={() => { setSearchOpen(true); requestAnimationFrame(() => searchRef.current?.focus()); }}
-            className="absolute left-1/2 hidden h-9 w-[min(420px,42vw)] -translate-x-1/2 items-center rounded-[6px] border border-[#d7dade] bg-[#f8f8f7] px-3 text-left hover:border-[#bfc3c7] md:flex"
+            className="mr-2 hidden h-9 w-[min(360px,28vw)] min-w-9 shrink items-center rounded-[6px] border border-[#d7dade] bg-[#f8f8f7] px-3 text-left hover:border-[#bfc3c7] md:flex"
             aria-label="Ouvrir la recherche"
           >
             <Search size={15} className="text-[#656c74]" />
@@ -344,7 +345,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>}
 
           {cargo && <button type="button" onClick={() => setSearchOpen(true)} aria-label={locale === "en" ? "Search Slaivio" : "Rechercher dans Slaivio"} className="mr-2 flex h-9 min-w-9 items-center gap-2 rounded-md border border-[#d7dade] bg-white px-2 text-sm text-[#656c74] hover:bg-[#f8faf9] sm:w-[min(360px,28vw)] sm:px-3"><Search size={16}/><span className="hidden min-w-0 flex-1 truncate text-left sm:block">{locale === "en" ? "Search Slaivio…" : "Rechercher dans Slaivio…"}</span><kbd className="hidden text-[10px] lg:block">Ctrl K</kbd></button>}
-          <div className="ml-auto flex items-center gap-1.5">
+          <TrialBanner/>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {cargo && <div className="w-[min(190px,32vw)]"><OfficeContextSelector compact /></div>}
             {pilot && !cargo && <PilotReadinessPanel compact />}
             {!pilot && !cargo && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}

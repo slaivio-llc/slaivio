@@ -49,6 +49,16 @@ def get_billing(tenant=Depends(get_current_tenant)):
     }
 
 
+@router.get('/billing/status')
+def billing_status(tenant=Depends(get_current_tenant)):
+    # Lightweight header read: do not load invoices or all agency usage here.
+    from app.billing.repositories.saspay_repository import ensure_trial
+    subscription=ensure_trial(tenant['org_id'])
+    return {'subscription':{'status':subscription['status'],
+            'trial_ends_at':subscription.get('trial_ends_at'),
+            'ends_at':subscription.get('ends_at')}}
+
+
 @router.post("/billing/trial",dependencies=[Depends(require_permission('organization.manage'))])
 def start_trial(body: StartTrialRequest, tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]

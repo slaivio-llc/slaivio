@@ -26,10 +26,10 @@ beforeEach(()=>{
   vi.mocked(billing.verifySubscriptionCheckout).mockResolvedValue({id:'checkout',status:'PENDING'});
 });
 
-it('shows a free 30-day trial without automatically charging or creating a checkout',async()=>{
+it('does not repeat the header trial reminder in subscription settings or charge automatically',async()=>{
   render(<SubscriptionSettings organization={{organization_name:'Cargo',email:'owner@example.com'}}/>);
-  expect(await screen.findByRole('heading',{name:'Essai gratuit de 30 jours'})).toBeVisible();
-  expect(screen.getByText(/Aucun paiement requis pendant l’essai/)).toBeVisible();
+  expect(await screen.findByRole('heading',{name:'Une offre adaptée à votre agence'})).toBeVisible();
+  expect(screen.queryByRole('heading',{name:'Essai gratuit de 30 jours'})).not.toBeInTheDocument();
   expect(billing.createSubscriptionCheckout).not.toHaveBeenCalled();
 });
 

@@ -47,7 +47,8 @@ def test_disabled_milestones_do_not_queue_any_message():
 def test_public_lookup_returns_brand_without_internal_package_id(monkeypatch):
     conn = MagicMock()
     package = {"id": "internal-id", "org_id": "office-1", "tracking_id": "LUZA-001",
-               "agency_name": "LUZA SERVICES", "agency_logo_url": "https://example.com/logo.png"}
+               "agency_name": "LUZA SERVICES", "agency_logo_url": "https://example.com/logo.png",
+               "weight_kg": 12.5, "volume_cbm": 0.125}
     conn.execute.return_value.fetchall.side_effect = [[SimpleNamespace(_mapping=package)], []]
     engine = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
@@ -57,6 +58,10 @@ def test_public_lookup_returns_brand_without_internal_package_id(monkeypatch):
     assert result["agency_logo_url"] == "https://example.com/logo.png"
     assert "id" not in result
     assert result["events"] == []
+    assert result["weight_kg"] == 12.5
+    assert result["volume_cbm"] == 0.125
+    assert "package.weight_kg" in str(conn.execute.call_args_list[0].args[0])
+    assert "package.volume_cbm" in str(conn.execute.call_args_list[0].args[0])
     event_sql, event_params = conn.execute.call_args_list[1].args
     assert "org_id=:org_id" in str(event_sql)
     assert event_params["org_id"] == "office-1"

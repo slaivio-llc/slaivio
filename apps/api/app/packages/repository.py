@@ -907,7 +907,7 @@ def public_package_tracking(reference: str, agency_slug: str | None = None) -> d
     with engine.connect() as conn:
         matches = conn.execute(text("""
             select package.id::text, package.org_id, package.package_reference, package.tracking_id, package.status,
-                   package.origin_city, package.origin_country,
+                   package.origin_city, package.origin_country, package.weight_kg, package.volume_cbm,
                    package.destination_city, package.destination_country,
                    package.eta_at, package.received_at, package.dispatched_at,
                    package.delivered_at, package.last_scan_location,

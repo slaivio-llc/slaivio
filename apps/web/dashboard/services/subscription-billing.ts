@@ -9,6 +9,7 @@ export type BillingOverview = {
   pending_checkout:{id:string;plan_code:string;status:string;amount_minor?:number;currency_code?:string}|null;
 };
 export const getSubscriptionBilling=async()=>(await api.get<{billing:BillingOverview}>('/billing')).data.billing;
+export const getSubscriptionStatus=async()=>(await api.get<{subscription:{status:string;trial_ends_at:string|null;ends_at:string|null}}>('/billing/status')).data.subscription;
 export const getSubscriptionPlans=async()=>(await api.get<{plans:SubscriptionPlan[]}>('/billing/plans')).data.plans;
 export const createSubscriptionCheckout=async(payload:{plan_code:string;customer_email:string;customer_name:string})=>(await api.post<{id:string;checkout_url:string;status:string}>('/billing/checkout',payload)).data;
 export const verifySubscriptionCheckout=async(id:string)=>(await api.post<{id:string;status:string}>(`/billing/checkout/${encodeURIComponent(id)}/verify`)).data;

@@ -814,7 +814,7 @@ async def packages_scan_ocr(file:UploadFile=File(...),language:str=Form("fr"),ba
     return {"status":"ok","result":result,"requires_human_review":True}
 
 @router.post("/packages/{package_id}/media/upload", dependencies=[Depends(require_permission("packages.update")), Depends(require_package_office_scope)])
-async def packages_media_upload(package_id:str,file:UploadFile=File(...),category:str=Form(default="RECEPTION"),caption:str|None=Form(default=None),tenant=Depends(get_current_tenant)):
+async def packages_media_upload(package_id:str,file:UploadFile=File(...),category:str=Form(default="RECEPTION"),caption:str|None=Form(default=None),customer_visible:bool=Form(default=False),tenant=Depends(get_current_tenant)):
     # Reject an unauthorized target before reading or writing any uploaded data.
     from app.packages.register import parcel_overview
     package = parcel_overview(tenant["org_id"], package_id)
@@ -836,7 +836,7 @@ async def packages_media_upload(package_id:str,file:UploadFile=File(...),categor
     try: upload_private_document(object_path,content,file.content_type,"package-media")
     except RuntimeError as exc: raise HTTPException(status_code=503,detail=str(exc)) from exc
     media_type="IMAGE" if file.content_type.startswith("image/") else "VIDEO" if file.content_type.startswith("video/") else "AUDIO"
-    package=add_private_package_media(tenant["org_id"],package_id,_user_id(tenant),{"object_path":object_path,"file_name":safe_name,"mime_type":file.content_type,"size_bytes":len(content),"checksum_sha256":hashlib.sha256(content).hexdigest(),"category":category[:40].upper(),"caption":caption[:220] if caption else None,"media_type":media_type})
+    package=add_private_package_media(tenant["org_id"],package_id,_user_id(tenant),{"object_path":object_path,"file_name":safe_name,"mime_type":file.content_type,"size_bytes":len(content),"checksum_sha256":hashlib.sha256(content).hexdigest(),"category":category[:40].upper(),"caption":caption[:220] if caption else None,"media_type":media_type,"customer_visible":customer_visible is True and media_type=="IMAGE"})
     if not package: raise HTTPException(status_code=404,detail="package_not_found")
     return {"status":"ok","package":package}
 

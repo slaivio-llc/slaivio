@@ -1,6 +1,27 @@
 # Parcours agence : de WhatsApp à la remise du colis
 
-État du contrôle du code au 25 octobre 2026. Ce document décrit la cible et les écarts ; il ne constitue pas une validation en production.
+État initial du contrôle du code au 25 octobre 2026, puis raccordements décrits ci-dessous. Ce document ne constitue pas une validation en production.
+
+## Raccordements ajoutés après l’audit
+
+La migration `157_customer_journey_automation.sql` et le module `app.customer_automation` ajoutent :
+
+- une file d’événements atomique avec les paiements confirmés et les remises, traitée avec verrous, déduplication et reprises bornées ;
+- des relances pour le registre existant `package_expectations`, alimenté après conversion WhatsApp explicite ou saisie manuelle ; une réception clôture une seule attente, avec priorité à la référence fournisseur correspondante ;
+- les modèles de messages, conditions, délais et plafonds de relance modifiables dans les notifications des paramètres ;
+- des rappels avant départ pour une condition financière réellement non remplie, sans présenter une erreur de configuration interne comme une dette client ;
+- la confirmation du montant de chaque paiement Finance et du solde après ce paiement ;
+- le tarif, la franchise, la devise et le taux de taxe mémorisés à la disponibilité au retrait, avec factures de garde séparées de la facture de transport et sans refacturer les mêmes jours ;
+- les rappels de retrait et de frais de garde, annulés avant envoi si la situation a changé ;
+- une limite d’un rappel opérationnel par destinataire sur 24 heures ; les confirmations de paiements distincts ne sont pas fusionnées ;
+- des copies numériques figées des factures existantes après remise, imprimables et enregistrables en PDF depuis le navigateur, protégées par un lien aléatoire expirant et révocable ;
+- le contrôle de l’accord explicite aux annonces de départ à la préparation et à l’envoi ;
+- l’envoi effectif des codes de retrait via la file existante, avec vérification de validité avant envoi ; les tentatives OTP incorrectes sont maintenant conservées même lorsque l’API retourne une erreur ;
+- les photos à la création avec partage public explicite, sans recréer le colis lorsqu’un upload échoue ; les photos restent également ajoutables après création.
+
+La présentation des factures est réglable dans Documents & étiquettes : classique/compacte, titre, couleur, pied de page, coordonnées et échéance. Les textes et liens transmis restent soumis à la connexion WhatsApp réelle et aux règles du fournisseur ; aucune livraison effective ne peut être déduite des seuls tests locaux.
+
+Les frais sont actuellement **par colis et par jour**, pas au kg ou au CBM. Le tarif zéro désactive la facturation. L’intégration thermique matérielle reste une étape ultérieure, comme demandé initialement. Voir [activation et recette](../runbooks/customer-automation.md).
 
 ## Parcours attendu
 
@@ -15,7 +36,7 @@
 9. Remise : vérifier le paiement, l’identité et les preuves exigées ; enregistrer la remise et fournir le document papier et numérique avec l’identité de l’agence. Distinguer reçu de paiement, facture et preuve de remise.
 10. Plus tard : impression thermique des étiquettes, QR/code-barres et lecture par scanner, après choix du matériel et du protocole.
 
-## État réel des composants inspectés
+## Constat initial avant ces raccordements
 
 | Domaine | Présent dans le code | Écart à terminer ou vérifier |
 |---|---|---|
@@ -44,7 +65,7 @@
 - Conserver les documents émis et leur identité visuelle historique ; modifier le logo aujourd’hui ne doit pas réécrire un ancien document.
 - L’agence doit voir les messages en attente, envoyés ou échoués, pouvoir intervenir et connaître le motif d’un blocage.
 
-## Ordre de réalisation restant
+## Ordre retenu pour les raccordements
 
 1. Attentes de réception et modèles de messages communs, avec tâches planifiées et annulation fiable.
 2. Confirmation de paiement raccordée à la file d’envoi et tests de paiement partiel, total et rejoué.

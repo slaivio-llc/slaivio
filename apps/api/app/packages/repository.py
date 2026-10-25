@@ -86,7 +86,8 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
         return None
     customer_context = conn.execute(text("""
         select coalesce(nullif(client.whatsapp_phone,''), nullif(client.phone,'')) phone,
-               coalesce(nullif(organization.organization_name,''), nullif(organization.name,''), 'Notre agence') agency_name
+               coalesce(nullif(organization.organization_name,''), nullif(organization.name,''), 'Notre agence') agency_name,
+               (select settings->'customer_automation' from organization_settings where org_id=organization.id) automation_policy
         from clients client
         join organizations organization on organization.id=client.org_id
         where client.org_id=:org_id and client.id=:client_id and client.deleted_at is null
@@ -102,6 +103,14 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
         f"Suivre le colis : {tracking_url}\n"
         f"Numéro de suivi : {tracking}"
     )
+    policy=customer_context.get('automation_policy') or {}
+    if milestone and policy.get('messages',{}).get(milestone):
+        from app.customer_automation.policy import message as render_message
+        message=render_message(policy,milestone,{'agency':customer_context['agency_name'],'tracking':tracking,
+            'destination':destination,'conditions':policy.get('pickup_conditions','')})
+        message+=f"\n\nSuivre le colis : {tracking_url}\nNuméro de suivi : {tracking}"
+    elif status in ('ARRIVED','ARRIVED_DESTINATION','READY_FOR_PICKUP') and policy.get('pickup_conditions'):
+        message+=f"\n\nConditions de retrait : {policy['pickup_conditions']}"
     notification_type = f"PACKAGE_STATUS:{package['id']}:{status}"
     row = conn.execute(text("""
         insert into notification_outbox(
@@ -1438,6 +1447,9 @@ def update_package(org_id: str, package_id: str, user_id: str, payload: dict) ->
         return None
     if existing.get("org_id") != org_id:
         raise HTTPException(403, "destination_office_use_status_transition")
+    if payload.get('status')=='DELIVERED':
+        from app.customer_automation.repository import prepare_storage
+        prepare_storage(org_id,[package_id])
     allowed = {
         "tracking_id", "source", "package_type", "description", "category", "status",
         "validation_status", "payment_status", "payment_clearance_status", "package_condition",
@@ -1682,13 +1694,14 @@ def add_package_media(org_id: str, package_id: str, user_id: str, payload: dict)
 
 
 def add_private_package_media(org_id: str, package_id: str, user_id: str, payload: dict) -> dict | None:
+    payload={**payload,'customer_visible':payload.get('customer_visible') is True and payload.get('media_type')=='IMAGE'}
     with engine.begin() as conn:
         require_photos_allowed(conn, org_id)
         row = conn.execute(text("select org_id from cargo_packages where id=:id and org_id=:org_id and deleted_at is null for update"), {"id":package_id,"org_id":org_id}).mappings().first()
         if not row: raise HTTPException(404, "package_not_found")
         conn.execute(text("""insert into package_media(org_id,package_id,media_url,media_type,caption,uploaded_by_id,
-          object_path,file_name,mime_type,size_bytes,checksum_sha256,category)
-          values(:org_id,:package_id,'PRIVATE',:media_type,:caption,:user_id,:object_path,:file_name,:mime_type,:size_bytes,:checksum_sha256,:category)"""),
+          object_path,file_name,mime_type,size_bytes,checksum_sha256,category,customer_visible)
+          values(:org_id,:package_id,'PRIVATE',:media_type,:caption,:user_id,:object_path,:file_name,:mime_type,:size_bytes,:checksum_sha256,:category,:customer_visible)"""),
           {"org_id":org_id,"package_id":package_id,"user_id":user_id,**payload})
         _insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="PACKAGE_MEDIA_ADDED",title="Média ajouté",description=payload["file_name"],actor_id=user_id,metadata={"category":payload["category"]})
         conn.execute(text("update cargo_packages set row_version=row_version+1,updated_at=now(),updated_by=:user_id where id=:id and org_id=:org_id"), {"id":package_id,"org_id":org_id,"user_id":user_id})
@@ -2075,6 +2088,9 @@ def package_timeline(org_id: str, package_id: str, *, limit: int = 80) -> list[d
     )[:limit]
 
 def transition_package(org_id,package_id,user_id,new_status,expected_version,reason=None):
+    if new_status=='DELIVERED':
+        from app.customer_automation.repository import prepare_storage
+        prepare_storage(org_id,[package_id])
     queued_notification_id=None
     with engine.begin() as conn:
         row=conn.execute(text("select * from cargo_packages where (org_id=:o or destination_org_id=:o) and id=:id and deleted_at is null for update"),{"o":org_id,"id":package_id}).mappings().first()
@@ -2191,6 +2207,9 @@ def bulk_package_operation(org_id,user_id,idempotency_key,operation_type,package
     if not package_ids or len(package_ids)>500:raise HTTPException(422,"invalid_package_selection")
     allowed={"STATUS","MOVE","ASSIGN","NOTIFY","ARCHIVE"}
     if operation_type not in allowed:raise HTTPException(422,"invalid_bulk_operation")
+    if operation_type=='STATUS' and payload.get('status')=='DELIVERED':
+        from app.customer_automation.repository import prepare_storage
+        prepare_storage(org_id,package_ids)
     with engine.begin() as conn:
         previous=conn.execute(text("select * from package_bulk_operations where org_id=:o and idempotency_key=:k"),{"o":org_id,"k":idempotency_key}).mappings().first()
         if previous:return _safe(dict(previous))
@@ -2246,6 +2265,8 @@ def compatible_departures(org_id,package_id):
     with engine.connect() as conn:return [_safe(dict(r._mapping)) for r in conn.execute(text("select d.id,d.departure_code,d.scheduled_at,d.status,d.capacity_weight_kg,d.reserved_weight_kg,d.capacity_packages,d.reserved_packages,s.service_name,r.route_name from cargo_departures d join shipping_services s on s.id=d.shipping_service_id and s.org_id=d.org_id join shipping_routes r on r.id=s.route_id and r.org_id=s.org_id where d.org_id=:o and d.status in('OPEN','PLANNED','PENDING_CONFIRMATION','CONFIRMED') and (:service is null or s.id=:service) and (:route is null or r.id=:route) and (d.cutoff_at is null or d.cutoff_at>now()) order by d.scheduled_at limit 50"),{"o":org_id,"service":item.get("shipping_service_id"),"route":item.get("route_id")}).fetchall()]
 
 def delivery_proof(org_id,package_id,user_id,payload):
+    from app.customer_automation.repository import prepare_storage,check_release
+    prepare_storage(org_id,[package_id])
     queued_notification_id = None
     with engine.begin() as conn:
         row=conn.execute(text("select * from cargo_packages where org_id=:o and id=:id and deleted_at is null for update"),{"o":org_id,"id":package_id}).mappings().first()
@@ -2253,6 +2274,8 @@ def delivery_proof(org_id,package_id,user_id,payload):
         if row.get("status") != "READY_FOR_PICKUP":
             raise HTTPException(409,"package_not_ready_for_delivery")
         _require_package_delivery_financial_clearance(conn, org_id, row)
+        pickup_policy=conn.execute(text('select require_payment from pickup_settings where org_id=:o'),{'o':org_id}).mappings().first()
+        check_release(conn,org_id,[package_id],require_payment=pickup_policy.get('require_payment',True) if pickup_policy else True)
         proof=conn.execute(text("insert into package_delivery_proofs(org_id,package_id,recipient_name,recipient_document,signature_path,photo_path,otp_verified,delivered_by) values(:o,:id,:recipient_name,:recipient_document,:signature_path,:photo_path,:otp_verified,:u) returning *"),{"o":org_id,"id":package_id,"u":user_id,**payload}).mappings().one()
         item=conn.execute(text("update cargo_packages set status='DELIVERED',delivered_at=now(),delivered_to_name=:n,delivery_signature_path=:s,delivery_photo_path=:p,delivery_otp_verified=:otp,row_version=row_version+1,updated_at=now() where org_id=:o and id=:id returning *"),{"n":payload["recipient_name"],"s":payload.get("signature_path"),"p":payload.get("photo_path"),"otp":payload.get("otp_verified",False),"o":org_id,"id":package_id}).mappings().one()
         _insert_package_event(conn,org_id=org_id,package_id=package_id,event_type="DELIVERED",title="Colis livré",description=payload["recipient_name"],actor_id=user_id,metadata=dict(proof))

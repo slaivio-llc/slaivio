@@ -88,6 +88,16 @@ def send_notification(org_id: str, notification_id: str):
             mark_notification_failed(org_id,notification_id,'notification_policy_unavailable')
             finish_notification_dispatch(org_id,notification_id,'REJECTED')
             return {'status':'failed','message':'notification_policy_unavailable'}
+    elif notification_type.startswith(('CUSTOMER:','NEXT_DEPARTURE:','PICKUP_CODE:')):
+        from app.customer_automation.repository import can_dispatch, can_announce, can_send_pickup_code
+        try:
+            if notification_type.startswith('NEXT_DEPARTURE:'):preflight=can_announce(notification)
+            elif notification_type.startswith('PICKUP_CODE:'):preflight=can_send_pickup_code(notification)
+            else:preflight=can_dispatch(notification)
+        except Exception:
+            mark_notification_failed(org_id,notification_id,'notification_policy_unavailable')
+            finish_notification_dispatch(org_id,notification_id,'REJECTED')
+            return {'status':'failed','message':'notification_policy_unavailable'}
     if preflight is False:
         cancel_notification_before_dispatch(org_id, notification_id, 'eligibility_changed_before_dispatch')
         finish_notification_dispatch(org_id, notification_id, 'REJECTED')

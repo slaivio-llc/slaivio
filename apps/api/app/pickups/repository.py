@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.db.database import engine
 from app.finance.clearance import delivery_clearance
+from app.customer_automation.repository import accrue_storage,storage_totals,check_release,money
 
 def _rows(r):return [dict(x) for x in r.mappings().all()]
 def _ref():return f"RET-{datetime.now(timezone.utc):%Y%m%d}-{uuid4().hex[:7].upper()}"
@@ -102,12 +103,20 @@ def create(org_id,actor,actor_name,payload):
   if len(rows)!=len(set(ids)):raise HTTPException(422,"packages_not_eligible_for_pickup")
   clients={str(r["client_id"]) for r in rows};
   if len(clients)!=1:raise HTTPException(422,"pickup_packages_must_share_client")
-  outstanding=sum(max(0,float(r.get("fees_total") or 0)-float(r.get("fees_paid") or 0)) for r in rows)
-  oldest=min((r.get("received_at") for r in rows if r.get("received_at")),default=datetime.now(timezone.utc));days=max(0,(datetime.now(timezone.utc).date()-oldest.date()).days-int(cfg["grace_days"]));storage=round(days*float(cfg["daily_storage_fee"])*len(rows),2)
-  required=round(outstanding+storage,2);paid=sum(float(r.get("fees_paid") or 0) for r in rows);payment_status="PAID" if required<=0 or all(r.get("payment_status") in ('PAID','CLEARED') for r in rows) else "PARTIAL" if paid>0 else "PENDING"
+  currencies={r.get("currency") or cfg["currency"] for r in rows}
+  if len(currencies)!=1:raise HTTPException(422,"pickup_currency_mismatch")
+  for package_id in ids:accrue_storage(c,org_id,package_id)
+  storage_accounts=storage_totals(c,org_id,ids)
+  transport=money(0);paid=money(0)
+  for parcel in rows:
+   invoice=c.execute(text("select total,amount_paid from finance_documents where org_id=:o and package_id=:p and document_type='INVOICE' and status in ('ISSUED','PARTIALLY_PAID','OVERDUE','PAID')"),{"o":org_id,"p":parcel["id"]}).mappings().first()
+   transport+=money(invoice["total"] if invoice else parcel.get("fees_total"))
+   paid+=money(invoice["amount_paid"] if invoice else parcel.get("fees_paid"))
+  storage=money(storage_accounts["total"]);paid+=money(storage_accounts["paid"])
+  required=transport+storage;payment_status="PAID" if paid>=required else "PARTIAL" if paid>0 else "PENDING"
   recipient=rows[0].get("client_name");phone=rows[0].get("client_phone")
-  row=c.execute(text("""insert into pickup_orders(id,org_id,pickup_reference,client_id,office_id,warehouse_id,recipient_name,recipient_phone,payment_status,required_amount,paid_amount,storage_fee,currency,release_blocked_reason,assigned_to,assigned_name,notes,created_by,created_by_name)
-   values(:id,:o,:r,:client_id,:office_id,:warehouse_id,:rn,:rp,:ps,:required,:paid,:storage,:currency,:blocked,:assigned_to,:assigned_name,:notes,:u,:un) returning *"""),{"id":pickup_id,"o":org_id,"r":reference,"client_id":rows[0]["client_id"],"office_id":payload.get("office_id"),"warehouse_id":payload.get("warehouse_id"),"rn":recipient,"rp":phone,"ps":payment_status,"required":required,"paid":paid,"storage":storage,"currency":rows[0].get("currency") or cfg["currency"],"blocked":"PAYMENT_NOT_CLEARED" if cfg["require_payment"] and payment_status!='PAID' else None,"assigned_to":payload.get("assigned_to") or actor,"assigned_name":payload.get("assigned_name") or actor_name,"notes":payload.get("notes"),"u":actor,"un":actor_name}).mappings().one()
+  row=c.execute(text("""insert into pickup_orders(id,org_id,pickup_reference,client_id,office_id,warehouse_id,recipient_name,recipient_phone,payment_status,required_amount,paid_amount,storage_fee,storage_paid_amount,currency,release_blocked_reason,assigned_to,assigned_name,notes,created_by,created_by_name)
+   values(:id,:o,:r,:client_id,:office_id,:warehouse_id,:rn,:rp,:ps,:required,:paid,:storage,:storage_paid,:currency,:blocked,:assigned_to,:assigned_name,:notes,:u,:un) returning *"""),{"id":pickup_id,"o":org_id,"r":reference,"client_id":rows[0]["client_id"],"office_id":payload.get("office_id"),"warehouse_id":payload.get("warehouse_id"),"rn":recipient,"rp":phone,"ps":payment_status,"required":required,"paid":paid,"storage":storage,"storage_paid":money(storage_accounts["paid"]),"currency":rows[0].get("currency") or cfg["currency"],"blocked":"PAYMENT_NOT_CLEARED" if cfg["require_payment"] and payment_status!='PAID' else None,"assigned_to":payload.get("assigned_to") or actor,"assigned_name":payload.get("assigned_name") or actor_name,"notes":payload.get("notes"),"u":actor,"un":actor_name}).mappings().one()
   for package_id in ids:c.execute(text("insert into pickup_order_items(org_id,pickup_id,package_id) values(:o,:p,:i)"),{"o":org_id,"p":pickup_id,"i":package_id})
   _event(c,org_id,pickup_id,"CREATED",actor,actor_name,{"packages":ids,"storage_fee":storage});return dict(row)
 
@@ -118,15 +127,23 @@ def detail(org_id,pickup_id):
   result=dict(order);result["packages"]=_rows(c.execute(text("select cp.id::text,cp.package_reference,cp.tracking_id,cp.description,cp.weight_kg,cp.payment_status,cp.fees_total,cp.fees_paid,i.released_at from pickup_order_items i join cargo_packages cp on cp.id=i.package_id and cp.org_id=i.org_id where i.pickup_id=:p and i.org_id=:o"),{"p":pickup_id,"o":org_id}));result["verifications"]=_rows(c.execute(text("select * from pickup_verifications where pickup_id=:p and org_id=:o order by created_at desc"),{"p":pickup_id,"o":org_id}));result["proofs"]=_rows(c.execute(text("select * from pickup_proofs where pickup_id=:p and org_id=:o order by created_at desc"),{"p":pickup_id,"o":org_id}));result["events"]=_rows(c.execute(text("select * from pickup_events where pickup_id=:p and org_id=:o order by created_at desc"),{"p":pickup_id,"o":org_id}));return result
 
 def notify(org_id,pickup_id,actor,actor_name):
+ from app.customer_automation.repository import context,permitted
+ from app.db.notification_repository import create_notification_outbox
  cfg=settings_for(org_id);code=f"{secrets.randbelow(1_000_000):06d}"
  with engine.begin() as c:
   order=c.execute(text("select * from pickup_orders where id=:p and org_id=:o and status in ('READY','NOTIFIED') for update"),{"p":pickup_id,"o":org_id}).mappings().first()
   if not order:raise HTTPException(409,"pickup_not_notifiable")
-  c.execute(text("update pickup_otps set status='REVOKED' where pickup_id=:p and status='PENDING'"),{"p":pickup_id});c.execute(text("insert into pickup_otps(org_id,pickup_id,code_hash,expires_at,created_by) values(:o,:p,:h,now()+(:ttl||' minutes')::interval,:u)"),{"o":org_id,"p":pickup_id,"h":_hash(pickup_id,code),"ttl":cfg["otp_ttl_minutes"],"u":actor})
-  message=f"Votre retrait {order['pickup_reference']} est prêt. Code confidentiel : {code}. Valable {cfg['otp_ttl_minutes']} minutes."
-  package_ids=c.execute(text("select package_id from pickup_order_items where pickup_id=:p"),{"p":pickup_id}).scalars().all()
-  for package_id in package_ids:c.execute(text("insert into package_notifications(org_id,package_id,channel,notification_type,recipient,message,status) values(:o,:pkg,'whatsapp','PICKUP_READY',:r,:m,'PENDING')"),{"o":org_id,"pkg":package_id,"r":order["recipient_phone"],"m":message})
-  c.execute(text("update pickup_orders set status='NOTIFIED',notified_at=now(),row_version=row_version+1,updated_at=now() where id=:p"),{"p":pickup_id});_event(c,org_id,pickup_id,"CLIENT_NOTIFIED",actor,actor_name);return {"status":"NOTIFIED","expires_in":int(cfg["otp_ttl_minutes"])*60}
+  ctx=context(c,org_id,order["client_id"])
+  if not ctx or not permitted(c,org_id,ctx["phone"]):raise HTTPException(409,"pickup_contact_unavailable")
+  c.execute(text("update pickup_otps set status='REVOKED' where pickup_id=:p and org_id=:o and status='PENDING'"),{"p":pickup_id,"o":org_id})
+  otp=c.execute(text("""insert into pickup_otps(org_id,pickup_id,code_hash,expires_at,created_by)
+   values(:o,:p,:h,now()+make_interval(mins=>:ttl),:u) returning id::text"""),{"o":org_id,"p":pickup_id,"h":_hash(pickup_id,code),"ttl":cfg["otp_ttl_minutes"],"u":actor}).scalar_one()
+  message=f"{ctx['agency']}\n\nVotre retrait {order['pickup_reference']} est prêt. {ctx['policy']['pickup_conditions']}\nCode confidentiel : {code}. Valable {cfg['otp_ttl_minutes']} minutes. Ne le communiquez qu’au guichet lors du retrait."
+  notification=create_notification_outbox(org_id,str(order["client_id"]),None,ctx["phone"],f"PICKUP_CODE:{pickup_id}:{otp}",message,connection=c)
+  if not notification:raise HTTPException(503,"pickup_notification_unavailable")
+  c.execute(text("update pickup_orders set status='NOTIFIED',notified_at=now(),row_version=row_version+1,updated_at=now() where org_id=:o and id=:p"),{"o":org_id,"p":pickup_id})
+  _event(c,org_id,pickup_id,"CLIENT_NOTIFICATION_QUEUED",actor,actor_name)
+  return {"status":"NOTIFIED","queued":True,"expires_in":int(cfg["otp_ttl_minutes"])*60}
 
 def check_in(org_id,pickup_id,actor,actor_name,version):
  with engine.begin() as c:
@@ -135,14 +152,22 @@ def check_in(org_id,pickup_id,actor,actor_name,version):
   _event(c,org_id,pickup_id,"CLIENT_CHECKED_IN",actor,actor_name);return dict(row)
 
 def verify_otp(org_id,pickup_id,actor,actor_name,code):
- cfg=settings_for(org_id)
+ cfg=settings_for(org_id);error=None
  with engine.begin() as c:
   otp=c.execute(text("select * from pickup_otps where pickup_id=:p and org_id=:o and status='PENDING' order by created_at desc limit 1 for update"),{"p":pickup_id,"o":org_id}).mappings().first()
   if not otp:raise HTTPException(409,"pickup_otp_unavailable")
-  if otp["expires_at"]<datetime.now(timezone.utc):c.execute(text("update pickup_otps set status='EXPIRED' where id=:id"),{"id":otp["id"]});raise HTTPException(422,"pickup_otp_expired")
-  if not hmac.compare_digest(otp["code_hash"],_hash(pickup_id,code)):
-   attempts=otp["attempts"]+1;status="LOCKED" if attempts>=cfg["max_otp_attempts"] else "PENDING";c.execute(text("update pickup_otps set attempts=:a,status=:s where id=:id"),{"a":attempts,"s":status,"id":otp["id"]});raise HTTPException(422,"pickup_otp_invalid")
-  c.execute(text("update pickup_otps set status='VERIFIED',verified_at=now() where id=:id"),{"id":otp["id"]});c.execute(text("insert into pickup_verifications(org_id,pickup_id,verification_type,verification_status,verified_by,verified_by_name) values(:o,:p,'OTP','PASSED',:u,:un)"),{"o":org_id,"p":pickup_id,"u":actor,"un":actor_name});_event(c,org_id,pickup_id,"OTP_VERIFIED",actor,actor_name);return {"verified":True}
+  if otp["expires_at"]<datetime.now(timezone.utc):
+   c.execute(text("update pickup_otps set status='EXPIRED' where org_id=:o and id=:id"),{"o":org_id,"id":otp["id"]});error="pickup_otp_expired"
+  elif not hmac.compare_digest(otp["code_hash"],_hash(pickup_id,code)):
+   attempts=otp["attempts"]+1;status="LOCKED" if attempts>=cfg["max_otp_attempts"] else "PENDING"
+   c.execute(text("update pickup_otps set attempts=:a,status=:s where org_id=:o and id=:id"),{"a":attempts,"s":status,"o":org_id,"id":otp["id"]});error="pickup_otp_invalid"
+  else:
+   c.execute(text("update pickup_otps set status='VERIFIED',verified_at=now() where org_id=:o and id=:id"),{"o":org_id,"id":otp["id"]})
+   c.execute(text("insert into pickup_verifications(org_id,pickup_id,verification_type,verification_status,verified_by,verified_by_name) values(:o,:p,'OTP','PASSED',:u,:un)"),{"o":org_id,"p":pickup_id,"u":actor,"un":actor_name})
+   _event(c,org_id,pickup_id,"OTP_VERIFIED",actor,actor_name)
+ # Commit the failed attempt before returning an error; do not roll it back.
+ if error:raise HTTPException(422,error)
+ return {"verified":True}
 
 def verify_identity(org_id,pickup_id,actor,actor_name,payload):
  masked=f"***{payload['identity_reference'][-4:]}" if payload.get("identity_reference") else None
@@ -176,6 +201,8 @@ def release(org_id,pickup_id,actor,actor_name,payload,override=False):
  if override and not str(payload.get("override_reason") or "").strip():
   raise HTTPException(422,"pickup_override_reason_required")
  if cfg["require_signature"] and not payload.get("signature_text") and not override:raise HTTPException(422,"pickup_signature_required")
+ from app.customer_automation.repository import prepare_storage
+ prepare_storage(org_id,pickup_id=pickup_id)
  with engine.begin() as c:
   order=c.execute(text("select * from pickup_orders where id=:p and org_id=:o for update"),{"p":pickup_id,"o":org_id}).mappings().first()
   if not order:raise HTTPException(404,"pickup_not_found")
@@ -185,6 +212,10 @@ def release(org_id,pickup_id,actor,actor_name,payload,override=False):
     where i.pickup_id=:p and i.org_id=:o and i.released_at is null and cp.deleted_at is null
     order by cp.id for update of cp"""),{"p":pickup_id,"o":org_id}))
   if not items:raise HTTPException(409,"pickup_has_no_releasable_packages")
+  storage=check_release(c,org_id,[str(item["id"]) for item in items],require_payment=bool(cfg["require_payment"] and not override))
+  c.execute(text("""update pickup_orders set required_amount=greatest(required_amount-storage_fee,0)+:total,
+   paid_amount=greatest(paid_amount-storage_paid_amount,0)+:paid,storage_fee=:total,storage_paid_amount=:paid
+   where org_id=:o and id=:p"""),{"o":org_id,"p":pickup_id,"total":money(storage["total"]),"paid":money(storage["paid"])})
   if not override:
    blocked=[decision for item in items if not (decision:=delivery_clearance(c,org_id,item))["allowed"]]
    if blocked:
@@ -205,15 +236,20 @@ def get_proof(org_id,pickup_id,proof_id):
   row=c.execute(text("select id::text,object_path,file_name,mime_type from pickup_proofs where id=:id and pickup_id=:p and org_id=:o and object_path is not null"),{"id":proof_id,"p":pickup_id,"o":org_id}).mappings().first();return dict(row) if row else None
 
 def reminders(org_id,actor,actor_name,min_days=3,office_ids=None):
+ from app.customer_automation.repository import _package
  office_filter,office_params=_office_filter(office_ids)
  with engine.begin() as c:
-  orders=_rows(c.execute(text("""select p.* from pickup_orders p where p.org_id=:o and p.status in ('READY','NOTIFIED') and p.ready_at<now()-(:days||' days')::interval and (p.last_reminded_at is null or p.last_reminded_at<now()-interval '24 hours')"""+office_filter+" for update"),{"o":org_id,"days":min_days,**office_params}))
+  orders=_rows(c.execute(text("""select p.* from pickup_orders p where p.org_id=:o
+   and p.status in ('READY','NOTIFIED') and p.ready_at<now()-make_interval(days=>:days)
+   and (p.last_reminded_at is null or p.last_reminded_at<now()-interval '24 hours')"""+office_filter+" for update"),{"o":org_id,"days":min_days,**office_params}))
   queued=0
   for order in orders:
-   message=f"Rappel : vos colis du retrait {order['pickup_reference']} sont disponibles. Frais de garde actuels : {order['storage_fee']} {order['currency']}."
-   ids=c.execute(text("select package_id from pickup_order_items where pickup_id=:p"),{"p":order["id"]}).scalars().all()
-   for package_id in ids:c.execute(text("insert into package_notifications(org_id,package_id,channel,notification_type,recipient,message,status) values(:o,:pkg,'whatsapp','PICKUP_REMINDER',:r,:m,'PENDING')"),{"o":org_id,"pkg":package_id,"r":order["recipient_phone"],"m":message});queued+=1
-   c.execute(text("update pickup_orders set last_reminded_at=now(),reminder_count=reminder_count+1,updated_at=now() where id=:p"),{"p":order["id"]});_event(c,org_id,order["id"],"REMINDER_QUEUED",actor,actor_name)
+   parcels=_rows(c.execute(text("""select cp.* from pickup_order_items i join cargo_packages cp
+    on cp.id=i.package_id and cp.org_id=i.org_id where i.org_id=:o and i.pickup_id=:p and cp.status='READY_FOR_PICKUP'"""),{"o":org_id,"p":order["id"]}))
+   count=sum(_package(c,parcel) for parcel in parcels);queued+=count
+   if count:
+    c.execute(text("update pickup_orders set last_reminded_at=now(),reminder_count=reminder_count+1,updated_at=now() where org_id=:o and id=:p"),{"o":org_id,"p":order["id"]})
+    _event(c,org_id,order["id"],"REMINDER_QUEUED",actor,actor_name)
   return {"pickups":len(orders),"notifications":queued}
 
 def analytics(org_id,office_ids=None):

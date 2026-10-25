@@ -1,5 +1,6 @@
 """Agency document identity and display policy. Never fetch remote image URLs."""
 import html
+import re
 from urllib.parse import urlsplit
 
 from sqlalchemy import text
@@ -21,6 +22,7 @@ def identity(connection, org_id, office_id=None):
         for field in ('phone','email','address','office_name','office_address','office_phone'):
             result[field] = None
     result['label_format'] = preferences.get('label_format','THERMAL_100_150')
+    result['invoice_preferences'] = preferences
     return result
 
 
@@ -51,16 +53,24 @@ def label_html(package, brand, qr_svg=''):
 def invoice_html(document, settings, brand):
     esc=lambda value:html.escape(str(value if value is not None else '—'),quote=True)
     kind={'QUOTE':'Devis','INVOICE':'Facture','CREDIT_NOTE':'Avoir'}[document['document_type']]
+    preferences=brand.get('invoice_preferences') or {}
+    if document['document_type']=='INVOICE':kind=preferences.get('invoice_title') or kind
+    accent=preferences.get('invoice_accent_color','#20272e')
+    if not re.fullmatch(r'#[0-9a-fA-F]{6}',str(accent)):accent='#20272e'
+    padding='7px' if preferences.get('invoice_layout')=='COMPACT' else '12px'
+    client_phone=document.get('client_phone') if preferences.get('show_client_phone') is not False else ''
+    client_email=document.get('client_email') if preferences.get('show_client_email') is not False else ''
+    due=f"<p>Échéance : {esc(document.get('due_date'))}</p>" if preferences.get('show_due_date') is not False else ''
     lines=''.join('<tr>'+''.join(f'<td>{esc(line.get(key))}</td>' for key in ('description','quantity','unit_price','line_total'))+'</tr>' for line in document['lines'])
     totals=''.join(f'<p>{label} : <strong>{esc(document.get(key))} {esc(document.get("currency"))}</strong></p>'
                    for key,label in [('subtotal','Sous-total'),('discount_total','Remise'),('tax_total','Taxes'),('total','Total'),('balance_due','Solde')])
     return f'''<!doctype html><html lang="{esc(brand.get('language_code') or 'fr')}"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer">
-<title>{esc(document['document_number'])}</title><style>@page{{size:A4;margin:15mm}}body{{font:14px system-ui;max-width:900px;margin:40px auto;color:#20272e}}header{{display:flex;justify-content:space-between;border-bottom:1px solid #bbb;padding-bottom:20px}}table{{width:100%;border-collapse:collapse;margin-top:24px}}td,th{{padding:12px;border-bottom:1px solid #ddd;text-align:left}}.totals{{text-align:right;margin-top:24px}}@media print{{button{{display:none}}}}</style></head>
+<title>{esc(document['document_number'])}</title><style>@page{{size:A4;margin:15mm}}body{{font:14px system-ui;max-width:900px;margin:40px auto;color:#20272e}}h1,h2{{color:{accent}}}header{{display:flex;justify-content:space-between;border-bottom:2px solid {accent};padding-bottom:20px}}table{{width:100%;border-collapse:collapse;margin-top:24px}}td,th{{padding:{padding};border-bottom:1px solid #ddd;text-align:left}}.totals{{text-align:right;margin-top:24px}}@media print{{button{{display:none}}}}</style></head>
 <body><button onclick="window.print()">Imprimer / Enregistrer en PDF</button><header><div>{logo_html(brand.get('logo_url'))}
 <h2>{esc(brand.get('legal_name') or brand.get('organization_name') or settings.get('legal_name'))}</h2>
 <p>{esc(brand.get('office_name') or '')}<br>{esc(brand.get('office_address') or brand.get('address') or '')}<br>{esc(brand.get('office_phone') or brand.get('phone') or '')}</p>
-<p>{esc(settings.get('tax_identifier') or '')}</p></div><div><h1>{kind}</h1><strong>{esc(document['document_number'])}</strong>
-<p>Date : {esc(document.get('issue_date') or document.get('created_at'))}</p><p>Échéance : {esc(document.get('due_date'))}</p></div></header>
-<h3>Client</h3><p>{esc(document.get('client_name'))}<br>{esc(document.get('client_phone') or '')}<br>{esc(document.get('client_email') or '')}</p>
+<p>{esc(settings.get('tax_identifier') or '')}</p></div><div><h1>{esc(kind)}</h1><strong>{esc(document['document_number'])}</strong>
+<p>Date : {esc(document.get('issue_date') or document.get('created_at'))}</p>{due}</div></header>
+<h3>Client</h3><p>{esc(document.get('client_name'))}<br>{esc(client_phone or '')}<br>{esc(client_email or '')}</p>
 <table><thead><tr><th>Description</th><th>Quantité</th><th>Prix</th><th>Total</th></tr></thead><tbody>{lines}</tbody></table><div class="totals">{totals}</div>
-<p>{esc(document.get('terms') or '')}</p><footer>{esc(settings.get('document_footer') or '')}</footer></body></html>'''
+<p>{esc(document.get('terms') or '')}</p><footer>{esc(preferences.get('invoice_footer') or settings.get('document_footer') or '')}</footer></body></html>'''

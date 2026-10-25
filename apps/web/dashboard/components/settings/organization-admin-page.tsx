@@ -23,6 +23,7 @@ import { invitationErrorMessages } from "@/services/invitation-errors";
 import { agencyRoleLabel, agencyStatusLabel } from "@/services/agency-labels";
 import { BrandImageUpload } from "./brand-image-upload";
 import { SubscriptionSettings } from "./subscription-settings";
+import { CustomerAutomationSettings } from "./customer-automation-settings";
 import { GoodsRuleSettings } from "./goods-rule-settings";
 import { setDashboardLocale } from "@/components/i18n/dashboard-language";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -349,7 +350,7 @@ function CustomerMilestoneNotifications({ data, run }: { data: AdminData; run: (
       <p className="mt-3 text-[12px] leading-5 text-[#697178]">Envoi soumis aux connexions actives, aux modèles approuvés, au consentement et à la prévention des doublons.</p>
     </section>
     <div className="flex justify-end pt-4"><button className={primary}>Enregistrer</button></div>
-  </form></PermissionGuard>;
+  </form><CustomerAutomationSettings data={data} run={run}/></PermissionGuard>;
 }
 function PublicTrackingSettings({
   data,
@@ -1469,6 +1470,7 @@ function DocumentsSettings({
   const [labelFormat, setLabelFormat] = useState(String(storedPreferences.label_format || "THERMAL_100_150"));
   const [showLogo, setShowLogo] = useState(storedPreferences.show_agency_logo !== false);
   const [showOfficeDetails, setShowOfficeDetails] = useState(storedPreferences.show_office_details !== false);
+  const [invoice, setInvoice] = useState({invoice_layout:String(storedPreferences.invoice_layout||'CLASSIC'),invoice_accent_color:String(storedPreferences.invoice_accent_color||'#20272e'),invoice_title:String(storedPreferences.invoice_title||'Facture'),invoice_footer:String(storedPreferences.invoice_footer||''),show_client_phone:storedPreferences.show_client_phone!==false,show_client_email:storedPreferences.show_client_email!==false,show_due_date:storedPreferences.show_due_date!==false});
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1476,6 +1478,7 @@ function DocumentsSettings({
       expected_version: Number(data.settings?.row_version || 1),
       settings: {
         document_preferences: {
+          ...invoice,
           label_format: labelFormat,
           show_agency_logo: showLogo,
           show_office_details: showOfficeDetails,
@@ -1490,7 +1493,15 @@ function DocumentsSettings({
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Format d’étiquette par défaut<select value={labelFormat} onChange={event => setLabelFormat(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]"><option value="THERMAL_100_150">Thermique 100 × 150 mm</option><option value="A4">A4</option><option value="THERMAL_100_100">Thermique 100 × 100 mm</option></select></label>
         <VisibilityToggle label="Afficher le logo de l’agence" checked={showLogo} onChange={setShowLogo}/>
         <VisibilityToggle label="Afficher les coordonnées du bureau" checked={showOfficeDetails} onChange={setShowOfficeDetails}/>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Modèles à personnaliser : étiquette colis, reçu de dépôt, facture, manifeste, bon de livraison.</p>
+        <h3 className="text-[15px] font-semibold">Factures de votre agence</h3>
+        <label className="grid gap-1.5 text-[13px]">Présentation<select className={input} value={invoice.invoice_layout} onChange={event=>setInvoice(current=>({...current,invoice_layout:event.target.value}))}><option value="CLASSIC">Classique</option><option value="COMPACT">Compacte</option></select></label>
+        <label className="grid gap-1.5 text-[13px]">Titre de la facture<input required maxLength={80} className={input} value={invoice.invoice_title} onChange={event=>setInvoice(current=>({...current,invoice_title:event.target.value}))}/></label>
+        <label className="flex items-center justify-between text-[13px]">Couleur du document<input type="color" aria-label="Couleur du document" value={invoice.invoice_accent_color} onChange={event=>setInvoice(current=>({...current,invoice_accent_color:event.target.value}))}/></label>
+        <label className="grid gap-1.5 text-[13px]">Pied de page<textarea rows={3} maxLength={2000} className="rounded-md border border-[#d8d9dc] p-3 text-sm" value={invoice.invoice_footer} onChange={event=>setInvoice(current=>({...current,invoice_footer:event.target.value}))}/></label>
+        <VisibilityToggle label="Afficher le téléphone du client" checked={invoice.show_client_phone} onChange={value=>setInvoice(current=>({...current,show_client_phone:value}))}/>
+        <VisibilityToggle label="Afficher l’adresse e-mail du client" checked={invoice.show_client_email} onChange={value=>setInvoice(current=>({...current,show_client_email:value}))}/>
+        <VisibilityToggle label="Afficher l’échéance" checked={invoice.show_due_date} onChange={value=>setInvoice(current=>({...current,show_due_date:value}))}/>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Ces choix s’appliquent aux documents générés ensuite. Les copies numériques transmises après remise conservent leur version d’origine. La facture s’imprime et s’enregistre en PDF depuis le navigateur.</p>
         <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
       </form>
     </PermissionGuard>

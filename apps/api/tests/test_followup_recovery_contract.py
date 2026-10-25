@@ -31,7 +31,7 @@ def test_followup_api_is_permissioned_and_mutations_versioned():
 def test_followup_workspace_is_real():
     ui = text("apps/web/dashboard/components/followups/followups-page.tsx")
     service = text("apps/web/dashboard/services/followups.ts")
-    for label in ("Nouvelle annonce ou relance", "Confirmer les destinataires", "Envoyer sur WhatsApp"):
+    for label in ("Nouvelle relance", "Sélectionner les destinataires", "Confirmer l’envoi"):
         assert label in ui
     for endpoint in ("/followups/pilot", "/followups/pilot/preview", "/followups/pilot/drafts"):
         assert endpoint in service

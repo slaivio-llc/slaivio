@@ -53,7 +53,9 @@ def upsert_journey(org_id: str, phone: str, extracted: dict, *, inbound_at: date
         settings = conn.execute(text("""
           insert into parcel_operation_settings(org_id) values(:org_id)
           on conflict(org_id) do update set org_id=excluded.org_id
-          returning prospect_followup_delay_hours,incomplete_profile_followup_hours
+          returning prospect_followup_delay_hours,incomplete_profile_followup_hours,
+            (select settings->'customer_automation' from organization_settings where org_id=:org_id) automation_policy,
+            (select coalesce(organization_name,name,'Votre agence') from organizations where id=:org_id) agency_name
         """), {"org_id": org_id}).mappings().one()
         delay = settings["incomplete_profile_followup_hours"] if stage == "QUALIFYING" else settings["prospect_followup_delay_hours"]
         schedule = stage in {"INTERESTED", "QUALIFYING"}
@@ -107,9 +109,10 @@ def upsert_journey(org_id: str, phone: str, extracted: dict, *, inbound_at: date
           update followup_tasks set status='CANCELLED',cancelled_at=now(),updated_at=now()
           where org_id=:org_id and conversation_phone=:phone and status in('SCHEDULED','DUE','PENDING')
         """), {"org_id": org_id, "phone": phone})
-        if schedule:
+        if schedule and journey['stage']!='CONVERTED':
             names = {"full_name": "votre nom complet", "country": "votre pays", "city": "votre ville", "customer_type": "si vous êtes un particulier ou une entreprise"}
             requested = names.get(missing[0], "les informations nécessaires") if missing else "la suite de votre demande"
+            from app.customer_automation.policy import message as render_message
             conn.execute(text("""
               insert into followup_tasks(
                 org_id,client_id,followup_type,message,due_at,status,reference,subject_type,
@@ -124,7 +127,7 @@ def upsert_journey(org_id: str, phone: str, extracted: dict, *, inbound_at: date
             """), {
                 "org_id": org_id, "client_id": journey.get("client_id"), "journey_id": journey["id"],
                 "phone": phone, "due_at": journey["next_followup_at"],
-                "message": f"Bonjour, souhaitez-vous poursuivre votre demande ? Il nous manque {requested}.",
+                "message": render_message(settings.get('automation_policy') or {},'prospect_followup',{'agency':settings.get('agency_name'),'missing':requested}),
                 "idempotency_key": f"parcel-journey:{journey['id']}:{journey['next_followup_at'].isoformat()}",
                 "snapshot": json.dumps({"missing_fields": missing, "stage": stage}),
             })

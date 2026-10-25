@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.packages import repository
+from app.customer_automation import repository as automation
 
 
 def locked_package(status="READY_FOR_PICKUP"):
@@ -14,6 +15,8 @@ def locked_package(status="READY_FOR_PICKUP"):
 
 
 def mocked_transaction(monkeypatch, package):
+    monkeypatch.setattr(automation,'prepare_storage',MagicMock())
+    monkeypatch.setattr(automation,'check_release',MagicMock())
     conn = MagicMock()
     conn.execute.return_value.mappings.return_value.first.return_value = package
     engine = MagicMock()

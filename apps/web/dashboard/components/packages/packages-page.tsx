@@ -3,6 +3,7 @@ import { PackageFinance } from "@/components/finance/package-finance";
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { ParcelPackageCreateDrawer } from './parcel-receipt-drawer';
+import {receptionPhotos,uploadReceptionPhotos,ReceptionPhotoValidationError} from '@/services/reception-photos';
 import { ParcelRegisterPage } from './parcel-register-page';
 import { getTenantContext } from '@/services/tenant';
 import { PermissionGuard } from '@/components/permissions/permission-guard';
@@ -323,6 +324,7 @@ function LegacyPackagesPage() {
     total_pages: 0,
   });
   const [selected, setSelected] = useState<PackageRecord | null>(null);
+  const [photoWarning,setPhotoWarning]=useState('');
   const [timeline, setTimeline] = useState<PackageTimelineEvent[]>([]);
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
   const [activeView, setActiveView] = useState("all");
@@ -580,7 +582,7 @@ function LegacyPackagesPage() {
       client_id: clean(form.get("client_id")) || formPackage?.client_id || null,
       tracking_id: clean(form.get("tracking_id")),
       ...(form.has("supplier_tracking") ? { supplier_tracking: clean(form.get("supplier_tracking")) } : {}),
-      status: String(form.get("status") || "CREATED") as PackageStatus,
+      status: String(form.get('receipt_flow')==='parcel'?(form.get('physical_received')==='on'?'RECEIVED_AT_ORIGIN':'CREATED'):(form.get("status") || "CREATED")) as PackageStatus,
       package_condition: String(
         form.get("package_condition") || "UNKNOWN",
       ) as PackageCondition,
@@ -646,10 +648,13 @@ function LegacyPackagesPage() {
       return;
     }
     try {
+      const photos=receptionPhotos(form);
       const saved =
         formMode === "edit" && formPackage
           ? await updatePackage(formPackage.id, payload)
           : await createPackage(payload);
+      const failed=await uploadReceptionPhotos(saved.id,photos,form.get('share_reception_photos')==='on');
+      setPhotoWarning(failed.length?`Le colis est enregistré. Vérifiez ces photos dans sa fiche avant de les renvoyer : ${failed.join(', ')}. Ne recréez pas le colis.`:'');
       setSelected(saved);
       setFormOpen(false);
       setFormPackage(null);
@@ -658,7 +663,7 @@ function LegacyPackagesPage() {
         loadPackages(formMode === "edit" ? page : 1),
       ]);
     } catch (err) {
-      setFormError(apiErrorMessage(err));
+      setFormError(err instanceof ReceptionPhotoValidationError?err.message:apiErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -731,6 +736,7 @@ function LegacyPackagesPage() {
 
   return (
     <div className="min-h-full bg-white text-[#1f2328]">
+      {photoWarning&&<p role="status" className="mx-4 my-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900">{photoWarning}</p>}
       <div className="overflow-hidden bg-white">
         <OperationPageHeader
           title="Colis"

@@ -206,6 +206,14 @@ def create(o,a,n,p):
   return row
 
 def _queue_published_departure(c,o,dep):
+ from app.customer_automation.repository import permitted
+ from app.customer_automation.policy import message as render_message
+ from zoneinfo import ZoneInfo
+ c.execute(text('select pg_advisory_xact_lock(hashtextextended(:key,0))'),{'key':f'departure-announcement:{o}:{dep["id"]}'})
+ agency=c.execute(text("""select coalesce(o.organization_name,o.name,'Votre agence') agency,
+  coalesce(s.settings->'customer_automation','{}') policy,coalesce(s.timezone,'UTC') timezone
+  from organizations o left join organization_settings s on s.org_id=o.id where o.id=:o"""),{'o':o}).mappings().first() or {}
+ if (agency.get('policy') or {}).get('announcements_enabled') is False:return []
  enabled=c.execute(text("select coalesce(notify_next_departure,true) from parcel_operation_settings where org_id=:o"),{'o':o}).scalar()
  if enabled is False:return []
  service=c.execute(text("""select s.service_name,s.shipping_mode,r.route_name,r.origin_country,r.origin_city,r.destination_country,r.destination_city
@@ -232,6 +240,9 @@ def _queue_published_departure(c,o,dep):
        and (journey.transport_mode is null or :shipping_mode is null or lower(journey.transport_mode)=lower(:shipping_mode))
        and (journey.route_interest is null or :route_name is null or journey.route_interest ilike '%'||:route_name||'%'
          or :destination_country is null or journey.route_interest ilike '%'||:destination_country||'%')
+     union all
+     select null::uuid,null::uuid,regexp_replace(consent.contact,'[^0-9]','','g'),'Contact abonné',3
+     from broadcast_consents consent where consent.org_id=:o and upper(consent.channel)='WHATSAPP' and consent.consent_status='OPTED_IN'
    ) audience
    where normalized_phone<>''
    order by normalized_phone,priority
@@ -239,8 +250,12 @@ def _queue_published_departure(c,o,dep):
  route=service.get('route_name') or f"{service.get('origin_city') or service.get('origin_country') or 'Origine'} → {service.get('destination_city') or service.get('destination_country') or 'Destination'}"
  scheduled=dep.get('scheduled_at')
  message=f"Prochain départ {route} prévu le {scheduled:%d/%m/%Y à %H:%M} ({service.get('service_name') or 'service fret'}). Répondez à ce message si vous souhaitez préparer un envoi."
+ if scheduled:
+  message=render_message(agency.get('policy') or {},'next_departure',{'agency':agency.get('agency'),'route':route,
+   'departure_date':scheduled.astimezone(ZoneInfo(agency.get('timezone') or 'UTC')).strftime('%d/%m/%Y à %H:%M')})
  queued=[]
  for recipient in recipients:
+  if not permitted(c,o,recipient['normalized_phone'],marketing=True):continue
   notification_type=f"NEXT_DEPARTURE:{dep['id']}:{recipient['normalized_phone']}"
   item=c.execute(text("""insert into notification_outbox(org_id,client_id,dossier_id,channel,recipient_phone,notification_type,message)
     select :o,:client_id,:dossier_id,'whatsapp',:phone,:notification_type,:message

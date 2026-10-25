@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy import text
+from app.customer_automation.policy import CustomerAutomation
 
 
 class Policy(BaseModel):
@@ -39,6 +40,13 @@ class DocumentPreferences(Policy):
     label_format: Literal["THERMAL_100_150", "THERMAL_100_100", "A4"] = "THERMAL_100_150"
     show_agency_logo: StrictBool = True
     show_office_details: StrictBool = True
+    invoice_layout: Literal['CLASSIC','COMPACT'] = 'CLASSIC'
+    invoice_accent_color: str = Field(default='#20272e',pattern=r'^#[0-9a-fA-F]{6}$')
+    invoice_title: str = Field(default='Facture',min_length=1,max_length=80)
+    invoice_footer: str = Field(default='',max_length=2000)
+    show_client_phone: StrictBool = True
+    show_client_email: StrictBool = True
+    show_due_date: StrictBool = True
 
 
 class PublicTrackingPage(Policy):
@@ -63,6 +71,7 @@ class CustomerNotifications(Policy):
 
 
 POLICIES = {
+    "customer_automation": CustomerAutomation,
     "parcel_receipt_rules": ReceiptRules,
     "shipment_delivery_rules": DeliveryRules,
     "goods_restrictions": GoodsRestrictions,
@@ -121,13 +130,15 @@ def require_credit_allowed(connection, org_id, enabled):
 
 def require_delivery_proof(connection, org_id, package):
     rules = load_policies(connection, org_id).get("shipment_delivery_rules", {})
-    if rules.get("delivery_proof") is not True:
-        return
-    proof = connection.execute(text("""select 1 from package_delivery_proofs
-        where org_id=:org_id and package_id=:package_id limit 1"""),
-        {"org_id": org_id, "package_id": package["id"]}).first()
-    if not proof:
-        raise HTTPException(409, "delivery_proof_required")
+    if rules.get("delivery_proof") is True:
+        proof = connection.execute(text("""select 1 from package_delivery_proofs
+            where org_id=:org_id and package_id=:package_id limit 1"""),
+            {"org_id": org_id, "package_id": package["id"]}).first()
+        if not proof:
+            raise HTTPException(409, "delivery_proof_required")
+    from app.customer_automation.repository import check_release
+    cfg=connection.execute(text('select require_payment from pickup_settings where org_id=:o'),{'o':org_id}).mappings().first()
+    check_release(connection,org_id,[str(package['id'])],require_payment=cfg.get('require_payment',True) if cfg else True)
 
 
 def check_regulated_goods(connection, org_id, package, *, receiving=False):

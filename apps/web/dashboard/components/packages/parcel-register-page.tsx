@@ -17,6 +17,7 @@ import { useResourceLink } from "@/components/ui/use-resource-link";
 import { ParcelPackageCreateDrawer } from "./parcel-receipt-drawer";
 import { ParcelEditForm, ParcelPhotos, parcelError } from "./parcel-operations";
 import { PackageFinance } from "@/components/finance/package-finance";
+import {receptionPhotos,uploadReceptionPhotos,ReceptionPhotoValidationError} from '@/services/reception-photos';
 
 const stages = [["received", "Reçus"], ["shipped", "Expédiés"], ["arrived", "Arrivés"], ["ready", "À retirer"], ["delivered", "Livrés"], ["other", "Autres états"]];
 const linkClass = "font-medium text-emerald-800 hover:underline focus-visible:outline-emerald-600";
@@ -49,6 +50,7 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [notice,setNotice]=useState('');
   const [stats, setStats] = useState<PackageStats | null>(null);
   const [statsError, setStatsError] = useState(false);
   const invalidDates = Boolean(dates.start && dates.end && dates.start > dates.end);
@@ -97,6 +99,7 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
     setSaving(true); setSaveError("");
     try {
       const physicalReceived = form.get("physical_received") === "on";
+      const photos=receptionPhotos(form);
       const created = await createPackage({ client_id: value("client_id"), shipping_service_id: value("shipping_service_id"), route_id: value("route_id"),
         supplier_tracking: value("supplier_tracking") || null, description: value("description") || null,
         category:value('category') || null,package_type:(value('package_type') || 'carton') as PackageRecord['package_type'],
@@ -104,8 +107,11 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
         weight_kg: value("weight_kg") ? Number(value("weight_kg")) : null, pieces_count: Number(value("pieces_count") || "1"),
         warehouse_location: value("warehouse_location") || null, status: physicalReceived ? "RECEIVED_AT_ORIGIN" : "CREATED",
         received_at: physicalReceived ? new Date().toISOString() : null, source: "manual" });
+      const failed=await uploadReceptionPhotos(created.id,photos,form.get('share_reception_photos')==='on');
+      setNotice(failed.length?`Le colis est enregistré. Photos à vérifier dans sa fiche : ${failed.join(', ')}. Ne recréez pas le colis ; un envoi interrompu peut avoir réussi.`:'');
       setCreateOpen(false); setPage(1); setRevision(value => value + 1); setOpening(created.id);
     } catch (cause) {
+      if(cause instanceof ReceptionPhotoValidationError){setSaveError(cause.message);return;}
       const detail = axios.isAxiosError(cause) ? cause.response?.data?.detail : null;
       setSaveError(detail === "supplier_tracking_already_exists" ? "Cette référence fournisseur existe déjà. Vérifiez le colis existant ; votre saisie est conservée."
         : detail === "shipping_service_not_found_for_route" || detail === "route_not_found" ? "Le service ou la route n’est plus disponible. Vérifiez la configuration du bureau."
@@ -117,6 +123,7 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
   function reset() { setQuery(""); setStage(""); setDates({ start: "", end: "" }); setPage(1); }
   const filtered = Boolean(query || stage || dates.start || dates.end);
   return <div className={`min-h-full bg-white ${embedded ? "py-2" : ""}`}>
+    {notice&&<p role="status" className="mx-4 my-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900">{notice}</p>}
     {!embedded && <OperationPageHeader title="Colis" description="De la réception à la remise au client." backHref="/app/operations" backLabel="Retour aux opérations"
       actions={<PermissionGuard permission="packages.create"><OperationButton variant="primary" onClick={() => { setSaveError(""); setCreateOpen(true); }}><Plus size={15} />Enregistrer un colis</OperationButton></PermissionGuard>} />}
     <section aria-label="Registre des colis" className={`mx-auto w-full pb-8 ${embedded ? "max-w-full px-0" : "max-w-[1200px] px-6 sm:px-8"}`}>

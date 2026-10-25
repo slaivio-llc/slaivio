@@ -1,4 +1,5 @@
 import hashlib
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter,Depends,File,Form,HTTPException,Query,Request,Response,UploadFile
@@ -29,9 +30,9 @@ class CreatePayload(BaseModel):package_ids:list[str]=Field(min_length=1,max_leng
 class VersionPayload(BaseModel):expected_version:int=Field(ge=1)
 class OtpPayload(BaseModel):code:str=Field(pattern=r"^\d{6}$")
 class IdentityPayload(BaseModel):recipient_type:str="CLIENT";authorized_person_name:str|None=None;authorized_person_phone:str|None=None;identity_type:str=Field(min_length=2,max_length=50);identity_reference:str=Field(min_length=4,max_length=120)
-class PaymentPayload(BaseModel):payment_status:str;paid_amount:float=Field(ge=0)
+class PaymentPayload(BaseModel):payment_status:str;paid_amount:Decimal=Field(ge=0,max_digits=14,decimal_places=2,allow_inf_nan=False)
 class ReleasePayload(BaseModel):expected_version:int=Field(ge=1);signed_by:str=Field(min_length=2,max_length=160);signature_text:str|None=None;override_reason:str|None=None
-class SettingsPayload(BaseModel):grace_days:int=Field(ge=0);daily_storage_fee:float=Field(ge=0);currency:str=Field(min_length=3,max_length=3);otp_ttl_minutes:int=Field(ge=2,le=120);max_otp_attempts:int=Field(ge=1,le=20);require_payment:bool=True;require_identity:bool=True;require_signature:bool=True
+class SettingsPayload(BaseModel):grace_days:int=Field(ge=0,le=365);daily_storage_fee:Decimal=Field(ge=0,max_digits=14,decimal_places=2,allow_inf_nan=False);currency:str=Field(pattern=r'^[A-Z]{3}$');otp_ttl_minutes:int=Field(ge=2,le=120);max_otp_attempts:int=Field(ge=1,le=20);require_payment:bool=True;require_identity:bool=True;require_signature:bool=True
 
 @router.get("")
 def index(q:str|None=None,status:str|None=None,page:int=Query(default=1,ge=1),page_size:int=Query(default=50,ge=1,le=100),tenant=Depends(get_current_tenant),context=Depends(get_current_office_context),_=Depends(require_permission("pickups.read"))):return repo.queue(tenant["org_id"],q,status,page,page_size,office_scope_ids(context))

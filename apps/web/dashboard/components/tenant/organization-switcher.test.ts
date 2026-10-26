@@ -1,23 +1,20 @@
 import { describe, expect, it } from "vitest";
-
 import { formatOfficeDisplayName, formatOrganizationDisplayName, formatWarehouseDisplayName } from "./organization-switcher";
 
-describe("organization display name", () => {
-  it("normalizes warehouse names without duplicating their suffix", () => {
-    expect(formatWarehouseDisplayName("LUZA CHINE")).toBe("luza chine's warehouse");
-    expect(formatWarehouseDisplayName("LUZA CHINE'S WAREHOUSE")).toBe("luza chine's warehouse");
+describe("Noms des espaces",()=>{
+  it("préserve le nom de l’agence et sa casse",()=>{
+    expect(formatOrganizationDisplayName("  Cargo   Express  ")).toBe("Cargo Express");
+    expect(formatOfficeDisplayName("Kinshasa")).toBe("Kinshasa");
+    expect(formatWarehouseDisplayName("Guangzhou")).toBe("Guangzhou");
   });
-  it("normalizes the organization label without changing the stored name", () => {
-    expect(formatOrganizationDisplayName("OTIE CARGO")).toBe("otie cargo's org");
-    expect(formatOrganizationDisplayName("  Otie   Cargo  ")).toBe("otie cargo's org");
+  it("ne réaffiche pas les anciens suffixes anglais",()=>{
+    expect(formatOfficeDisplayName("Kinshasa's office")).toBe("Kinshasa");
+    expect(formatWarehouseDisplayName("Guangzhou'S WAREHOUSE")).toBe("Guangzhou");
+    expect(formatOrganizationDisplayName("Cargo Express's org")).toBe("Cargo Express");
   });
-
-  it("does not append the suffix twice", () => {
-    expect(formatOrganizationDisplayName("otie cargo's org")).toBe("otie cargo's org");
-  });
-
-  it("uses a normalized office label for parcel and freight workspaces", () => {
-    expect(formatOfficeDisplayName("OTIE CARGO")).toBe("otie cargo's office");
-    expect(formatOfficeDisplayName("otie cargo's office")).toBe("otie cargo's office");
+  it("utilise des libellés français lorsque le nom manque",()=>{
+    expect(formatOrganizationDisplayName(null)).toBe("Agence");
+    expect(formatOfficeDisplayName(" ")).toBe("Bureau");
+    expect(formatWarehouseDisplayName()).toBe("Entrepôt");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Check, ChevronDown, Plus, Warehouse, X } from "lucide-react";
+import { Building2, Check, ChevronsUpDown, Plus, Warehouse, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -16,10 +16,10 @@ type Tenant = { org_id:string; organization_name?:string|null; organization_type
 const inputClass=operationInputClass;
 
 function workspaceLabel(tenant:Tenant){return tenant.workspace_kind==="WAREHOUSE" ? formatWarehouseDisplayName(tenant.organization_name) : formatOfficeDisplayName(tenant.organization_name);}
-function normalizedWorkspaceName(value?:string|null){return value?.trim().replace(/\s+/g," ").toLowerCase()||"";}
-export function formatOrganizationDisplayName(value?:string|null){const normalized=normalizedWorkspaceName(value);if(!normalized)return "organisation";return normalized.endsWith("'s org")?normalized:`${normalized}'s org`;}
-export function formatWarehouseDisplayName(value?:string|null){const normalized=normalizedWorkspaceName(value);if(!normalized)return "entrepôt";return normalized.endsWith("'s warehouse")?normalized:`${normalized}'s warehouse`;}
-export function formatOfficeDisplayName(value?:string|null){const normalized=normalizedWorkspaceName(value);if(!normalized)return "bureau";return normalized.endsWith("'s office")?normalized:`${normalized}'s office`;}
+function normalizedWorkspaceName(value?:string|null){return value?.trim().replace(/\s+/g," ").replace(/'s (org|office|warehouse)$/i,"")||"";}
+export function formatOrganizationDisplayName(value?:string|null){return normalizedWorkspaceName(value)||"Agence";}
+export function formatWarehouseDisplayName(value?:string|null){return normalizedWorkspaceName(value)||"Entrepôt";}
+export function formatOfficeDisplayName(value?:string|null){return normalizedWorkspaceName(value)||"Bureau";}
 
 export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=false}:{collapsed?:boolean;menuPlacement?:"up"|"down";header?:boolean}){
   const rootRef=useRef<HTMLDivElement>(null);
@@ -34,6 +34,9 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   const canCreateOffice=parcelFreight&&available&&permissions.includes("network.offices.manage");
   const networkTenants=activeTenant?.group_id?tenants.filter(tenant=>tenant.group_id===activeTenant.group_id):[];
   const activeLabel=parcelFreight?workspaceLabel(activeTenant!):formatOrganizationDisplayName(activeTenant?.organization_name);
+  const agencyName=formatOrganizationDisplayName(activeTenant?.network_name||activeTenant?.organization_name);
+  const currentPlace=activeTenant?.city||activeLabel;
+  const visibleTenants=(networkConfigured?networkTenants:tenants).filter(matching);
 
   const load=useCallback(async()=>{try{const data=await getTenantContext();setTenants(data.tenants||[]);setActiveTenant(data.active_tenant||null);setError("");}catch{setError("Espaces indisponibles");}finally{setLoading(false);}},[]);
   useEffect(()=>{load();},[load]);
@@ -43,36 +46,40 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   function closeMenu(){setOpen(false);triggerRef.current?.focus();}
   function matching(tenant:Tenant){return `${tenant.organization_name||""} ${tenant.city||""} ${tenant.country||""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());}
 
-  async function handleSwitch(tenant:Tenant){if(switching)return;if(tenant.org_id===activeTenant?.org_id){setOpen(false);return;}setSwitching(true);setError("");try{await switchTenant(tenant.org_id);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.reload();}catch{setError("Changement impossible");setSwitching(false);}}
+  async function handleSwitch(tenant:Tenant){if(switching)return;if(tenant.org_id===activeTenant?.org_id){setOpen(false);return;}setSwitching(true);setError("");try{await switchTenant(tenant.org_id);window.sessionStorage.removeItem("slaivio:dashboard-home");window.sessionStorage.removeItem("slaivio:office-context");window.location.reload();}catch{setError("Changement impossible");setSwitching(false);}}
   async function handleCreate(event:React.FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);setCreating(true);setError("");try{if(parcelFreight){const value=(key:string)=>String(form.get(key)||"").trim();await createNetworkOffice({workspace_kind:value("workspace_kind") as "OFFICE"|"WAREHOUSE",organization_name:value("organization_name"),office_code:value("office_code"),country:value("country"),country_code:value("country_code"),city:value("city"),currency_code:value("currency_code")||"USD",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",address:[value("address_line_1"),value("address_line_2")].filter(Boolean).join("\n")||null,phone:value("phone")||null,email:value("email")||null});setCreateOpen(false);await load();}else{const name=organizationName.trim();if(name.length<2){setError("Saisissez un nom d’organisation.");return;}await createTenant(name);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.assign("/onboarding");}}catch{setError(parcelFreight?`La création du ${workspaceKind==="WAREHOUSE"?"entrepôt":"bureau"} a échoué.`:"La création de l’organisation a échoué.");}finally{setCreating(false);}}
   function tenantRow(tenant:Tenant,office=false){
     const Icon=tenant.workspace_kind==="WAREHOUSE"?Warehouse:Building2;
     const label=office?(tenant.city||tenant.organization_name||"Bureau"):["PARCEL_FREIGHT","CARGO"].includes(tenant.organization_type||"")?workspaceLabel(tenant):formatOrganizationDisplayName(tenant.organization_name);
-    return <button key={tenant.org_id} type="button" disabled={switching} onClick={()=>handleSwitch(tenant)} aria-current={tenant.org_id===activeTenant?.org_id?"true":undefined} className={operationMenuItemClass}>
-      <Icon size={15} aria-hidden="true" className="shrink-0 text-slate-400"/><span className="min-w-0 flex-1 py-1"><span className="block truncate font-medium">{label}</span>{(tenant.city||tenant.country)&&<span className="mt-0.5 block truncate text-xs text-slate-500">{[tenant.city,tenant.country].filter(Boolean).join(" · ")}</span>}</span>{tenant.org_id===activeTenant?.org_id&&<Check size={15} aria-label="Actif" className="shrink-0 text-emerald-700"/>}
+    return <button key={tenant.org_id} type="button" disabled={switching} onClick={()=>handleSwitch(tenant)} aria-current={tenant.org_id===activeTenant?.org_id?"true":undefined} title={tenant.organization_name||label} className={`${operationMenuItemClass} min-h-10 gap-2 rounded-md text-[#30363a]`}>
+      <Icon size={15} aria-hidden="true" className="shrink-0 text-slate-400"/><span className="min-w-0 flex-1 py-1"><span className="block truncate font-medium">{label}</span></span>{tenant.org_id===activeTenant?.org_id&&<Check size={15} aria-label="Actif" className="shrink-0 text-emerald-700"/>}
     </button>;
   }
 
   return <div ref={rootRef} onKeyDown={event=>{if(event.key==="Escape"&&open){event.stopPropagation();closeMenu();}if(open&&["ArrowDown","ArrowUp"].includes(event.key)&&event.target instanceof HTMLButtonElement){const choices=Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-workspace-menu] button:not(:disabled),[data-workspace-menu] a")||[]);const index=choices.indexOf(event.target);event.preventDefault();choices[(index+(event.key==="ArrowDown"?1:-1)+choices.length)%choices.length]?.focus();}}} className={`relative ${collapsed?"lg:p-0":""} ${header?"w-[min(190px,44vw)]":""}`}>
-    <button ref={triggerRef} type="button" aria-controls={open?menuId:undefined} aria-label={activeLabel} onClick={()=>setOpen(value=>!value)} disabled={loading||switching} aria-expanded={open} title={collapsed?activeLabel:undefined} className={`flex w-full items-center rounded-[6px] border border-[#d8dadd] bg-white text-left shadow-[0_1px_1px_rgba(15,23,42,.03)] hover:border-[#c7cbcf] hover:bg-[#f7f7f6] disabled:opacity-60 ${header?"min-h-9 gap-2 px-3":"min-h-10"} ${collapsed?"lg:justify-center lg:px-1":header?"":"gap-2 px-3"}`}>
-      {(collapsed||header)&&<Building2 size={16} className={`${collapsed?"hidden lg:block":""} shrink-0 text-[#16855f]`}/>}<span className={`min-w-0 flex-1 ${collapsed?"lg:hidden":""}`}><span className="block truncate text-[13px] font-medium text-[#25292e]">{loading?"…":activeTenant?activeLabel:"Choisir un espace"}</span></span><ChevronDown size={15} className={`shrink-0 text-[#73777c] transition ${collapsed?"lg:hidden":""} ${open?"rotate-180":""}`}/>
+    <button ref={triggerRef} type="button" aria-controls={open?menuId:undefined} aria-label={parcelFreight?`Changer de bureau : ${agencyName}`:activeLabel} onClick={()=>setOpen(value=>!value)} disabled={loading||switching} aria-expanded={open} title={collapsed?agencyName:undefined} className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left transition-colors hover:bg-[#f4f5f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/25 disabled:opacity-60 ${collapsed?"lg:justify-center lg:px-1":""}`}>
+      <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[14px] font-medium text-[#30363a]">{agencyName.charAt(0).toLocaleUpperCase("fr")}</span>
+      <span className={`min-w-0 flex-1 ${collapsed?"lg:hidden":""}`}><span className="block truncate text-[13px] font-medium text-[#25292e]">{loading?"Chargement…":switching?"Changement…":activeTenant?agencyName:"Choisir un espace"}</span><span className="mt-0.5 block truncate text-[11px] text-[#737b82]">{activeTenant?currentPlace:"Bureaux et entrepôts"}</span></span>
+      <ChevronsUpDown size={13} aria-hidden="true" className={`shrink-0 text-[#73777c] ${collapsed?"lg:hidden":""}`}/>
     </button>
-    {open&&<div id={menuId} data-workspace-menu className={`absolute z-50 w-[280px] max-w-[calc(100vw-24px)] ${operationMenuClass} ${collapsed?"bottom-0 left-[48px]":menuPlacement==="down"?header?"right-0 top-[44px]":"left-0 top-[48px]":"bottom-[48px] left-0"}`}>
+    {open&&<div id={menuId} data-workspace-menu className={`absolute z-50 w-[320px] max-w-[calc(100vw-24px)] ${operationMenuClass} ${collapsed?"bottom-0 left-[48px]":menuPlacement==="down"?header?"right-0 top-[48px]":"left-0 top-[48px]":"bottom-[48px] left-0"}`}>
       {parcelFreight ? <>
-        <div className="border-b border-slate-100 px-3 pb-2 pt-1"><p className="truncate text-[13px] font-semibold text-[#25292e]">{activeTenant?.network_name||activeTenant?.organization_name||"Agence"}</p><p className="mt-0.5 truncate text-[12px] text-slate-500">{activeTenant?.city||activeTenant?.country||""}</p></div>
-        {tenants.length>6&&<input type="search" aria-label="Rechercher un bureau ou entrepôt" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
-        <div className="max-h-64 overflow-y-auto px-2 py-1">
-          {(["OFFICE","WAREHOUSE"] as const).map(kind=>{
-            const items=(networkConfigured?networkTenants:tenants).filter(tenant=>(tenant.workspace_kind||"OFFICE")===kind&&matching(tenant));
-            if(!items.length)return null;
-            return <section key={kind} className="py-1"><p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{kind==="OFFICE"?"Bureaux":"Entrepôts"}</p>{items.map(tenant=>tenantRow(tenant,true))}</section>;
-          })}
-          {!tenants.some(matching)&&<p className="px-2 py-3 text-xs text-slate-500">Aucun bureau ou entrepôt disponible.</p>}
+        <div className="flex items-center gap-3 px-2.5 pb-3 pt-2"><span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center text-[14px] font-medium">{agencyName.charAt(0).toLocaleUpperCase("fr")}</span><div className="min-w-0"><p className="truncate text-[13px] font-medium text-[#25292e]">{agencyName}</p><p className="mt-0.5 truncate text-[11px] text-[#737b82]">{currentPlace}</p></div></div>
+        <div className="rounded-lg border border-[#e0e2e3] p-1.5">
+          {tenants.length>6&&<input type="search" aria-label="Rechercher un bureau ou entrepôt" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
+          <div className="max-h-[min(320px,45dvh)] overflow-y-auto">
+            {(["OFFICE","WAREHOUSE"] as const).map(kind=>{
+              const items=visibleTenants.filter(tenant=>(tenant.workspace_kind||"OFFICE")===kind);
+              if(!items.length)return null;
+              return <section key={kind} aria-label={kind==="OFFICE"?"Bureaux":"Entrepôts"} className={`py-1 ${kind==="WAREHOUSE"&&visibleTenants.some(tenant=>(tenant.workspace_kind||"OFFICE")==="OFFICE")?"mt-1 border-t border-[#eceeee] pt-2":""}`}><p className="px-2 pb-1 text-[9px] font-medium uppercase tracking-wide text-[#858b90]">{kind==="OFFICE"?"Bureaux":"Entrepôts"}</p>{items.map(tenant=>tenantRow(tenant,true))}</section>;
+            })}
+            {!visibleTenants.length&&<p className="px-2 py-3 text-xs text-slate-500">Aucun bureau ou entrepôt disponible.</p>}
+          </div>
+          {canCreateOffice&&<div className="mt-1 grid border-t border-[#eceeee] pt-1.5">
+            <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("OFFICE");setCreateOpen(true);}}><Plus size={13} aria-hidden="true"/>Créer un bureau</button>
+            <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("WAREHOUSE");setCreateOpen(true);}}><Plus size={13} aria-hidden="true"/>Créer un entrepôt</button>
+          </div>}
         </div>
-        {canCreateOffice&&<div className="grid border-t border-slate-100 px-2 py-1">
-          <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("OFFICE");setCreateOpen(true);}}><Plus size={14}/>Créer un bureau</button>
-          <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("WAREHOUSE");setCreateOpen(true);}}><Plus size={14}/>Créer un entrepôt</button>
-        </div>}
       </> : <>
         <div className="flex items-center justify-between px-2.5 py-1.5"><span className="text-xs font-medium text-slate-500">Changer d’organisation</span><button type="button" onClick={closeMenu} className="rounded-md p-1 text-slate-400 hover:bg-slate-50" aria-label="Fermer"><X size={14}/></button></div>
         {tenants.length>6&&<input type="search" aria-label="Rechercher une organisation" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}

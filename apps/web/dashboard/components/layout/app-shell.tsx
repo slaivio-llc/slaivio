@@ -348,7 +348,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {cargo && <button type="button" onClick={() => setSearchOpen(true)} aria-label={locale === "en" ? "Search Slaivio" : "Rechercher dans Slaivio"} className="mr-2 flex h-9 min-w-9 items-center gap-2 rounded-md border border-[#d7dade] bg-white px-2 text-sm text-[#656c74] hover:bg-[#f8faf9] sm:w-[min(360px,28vw)] sm:px-3"><Search size={16}/><span className="hidden min-w-0 flex-1 truncate text-left sm:block">{locale === "en" ? "Search Slaivio…" : "Rechercher dans Slaivio…"}</span><kbd className="hidden text-[10px] lg:block">Ctrl K</kbd></button>}
           <TrialBanner/>
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            {cargo && <div className="w-[min(190px,32vw)]"><OfficeContextSelector compact /></div>}
+            {cargo && <OrganizationSwitcher header menuPlacement="down" />}
             {pilot && !cargo && <PilotReadinessPanel compact />}
             {!pilot && !cargo && <HeaderButton label="Assistant" icon={<Sparkles size={16} />} onClick={() => router.push("/app/assistant")} active={pathname.startsWith("/app/assistant")} showLabel />}
             {(cargo || !pilot) && <HeaderButton label="Aide" icon={<CircleHelp size={16} />} onClick={() => togglePanel("help")} active={floatingPanel === "help"} showLabel={!cargo} />}

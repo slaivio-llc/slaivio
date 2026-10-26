@@ -1,4 +1,5 @@
 from sqlalchemy import text
+from contextlib import nullcontext
 
 from app.db.database import engine
 
@@ -10,8 +11,9 @@ def create_invitation_record(
     clerk_invitation_id: str | None = None,
     invited_by_id: str | None = None,
     invited_by_name: str | None = None,
+    connection=None,
 ):
-    with engine.connect() as conn:
+    with (nullcontext(connection) if connection is not None else engine.begin()) as conn:
         row = conn.execute(
             text("""
                 insert into organization_invitations (
@@ -41,8 +43,6 @@ def create_invitation_record(
                 "invited_by_name": invited_by_name,
             },
         ).fetchone()
-
-        conn.commit()
 
         return dict(row._mapping) if row else None
 

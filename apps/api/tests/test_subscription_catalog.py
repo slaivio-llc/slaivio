@@ -12,16 +12,16 @@ def test_catalog_features_come_from_implemented_products_and_enabled_entitlement
     def rows(values):return [SimpleNamespace(_mapping=value) for value in values]
     conn.execute.return_value.fetchall.side_effect=[
         rows([{'code':'STARTER','max_users':3},{'code':'PRO','max_users':10}]),
-        rows([{'plan_code':'STARTER','entitlement_key':'finance_dashboard'},
-              {'plan_code':'PRO','entitlement_key':'wallet'}]),
+        rows([{'plan_code':'STARTER','entitlement_key':'max_monthly_packages','limit_value':500},
+              {'plan_code':'PRO','entitlement_key':'max_monthly_packages','limit_value':2500}]),
     ]
     monkeypatch.setattr(plan_repository,'engine',engine)
     starter,pro=plan_repository.list_pricing_plans()
-    assert 'Gestion des colis et des expéditions' in starter['included_features']
-    assert 'Tableau de bord financier (selon activation)' in starter['included_features']
-    assert not any('portefeuille' in item for item in starter['included_features'])
-    assert 'Éligibilité au portefeuille agence (activation requise)' in pro['included_features']
-    assert all('utilisateurs' not in item for item in starter['included_features'])
+    assert starter['limits']['max_monthly_packages']==500
+    assert pro['limits']['max_monthly_packages']==2500
+    assert 'Relances clients programmées' not in starter['included_features']
+    assert 'Relances clients programmées' in pro['included_features']
+    assert pro['recommended'] is True
 
 
 def test_provisioning_a_new_agency_creates_its_trial_automatically(monkeypatch):

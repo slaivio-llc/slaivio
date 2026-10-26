@@ -7,6 +7,10 @@ async def global_exception_handler(
     request,
     exc,
 ):
+    from app.billing.services.capacity import limit_error
+    capacity = limit_error(exc)
+    if capacity:
+        return JSONResponse(status_code=409, content={'detail': capacity})
     logger.exception(
         "unhandled_exception"
     )

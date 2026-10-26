@@ -17,21 +17,24 @@ def list_pricing_plans():
             """),
         ).fetchall()
 
-        # Public catalogue reflects implemented capabilities, not historical
-        # numeric quotas that are not currently enforced by operation routes.
-        common = ['Gestion des colis et des expéditions', 'Suivi des colis et page de tracking',
-                  'Gestion des clients', 'Services, routes et tarifs',
-                  'Documents et étiquettes', 'Rapports et exports', 'Équipe et permissions']
-        flags = conn.execute(text("""select plan_code,entitlement_key from plan_entitlements
-            where entitlement_type='BOOLEAN' and boolean_value=true
-              and entitlement_key in ('finance_dashboard','wallet')""")).fetchall()
-        enabled = {(row._mapping['plan_code'],row._mapping['entitlement_key']) for row in flags}
+        entries=conn.execute(text("""select plan_code,entitlement_key,limit_value
+            from plan_entitlements where entitlement_type='LIMIT'
+            and entitlement_key in ('max_monthly_packages','max_users','max_offices','max_warehouses','max_whatsapp_numbers')""")).fetchall()
+        limits={}
+        for entry in entries:
+            data=dict(entry._mapping)
+            limits.setdefault(data['plan_code'],{})[data['entitlement_key']]=data['limit_value']
         plans=[]
         for row in rows:
             plan=dict(row._mapping)
-            plan['included_features']=list(common)
-            for key,label in [('finance_dashboard','Tableau de bord financier (selon activation)'),('wallet','Éligibilité au portefeuille agence (activation requise)')]:
-                if (plan['code'],key) in enabled:plan['included_features'].append(label)
+            plan['limits']=limits.get(plan['code'],{})
+            pro=plan['code']=='PRO'
+            business=plan['code'] in ('ENTERPRISE','BUSINESS')
+            plan['positioning']='Piloter son réseau' if business else 'Automatiser sa croissance' if pro else 'Organiser son agence'
+            plan['recommended']=pro
+            plan['included_features']=(['Tout Pro, avec une capacité multisite supérieure','Accès des équipes par bureau et entrepôt']
+                if business else ['Tout Starter, avec davantage de capacité','Relances clients programmées','Annonces de départ aux contacts consentants']
+                if pro else ['Colis, expéditions et tarifs par marchandise','Paiements, factures et étiquettes','Tracking public avec photos','Confirmations clients automatiques'])
             plans.append(plan)
         return plans
 

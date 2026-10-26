@@ -27,12 +27,13 @@ def overview(tenant=Depends(get_current_tenant)):
   problems=[dict(row) for row in c.execute(text("""select id,package_reference,automation_last_error from cargo_packages
    where org_id=:o and deleted_at is null and automation_last_error is not null limit 50"""),{'o':tenant['org_id']}).mappings()]
   qualification=c.execute(text('select auto_create_qualified_whatsapp_clients from ai_settings where org_id=:o'),{'o':tenant['org_id']}).scalar()
+  advanced=c.execute(text('select billing_advanced_automation(:o)'),{'o':tenant['org_id']}).scalar()
   shares=[dict(row) for row in c.execute(text("""select s.id,s.revoked_at,d.document_number,coalesce(p.pickup_reference,cp.package_reference) pickup_reference
    from customer_document_shares s join finance_documents d on d.org_id=s.org_id and d.id=s.document_id
    left join pickup_orders p on p.org_id=s.org_id and p.id=s.pickup_id
    left join cargo_packages cp on cp.org_id=s.org_id and cp.id=s.package_id where s.org_id=:o
    order by s.created_at desc limit 30"""),{'o':tenant['org_id']}).mappings()]
- return {'templates':TEMPLATES,'variables':sorted(VARIABLE_ALIASES),'failures':failures,'expectations':waiting,'package_problems':problems,'auto_create_qualified':qualification is True,'document_shares':shares}
+ return {'advanced_automation':advanced is True,'templates':TEMPLATES,'variables':sorted(VARIABLE_ALIASES),'failures':failures,'expectations':waiting,'package_problems':problems,'auto_create_qualified':qualification is True,'document_shares':shares}
 
 
 class Expectation(BaseModel):

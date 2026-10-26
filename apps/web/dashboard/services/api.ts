@@ -59,6 +59,7 @@ function agencyErrorMessage(raw:string):string {
 export function apiErrorDetail(error: unknown): string {
   if (!axios.isAxiosError(error)) return "";
   const detail = error.response?.data?.detail;
+  if(detail?.code==='plan_limit_reached'&&typeof detail.message==='string')return detail.message;
   const raw = Array.isArray(detail)
     ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")
     : typeof detail === "string" ? detail : "";
@@ -223,13 +224,14 @@ api.interceptors.response.use(
         const raw = Array.isArray(detail)
           ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")
           : typeof detail === "string" ? detail : "";
-        const detailMessage = agencyErrorMessage(raw);
+        const quotaMessage=detail?.code==='plan_limit_reached'&&typeof detail.message==='string'?detail.message:'';
+        const detailMessage = quotaMessage||agencyErrorMessage(raw);
         const conflictMessage = raw === "workflow_execution_in_progress"
           ? "La création est déjà en cours. Patientez quelques instants avant de réessayer."
           : raw === "workflow_already_decided"
             ? "Cette action a déjà été traitée. Rechargez la page pour voir son état actuel."
             : `Cette opération entre en conflit avec l’état actuel.${detailMessage ? ` ${detailMessage}` : ""}`;
-        const message = !error.response
+        const message = quotaMessage||(!error.response
           ? "Le serveur est injoignable. Vérifiez le déploiement du backend."
           : error.response.status === 403
             ? "Vous n’avez pas la permission d’effectuer cette action."
@@ -237,7 +239,7 @@ api.interceptors.response.use(
               ? conflictMessage
               : error.response.status === 422
                 ? `Certaines données sont invalides ou incompatibles.${detailMessage ? ` ${detailMessage}` : ""}`
-                : detailMessage || `L’opération a échoué (erreur ${error.response.status}).`;
+                : detailMessage || `L’opération a échoué (erreur ${error.response.status}).`);
         window.dispatchEvent(new CustomEvent(API_MUTATION_FAILED_EVENT, { detail: { message, status: error.response?.status } }));
       }
     }

@@ -4,6 +4,7 @@ import hashlib
 import logging
 
 import requests
+from app.billing.services.capacity import invitation_capacity
 from app.core.config import settings
 from app.organizations.repositories.organization_repository import (
     link_clerk_organization, organization_clerk_link_lock,
@@ -113,32 +114,34 @@ def invite_user_to_org(
     clerk_org_id = _ensure_clerk_organization(org_id, clerk_org_id)
     email = email.strip().lower()
     redirect_url = settings.public_web_base_url.rstrip("/") + "/app"
-    response = _post_invitation(
-            f"https://api.clerk.com/v1/organizations/{clerk_org_id}/invitations",
-            headers={
-                "Authorization": f"Bearer {CLERK_SECRET_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "email_address": email,
-                "role": "org:member",
-                "redirect_url": redirect_url,
-            },
-            timeout=30,
-    )
-    clerk_data = _provider_data(response)
-    clerk_invitation_id = clerk_data.get("id")
-    if not clerk_invitation_id:
-        raise InvitationProviderError("invitation_provider_invalid_response")
+    with invitation_capacity(org_id,email) as capacity_connection:
+        response = _post_invitation(
+                f"https://api.clerk.com/v1/organizations/{clerk_org_id}/invitations",
+                headers={
+                    "Authorization": f"Bearer {CLERK_SECRET_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "email_address": email,
+                    "role": "org:member",
+                    "redirect_url": redirect_url,
+                },
+                timeout=30,
+        )
+        clerk_data = _provider_data(response)
+        clerk_invitation_id = clerk_data.get("id")
+        if not clerk_invitation_id:
+            raise InvitationProviderError("invitation_provider_invalid_response")
 
-    invitation = create_invitation_record(
-        org_id=org_id,
-        email=email,
-        role_code=role_code,
-        clerk_invitation_id=clerk_invitation_id,
-        invited_by_id=invited_by_id,
-        invited_by_name=invited_by_name,
-    )
+        invitation = create_invitation_record(
+            org_id=org_id,
+            email=email,
+            role_code=role_code,
+            clerk_invitation_id=clerk_invitation_id,
+            invited_by_id=invited_by_id,
+            invited_by_name=invited_by_name,
+            connection=capacity_connection,
+        )
 
     return {
         "clerk": clerk_data,

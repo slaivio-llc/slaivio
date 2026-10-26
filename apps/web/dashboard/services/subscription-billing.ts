@@ -1,9 +1,10 @@
 import { api } from "./api";
 
-export type SubscriptionPlan = { code:string;name:string;monthly_price_minor:number;currency_code:string;included_features?:string[];max_users?:number|null;max_whatsapp_numbers?:number|null;max_monthly_messages?:number|null };
+export type SubscriptionPlan = { code:string;name:string;monthly_price_minor:number;currency_code:string;included_features?:string[];limits?:Record<string,number>;positioning?:string;recommended?:boolean;max_users?:number|null;max_whatsapp_numbers?:number|null;max_monthly_messages?:number|null };
 export type BillingOverview = {
   billing_account_id:string;trial_days:number;access_active:boolean;checkout_available:boolean;
   payer?:{email:string;name:string}|null;
+  capacity?:{limits:Record<string,number>;usage:Record<string,number>;transition_active:boolean;enforce_from:string|null;period_ends_at:string;timezone:string};
   subscription:{plan_code:string;plan_name:string;status:string;monthly_price_minor:number;currency_code:string;trial_ends_at:string|null;ends_at:string|null}|null;
   invoices:Array<{id:string;invoice_number:string;status:string;total_minor:number;currency_code:string;created_at?:string}>;
   usage:Record<string,number>;

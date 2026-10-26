@@ -7,7 +7,7 @@ from app.db.database import engine
 
 def account_id(org_id, connection=None):
     if connection is not None:
-        return connection.execute(text("select coalesce(parent_org_id,id) from organizations where id=:org"), {"org": org_id}).scalar_one()
+        return connection.execute(text("select billing_root(:org)"), {"org": org_id}).scalar_one()
     with engine.connect() as conn:
         return account_id(org_id, conn)
 

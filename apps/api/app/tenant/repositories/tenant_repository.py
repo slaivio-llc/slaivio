@@ -120,7 +120,7 @@ def get_active_tenant(
                 join organizations o
                     on o.id = s.org_id
                 left join agency_subscriptions subscription
-                    on subscription.org_id=coalesce(o.parent_org_id,o.id)
+                    on subscription.org_id=billing_root(o.id)
                 left join organization_settings agency_settings on agency_settings.org_id=o.id
                 left join organization_groups g on g.id = o.group_id
                 join organization_memberships m

@@ -8,6 +8,11 @@ from app.api import invitations, organization_network
 from app.organizations.services import invitation_service
 
 
+@pytest.fixture(autouse=True)
+def isolated_capacity(monkeypatch):
+    monkeypatch.setattr(invitation_service,'invitation_capacity',lambda *_:nullcontext(None))
+
+
 class ClerkResponse:
     def __init__(self, payload: dict, ok: bool = False, status_code: int = 400):
         self.payload = payload

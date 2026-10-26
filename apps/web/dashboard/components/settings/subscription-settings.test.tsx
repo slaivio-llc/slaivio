@@ -14,6 +14,15 @@ const overview:billing.BillingOverview={
   subscription:{plan_code:'STARTER',plan_name:'Starter',status:'TRIAL',monthly_price_minor:11900,currency_code:'USD',trial_ends_at:new Date(Date.now()+30*86400000).toISOString(),ends_at:null},invoices:[],usage:{clients:2,members:1},
 };
 
+it('shows server-enforced capacities, an 80 percent warning and a transition without inventing unlimited access',async()=>{
+  vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,capacity:{limits:{max_monthly_packages:500,max_users:3},usage:{max_monthly_packages:400,max_users:3},transition_active:true,enforce_from:'2026-11-26T00:00:00Z',period_ends_at:'2026-11-01T00:00:00Z',timezone:'Africa/Kinshasa'}});
+  render(<SubscriptionSettings organization={{}}/>);
+  expect(await screen.findByRole('progressbar',{name:'Colis créés par mois'})).toHaveAttribute('value','400');
+  expect(screen.getByText(/au moins 80 %/)).toBeVisible();
+  expect(screen.getByText(/Limite atteinte/)).toBeVisible();
+  expect(screen.getByText(/Période de transition/)).toBeVisible();
+});
+
 beforeEach(()=>{
   vi.clearAllMocks();window.sessionStorage.clear();navigation.params=new URLSearchParams();
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue(overview);

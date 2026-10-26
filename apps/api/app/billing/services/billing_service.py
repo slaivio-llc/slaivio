@@ -105,6 +105,7 @@ def confirm_invoice_payment(
 def get_billing_overview(
     org_id: str,
 ):
+    from app.billing.services.capacity import overview as capacity_overview
     from sqlalchemy import text
     from app.billing.repositories.saspay_repository import account_id, ensure_trial, pending_checkout
     from app.billing.services.saspay_client import configured
@@ -129,5 +130,6 @@ def get_billing_overview(
         "pending_checkout":pending_checkout(org_id),
         "invoices": list_invoices(org_id),
         "usage":usage,
+        "capacity":capacity_overview(org_id),
     }
 

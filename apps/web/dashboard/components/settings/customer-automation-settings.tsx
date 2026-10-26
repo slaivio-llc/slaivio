@@ -1,11 +1,12 @@
 "use client";
 import {FormEvent,useCallback,useEffect,useState} from 'react';
+import Link from 'next/link';
 import {api} from '@/services/api';
 import {updateSettings,type AdminData} from '@/services/organization-admin';
 import {updateQualifiedProspectAutoCreate} from '@/services/inbox';
 import {PermissionGuard} from '@/components/permissions/permission-guard';
 
-type Overview={templates:Record<string,string>;variables:string[];expectations:Array<{id:string;client_name:string;reference:string|null;reminder_count:number}>;failures:Array<{id:string;kind:string;last_error:string;status?:string}>;package_problems:Array<{id:string;package_reference:string}>;auto_create_qualified:boolean;document_shares:Array<{id:string;document_number:string;pickup_reference:string;revoked_at:string|null}>};
+type Overview={advanced_automation?:boolean;templates:Record<string,string>;variables:string[];expectations:Array<{id:string;client_name:string;reference:string|null;reminder_count:number}>;failures:Array<{id:string;kind:string;last_error:string;status?:string}>;package_problems:Array<{id:string;package_reference:string}>;auto_create_qualified:boolean;document_shares:Array<{id:string;document_number:string;pickup_reference:string;revoked_at:string|null}>};
 type Policy={awaiting_enabled:boolean;awaiting_delay_days:number;reminder_interval_days:number;max_reminders:number;blocked_enabled:boolean;pickup_enabled:boolean;pickup_delay_days:number;payment_enabled:boolean;documents_enabled:boolean;announcements_enabled:boolean;pickup_conditions:string;messages:Record<string,string>};
 const labels:Record<string,string>={awaiting_parcel:'Attente d’un colis',departure_blocked:'Conditions de départ à régulariser',pickup_reminder:'Rappel de retrait',storage_due:'Frais de garde',payment_confirmed:'Paiement confirmé',documents_ready:'Facture après remise',package_documents_ready:'Facture après remise',package_received:'Colis reçu à l’entrepôt',departure_confirmed:'Départ confirmé',package_arrived:'Arrivée à destination',ready_for_pickup:'Disponibilité au retrait',next_departure:'Annonce d’un prochain départ',prospect_followup:'Demande client incomplète'};
 const field='mt-1 w-full rounded-md border border-[#d8d9dc] bg-white px-3 py-2 text-[13px] outline-none focus:border-[#16855f]';
@@ -32,6 +33,7 @@ export function CustomerAutomationSettings({data,run}:{data:AdminData;run:(actio
  const toggle=(key:keyof Policy,value:boolean)=>setPolicy(current=>({...current,[key]:value}));
  return <section className="mt-8 max-w-[720px] border-t border-[#e7eaec] pt-6" aria-label="Parcours client automatisé">
   <h3 className="text-[15px] font-semibold">Parcours client automatisé</h3>
+  {overview?.advanced_automation===false&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-[13px] text-amber-900">Les relances programmées et les annonces de départ nécessitent Pro ou Business. Les confirmations de réception, départ, arrivée et paiement restent incluses. <Link href="/app/settings?section=subscription" className="underline">Comparer les offres</Link></p>}
   <p className="mt-2 text-[13px] leading-6 text-[#697178]">Relances, paiements et documents sont liés aux opérations réelles. Les annonces de départ sont réservées aux contacts ayant accepté de les recevoir.</p>
   {error&&<p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
   {overview&&<PermissionGuard permission="inbox.ai.manage"><label className="mt-4 flex items-start justify-between gap-4 text-[13px]"><span>Créer automatiquement les clients particuliers qualifiés par WhatsApp<span className="mt-1 block text-xs leading-5 text-[#697178]">Après accord explicite et nom complet, avec le numéro WhatsApp connu. Les identités ambiguës et les entreprises restent à vérifier par l’équipe. Le mode IA doit aussi autoriser le traitement automatique.</span></span><input type="checkbox" aria-label="Créer automatiquement les clients qualifiés" className="mt-1 h-4 w-4 shrink-0 accent-[#16855f]" disabled={busy} checked={overview.auto_create_qualified} onChange={event=>{const enabled=event.target.checked;setBusy(true);void updateQualifiedProspectAutoCreate(enabled).then(refresh).catch(()=>setError('Impossible de modifier la création automatique des clients.')).finally(()=>setBusy(false));}}/></label></PermissionGuard>}

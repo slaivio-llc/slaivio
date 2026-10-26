@@ -451,7 +451,7 @@ def process_attempt_queue(limit=100):
     from app.db.notification_repository import create_notification_outbox
     processed=0
     with engine.begin() as c:
-        candidates=_rows(c.execute(text("select a.*,f.client_id,f.dossier_id,f.followup_type from followup_attempts a join followup_tasks f on f.id=a.followup_id and f.org_id=a.org_id where a.status='QUEUED' order by a.queued_at for update of a skip locked limit :limit"),{'limit':limit}))
+        candidates=_rows(c.execute(text("select a.*,f.client_id,f.dossier_id,f.followup_type from followup_attempts a join followup_tasks f on f.id=a.followup_id and f.org_id=a.org_id where a.status='QUEUED' and billing_advanced_automation(a.org_id) order by a.queued_at for update of a skip locked limit :limit"),{'limit':limit}))
         for a in candidates:
             try:
                 if c.execute(text("select 1 from followup_stop_list where org_id=:o and client_id=:client and channel=:channel"),{'o':a['org_id'],'client':a['client_id'],'channel':a['channel']}).first():raise ValueError('stop_list')

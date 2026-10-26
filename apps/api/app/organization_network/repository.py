@@ -169,6 +169,9 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
         if not access or access["network_role"] not in {"OWNER", "DIRECTOR"}:
             raise HTTPException(403, "network_office_creation_denied")
 
+        conn.execute(text('select billing_assert_capacity(:org,:resource,1)'),
+            {'org':org_id,'resource':'max_warehouses' if workspace_kind=='WAREHOUSE' else 'max_offices'})
+
     clerk_org_id = f"office_{uuid4().hex}"
     office = provision_organization(clerk_org_id=clerk_org_id, organization_name=payload["organization_name"].strip())
     if not office:

@@ -30,7 +30,7 @@ def get_org_plan_code(
                 select p.code as plan_code
                 from organizations active_org
                 join agency_subscriptions s
-                  on s.org_id = coalesce(active_org.parent_org_id,active_org.id)
+                  on s.org_id = billing_root(active_org.id)
                 join pricing_plans p
                     on p.id = s.pricing_plan_id
                 where active_org.id = :org_id

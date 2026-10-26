@@ -14,6 +14,7 @@ def test_routes_can_target_a_network_office():
     route = RouteCreate(
         route_code="KIN-BXL-AIR",
         route_name="Kinshasa vers Bruxelles",
+        service_ids=["service-air"],
         destination_org_id="office-bxl",
         origin_country="CD",
         origin_city="Kinshasa",

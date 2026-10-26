@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import Link from "next/link";
 import axios from "axios";
 import { ChevronLeft, ChevronRight, Plus, Search, PackageCheck } from "lucide-react";
-import { api } from "@/services/api";
+import { api, apiErrorDetail } from "@/services/api";
 import { createPackage, getPackage, getPackageLabel, getPackageStats, type PackageRecord, type PackageStats } from "@/services/packages";
 import { getParcelOverview, type ParcelEntry, type ParcelOverview, type ParcelHistoryResult, type RegisterResult } from "@/services/parcel-register";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -113,6 +113,7 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
     } catch (cause) {
       if(cause instanceof ReceptionPhotoValidationError){setSaveError(cause.message);return;}
       const detail = axios.isAxiosError(cause) ? cause.response?.data?.detail : null;
+      if(detail?.code==='plan_limit_reached'){setSaveError(apiErrorDetail(cause));return;}
       setSaveError(detail === "supplier_tracking_already_exists" ? "Cette référence fournisseur existe déjà. Vérifiez le colis existant ; votre saisie est conservée."
         : detail === "shipping_service_not_found_for_route" || detail === "route_not_found" ? "Le service ou la route n’est plus disponible. Vérifiez la configuration du bureau."
           : ['package_category_required','package_packaging_required','package_measurement_required','goods_not_accepted','regulated_goods_review_required'].includes(detail) ? parcelError(cause)

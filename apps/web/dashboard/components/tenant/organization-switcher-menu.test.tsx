@@ -22,6 +22,7 @@ describe("Sélecteur d’espace", () => {
     vi.mocked(switchTenant).mockRejectedValueOnce(new Error('offline'));
     render(<OrganizationSwitcher header menuPlacement="down"/>);
     const trigger=await screen.findByRole('button',{name:'Changer de bureau : Cargo Express'});
+    expect(trigger).toHaveClass('border','border-[#d8ddda]');
     fireEvent.click(trigger);
     expect(document.querySelector('[data-workspace-menu]')).toHaveClass('w-[320px]','right-0');
     expect(screen.getByRole('region',{name:'Bureaux'})).toContainElement(screen.getByRole('button',{name:/Kinshasa/}));

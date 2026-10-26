@@ -102,7 +102,7 @@ export function ParcelRegisterPage({ embedded = false, createRequest = 0 }: { em
       const photos=receptionPhotos(form);
       const created = await createPackage({ client_id: value("client_id"), shipping_service_id: value("shipping_service_id"), route_id: value("route_id"),
         supplier_tracking: value("supplier_tracking") || null, description: value("description") || null,
-        category:value('category') || null,package_type:(value('package_type') || 'carton') as PackageRecord['package_type'],
+        category:value('category') || null,goods_classification:value('goods_classification') || 'ORDINARY_GOODS',package_type:(value('package_type') || 'carton') as PackageRecord['package_type'],
         volume_cbm:value('volume_cbm') ? Number(value('volume_cbm')) : null,
         weight_kg: value("weight_kg") ? Number(value("weight_kg")) : null, pieces_count: Number(value("pieces_count") || "1"),
         warehouse_location: value("warehouse_location") || null, status: physicalReceived ? "RECEIVED_AT_ORIGIN" : "CREATED",

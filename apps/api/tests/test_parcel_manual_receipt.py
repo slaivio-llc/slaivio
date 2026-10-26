@@ -4,6 +4,7 @@ import pytest
 
 from app.packages.receipt import prepare_manual_receipt
 from app.packages import repository
+from app.pricing_engine import repository as pricing
 
 
 def receipt(**overrides):
@@ -115,3 +116,22 @@ def test_repository_accepts_canonical_many_to_many_service_route(monkeypatch):
     statements = setup_repository(monkeypatch, service_route=None, canonical_offering=True)
     repository.create_package("office", "agent", receipt())
     assert any("from service_route_offerings offering" in sql for sql, _ in statements)
+
+
+@pytest.mark.parametrize('classification,package_type,total', [('FRAGILE','caisse',90),('TEXTILES','sac',45)])
+def test_receipt_passes_goods_type_to_agency_pricing_and_persists_server_price(monkeypatch,classification,package_type,total):
+    statements=setup_repository(monkeypatch)
+    monkeypatch.setattr(repository,'load_policies',lambda *_:{'parcel_receipt_rules':{'auto_rate_lookup':True}})
+    monkeypatch.setattr(repository,'check_regulated_goods',lambda *_args,**_kwargs:None)
+    quote=MagicMock(return_value={'total':total,'currency':'USD','chargeable_weight_kg':3,'grid_code':'AGENCY-RATE'})
+    monkeypatch.setattr(pricing,'quote',quote)
+    repository.create_package('office','agent',receipt(goods_classification=classification,package_type=package_type,weight_kg=3,fees_total=999))
+    args=quote.call_args.args
+    assert args[0]=='office'
+    assert args[1]['category_code']==classification
+    assert args[1]['package_type']==package_type
+    assert args[1]['client_id']=='client'
+    assert args[1]['freeze'] is True
+    price=next(params for sql,params in statements if 'pricing_snapshot=cast' in sql)
+    assert price['total']==total
+    assert price['org_id']=='office'

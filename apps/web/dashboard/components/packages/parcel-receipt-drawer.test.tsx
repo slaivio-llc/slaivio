@@ -36,6 +36,17 @@ async function selectClientAndService() {
 }
 
 describe("Réception d’un colis fret", () => {
+  it('transmet le type de marchandise et le conditionnement pour appliquer le tarif de l’agence',async()=>{
+    renderForm(); await selectClientAndService();
+    fireEvent.change(screen.getByRole('combobox',{name:/^Type de marchandise/}),{target:{value:'FRAGILE'}});
+    fireEvent.change(screen.getByRole('combobox',{name:'Conditionnement'}),{target:{value:'caisse'}});
+    const data=new FormData(document.querySelector('form')!);
+    expect(data.get('goods_classification')).toBe('FRAGILE');
+    expect(data.get('package_type')).toBe('caisse');
+    expect(screen.getByRole('option',{name:'Vêtements et textiles'})).toHaveValue('TEXTILES');
+    expect(screen.getByText(/aucun prix ne sera inventé/)).toBeVisible();
+    expect(data.has('fees_total')).toBe(false);
+  });
   it("propose toutes les routes associées au service actif et autorise un poids inconnu", async () => {
     renderForm();
     expect(screen.getByRole("button", { name: "Enregistrer le colis" })).toBeDisabled();

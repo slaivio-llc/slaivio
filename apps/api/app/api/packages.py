@@ -196,7 +196,7 @@ class PackagePayload(BaseModel):
     order_number: str|None=Field(default=None,max_length=180)
     external_reference: str|None=Field(default=None,max_length=180)
     subcategory: str|None=Field(default=None,max_length=120)
-    goods_classification: str=Field(default="ORDINARY_GOODS",pattern="^(ORDINARY_GOODS|SENSITIVE_GOODS|DANGEROUS_GOODS|FRAGILE|ELECTRONICS|BATTERY|LIQUID|FOOD|PHARMACEUTICAL|HIGH_VALUE)$")
+    goods_classification: str=Field(default="ORDINARY_GOODS",pattern="^(TEXTILES|ORDINARY_GOODS|SENSITIVE_GOODS|DANGEROUS_GOODS|FRAGILE|ELECTRONICS|BATTERY|LIQUID|FOOD|PHARMACEUTICAL|HIGH_VALUE)$")
     declared_weight_kg: float|None=Field(default=None,ge=0)
     receiving_mode: str|None=Field(default=None,pattern="^(MANUAL|BARCODE|QR|OCR|IMPORT|API)$")
     route_id: str|None=None
@@ -288,7 +288,7 @@ class PackagePatchPayload(BaseModel):
     order_number: str|None=Field(default=None,max_length=180)
     external_reference: str|None=Field(default=None,max_length=180)
     subcategory: str|None=Field(default=None,max_length=120)
-    goods_classification: str|None=Field(default=None,pattern="^(ORDINARY_GOODS|SENSITIVE_GOODS|DANGEROUS_GOODS|FRAGILE|ELECTRONICS|BATTERY|LIQUID|FOOD|PHARMACEUTICAL|HIGH_VALUE)$")
+    goods_classification: str|None=Field(default=None,pattern="^(TEXTILES|ORDINARY_GOODS|SENSITIVE_GOODS|DANGEROUS_GOODS|FRAGILE|ELECTRONICS|BATTERY|LIQUID|FOOD|PHARMACEUTICAL|HIGH_VALUE)$")
     declared_weight_kg: float|None=Field(default=None,ge=0)
     receiving_mode: str|None=Field(default=None,pattern="^(MANUAL|BARCODE|QR|OCR|IMPORT|API)$")
     route_id: str|None=None

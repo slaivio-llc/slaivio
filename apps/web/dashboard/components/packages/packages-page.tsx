@@ -601,6 +601,7 @@ function LegacyPackagesPage() {
       source: String(form.get("source") || "manual") as PackageSource,
       package_type: (Object.keys(packageTypeLabels).includes(String(form.get("package_type") || "carton").trim().toLocaleLowerCase("fr")) ? String(form.get("package_type") || "carton").trim().toLocaleLowerCase("fr") : "other") as PackageType,
       description: clean(form.get("description")),
+      goods_classification: clean(form.get("goods_classification")) || "ORDINARY_GOODS",
       category: clean(form.get("category")) || (Object.keys(packageTypeLabels).includes(String(form.get("package_type") || "carton").trim().toLocaleLowerCase("fr")) ? null : clean(form.get("package_type"))),
       warehouse_name: clean(form.get("warehouse_name")),
       warehouse_zone: clean(form.get("warehouse_zone")),

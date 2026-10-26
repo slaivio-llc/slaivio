@@ -1,4 +1,5 @@
 "use client";
+import { goodsClassificationLabels } from "@/services/goods-classification";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
@@ -50,19 +51,6 @@ const calculationLabels: Record<string, string> = {
   PERCENT_VALUE: "Pourcentage de la valeur déclarée",
   FIXED: "Montant fixe",
   TIERED: "Selon des paliers",
-};
-const goodsClassificationLabels: Record<string, string> = {
-  TEXTILES: "Vêtements et textiles",
-  ORDINARY_GOODS: "Marchandise ordinaire",
-  SENSITIVE_GOODS: "Marchandise sensible",
-  DANGEROUS_GOODS: "Marchandise dangereuse",
-  FRAGILE: "Fragile",
-  ELECTRONICS: "Électronique",
-  BATTERY: "Batterie",
-  LIQUID: "Liquide",
-  FOOD: "Alimentaire",
-  PHARMACEUTICAL: "Pharmaceutique",
-  HIGH_VALUE: "Haute valeur",
 };
 const packageTypeLabels: Record<string, string> = {
   carton: "Carton",

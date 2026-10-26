@@ -10,6 +10,7 @@ import { receiptCatalog, type Route, type Service } from "@/services/route-catal
 import type { ReferenceItem } from "@/services/references";
 import type { OperationalSettings } from "@/services/organization-admin";
 import { operationInputClass as field } from "@/components/ui/operation-styles";
+import { goodsClassificationLabels } from "@/services/goods-classification";
 
 
 export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: {
@@ -119,6 +120,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
           </select>
         </label>
         <label className="grid gap-1.5 text-sm"><span>Nombre de colis <span className="text-red-600">*</span></span><input name="pieces_count" type="number" min="1" step="1" required defaultValue="1" className={field} /></label>
+        <label className="grid gap-1.5 text-sm">Type de marchandise<select name="goods_classification" required defaultValue="ORDINARY_GOODS" className={field}>{Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select><span className="text-xs text-[#68727d]">Détermine le tarif selon les règles de votre agence, le service et la route.</span></label>
         <label className="grid gap-1.5 text-sm">Catégorie de marchandise<input name="category" maxLength={120} required={policies.parcel_receipt_rules?.category_required} className={field} placeholder="Ex. Vêtements" /></label>
         <label className="grid gap-1.5 text-sm">Conditionnement<select name="package_type" required={policies.parcel_receipt_rules?.packaging_required} defaultValue="carton" className={field}><option value="">Sélectionner</option><option value="carton">Carton</option><option value="sac">Sac</option><option value="palette">Palette</option><option value="caisse">Caisse</option><option value="document">Document</option><option value="lot">Lot</option><option value="other">Autre</option></select></label>
         {policies.goods_restrictions?.agent_instructions && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">{policies.goods_restrictions.agent_instructions}</p>}
@@ -138,6 +140,7 @@ export function ParcelPackageCreateDrawer({ saving, error, onClose, onSubmit }: 
         <label className="grid gap-1.5 text-sm sm:col-span-2">Poids (kg)<input name="weight_kg" type="number" min="0.001" step="0.001" className={field} placeholder="Ex. 12,5" /></label>
         <label className="grid gap-1.5 text-sm sm:col-span-2">Volume (m³)<input name="volume_cbm" type="number" min="0.000001" step="0.000001" className={field} placeholder="Pour le transport maritime" />{policies.parcel_receipt_rules?.allow_unmeasured === false && <span className="text-xs text-slate-500">Un poids ou un volume est obligatoire pour enregistrer la réception.</span>}</label>
         <label className="grid gap-1.5 text-sm sm:col-span-2">Description (facultative)<textarea name="description" maxLength={260} className={`${field} min-h-20 resize-y`} placeholder="Ex. Vêtements, accessoires…" /></label>
+        <p className="text-xs leading-5 text-[#68727d] sm:col-span-2">{policies.parcel_receipt_rules?.auto_rate_lookup===false?'Le calcul automatique est désactivé dans les paramètres de votre agence. Le tarif devra être renseigné depuis la fiche du colis.':'À l’enregistrement, Slaivio applique le tarif de votre agence selon la marchandise, le conditionnement et les mesures. Sans tarif applicable ou mesures suffisantes, le montant restera à compléter : aucun prix ne sera inventé.'}</p>
       </fieldset>
       {policies.parcel_receipt_rules?.allow_photos!==false&&<PermissionGuard permission="packages.update"><section className="grid gap-3 border-b border-slate-200 pb-5"><label className="grid gap-1.5 text-sm">Photos de réception<input name="reception_photos" type="file" accept="image/jpeg,image/png,image/webp" multiple className="text-sm"/><span className="text-xs text-[#68727d]">Jusqu’à 10 photos, 25 Mo chacune. Vous pouvez aussi les ajouter depuis la fiche du colis.</span></label><label className="flex items-center gap-2 text-[13px]"><input name="share_reception_photos" type="checkbox" className="h-4 w-4 accent-emerald-700"/>Afficher ces photos dans le suivi public du client</label></section></PermissionGuard>}
       <label className="flex cursor-pointer items-center justify-between gap-4 border-b border-slate-200 pb-5">

@@ -1,8 +1,42 @@
 import pytest
 from fastapi import HTTPException
 import jwt
+import time
+from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt.algorithms import RSAAlgorithm
 
 from app.core.clerk_auth import verify_clerk_token
+
+
+@pytest.fixture
+def signing_key(monkeypatch):
+    from app.core import clerk_auth
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = RSAAlgorithm.to_jwk(key.public_key(), as_dict=True)
+    public['kid'] = 'test-session'
+    monkeypatch.setattr(clerk_auth, 'get_jwks', lambda: {'keys': [public]})
+    monkeypatch.setattr(clerk_auth.settings, 'clerk_issuer_url', 'https://clerk.example.test')
+    return key
+
+
+def session_claims():
+    now = int(time.time())
+    return {'sub': 'user_test', 'iss': 'https://clerk.example.test', 'iat': now, 'nbf': now, 'exp': now + 60}
+
+
+@pytest.mark.parametrize('missing', ['exp', 'iat', 'nbf', 'sub'])
+def test_session_requires_lifetime_and_identity_claims(signing_key, missing):
+    claims = session_claims()
+    del claims[missing]
+    token = jwt.encode(claims, signing_key, algorithm='RS256', headers={'kid': 'test-session'})
+    with pytest.raises(HTTPException) as error:
+        verify_clerk_token(token)
+    assert error.value.status_code == 401
+
+
+def test_valid_signed_session_still_authenticates(signing_key):
+    token = jwt.encode(session_claims(), signing_key, algorithm='RS256', headers={'kid': 'test-session'})
+    assert verify_clerk_token(token)['sub'] == 'user_test'
 
 
 def test_malformed_clerk_token_returns_unauthorized(monkeypatch) -> None:

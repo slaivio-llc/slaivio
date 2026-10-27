@@ -9,6 +9,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { OperationActionMenu } from "@/components/ui/operation-controls";
 import { OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { CompanyContacts } from "./company-contacts";
+import { businessLabel, businessHistoryTitle } from "@/components/ui/business-labels";
 
 const sections = [
   { key: "packages", label: "Colis", permission: "packages.read" },
@@ -21,8 +22,8 @@ type Item = { id: string; reference?: string; status?: string; occurred_at?: str
 type Result = { items?: Item[]; total?: number; balances?: { currency: string; paid: number; outstanding: number }[] };
 const eventLabels: Record<string, string> = { "client.created": "Client créé", "client.updated": "Fiche modifiée", "client.archived": "Client archivé", "client.restored": "Client restauré", "client.merged": "Doublon fusionné", "client.merged_into": "Client fusionné", "message.inbound": "Message reçu", "message.outbound": "Message envoyé", PAYMENT_RECEIVED: "Paiement reçu", PAYMENT_REVERSED: "Paiement annulé", ISSUED: "Facture émise", CREATED: "Document créé" };
 const formatDate = (value?: string | null) => value ? new Date(value).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "Non renseignée";
-const formatMoney = (value: number | string | undefined, currency: string) => new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(value || 0));
-const humanStatus = (value?: string) => value?.toLocaleLowerCase("fr-FR").replaceAll("_", " ") || "—";
+const formatMoney = (value: number | string | undefined, currency: string) => value == null || value === '' || !Number.isFinite(Number(value)) ? 'Non renseigné' : new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(value));
+const humanStatus = (value?: string) => businessLabel(value, "Activité enregistrée");
 
 export function Customer360({ client, close, edit, archive, busy }: { client: ClientRecord; close: () => void; edit: () => void; archive: () => void; busy: boolean }) {
   const { permissions } = usePermissions();
@@ -98,7 +99,7 @@ function SectionContent({ section, result, total, page, pages, setPage }: { sect
     {section === "packages" && <div className="grid grid-cols-[1.2fr_1fr_auto] border-b bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500"><span>Référence</span><span>Route</span><span>Statut</span></div>}
     <ul className="divide-y divide-slate-100">{(result?.items || []).map(item => {
       const href = section === "packages" ? `/app/packages?open=${encodeURIComponent(item.id)}` : section === "finance" ? `/app/finance?open=${encodeURIComponent(item.document_id || item.id)}` : null;
-      const title = section === "activity" ? item.title || eventLabels[item.action || ""] || item.action?.replaceAll("_", " ") || "Activité enregistrée" : section === "communications" ? (item.direction === "outbound" ? "Message envoyé" : "Message reçu") : item.reference || "Sans référence";
+      const title = section === "activity" ? businessHistoryTitle(item.title || eventLabels[item.action || ""], item.action) : section === "communications" ? (item.direction === "outbound" ? "Message envoyé" : "Message reçu") : item.reference || "Sans référence";
       const route = [item.destination_city, item.destination_country].filter(Boolean).join(" · ") || "—";
       return <li key={item.id} className="grid grid-cols-[1.2fr_1fr_auto] items-center gap-3 px-3 py-3 text-sm"><span className="min-w-0">{href ? <Link href={href} className="font-medium text-emerald-800 hover:underline">{title}</Link> : <strong className="font-medium text-slate-800">{title}</strong>}{(section === "activity" && item.reference || item.tracking_id) && <small className="block truncate text-xs text-slate-500">{item.reference || `Suivi : ${item.tracking_id}`}</small>}{item.text_body && <small className="mt-1 block whitespace-pre-wrap text-xs text-slate-600">{item.text_body}</small>}</span><span className="text-xs text-slate-600">{section === "packages" ? `${route}${item.weight_kg != null ? ` · ${item.weight_kg} kg` : ""}` : formatDate(item.occurred_at)}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-700">{humanStatus(item.status || item.action)}</span></li>;
     })}</ul>

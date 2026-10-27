@@ -112,6 +112,8 @@ def create_payment_request_record(
 
 
 def update_payment_request_status(
+    org_id: str,
+    provider_code: str,
     provider_reference: str,
     status: str,
     raw_response: dict | None = None,
@@ -126,10 +128,13 @@ def update_payment_request_status(
                     failed_at = case when :status = 'FAILED' then now() else failed_at end,
                     raw_response = cast(:raw_response as jsonb),
                     updated_at = now()
-                where provider_reference = :provider_reference
+                where org_id = :org_id and provider_code = :provider_code
+                  and provider_reference = :provider_reference
                 returning *
             """),
             {
+                "org_id": org_id,
+                "provider_code": provider_code,
                 "provider_reference": provider_reference,
                 "status": status,
                 "raw_response": to_jsonb(raw_response),

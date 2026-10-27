@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.tenant_context import get_current_tenant
+from app.core.permissions import require_permission
 from app.db.media_repository import (
     list_shipment_media,
     list_dossier_media,
@@ -20,7 +21,7 @@ class SendMediaMessageRequest(BaseModel):
     notification_type: str = "MEDIA_MESSAGE"
 
 
-@router.post("/media/send-whatsapp")
+@router.post("/media/send-whatsapp", dependencies=[Depends(require_permission("inbox.reply"))])
 def send_media_whatsapp(
     body: SendMediaMessageRequest,
     tenant: dict = Depends(get_current_tenant),

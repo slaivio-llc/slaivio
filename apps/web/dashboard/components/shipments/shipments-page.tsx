@@ -1,4 +1,5 @@
 "use client";
+import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 
 import axios from "axios";
 import { getTenantContext } from "@/services/tenant";
@@ -138,7 +139,7 @@ export function ShipmentsPage({ embedded = false, createRequest = 0 }: { embedde
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true; setError(false);
-    getTenantContext().then(context => { if (active) setParcel(context.active_tenant?.organization_type === "PARCEL_FREIGHT"); })
+    getTenantContext().then(context => { if (active) setParcel(getOrganizationProductProfile(context.active_tenant?.organization_type) === PRODUCT_PROFILES.PARCEL_FREIGHT); })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [retry]);

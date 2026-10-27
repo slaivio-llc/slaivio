@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 export function SettingsDialog({
   title,
@@ -16,10 +16,27 @@ export function SettingsDialog({
   children: ReactNode;
   onClose: () => void;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    panel.current?.focus();
+    return () => { document.body.style.overflow = overflow; previous?.focus(); };
+  }, []);
   return (
-    <div data-ui="settings-dialog" className="fixed inset-0 z-[70] flex bg-[#202124]/45 p-0 sm:p-5 lg:p-[4vh]" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="mx-auto grid h-full w-full max-w-[1440px] overflow-hidden bg-white shadow-[0_24px_80px_rgba(15,23,42,.24)] sm:max-h-[920px] sm:rounded-[8px] sm:border sm:border-[#d8dadd] lg:grid-cols-[272px_minmax(0,1fr)]">
-        <aside className="settings-dialog-navigation min-w-0 overflow-y-auto border-b border-[#dfe1e3] bg-[#fafafa] p-3 lg:border-b-0 lg:border-r">
+    <div ref={panel} tabIndex={-1} data-ui="settings-dialog" className="fixed inset-0 z-[70] flex bg-[#202124]/45 p-0 sm:p-5 lg:p-[4vh]" role="dialog" aria-modal="true" aria-label={title} onKeyDown={event=>{
+      if((event.target as HTMLElement).closest('[role="dialog"]')!==panel.current)return;
+      if(event.key==='Escape' && !event.defaultPrevented){event.stopPropagation();onClose();return;}
+      if(event.key!=='Tab' || event.defaultPrevented)return;
+      const controls=Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')||[]).filter(element=>!element.closest('[hidden],[aria-hidden="true"]'));
+      const first=controls[0],last=controls[controls.length-1];
+      if(!first){event.preventDefault();return;}
+      if(event.shiftKey && (document.activeElement===first || document.activeElement===panel.current)){event.preventDefault();last.focus();}
+      else if(!event.shiftKey && (document.activeElement===last || document.activeElement===panel.current)){event.preventDefault();first.focus();}
+    }}>
+      <div className="mx-auto grid h-full w-full max-w-[1440px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden bg-white shadow-[0_24px_80px_rgba(15,23,42,.24)] sm:max-h-[920px] sm:rounded-[8px] sm:border sm:border-[#d8dadd] lg:grid-cols-[272px_minmax(0,1fr)] lg:grid-rows-1">
+        <aside className="settings-dialog-navigation max-h-[30dvh] min-w-0 overflow-y-auto border-b border-[#dfe1e3] bg-[#fafafa] p-3 lg:max-h-none lg:border-b-0 lg:border-r">
           <p className="px-2 pb-2 pt-1 text-[12px] font-semibold uppercase tracking-[0.045em] text-[#707780]">Paramètres</p>
           {navigation}
         </aside>

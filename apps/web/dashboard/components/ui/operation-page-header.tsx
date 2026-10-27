@@ -1,4 +1,5 @@
 "use client";
+import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -27,7 +28,7 @@ export function OperationPageHeader({
 }) {
   const pathname=usePathname();
   const [parcel,setParcel]=useState(false);
-  useEffect(()=>{let active=true;getTenantContext().then(context=>{if(active)setParcel(context.active_tenant?.organization_type==="PARCEL_FREIGHT");}).catch(()=>undefined);return()=>{active=false;};},[]);
+  useEffect(()=>{let active=true;getTenantContext().then(context=>{if(active)setParcel(getOrganizationProductProfile(context.active_tenant?.organization_type)===PRODUCT_PROFILES.PARCEL_FREIGHT);}).catch(()=>undefined);return()=>{active=false;};},[]);
   const parentHref = parcel && ["/app/packages","/app/departures","/app/shipments","/app/warehouses"].includes(pathname) ? "/app/operations" : parcel && ["/app/inbox","/app/followups","/app/knowledge"].includes(pathname) ? "/app/communication" : undefined;
   const resolvedBackHref=backHref || parentHref;
   return (

@@ -35,6 +35,7 @@ it("calculates and persists the configured tariff before offering invoice creati
   vi.mocked(pricePackage).mockResolvedValue(updated);
   const onUpdated = vi.fn();
   render(<PackageFinance item={makePackage()} onUpdated={onUpdated} />);
+  fireEvent.click(screen.getByRole('button',{name:'Détails du paiement'}));
   fireEvent.click(await screen.findByRole("button", { name: "Calculer le tarif du colis" }));
   expect(await screen.findByRole("button", { name: "Créer la facture depuis le tarif enregistré" })).toBeInTheDocument();
   expect(pricePackage).toHaveBeenCalledWith("parcel", "service");
@@ -45,6 +46,7 @@ it("creates a draft using the latest package version and does not accept a manua
   vi.mocked(getPackageInvoice).mockResolvedValue(null);
   vi.mocked(createPackageInvoice).mockResolvedValue({id:"invoice", document_number:"FAC-1", status:"DRAFT", currency:"USD", total:100, amount_paid:0, balance_due:100} as FinanceDocument);
   render(<PackageFinance item={makePackage({ row_version: 4, fees_total: 100, pricing_snapshot: { total: 100 } })} onUpdated={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button',{name:'Détails du paiement'}));
   fireEvent.click(await screen.findByRole("button", {name:"Créer la facture depuis le tarif enregistré"}));
   expect(await screen.findByText(/aucun paiement demandé/)).toBeInTheDocument();
   expect(createPackageInvoice).toHaveBeenCalledWith("parcel", 4);

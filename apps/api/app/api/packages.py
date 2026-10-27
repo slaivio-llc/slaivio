@@ -2,7 +2,7 @@ import csv
 import hashlib
 import io
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -466,7 +466,7 @@ def public_agency_page(slug: str):
     return public_agency(slug)
 
 @router.get("/public/packages/tracking/{reference}")
-def packages_public_tracking(reference: str, agency: str | None = Query(default=None,max_length=80)):
+def packages_public_tracking(reference: str, agency: Annotated[str | None, Query(max_length=80)] = None):
     package = public_package_tracking(reference, agency) if agency else public_package_tracking(reference)
     if not package:
         raise HTTPException(status_code=404, detail="tracking_not_found")

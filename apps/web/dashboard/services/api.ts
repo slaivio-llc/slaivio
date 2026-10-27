@@ -15,6 +15,8 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  wallet_client_mutation_retired:"Cette ancienne opération n’est plus disponible. Un solde ne peut être modifié qu’après confirmation du paiement.",
+  legacy_payment_simulator_disabled:"Cet ancien moyen de paiement n’est plus disponible. Utilisez les paiements proposés dans Finance.",
   billing_checkout_already_paid:"Ce paiement est déjà confirmé. Actualisez votre abonnement avant de continuer.",
   billing_payment_processing:"Un paiement est en cours de traitement. Attendez sa confirmation avant de changer d’offre.",
   billing_checkout_cancellation_unconfirmed:"L’annulation du précédent paiement n’a pas encore été confirmée. Aucun nouveau paiement n’a été créé.",
@@ -146,6 +148,13 @@ api.interceptors.request.use(async (config) => {
     config.headers.delete("Content-Type");
   }
   if (typeof window !== "undefined") {
+    // This shared client attaches the session token. Never send it to a URL
+    // supplied by an attachment, redirect or compromised response payload.
+    const expected = new URL(API_BASE_URL || window.location.origin, window.location.origin);
+    const target = new URL(api.getUri(config), window.location.origin);
+    if (target.origin !== expected.origin || target.username || target.password) {
+      throw new Error("L’adresse du service demandé n’est pas autorisée.");
+    }
     const officeId = window.sessionStorage.getItem("slaivio:office-context");
     if (officeId) config.headers["X-Slaivio-Office-ID"] = officeId;
     else config.headers.delete("X-Slaivio-Office-ID");

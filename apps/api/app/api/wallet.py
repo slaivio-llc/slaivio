@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.tenant_context import get_current_tenant
+from app.core.retired_wallet import reject_client_wallet_mutation
 from app.wallet.repositories.usage_rule_repository import list_usage_charge_rules
 from app.wallet.services.wallet_service import (
     charge_wallet_usage,
@@ -47,7 +48,7 @@ def get_usage_rules():
     }
 
 
-@router.post("/wallet/top-up")
+@router.post("/wallet/top-up", dependencies=[Depends(reject_client_wallet_mutation)], deprecated=True)
 def wallet_top_up(body: WalletTopUpRequest, tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 
@@ -69,7 +70,7 @@ def wallet_top_up(body: WalletTopUpRequest, tenant=Depends(get_current_tenant)):
     }
 
 
-@router.post("/wallet/charge")
+@router.post("/wallet/charge", dependencies=[Depends(reject_client_wallet_mutation)], deprecated=True)
 def wallet_charge(body: WalletUsageRequest, tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 

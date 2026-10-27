@@ -1,6 +1,6 @@
 "use client";
 
-import axios from "axios";
+import {apiErrorDetail} from "@/services/api";
 import {Archive,FileText,Link2,MapPin,Plus,RefreshCcw,Upload} from "lucide-react";
 import Link from "next/link";
 import {FormEvent,ReactNode,useEffect,useMemo,useState} from "react";
@@ -14,6 +14,7 @@ import {addTrackingNote,archiveTracking,assignTracking,createTrackingAlert,creat
 
 const tabs=["Overview","Tracking Timeline","Map","Shipments","Parcels","Events","Alerts","Documents","Notes","Settings"] as const;
 type Tab=typeof tabs[number];
+const tabLabels:Record<Tab,string>={Overview:"Vue d’ensemble","Tracking Timeline":"Historique du suivi",Map:"Carte",Shipments:"Expéditions",Parcels:"Colis",Events:"Événements",Alerts:"Alertes",Documents:"Documents",Notes:"Notes",Settings:"Paramètres"};
 const button="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] font-medium hover:bg-[#f7f8fa] disabled:opacity-50";
 const primary="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#16855f] px-3 text-[13px] font-semibold text-white hover:bg-[#126f50] disabled:opacity-50";
 const input="h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#16855f]";
@@ -32,7 +33,7 @@ export function TrackingDetailPage({trackingId}:{trackingId:string}){
  return <div className="min-h-full bg-[#f7f7f6] text-[#20242a]">
   <header className="border-b bg-white px-6 py-5"><div className="mb-4 flex justify-end gap-2"><OperationBackLink href="/app/tracking" label="Retour au suivi"/><button onClick={load} className={`${button} w-9 px-0`} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={15}/></button></div><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-[12px] text-[#687584]">Tracking › {item.expedition_reference}</p><h1 className="mt-1 text-[21px] font-semibold">{item.expedition_reference}</h1><p className="mt-1 text-[13px] text-[#59636e]">{item.origin_city||item.origin_country||'Origine'} → {item.destination_city||item.destination_country||'Destination'} · {businessLabel(item.status)}</p></div><div className="grid grid-cols-3 gap-6"><Head label="ETA" value={date(item.eta_at)}/><Head label="Dernière position" value={item.last_location||'Inconnue'}/><Head label="Progression" value={`${progress}%`}/></div></div></header>
   {error&&<p className="m-4 rounded border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
-   <div className="border-b border-[#eceef1] bg-white px-5 py-2"><select aria-label="Vue du suivi" className={`${input} max-w-[260px]`} value={tab} onChange={event=>setTab(event.target.value as Tab)}>{tabs.map(value=><option key={value} value={value}>{value}</option>)}</select></div>
+   <div className="border-b border-[#eceef1] bg-white px-5 py-2"><select aria-label="Vue du suivi" className={`${input} max-w-[260px]`} value={tab} onChange={event=>setTab(event.target.value as Tab)}>{tabs.map(value=><option key={value} value={value}>{tabLabels[value]}</option>)}</select></div>
   <main className="p-5">
    {tab==='Overview'&&<Overview item={item} progress={progress} setTab={setTab}/>} {tab==='Tracking Timeline'&&<TrackingTimeline item={item}/>} {tab==='Map'&&<TrackingMap item={item}/>} {tab==='Shipments'&&<Shipments item={item}/>} {tab==='Parcels'&&<Parcels item={item}/>} {tab==='Events'&&<Events item={item} saving={saving} mutate={mutate}/>} {tab==='Alerts'&&<Alerts item={item} saving={saving} mutate={mutate}/>} {tab==='Documents'&&<Documents item={item} saving={saving} mutate={mutate}/>} {tab==='Notes'&&<Notes item={item} saving={saving} mutate={mutate}/>} {tab==='Settings'&&<TrackingSettings item={item} saving={saving} mutate={mutate} archived={()=>router.push('/app/tracking')}/>} 
   </main>
@@ -59,4 +60,4 @@ function Head({label,value}:{label:string;value:string}){return <div><small clas
 function MapNode({title,value}:{title:string;value?:string|null}){return <div className="z-10 w-44 rounded-lg bg-white p-4 text-center shadow-[0_4px_18px_rgba(15,23,42,.10)]"><MapPin className="mx-auto mb-2 text-[#16855f]"/><small>{title}</small><b className="mt-1 block text-[13px]">{value||'Inconnu'}</b></div>}
 function Empty({text}:{text:string}){return <div className="flex min-h-28 items-center justify-center text-center text-[12px] text-[#77828e]">{text}</div>}
 function date(value?:string|null){if(!value)return'—';return new Intl.DateTimeFormat('fr-FR',{dateStyle:'short',timeStyle:'short'}).format(new Date(value))}
-function message(error:unknown){if(axios.isAxiosError(error))return String(error.response?.data?.detail||error.message);return error instanceof Error?error.message:'Erreur inattendue'}
+function message(error:unknown){return apiErrorDetail(error)||'Le suivi est temporairement indisponible. Vérifiez votre connexion puis réessayez.'}

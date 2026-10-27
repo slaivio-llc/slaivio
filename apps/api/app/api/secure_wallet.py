@@ -5,6 +5,7 @@ from app.core.permissions import require_permission
 from app.core.entitlements import require_entitlement
 from app.core.features import require_feature
 from app.core.tenant_context import get_current_tenant
+from app.core.retired_wallet import reject_client_wallet_mutation
 from app.wallet.services.secure_wallet_service import apply_secure_wallet_transaction
 
 
@@ -24,6 +25,7 @@ class SecureWalletTransactionRequest(BaseModel):
 @router.post(
     "/wallet/secure/transactions",
     dependencies=[
+        Depends(reject_client_wallet_mutation),
         Depends(require_permission("wallet.write")),
         Depends(require_feature("wallet")),
         Depends(require_entitlement("wallet")),

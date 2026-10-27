@@ -1,4 +1,5 @@
 "use client";
+import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 
 import axios from "axios";
 import { getTenantContext } from "@/services/tenant";
@@ -92,7 +93,7 @@ const primaryButtonClass = "inline-flex h-9 items-center justify-center gap-2 ro
 export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
   const [parcel,setParcel]=useState<boolean|null>(null);
   const [error,setError]=useState(false);const [retry,setRetry]=useState(0);
-  useEffect(()=>{let active=true;setError(false);getTenantContext().then(context=>{if(active)setParcel(context.active_tenant?.organization_type==="PARCEL_FREIGHT");}).catch(()=>{if(active)setError(true);});return()=>{active=false;};},[retry]);
+  useEffect(()=>{let active=true;setError(false);getTenantContext().then(context=>{if(active)setParcel(getOrganizationProductProfile(context.active_tenant?.organization_type)===PRODUCT_PROFILES.PARCEL_FREIGHT);}).catch(()=>{if(active)setError(true);});return()=>{active=false;};},[retry]);
   if(error)return <p role="alert" className="p-8">Fiche indisponible. <button onClick={()=>setRetry(n=>n+1)}>Réessayer</button></p>;
   if(parcel===null)return <LoadingState/>;
   return parcel?<FreightShipmentDetail key={shipmentId} shipmentId={shipmentId}/>:<LegacyShipmentDetailPage shipmentId={shipmentId}/>;

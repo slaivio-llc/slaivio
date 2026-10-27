@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+pytest-cache-files-*/
+.pytest_cache/
 
 # next.js
 /.next/

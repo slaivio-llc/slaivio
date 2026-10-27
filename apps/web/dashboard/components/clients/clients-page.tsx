@@ -29,7 +29,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { API_BASE_URL } from "@/services/api";
+import { apiErrorDetail } from "@/services/api";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import {
@@ -1367,7 +1367,7 @@ export function ClientFormModal({
         <>
           <OperationButton type="button" onClick={onClose} disabled={saving}>Annuler</OperationButton>
           <OperationButton type="submit" form="client-form" variant="primary" disabled={saving}>
-            {saving ? "Enregistrement..." : mode === "edit" ? "Enregistrer" : parcelFreight ? "Enregistrer le client" : "Créer le client"}
+            {saving ? "Enregistrement..." : mode === "edit" ? "Enregistrer" : "Créer le client"}
           </OperationButton>
         </>
       }
@@ -1868,8 +1868,7 @@ export function apiErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const detail = error.response?.data?.detail;
     if (detail?.code === 'crm_migration_required')
-      return 'La base CRM n’est pas à jour. Appliquez les migrations SQL 126 puis 127 dans la base utilisée par le backend. Vos saisies sont conservées.';
-    const target = `${API_BASE_URL || "API_BASE_URL non configurée"}${error.config?.url || ""}`;
+      return 'Le service Clients nécessite une mise à jour. Contactez le support Slaivio ; vos saisies sont conservées.';
     if (detail === "duplicate_client")
       return "Un client avec ce téléphone ou cet email existe déjà dans cette agence.";
     if (detail === "stale_client_version")
@@ -1916,12 +1915,12 @@ export function apiErrorMessage(error: unknown) {
     if (error.response && error.response.status >= 500)
       return "Le service Clients rencontre un problème temporaire. Vos données ne sont pas perdues ; réessayez dans quelques instants.";
     if (!error.response)
-      return `API injoignable vers ${target}. Vérifiez NEXT_PUBLIC_API_BASE_URL côté frontend et redéployez Render.`;
+      return 'Le service Clients ne répond pas. Vérifiez votre connexion puis réessayez ; vos saisies sont conservées.';
     if (error.response.status === 404)
-      return `Route API introuvable (${target}). Vérifiez que le backend Railway a le dernier code.`;
+      return 'Cette fiche ou cette opération n’est plus disponible. Rechargez la liste ou contactez le support Slaivio.';
     return (
-      detail ||
-      `Erreur API (${error.response?.status || "réseau"}) sur ${target}.`
+      apiErrorDetail(error) ||
+      'L’opération n’a pas pu être terminée. Vos saisies sont conservées ; réessayez ou contactez le support Slaivio.'
     );
   }
   return "Une erreur inattendue est survenue.";
@@ -1932,9 +1931,9 @@ function importErrorLabel(error: string) {
   if (error === "invalid_phone") return "Numéro de téléphone invalide";
   if (error === "invalid_email") return "Adresse email invalide";
   if (error === "invalid_customer_type")
-    return "Type invalide (individual, business, agent ou partner)";
+    return "Type de client invalide : choisissez particulier, entreprise, agent ou partenaire.";
   if (error === "invalid_lifecycle_status")
-    return "Statut invalide (lead, active, pending, inactive ou blocked)";
+    return "Statut invalide : choisissez prospect, actif, en attente, inactif ou bloqué.";
   if (error === "invalid_credit_limit") return "Limite de crédit invalide";
   if (error === "name_company_phone_or_email_required")
     return "Nom, entreprise, téléphone ou email requis";

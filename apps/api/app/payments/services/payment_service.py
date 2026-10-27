@@ -1,4 +1,5 @@
 from app.financial.services.financial_service import record_money_event
+from app.core.config import settings
 from app.payments.providers.mock_provider import MockPaymentProvider
 from app.payments.repositories.payment_repository import (
     create_payment_request_record,
@@ -12,6 +13,8 @@ from app.payments.repositories.payment_repository import (
 def resolve_payment_provider(
     provider_code: str,
 ):
+    if settings.is_deployed:
+        raise ValueError("legacy_payment_simulator_disabled")
     provider = get_payment_provider(provider_code)
 
     if not provider:
@@ -81,6 +84,8 @@ def refresh_payment_status(
     result = provider.check_payment_status(provider_reference)
 
     request = update_payment_request_status(
+        org_id=org_id,
+        provider_code=provider_code,
         provider_reference=provider_reference,
         status=result["status"],
         raw_response=result.get("raw_response"),

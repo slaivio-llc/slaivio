@@ -126,7 +126,13 @@ type Manifest={agency_brand?:{organization_name?:string;legal_name?:string;logo_
 export function FreightManifest({shipmentId,revision,compact=false}:{shipmentId:string;revision:number;compact?:boolean}){
   const [data,setData]=useState<Manifest|null>(null);const [error,setError]=useState("");const [downloading,setDownloading]=useState(false);
   const [q,setQ]=useState("");const [page,setPage]=useState(1);
-  useEffect(()=>{const controller=new AbortController();setData(null);setError("");api.get<Manifest>(`/shipments/workspace/${shipmentId}/manifest`,{signal:controller.signal}).then(r=>{if(!controller.signal.aborted)setData(r.data);}).catch(cause=>{if(!controller.signal.aborted)setError(axios.isAxiosError(cause)&&cause.response?.status===409?"Aucun manifeste figé n’existe pour ce départ historique. La composition actuelle ne remplace pas une archive.":"Manifeste indisponible. Actualisez la fiche.");});return()=>controller.abort();},[shipmentId,revision]);
+  useEffect(()=>{const controller=new AbortController();setData(null);setError("");api.get<Manifest>(`/shipments/workspace/${shipmentId}/manifest`,{signal:controller.signal}).then(r=>{
+    if(controller.signal.aborted)return;
+    if(!r.data || !Array.isArray(r.data.items) || !r.data.shipment || typeof r.data.shipment!=='object' || r.data.items.some(row=>!row || typeof row.reference!=='string')){
+      setError("Le manifeste reçu est incomplet. Réessayez ou contactez le support Slaivio.");return;
+    }
+    setData(r.data);
+  }).catch(cause=>{if(!controller.signal.aborted)setError(axios.isAxiosError(cause)&&cause.response?.status===409?"Aucun manifeste figé n’existe pour ce départ historique. La composition actuelle ne remplace pas une archive.":"Manifeste indisponible. Actualisez la fiche.");});return()=>controller.abort();},[shipmentId,revision]);
   async function download(){setDownloading(true);setError("");try{const response=await api.get(`/shipments/workspace/${shipmentId}/manifest.xlsx`,{responseType:"blob"});const url=URL.createObjectURL(response.data);const anchor=document.createElement("a");anchor.href=url;anchor.download=`manifest-${shipmentId}.xlsx`;anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{setError("Export indisponible. Réessayez.");}finally{setDownloading(false);}}
   const filtered=data?.items.filter(row=>[row.reference,row.client_name,row.supplier_tracking].some(value=>value?.toLocaleLowerCase().includes(q.toLocaleLowerCase())))||[];
   const weighed=data?.items.filter(row=>row.weight_kg!==null)||[];

@@ -13,6 +13,7 @@ import { OperationButton, OperationFilterPopover } from "@/components/ui/operati
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { operationInputClass as field } from "@/components/ui/operation-styles";
 import { TableSkeleton } from "@/components/ui/page-state";
+import { businessHistoryTitle } from "@/components/ui/business-labels";
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { ParcelPackageCreateDrawer } from "./parcel-receipt-drawer";
 import { ParcelEditForm, ParcelPhotos, parcelError } from "./parcel-operations";
@@ -197,7 +198,7 @@ function ParcelDetails({ item, close, changed }: { item: ParcelOverview; close: 
   useEffect(() => {
     const controller = new AbortController(); setHistory(null); setHistoryError(false);
     api.get<ParcelHistoryResult>(`/packages/register/${item.id}/history`, { params: { page: historyPage }, signal: controller.signal })
-      .then(response => { if (!controller.signal.aborted) setHistory(response.data); })
+      .then(response => { if (!controller.signal.aborted) setHistory({...response.data,items:response.data.items.map(event=>({...event,title:businessHistoryTitle(event.title)}))}); })
       .catch(() => { if (!controller.signal.aborted) setHistoryError(true); });
     return () => controller.abort();
   }, [item.id, item.row_version, historyPage]);

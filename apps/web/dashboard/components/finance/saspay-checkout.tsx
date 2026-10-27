@@ -44,7 +44,7 @@ export function SasPayCheckout({ document, onConfirmed }: {
       if (active && savedId) setError("La tentative SasPay précédente n’a pas pu être relue. Vérifiez son statut avant d’en créer une autre.");
     });
     return () => { active = false; };
-  }, [document.id]);
+  }, [document.id, manualPaymentsOnly]);
 
   async function start() {
     setBusy(true);

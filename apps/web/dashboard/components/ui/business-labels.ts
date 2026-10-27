@@ -1,4 +1,11 @@
 const businessLabels: Record<string, string> = {
+  OWNER: "Propriétaire", MANAGER: "Responsable", OPERATOR: "Agent opérationnel",
+  WAREHOUSE: "Entrepôt", FINANCE: "Gestion financière", SUPPORT: "Assistance clients",
+  AIR: "Aérien", SEA: "Maritime", ROAD: "Routier", RAIL: "Ferroviaire",
+  PER_KG: "Au kilogramme", PER_CBM: "Au mètre cube", FLAT: "Forfait",
+  CREDIT_NOTE: "Avoir", RECEIPT: "Reçu", MANIFEST: "Manifeste", OTHER: "Autre",
+  PARTIAL: "Partiel", OVERDUE: "En retard", VOID: "Annulé", ISSUED: "Émis",
+  SUCCESS: "Confirmé", ACCEPTED: "Accepté", RESOLVED: "Résolu", AUTO: "Automatique",
   DOCUMENT_MISSING: "Document manquant",
   PAYMENT_DUE: "Paiement à régulariser",
   QUOTE_FOLLOWUP: "Devis sans réponse",
@@ -102,10 +109,46 @@ export function businessLabel(value: unknown, fallback = "Non renseigné") {
   const key = raw.toUpperCase();
   if (businessLabels[key]) return businessLabels[key];
 
-  // Last-resort presentation for configurable agency values. API codes must
-  // never be shown as raw SCREAMING_SNAKE_CASE in an operational screen.
+  // Unknown machine identifiers are not translations. Keep custom, readable
+  // agency labels intact, but never turn a backend code into English prose.
+  if (/^[a-z\d]+(?:[_.:][a-z\d]+)+$/i.test(raw)) return fallback;
   return raw
     .replaceAll("_", " ")
     .toLocaleLowerCase("fr-FR")
     .replace(/^./, (letter) => letter.toLocaleUpperCase("fr-FR"));
+}
+
+const eventLabels: Record<string,string> = {
+  'CLIENT.CREATED':'Client créé', 'CLIENT.UPDATED':'Fiche client modifiée',
+  'CLIENT.ARCHIVED':'Client archivé', 'CLIENT.RESTORED':'Client restauré',
+  'CLIENT.MERGED':'Doublon fusionné', 'CLIENT.MERGED_INTO':'Client fusionné',
+  'MESSAGE.INBOUND':'Message reçu', 'MESSAGE.OUTBOUND':'Message envoyé',
+  PACKAGE_CREATED:'Colis enregistré', PARCEL_CREATED:'Colis enregistré',
+  PACKAGE_UPDATED:'Informations du colis modifiées', PACKAGE_RECEIVED:'Colis reçu',
+  PARCEL_INFORMATION_CORRECTED:'Informations du colis corrigées',
+  PACKAGE_MEDIA_ADDED:'Photo ou document ajouté', PACKAGE_DOCUMENT_ADDED:'Document ajouté',
+  PACKAGE_WEIGHED:'Poids vérifié', PACKAGE_NOTE_ADDED:'Note ajoutée',
+  PACKAGE_CHECKLIST_UPDATED:'Contrôles mis à jour', QUALITY_CONTROL:'Contrôle qualité',
+  SHIPMENT_CREATED:'Expédition créée', EXPEDITION_CREATED:'Expédition prévue',
+  SHIPMENT_UPDATED:'Expédition modifiée', SHIPMENT_PLANNING_CHANGED:'Départ prévu modifié',
+  SHIPMENT_DELAY_CHANGED:'Situation du retard modifiée', EXPEDITION_CANCELLED:'Expédition annulée',
+  STATUS_CHANGED:'Statut mis à jour', PAYMENT_RECEIVED:'Paiement reçu',
+  PAYMENT_CONFIRMED:'Paiement confirmé', PAYMENT_REVERSED:'Paiement annulé',
+  PAYMENT_RECORDED:'Paiement enregistré', CREDIT_APPLIED:'Avoir appliqué', CREDIT_RECEIVED:'Avoir reçu',
+  CREATED:'Document créé', UPDATED:'Document modifié', ISSUED:'Document émis', VOIDED:'Document annulé',
+  QUOTE_ACCEPTED:'Devis accepté', QUOTE_REJECTED:'Devis refusé', QUOTE_CONVERTED:'Devis converti en facture',
+  DOCUMENT_ADDED:'Document ajouté', NOTE_ADDED:'Note ajoutée',
+  NOTIFICATION_QUEUED:'Message client préparé', PRICING_CALCULATED:'Tarif calculé',
+  PRICING_REVIEW_REQUIRED:'Tarif à compléter', ANOMALY_CREATED:'Anomalie signalée',
+  ANOMALY_RESOLVED:'Anomalie résolue', FINANCE_LINE_ADDED:'Ligne financière ajoutée',
+};
+
+/** Presentation only: stored history, actor IDs and audit evidence stay intact. */
+export function businessHistoryTitle(value: unknown, eventType?: unknown) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  const known = eventLabels[raw.toUpperCase()];
+  if (known) return known;
+  const translated = raw.replace(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b/g, token => businessLabels[token] || token);
+  if (translated && !/\b[A-Za-z\d]+(?:[_.:][A-Za-z\d]+)+\b/.test(translated) && !/^[A-Z\d _:-]+$/.test(translated)) return translated;
+  return eventLabels[String(eventType || '').toUpperCase()] || 'Mise à jour enregistrée';
 }

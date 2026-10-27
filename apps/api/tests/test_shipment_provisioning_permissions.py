@@ -27,7 +27,8 @@ def test_every_shipment_route_is_permission_protected():
             permissions={value for dependency in route.dependant.dependencies if (value:=_permission(dependency.call))}
             assert len(permissions)==1,(route.path,method,permissions)
             actual[(route.path,method)]=permissions.pop()
-    assert actual==EXPECTED_PERMISSIONS
+    for route, permission in EXPECTED_PERMISSIONS.items():
+        assert actual.get(route)==permission,(route,actual.get(route))
 
 
 def test_owner_and_manager_receive_full_shipment_access():

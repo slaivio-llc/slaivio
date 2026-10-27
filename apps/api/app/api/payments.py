@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.tenant_context import get_current_tenant
+from app.core.permissions import require_permission
 from app.payments.services.payment_service import (
     create_payment_request,
     get_payments_overview,
@@ -28,7 +29,7 @@ class RefreshPaymentStatusRequest(BaseModel):
     provider_reference: str
 
 
-@router.get("/payments")
+@router.get("/payments", dependencies=[Depends(require_permission("finance.read"))])
 def get_payments(tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 
@@ -38,7 +39,7 @@ def get_payments(tenant=Depends(get_current_tenant)):
     }
 
 
-@router.post("/payments/requests")
+@router.post("/payments/requests", dependencies=[Depends(require_permission("finance.payments"))])
 def create_request(body: CreatePaymentRequest, tenant=Depends(get_current_tenant)):
     org_id = tenant["org_id"]
 
@@ -63,7 +64,7 @@ def create_request(body: CreatePaymentRequest, tenant=Depends(get_current_tenant
     }
 
 
-@router.post("/payments/status")
+@router.post("/payments/status", dependencies=[Depends(require_permission("finance.payments"))])
 def refresh_status(
     body: RefreshPaymentStatusRequest,
     tenant=Depends(get_current_tenant),

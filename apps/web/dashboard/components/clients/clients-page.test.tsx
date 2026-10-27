@@ -124,11 +124,11 @@ describe("ClientsPage production interactions", () => {
     });
     vi.mocked(clientService.createClient).mockRejectedValue(new Error('network'));
     render(<ClientsPage/>);
-    const button = screen.getByRole('button', {name: /Nouveau client/i});
+    const button = await screen.findByRole('button', {name: /Nouveau client/i});
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
     fireEvent.change(screen.getByLabelText(/^Nom complet/), {target:{value:'Jean'}});
-    fireEvent.change(screen.getByLabelText('Téléphone *'), {target:{value:'+33612345678'}});
+    fireEvent.change(screen.getByLabelText('Téléphone / WhatsApp *'), {target:{value:'+33612345678'}});
     const form = document.querySelector<HTMLFormElement>('#client-form')!;
     fireEvent.submit(form);
     await waitFor(() => expect(clientService.createClient).toHaveBeenCalledTimes(1));

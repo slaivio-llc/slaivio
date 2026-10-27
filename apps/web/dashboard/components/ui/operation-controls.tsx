@@ -40,7 +40,7 @@ export function OperationButton({
       data-variant={variant}
       aria-label={refresh ? props["aria-label"] || "Actualiser" : props["aria-label"]}
       title={refresh ? props.title || "Actualiser" : props.title}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
+      className={`inline-flex h-9 max-sm:min-h-11 max-sm:min-w-11 items-center justify-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087a46] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
     >{refresh ? (visibleChildren.length > 0 ? visibleChildren : <RefreshCcw size={14} aria-hidden="true" />) : children}</button>
   );
 }
@@ -73,6 +73,7 @@ export function OperationTab({
     <button
       type="button"
       aria-current={active ? "page" : undefined}
+      aria-pressed={Boolean(active)}
       data-ui="operation-tab"
       className={`inline-flex min-h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-none px-3 py-2 text-center text-[12px] font-medium transition-colors ${active ? "bg-[#111111] text-white" : "text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"} ${className}`}
       {...props}

@@ -1,4 +1,5 @@
 "use client";
+import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 import { PackageFinance } from "@/components/finance/package-finance";
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
@@ -305,7 +306,7 @@ export function PackagesPage({ embedded = false, createRequest = 0 }: { embedded
   useEffect(() => {
     let active = true;
     setError(false);
-    getTenantContext().then(context => { if (active) setParcel(context.active_tenant?.organization_type === "PARCEL_FREIGHT"); })
+    getTenantContext().then(context => { if (active) setParcel(getOrganizationProductProfile(context.active_tenant?.organization_type) === PRODUCT_PROFILES.PARCEL_FREIGHT); })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [retry]);

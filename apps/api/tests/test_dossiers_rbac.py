@@ -61,11 +61,13 @@ def test_every_dossier_route_declares_the_expected_permission():
                 for dependency in route.dependant.dependencies
                 if (permission := _permission_from_dependency(dependency.call))
             }
-            if permissions:
-                assert len(permissions) == 1
-                actual[(route.path, method)] = permissions.pop()
+            assert len(permissions) == 1, (route.path, method, permissions)
+            actual[(route.path, method)] = permissions.pop()
 
-    assert actual == EXPECTED_ROUTE_PERMISSIONS
+    # New routes must be protected too, but must not invalidate the baseline
+    # merely because they were added after this historical route catalogue.
+    for route, permission in EXPECTED_ROUTE_PERMISSIONS.items():
+        assert actual.get(route) == permission, (route, actual.get(route))
 
 
 def test_dossier_default_roles_follow_least_privilege():

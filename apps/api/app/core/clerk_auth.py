@@ -69,6 +69,7 @@ def verify_clerk_token(
             algorithms=["RS256"],
             issuer=settings.clerk_issuer_url,
             options={
+                "require": ["exp", "iat", "nbf", "sub"],
                 "verify_aud": False,
                 "verify_iss": bool(settings.clerk_issuer_url),
             },

@@ -20,7 +20,7 @@ function PageState({ icon, title, description, action }: StateProps & { icon: Re
 export function LoadingState({ label = "Chargement des données…" }: { label?: string }) {
   return <div data-ui="loading-state" className="min-h-[280px] bg-white p-6" role="status" aria-live="polite" aria-label={label}>
     <span className="sr-only">{label}</span>
-    <div className="animate-pulse space-y-5" aria-hidden>
+    <div className="motion-safe:animate-pulse space-y-5" aria-hidden>
       <div className="h-5 w-48 rounded-[5px] bg-[#e7ebed]"/>
       <div className="h-3 w-[min(420px,75%)] rounded-[5px] bg-[#edf0f1]"/>
       <div className="grid gap-3 sm:grid-cols-3"><div className="h-20 rounded-[8px] bg-[#edf0f1]"/><div className="h-20 rounded-[8px] bg-[#edf0f1]"/><div className="h-20 rounded-[8px] bg-[#edf0f1]"/></div>
@@ -30,16 +30,17 @@ export function LoadingState({ label = "Chargement des données…" }: { label?:
 }
 
 function SkeletonLine({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-[5px] bg-[#e9ecee] ${className}`} />;
+  return <div className={`max-w-full min-w-0 motion-safe:animate-pulse rounded-[5px] bg-[#e9ecee] ${className}`} />;
 }
 
 export function TableSkeleton({ rows = 6, columns = 5, label = "Chargement du tableau" }: { rows?: number; columns?: number; label?: string }) {
-  const cells = Array.from({ length: Math.max(2, columns) });
-  return <div data-ui="table-skeleton" className="bg-white" role="status" aria-label={label}>
-    <div className="grid h-11 items-center gap-5 border-b border-[#e4e7ea] bg-[#f7f8fa] px-5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(72px, 1fr))` }}>
+  const count = Math.max(1, Math.min(12, Math.floor(columns) || 1));
+  const cells = Array.from({ length: count });
+  return <div data-ui="table-skeleton" className="min-w-0 max-w-full overflow-hidden bg-white" role="status" aria-label={label}>
+    <div className="grid h-11 items-center gap-2 border-b border-[#e4e7ea] bg-[#f7f8fa] px-3 sm:gap-5 sm:px-5" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
       {cells.map((_, index) => <SkeletonLine key={index} className={`h-2.5 ${index % 3 === 0 ? "w-24" : index % 3 === 1 ? "w-16" : "w-20"}`} />)}
     </div>
-    {Array.from({ length: rows }, (_, index) => <div key={index} className="grid h-14 items-center gap-5 border-b border-[#eef0f2] px-5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(72px, 1fr))` }}>
+    {Array.from({ length: rows }, (_, index) => <div key={index} className="grid h-14 items-center gap-2 border-b border-[#eef0f2] px-3 sm:gap-5 sm:px-5" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
       {cells.map((_, cell) => <SkeletonLine key={cell} className={`h-3 ${cell % 3 === 0 ? "w-2/3" : cell % 3 === 1 ? "w-1/2" : "w-3/5"}`} />)}
     </div>)}
   </div>;

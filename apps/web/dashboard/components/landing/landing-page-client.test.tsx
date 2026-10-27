@@ -38,6 +38,22 @@ it('makes the illustrative product tabs work without loading private APIs',()=>{
   expect(screen.getByRole('table')).toHaveTextContent('EXP-2026-0008');
 });
 
+it('shows the real monthly prices and capacity differences with demo actions',()=>{
+  render(<LandingPageClient/>);
+  expect(screen.getByRole('link',{name:'Tarifs'})).toHaveAttribute('href','#tarifs');
+  const pricing=screen.getByRole('region',{name:/Un cadre pour démarrer/});
+  for(const [name,price,capacity] of [['Starter','119','500 colis / mois'],['Pro','229','2 500 colis / mois'],['Business','799','15 000 colis / mois']]){
+    const card=within(pricing).getByRole('article',{name});
+    expect(card).toHaveTextContent(`${price} $`);
+    expect(card).toHaveTextContent(capacity);
+    expect(card).toHaveTextContent('USD · Facturation mensuelle');
+  }
+  expect(within(pricing).getByRole('article',{name:'Starter'})).not.toHaveTextContent('relances répétées');
+  fireEvent.click(within(pricing).getByRole('button',{name:'Demander une démo · Pro'}));
+  expect(screen.getByRole('dialog')).toBeVisible();
+  expect(createDemoRequest).not.toHaveBeenCalled();
+});
+
 it('opens the accessible demo form and restores focus when closed using Escape',()=>{
   render(<LandingPageClient/>);
   const trigger=screen.getAllByRole('button',{name:'Demander une démo'})[0];

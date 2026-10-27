@@ -1,6 +1,16 @@
 export const landingCopy = {
   fr: {
-    nav: ['La plateforme', 'Le parcours d’un colis', 'Votre équipe', 'Questions'],
+    nav: ['La plateforme', 'Le parcours d’un colis', 'Votre équipe', 'Tarifs', 'Questions'],
+    pricingEyebrow: 'LES OFFRES SLAIVIO', pricingTitle: 'Un cadre pour démarrer.\nDe la place pour grandir.',
+    pricingIntro: 'Choisissez la capacité adaptée à votre activité. Les limites sont partagées entre les bureaux et entrepôts de votre agence.',
+    pricingPeriod: '/ mois', pricingCurrency: 'USD · Facturation mensuelle',
+    pricingCommon: 'Dans chaque offre : gestion des colis et expéditions, suivi public, tarifs, paiements et documents clients.',
+    pricingNote: 'Les quotas de colis se renouvellent chaque mois. Les utilisateurs comprennent les membres et invitations en attente. Les automatisations dépendent de vos réglages et des règles WhatsApp.',
+    pricingPlans: [
+      { name: 'Starter', price: '119', description: 'Pour structurer les opérations de votre première implantation.', features: ['500 colis / mois', '3 utilisateurs', '1 bureau et 1 entrepôt', '1 numéro WhatsApp', 'Confirmations des étapes clés du colis'] },
+      { name: 'Pro', price: '229', description: 'Pour accompagner une équipe et plusieurs implantations.', features: ['2 500 colis / mois', '10 utilisateurs', '3 bureaux et 3 entrepôts', '5 numéros WhatsApp', 'Confirmations, relances répétées et annonces de départ'] },
+      { name: 'Business', price: '799', description: 'Pour coordonner un réseau et un volume de colis plus important.', features: ['15 000 colis / mois', '40 utilisateurs', '10 bureaux et 10 entrepôts', '15 numéros WhatsApp', 'Confirmations, relances répétées et annonces de départ'] },
+    ],
     login: 'Connexion', demo: 'Demander une démo', close: 'Fermer', menu: 'Ouvrir le menu',
     eyebrow: 'LE QUOTIDIEN DES AGENCES DE COLIS ET DE FRET',
     title: ['Vos colis avancent.', 'Votre agence aussi.'],
@@ -58,7 +68,17 @@ export const landingCopy = {
     privacy: 'Ces informations servent à traiter votre demande de démonstration.',
   },
   en: {
-    nav: ['The platform', 'The parcel journey', 'Your team', 'Questions'],
+    nav: ['The platform', 'The parcel journey', 'Your team', 'Pricing', 'Questions'],
+    pricingEyebrow: 'SLAIVIO PLANS', pricingTitle: 'A foundation to start.\nRoom to grow.',
+    pricingIntro: 'Choose the capacity that fits your operations. Limits are shared across your agency’s offices and warehouses.',
+    pricingPeriod: '/ month', pricingCurrency: 'USD · Monthly billing',
+    pricingCommon: 'Every plan includes parcel and shipment management, public tracking, rates, payments and customer documents.',
+    pricingNote: 'Parcel quotas reset monthly. Users include members and pending invitations. Automations depend on your settings and WhatsApp rules.',
+    pricingPlans: [
+      { name: 'Starter', price: '119', description: 'Structure day-to-day operations at your first location.', features: ['500 parcels / month', '3 users', '1 office and 1 warehouse', '1 WhatsApp number', 'Confirmations at key parcel milestones'] },
+      { name: 'Pro', price: '229', description: 'Support a growing team across multiple locations.', features: ['2,500 parcels / month', '10 users', '3 offices and 3 warehouses', '5 WhatsApp numbers', 'Confirmations, repeat reminders and departure announcements'] },
+      { name: 'Business', price: '799', description: 'Coordinate a network and handle higher parcel volumes.', features: ['15,000 parcels / month', '40 users', '10 offices and 10 warehouses', '15 WhatsApp numbers', 'Confirmations, repeat reminders and departure announcements'] },
+    ],
     login: 'Log in', demo: 'Request a demo', close: 'Close', menu: 'Open navigation',
     eyebrow: 'BUILT FOR PARCEL AND FREIGHT AGENCIES', title: ['Your parcels move forward.', 'So does your agency.'],
     intro: 'From the first WhatsApp conversation to collection, bring your customers, warehouses, shipments and payments into one workspace.',

@@ -10,7 +10,7 @@ import { landingCopy } from "./landing-copy";
 import styles from "./landing-page.module.css";
 
 type Copy = typeof landingCopy.fr;
-const anchors = ['plateforme', 'parcours', 'equipe', 'questions'];
+const anchors = ['plateforme', 'parcours', 'equipe', 'tarifs', 'questions'];
 const featureIcons = [Package, Truck, CreditCard, MessageCircle];
 const journeyIcons = [MessageCircle, Package, Truck, CheckCircle2];
 
@@ -57,6 +57,17 @@ export function LandingPageClient() {
       </div>
     </section>
     <p className={`${styles.container} ${styles.availability}`}>{copy.note}</p>
+    <section id="tarifs" aria-labelledby="landing-pricing-title" className={`${styles.container} ${styles.pricingSection}`}>
+      <div className={styles.sectionHeading}><p className={styles.eyebrow}>{copy.pricingEyebrow}</p><h2 id="landing-pricing-title" className={styles.sectionTitle}>{copy.pricingTitle}</h2><p className={styles.sectionIntro}>{copy.pricingIntro}</p></div>
+      <p className={styles.pricingCommon}>{copy.pricingCommon}</p>
+      <div className={styles.pricingGrid}>{copy.pricingPlans.map(plan => <article key={plan.name} className={styles.pricingCard} aria-label={plan.name}>
+        <h3>{plan.name}</h3><p className={styles.planDescription}>{plan.description}</p>
+        <p className={styles.planPrice}><strong>{plan.price} <span>$</span></strong><span>{copy.pricingPeriod}</span></p><p className={styles.planCurrency}>{copy.pricingCurrency}</p>
+        <ul>{plan.features.map(feature => <li key={feature}><Check size={16} aria-hidden="true" /><span>{feature}</span></li>)}</ul>
+        <button type="button" className={`${styles.button} ${styles.planButton}`} aria-label={`${copy.demo} · ${plan.name}`} onClick={requestDemo}>{copy.demo}<ArrowRight size={15} aria-hidden="true" /></button>
+      </article>)}</div>
+      <p className={styles.pricingNote}>{copy.pricingNote}</p>
+    </section>
     <section id="questions" className={`${styles.container} ${styles.faqSection}`}><SectionHeading eyebrow="FAQ" title={copy.faqTitle} /><div className={styles.faqList}>{copy.faqs.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
     <section className={styles.finalSection}><div className={styles.container}><p className={styles.eyebrow}>SLAIVIO</p><h2 className={styles.sectionTitle}>{copy.finalTitle}</h2><p>{copy.finalText}</p><button type="button" className={`${styles.button} ${styles.greenButton}`} onClick={requestDemo}>{copy.demo}<ArrowRight size={16} /></button></div></section>
     <footer className={`${styles.container} ${styles.footer}`}><div><SlaivioBrand compact /><p>{copy.footer}</p></div><div className={styles.footerLinks}><Link href="/sign-in">{copy.login}</Link><button type="button" onClick={requestDemo}>{copy.demo}</button><span>© {new Date().getFullYear()} Slaivio. {copy.rights}</span></div></footer>

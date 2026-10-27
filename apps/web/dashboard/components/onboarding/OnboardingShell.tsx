@@ -1,5 +1,8 @@
+"use client";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Check, Clock3, LifeBuoy } from "lucide-react";
 
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
@@ -32,9 +35,19 @@ export function OnboardingShell({ children, state, currentStep }: {
 }) {
   const steps = visibleSteps.map((key) => state.steps.find((step) => step.step_key === key)).filter(Boolean);
   const active = currentStep || state.current_step?.step_key || "AGENCY_PROFILE";
-  const currentIndex = Math.max(0, visibleSteps.indexOf(active));
-
   return <main className="min-h-screen bg-white text-[#1f2933]">
+    <OnboardingHeader steps={steps.filter((step): step is NonNullable<typeof step> => Boolean(step))} active={active}/>
+    <div className="mx-auto w-full max-w-[900px] px-5 py-10 sm:px-8 sm:py-14">{children}</div>
+  </main>;
+}
+
+function OnboardingHeader({ steps, active, pending = false }: {
+  steps: Array<{ step_key: string; step_name: string; status: string }>;
+  active: string;
+  pending?: boolean;
+}) {
+  const currentIndex = Math.max(0, visibleSteps.indexOf(active));
+  return (
     <header className="border-b border-[#e8ebed] bg-white">
       <div className="mx-auto flex h-[68px] max-w-[1440px] items-center justify-between px-5 sm:px-8">
         <Link href="/landing" aria-label="SLAIVIO"><SlaivioBrand /></Link>
@@ -45,9 +58,9 @@ export function OnboardingShell({ children, state, currentStep }: {
           {steps.map((step, index) => {
             if (!step) return null;
             const skipped = step.status === "SKIPPED";
-            const complete = step.status === "COMPLETED" || skipped || index < currentIndex;
+            const complete = !pending && (step.status === "COMPLETED" || skipped || index < currentIndex);
             const selected = step.step_key === active;
-            const canOpen = complete || selected;
+            const canOpen = !pending && (complete || selected);
             const label = journeyLabels.PARCEL_FREIGHT[step.step_key as keyof typeof journeyLabels.PARCEL_FREIGHT] || step.step_name;
             const content = <><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-semibold ${skipped ? "border-[#cbd2d7] bg-[#f4f6f7] text-[#69747c]" : complete ? "border-[#19a463] bg-[#19a463] text-white" : selected ? "border-[#087f4f] bg-[#087f4f] text-white" : "border-[#d9dee2] bg-[#f6f7f8] text-[#68737c]"}`}>{skipped ? <Clock3 size={13}/> : complete ? <Check size={14}/> : index + 1}</span><span className={`ml-2 whitespace-nowrap text-[13px] font-medium ${selected ? "text-[#087f4f]" : complete ? "text-[#34414a]" : "text-[#7b858e]"}`}>{label}</span></>;
             return <li key={step.step_key} className="flex items-center">
@@ -60,8 +73,7 @@ export function OnboardingShell({ children, state, currentStep }: {
         </ol>
       </nav>
     </header>
-    <div className="mx-auto w-full max-w-[900px] px-5 py-10 sm:px-8 sm:py-14">{children}</div>
-  </main>;
+  );
 }
 
 export function OnboardingHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
@@ -73,7 +85,20 @@ export function OnboardingFooter({ backHref, children }: { backHref?: string; ch
 }
 
 export function OnboardingLoading() {
-  return <main className="min-h-screen bg-white px-6 py-12"><p role="status" className="mx-auto max-w-[900px] text-sm text-[#68737d]">Chargement de cette étape…</p></main>;
+  const pathname = usePathname();
+  const active = visibleSteps.find(key => routes[key] === pathname) || "AGENCY_PROFILE";
+  return <main className="min-h-screen bg-white text-[#1f2933]" aria-busy="true">
+    <OnboardingHeader active={active} pending steps={visibleSteps.map(key => ({step_key:key,step_name:journeyLabels.PARCEL_FREIGHT[key as keyof typeof journeyLabels.PARCEL_FREIGHT],status:"PENDING"}))}/>
+    <div role="status" aria-live="polite" className="sr-only">Préparation de votre espace</div>
+    <div aria-hidden="true" className="mx-auto w-full max-w-[900px] px-5 py-10 sm:px-8 sm:py-14">
+      <div className="motion-safe:animate-pulse">
+        <div className="mb-9 space-y-4"><div className="h-3 w-24 rounded bg-[#e7f2eb]"/><div className="h-9 w-4/5 max-w-[460px] rounded-md bg-[#edf0ee]"/><div className="h-4 w-full max-w-[600px] rounded bg-[#f1f3f2]"/></div>
+        <div className="mb-9 h-[86px] rounded-[9px] border border-[#e5ece7] bg-[#f7faf8]"/>
+        <div className="grid gap-5 sm:grid-cols-2">{Array.from({length:6},(_,index)=><div key={index} className="space-y-3"><div className="h-3 w-28 rounded bg-[#edf0ee]"/><div className="h-11 rounded-[7px] border border-[#e8ece9] bg-[#f8faf9]"/></div>)}</div>
+        <div className="mt-10 flex justify-between border-t border-[#eceff1] pt-6"><div className="h-10 w-20 rounded-[7px] bg-[#f3f5f4]"/><div className="h-10 w-28 rounded-[7px] bg-[#e5f2e9]"/></div>
+      </div>
+    </div>
+  </main>;
 }
 
 export function OnboardingError({ message, retry }: { message: string; retry: () => void }) {

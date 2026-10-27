@@ -63,10 +63,11 @@ export function LandingPageClient() {
       <div className={styles.pricingGrid}>{copy.pricingPlans.map(plan => <article key={plan.name} className={styles.pricingCard} aria-label={plan.name}>
         <h3>{plan.name}</h3><p className={styles.planDescription}>{plan.description}</p>
         <p className={styles.planPrice}><strong>{plan.price} <span>$</span></strong><span>{copy.pricingPeriod}</span></p><p className={styles.planCurrency}>{copy.pricingCurrency}</p>
-        <ul>{plan.features.map(feature => <li key={feature}><Check size={16} aria-hidden="true" /><span>{feature}</span></li>)}</ul>
+        <div className={styles.planValue}><h4>{copy.pricingValueLabel}</h4><ul>{plan.value.map(value => <li key={value}><Check size={16} aria-hidden="true" /><span>{value}</span></li>)}</ul></div>
+        <h4 className={styles.planCapacityLabel}>{copy.pricingCapacityLabel}</h4><ul>{plan.features.map(feature => <li key={feature}><Check size={16} aria-hidden="true" /><span>{feature}</span></li>)}</ul>
         <button type="button" className={`${styles.button} ${styles.planButton}`} aria-label={`${copy.demo} · ${plan.name}`} onClick={requestDemo}>{copy.demo}<ArrowRight size={15} aria-hidden="true" /></button>
       </article>)}</div>
-      <p className={styles.pricingNote}>{copy.pricingNote}</p>
+      <p className={styles.pricingNote}>{copy.pricingBusinessNote}</p><p className={styles.pricingNote}>{copy.pricingNote}</p>
     </section>
     <section id="questions" className={`${styles.container} ${styles.faqSection}`}><SectionHeading eyebrow="FAQ" title={copy.faqTitle} /><div className={styles.faqList}>{copy.faqs.map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
     <section className={styles.finalSection}><div className={styles.container}><p className={styles.eyebrow}>SLAIVIO</p><h2 className={styles.sectionTitle}>{copy.finalTitle}</h2><p>{copy.finalText}</p><button type="button" className={`${styles.button} ${styles.greenButton}`} onClick={requestDemo}>{copy.demo}<ArrowRight size={16} /></button></div></section>

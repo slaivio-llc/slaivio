@@ -49,6 +49,11 @@ it('shows the real monthly prices and capacity differences with demo actions',()
     expect(card).toHaveTextContent('USD · Facturation mensuelle');
   }
   expect(within(pricing).getByRole('article',{name:'Starter'})).not.toHaveTextContent('relances répétées');
+  expect(within(pricing).getByRole('article',{name:'Starter'})).toHaveTextContent('solde restant');
+  expect(within(pricing).getByRole('article',{name:'Pro'})).toHaveTextContent('départs bloqués');
+  expect(within(pricing).getByRole('article',{name:'Business'})).toHaveTextContent('40 membres de votre équipe');
+  expect(pricing).toHaveTextContent('pas un client de votre agence');
+  expect(pricing).toHaveTextContent('sans fonctions exclusives supplémentaires');
   fireEvent.click(within(pricing).getByRole('button',{name:'Demander une démo · Pro'}));
   expect(screen.getByRole('dialog')).toBeVisible();
   expect(createDemoRequest).not.toHaveBeenCalled();

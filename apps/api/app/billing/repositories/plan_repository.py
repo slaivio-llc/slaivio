@@ -30,11 +30,29 @@ def list_pricing_plans():
             plan['limits']=limits.get(plan['code'],{})
             pro=plan['code']=='PRO'
             business=plan['code'] in ('ENTERPRISE','BUSINESS')
-            plan['positioning']='Piloter son réseau' if business else 'Automatiser sa croissance' if pro else 'Organiser son agence'
+            plan['positioning']=(
+                'Coordonner vos équipes à l’origine et à destination, avec la capacité nécessaire à un réseau de sites.' if business else
+                'Relancer les clients dans la durée et annoncer vos prochains départs, au-delà des confirmations de suivi.' if pro else
+                'Structurer votre premier bureau et son entrepôt, de la réception du colis à son retrait.'
+            )
             plan['recommended']=pro
-            plan['included_features']=(['Tout Pro, avec une capacité multisite supérieure','Accès des équipes par bureau et entrepôt']
-                if business else ['Tout Starter, avec davantage de capacité','Relances clients programmées','Annonces de départ aux contacts consentants']
-                if pro else ['Colis, expéditions et tarifs par marchandise','Paiements, factures et étiquettes','Tracking public avec photos','Confirmations clients automatiques'])
+            plan['value_highlights']=(
+                ['Les mêmes automatisations que Pro pour un volume plus important',
+                 'Des accès individuels pour les équipes de vos différents sites',
+                 'Une capacité d’agence partagée entre bureaux et entrepôts'] if business else
+                ['Relancer les colis attendus et les départs bloqués selon vos réglages',
+                 'Rappeler le retrait et signaler les frais d’entreposage applicables',
+                 'Annoncer les départs aux contacts autorisés à recevoir vos messages'] if pro else
+                ['Retrouver le client, les mesures et les photos sur la fiche du colis',
+                 'Suivre les règlements et le solde restant avant le retrait',
+                 'Informer le client des étapes clés et lui partager son tracking']
+            )
+            plan['included_features']=(
+                ['Toutes les fonctions de Pro', 'Capacité supérieure pour les colis, les équipes et les sites'] if business else
+                ['Toutes les fonctions de Starter', 'Relances clients programmées', 'Annonces de départ aux contacts consentants'] if pro else
+                ['Colis, expéditions et tarifs par marchandise', 'Paiements et documents clients',
+                 'Tracking public et photos autorisées au partage', 'Confirmations clients automatiques selon vos réglages']
+            )
             plans.append(plan)
         return plans
 

@@ -1,6 +1,6 @@
 import { api } from "./api";
 
-export type SubscriptionPlan = { code:string;name:string;monthly_price_minor:number;currency_code:string;included_features?:string[];limits?:Record<string,number>;positioning?:string;recommended?:boolean;max_users?:number|null;max_whatsapp_numbers?:number|null;max_monthly_messages?:number|null };
+export type SubscriptionPlan = { code:string;name:string;monthly_price_minor:number;currency_code:string;included_features?:string[];value_highlights?:string[];limits?:Record<string,number>;positioning?:string;recommended?:boolean;max_users?:number|null;max_whatsapp_numbers?:number|null;max_monthly_messages?:number|null };
 export type BillingOverview = {
   billing_account_id:string;trial_days:number;access_active:boolean;checkout_available:boolean;
   payer?:{email:string;name:string}|null;

@@ -93,6 +93,19 @@ it('presents all three priced offer cards with no plan dropdown',async()=>{
   expect(screen.queryByRole('form',{name:'Finaliser l’abonnement'})).not.toBeInTheDocument();
 });
 
+it('explains team seats and shows real benefits returned by the catalogue',async()=>{
+  vi.mocked(billing.getSubscriptionPlans).mockResolvedValue([
+    {code:'PRO',name:'Pro',monthly_price_minor:22900,currency_code:'USD',limits:{max_users:10},positioning:'Suivre vos clients au-delà des confirmations.',value_highlights:['Relancer les colis attendus et les départs bloqués selon vos réglages'],included_features:['Relances clients programmées']},
+  ]);
+  render(<SubscriptionSettings organization={{}}/>);
+  const card=await screen.findByRole('article',{name:'Offre Pro'});
+  expect(card).toHaveTextContent('Ce que cela change au quotidien');
+  expect(card).toHaveTextContent('départs bloqués');
+  expect(card).toHaveTextContent('Membres de votre équipe');
+  expect(screen.getByText(/Ce n’est pas un client de votre agence/)).toBeVisible();
+  expect(screen.getByText(/il n’ajoute pas de fonctions exclusives/)).toBeVisible();
+});
+
 it('chooses Pro from its card and charges only the server-side plan code',async()=>{
   render(<SubscriptionSettings organization={{organization_name:'Cargo',email:'owner@example.com'}}/>);
   fireEvent.click(await screen.findByRole('button',{name:'Choisir Pro'}));

@@ -88,3 +88,46 @@ def test_unknown_clerk_key_returns_unauthorized(monkeypatch) -> None:
 
     assert error.value.status_code == 401
     assert error.value.detail == "clerk_key_not_found"
+
+
+@pytest.mark.parametrize('change,reason',[
+    ({'iss':'https://another-instance.example'},'issuer_mismatch'),
+    ({'exp':1},'expired'),
+    ({'nbf':int(time.time())+3600},'not_yet_valid'),
+    ({'azp':'https://untrusted.example'},'origin_not_allowed'),
+])
+def test_auth_rejection_logs_only_a_fixed_reason(signing_key,monkeypatch,caplog,change,reason):
+    from app.core import clerk_auth
+    monkeypatch.setattr(clerk_auth.settings,'clerk_authorized_parties','https://slaivio.com')
+    claims={**session_claims(),**change,'email':'private@example.test','metadata':'NEVER_LOG_ME'}
+    token=jwt.encode(claims,signing_key,algorithm='RS256',headers={'kid':'test-session'})
+    with pytest.raises(HTTPException) as error:
+        verify_clerk_token(token)
+    assert error.value.status_code==401
+    assert error.value.detail=='invalid_clerk_token'
+    assert f'clerk_auth_rejected reason={reason}' in caplog.text
+    assert token not in caplog.text
+    assert 'private@example.test' not in caplog.text
+    assert 'NEVER_LOG_ME' not in caplog.text
+    assert 'user_test' not in caplog.text
+    assert 'another-instance.example' not in caplog.text
+    assert 'untrusted.example' not in caplog.text
+
+
+def test_wrong_signature_is_rejected_and_identified_without_exposing_key(signing_key,caplog):
+    other=rsa.generate_private_key(public_exponent=65537,key_size=2048)
+    token=jwt.encode(session_claims(),other,algorithm='RS256',headers={'kid':'test-session'})
+    with pytest.raises(HTTPException) as error:
+        verify_clerk_token(token)
+    assert error.value.status_code==401
+    assert 'clerk_auth_rejected reason=signature_invalid' in caplog.text
+    assert token not in caplog.text
+
+
+def test_missing_claim_is_still_rejected_and_identified(signing_key,caplog):
+    claims=session_claims();del claims['nbf']
+    token=jwt.encode(claims,signing_key,algorithm='RS256',headers={'kid':'test-session'})
+    with pytest.raises(HTTPException):
+        verify_clerk_token(token)
+    assert 'clerk_auth_rejected reason=required_claim_missing' in caplog.text
+    assert token not in caplog.text

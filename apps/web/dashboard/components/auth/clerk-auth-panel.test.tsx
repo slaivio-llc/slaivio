@@ -17,3 +17,9 @@ it("keeps onboarding as a fallback without overriding invitation destinations", 
   expect(clerk.signUp).toHaveBeenCalledWith(expect.objectContaining({ fallbackRedirectUrl: "/onboarding" }));
   expect(clerk.signUp.mock.lastCall?.[0]).not.toHaveProperty("forceRedirectUrl");
 });
+
+it('preserves the return destination when signing in again during onboarding',()=>{
+  render(<ClerkAuthPanel mode="sign-in"/>);
+  expect(clerk.signIn).toHaveBeenCalledWith(expect.objectContaining({fallbackRedirectUrl:'/app'}));
+  expect(clerk.signIn.mock.lastCall?.[0]).not.toHaveProperty('forceRedirectUrl');
+});

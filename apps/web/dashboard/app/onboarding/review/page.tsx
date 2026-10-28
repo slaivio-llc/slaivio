@@ -11,10 +11,10 @@ import { getOnboardingStatus, type AgencyProfile } from "@/services/onboarding";
 import { getPilotSettings, type PilotSettingsData } from "@/services/organization-admin";
 
 export default function OnboardingReviewPage(){
-  const router=useRouter(); const {state,error:stateError,reload}=useOnboardingState(); const [profile,setProfile]=useState<AgencyProfile|null>(null); const [settings,setSettings]=useState<PilotSettingsData|null>(null); const [saving,setSaving]=useState(false); const [error,setError]=useState("");
+  const router=useRouter(); const {state,error:stateError,reload,authenticationRequired}=useOnboardingState(); const [profile,setProfile]=useState<AgencyProfile|null>(null); const [settings,setSettings]=useState<PilotSettingsData|null>(null); const [saving,setSaving]=useState(false); const [error,setError]=useState("");
   useEffect(()=>{Promise.all([getOnboardingStatus(),getPilotSettings()]).then(([onboarding,pilot])=>{setProfile(onboarding.profile);setSettings(pilot);}).catch(()=>setError("La synthèse ne peut pas être chargée."));},[]);
   async function finish(){setSaving(true);setError("");try{await completeOnboardingStep("REVIEW");await completeOnboardingStep("GO_LIVE");router.push("/app");}catch{setError("La configuration ne peut pas être finalisée pour le moment.");setSaving(false);}}
-  if(!state)return stateError?<OnboardingError message={stateError} retry={()=>void reload()}/>:<OnboardingLoading/>;
+  if(!state)return stateError?<OnboardingError authenticationRequired={authenticationRequired} message={stateError} retry={()=>void reload()}/>:<OnboardingLoading/>;
   if(!settings)return error?<OnboardingError message={error} retry={()=>window.location.reload()}/>:<OnboardingLoading/>;
   const number=settings.whatsapp_numbers.find(item=>item.connection_status==="CONNECTED");
   const parcel=true;

@@ -15,7 +15,7 @@ const empty: AgencyProfilePayload = { legal_name:"", brand_name:"", country:"", 
 
 export default function AgencyProfilePage() {
   const router = useRouter();
-  const { state, error: stateError, reload } = useOnboardingState();
+  const { state, error: stateError, reload, authenticationRequired } = useOnboardingState();
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -26,7 +26,7 @@ export default function AgencyProfilePage() {
     try { await saveAgencyProfile({...form,business_type:"PARCEL_FREIGHT"}); await completeOnboardingStep("WELCOME"); await completeOnboardingStep("AGENCY_PROFILE"); router.push("/onboarding/operations"); }
     catch (cause) { setError(apiErrorDetail(cause) || "L’enregistrement du profil de l’agence a échoué. Réessayez dans un instant."); setSaving(false); }
   }
-  if (!state) return stateError?<OnboardingError message={stateError} retry={()=>void reload()}/>:<OnboardingLoading/>;
+  if (!state) return stateError?<OnboardingError authenticationRequired={authenticationRequired} message={stateError} retry={()=>void reload()}/>:<OnboardingLoading/>;
   return <OnboardingShell state={state} currentStep="AGENCY_PROFILE"><form onSubmit={submit}>
     <OnboardingHeading eyebrow="Étape 1 sur 5" title="Parlez-nous de votre entreprise" description="Ces informations apparaîtront dans votre espace de travail et permettront à SLAIVIO d’adapter les modules à votre activité."/>
     <section className="mb-9 rounded-[9px] border border-[#dce8e1] bg-[#f7fbf8] p-4"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-[8px] bg-[#e7f5ed] text-[#128352]"><PackageCheck size={20}/></span><div><h2 className="text-[14px] font-semibold text-[#26323a]">Espace Colis et fret</h2><p className="mt-1 text-[12px] leading-5 text-[#6f7a83]">SLAIVIO configure les colis, les expéditions, les départs, la finance et le suivi de votre agence.</p></div></div></section>

@@ -1,5 +1,6 @@
 "use client";
 import { PlatformAdminEntry } from '@/components/platform/platform-admin-entry';
+import { SessionRecoveryPrompt } from '@/components/auth/session-recovery-prompt';
 
 import { useClerk, useUser } from "@clerk/nextjs";
 import { accountDisplayName } from "./account-identity";
@@ -396,17 +397,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       {mfaRequired && clerkEnabled && <MfaPolicyPrompt close={()=>setMfaRequired(false)}/>}
-      {sessionExpired && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/35 p-4" role="alertdialog" aria-modal="true">
-          <section className="w-full max-w-sm rounded-[8px] border border-[#d0d3d6] bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold">Votre session a expiré</h2>
-            <p className="mt-2 text-sm leading-6 text-[#666d75]">Reconnectez-vous avant de poursuivre.</p>
-            <button onClick={() => { const returnTo = `${window.location.pathname}${window.location.search}`; window.location.assign(`/sign-in?redirect_url=${encodeURIComponent(returnTo)}`); }} className="mt-5 inline-flex h-9 w-full items-center justify-center rounded-[5px] bg-[#272a2f] px-4 text-sm font-semibold text-white hover:bg-black">
-              Se reconnecter
-            </button>
-          </section>
-        </div>
-      )}
+      {sessionExpired && <SessionRecoveryPrompt returnTo={pathname}/>}
     </div>
   );
 }

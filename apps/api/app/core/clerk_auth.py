@@ -1,3 +1,4 @@
+import logging
 import requests
 from cachetools import TTLCache, cached
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
@@ -9,6 +10,25 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def _rejection_reason(error: Exception) -> str:
+    # Only fixed categories may reach logs: never the token, claims, user ID,
+    # email, key contents or exception text supplied by a library/provider.
+    for error_type, reason in (
+        (jwt.ExpiredSignatureError, 'expired'),
+        (jwt.InvalidIssuerError, 'issuer_mismatch'),
+        (jwt.InvalidSignatureError, 'signature_invalid'),
+        (jwt.ImmatureSignatureError, 'not_yet_valid'),
+        (jwt.MissingRequiredClaimError, 'required_claim_missing'),
+        (jwt.InvalidAlgorithmError, 'algorithm_not_allowed'),
+        (jwt.DecodeError, 'malformed_token'),
+    ):
+        if isinstance(error, error_type):
+            return reason
+    return 'invalid_token_or_key'
 
 
 def _resolve_jwks_url() -> str | None:
@@ -65,12 +85,14 @@ def verify_clerk_token(
             None,
         )
     except (InvalidTokenError, KeyError, TypeError) as exc:
+        logger.warning('clerk_auth_rejected reason=%s', _rejection_reason(exc))
         raise HTTPException(
             status_code=401,
             detail="invalid_clerk_token",
         ) from exc
 
     if not key:
+        logger.warning('clerk_auth_rejected reason=signing_key_not_found')
         raise HTTPException(status_code=401, detail="clerk_key_not_found")
 
     try:
@@ -92,9 +114,11 @@ def verify_clerk_token(
         # by a request header.
         party = claims.get('azp')
         if party is not None and (not isinstance(party, str) or party not in _authorized_parties()):
-            raise InvalidTokenError('untrusted_authorized_party')
+            logger.warning('clerk_auth_rejected reason=origin_not_allowed')
+            raise HTTPException(status_code=401, detail='invalid_clerk_token')
         return claims
     except (InvalidTokenError, TypeError, ValueError) as exc:
+        logger.warning('clerk_auth_rejected reason=%s', _rejection_reason(exc))
         raise HTTPException(
             status_code=401,
             detail="invalid_clerk_token",

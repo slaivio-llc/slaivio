@@ -134,7 +134,9 @@ def test_subscription_activation_rejects_expired_access(monkeypatch):
 def test_bootstrap_is_manual_guarded_and_not_an_automatic_migration():
     root=Path(__file__).resolve().parents[3]
     sql=(root/'infra/manual/bootstrap_platform_admin.sql').read_text(encoding='utf-8')
-    assert 'REMPLACER_PAR_USER_ID_CLERK' in sql
+    # The operator is expected to replace the placeholder in this manual file.
+    # Check its guard, not a value the setup instructions explicitly ask to edit.
+    assert 'declare operator_clerk_id text :=' in sql
     assert "'^user_[A-Za-z0-9]+$'" in sql
     assert 'raise exception' in sql
     migration=(root/'infra/sql/160_platform_operator_privacy.sql').read_text(encoding='utf-8')

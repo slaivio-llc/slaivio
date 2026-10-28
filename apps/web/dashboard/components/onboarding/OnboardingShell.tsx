@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Check, Clock3, LifeBuoy } from "lucide-react";
 
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
+import { ReconnectButton } from '@/components/auth/reconnect-button';
 
 import type { OnboardingExperienceState } from "@/services/onboarding-experience";
 
@@ -101,8 +102,9 @@ export function OnboardingLoading() {
   </main>;
 }
 
-export function OnboardingError({ message, retry }: { message: string; retry: () => void }) {
-  return <main className="grid min-h-screen place-items-center bg-white px-5"><div className="max-w-md text-center"><SlaivioBrand/><h1 className="mt-7 text-[20px] font-semibold text-[#202a32]">Configuration indisponible</h1><p className="mt-2 text-[13px] leading-5 text-[#717c84]">{message}</p><button type="button" onClick={retry} className={`${onboardingPrimaryButtonClass} mt-6`}>Réessayer</button></div></main>;
+export function OnboardingError({ message, retry, authenticationRequired=false }: { message: string; retry: () => void; authenticationRequired?:boolean }) {
+  const pathname=usePathname();
+  return <main className="grid min-h-screen place-items-center bg-white px-5"><div className="max-w-md text-center"><SlaivioBrand/><h1 className="mt-7 text-[20px] font-semibold text-[#202a32]">{authenticationRequired?'Retrouvons votre connexion':'Configuration indisponible'}</h1><p className="mt-2 text-[13px] leading-5 text-[#717c84]">{message}</p>{authenticationRequired?<ReconnectButton returnTo={pathname} className="mt-6"/>:<button type="button" onClick={retry} className={`${onboardingPrimaryButtonClass} mt-6`}>Réessayer</button>}</div></main>;
 }
 
 export const onboardingInputClass = "h-11 w-full rounded-[7px] border border-[#d7dde1] bg-white px-3 text-[14px] text-[#26323a] outline-none transition placeholder:text-[#a0a8ae] focus:border-[#12a865] focus:ring-2 focus:ring-[#12a865]/10";

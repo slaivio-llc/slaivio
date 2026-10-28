@@ -17,7 +17,9 @@ function fillForm(dialog:HTMLElement){
   fireEvent.change(within(dialog).getByLabelText('Nom complet'),{target:{value:' Awa Sossou '}});
   fireEvent.change(within(dialog).getByLabelText('Email professionnel'),{target:{value:'awa@example.com'}});
   fireEvent.change(within(dialog).getByLabelText('Nom de l’agence'),{target:{value:'Cargo Express'}});
-  fireEvent.change(within(dialog).getByLabelText('Pays'),{target:{value:'Bénin'}});
+  fireEvent.click(within(dialog).getByRole('button',{name:'Pays'}));
+  fireEvent.change(within(dialog).getByRole('combobox'),{target:{value:'Benin'}});
+  fireEvent.click(within(dialog).getByRole('option',{name:/Bénin/}));
 }
 
 it('presents only parcels and freight, login and demo requests without invented integrations or sign-up offers',()=>{
@@ -91,6 +93,53 @@ it('preserves the form if the API fails and allows retrying',async()=>{
   expect(within(dialog).getByLabelText('Nom de l’agence')).toHaveValue('Cargo Express');
   fireEvent.submit(within(dialog).getByRole('button',{name:'Demander une démo'}).closest('form')!);
   await waitFor(()=>expect(createDemoRequest).toHaveBeenCalledTimes(2));
+});
+
+it('shows country flags and normalizes a national phone number with an independently selected calling code',async()=>{
+  render(<LandingPageClient/>);const dialog=openForm();fillForm(dialog);
+  expect(dialog.querySelector('.fi-bj')).not.toBeNull();
+  expect(within(dialog).getByRole('button',{name:'Choisir l’indicatif téléphonique'})).toHaveTextContent('+229');
+  fireEvent.click(within(dialog).getByRole('button',{name:'Choisir l’indicatif téléphonique'}));
+  fireEvent.change(within(dialog).getByRole('combobox'),{target:{value:'France'}});
+  fireEvent.click(within(dialog).getByRole('option',{name:/France/}));
+  fireEvent.change(within(dialog).getByLabelText('Téléphone (facultatif)'),{target:{value:'0612345678'}});
+  fireEvent.submit(within(dialog).getByRole('button',{name:'Demander une démo'}).closest('form')!);
+  await waitFor(()=>expect(createDemoRequest).toHaveBeenCalledWith(expect.objectContaining({country:'Bénin',phone:'+33612345678'})));
+});
+
+it('does not submit an arbitrary country or an invalid phone number',()=>{
+  render(<LandingPageClient/>);const dialog=openForm();
+  const form=within(dialog).getByRole('button',{name:'Demander une démo'}).closest('form')!;
+  fireEvent.submit(form);
+  expect(screen.getByRole('alert')).toHaveTextContent('Sélectionnez le pays de votre agence.');
+  expect(createDemoRequest).not.toHaveBeenCalled();
+  fillForm(dialog);
+  fireEvent.change(within(dialog).getByLabelText('Téléphone (facultatif)'),{target:{value:'123'}});
+  fireEvent.submit(form);
+  expect(createDemoRequest).not.toHaveBeenCalled();
+  expect(within(dialog).getByLabelText('Téléphone (facultatif)')).toHaveAttribute('aria-invalid','true');
+});
+
+it('recognizes the calling code of a pasted international number without changing the agency country',()=>{
+  render(<LandingPageClient/>);const dialog=openForm();fillForm(dialog);
+  fireEvent.change(within(dialog).getByLabelText('Téléphone (facultatif)'),{target:{value:'+33612345678'}});
+  expect(within(dialog).getByRole('button',{name:'Choisir l’indicatif téléphonique'})).toHaveTextContent('+33');
+  expect(within(dialog).getByRole('button',{name:'Pays'})).toHaveTextContent('Bénin');
+});
+
+it('closes the country menu with Escape without closing the demo and supports keyboard selection',()=>{
+  render(<LandingPageClient/>);const dialog=openForm();
+  fireEvent.click(within(dialog).getByRole('button',{name:'Pays'}));
+  let search=within(dialog).getByRole('combobox');
+  fireEvent.keyDown(search,{key:'Escape'});
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(within(dialog).queryByRole('listbox')).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole('button',{name:'Pays'}));
+  search=within(dialog).getByRole('combobox');
+  fireEvent.change(search,{target:{value:'Burkina'}});
+  fireEvent.keyDown(search,{key:'Enter'});
+  expect(within(dialog).getByRole('button',{name:'Pays'})).toHaveTextContent('Burkina Faso');
+  expect(createDemoRequest).not.toHaveBeenCalled();
 });
 
 it('keeps the English landing and language switch available',()=>{

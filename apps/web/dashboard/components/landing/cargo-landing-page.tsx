@@ -8,6 +8,7 @@ import { SlaivioBrand } from "@/components/ui/slaivio-brand";
 import { createDemoRequest } from "@/services/landing";
 import { landingCopy } from "./landing-copy";
 import styles from "./landing-page.module.css";
+import { DemoContactFields } from './demo-contact-fields';
 
 type Copy = typeof landingCopy.fr;
 const anchors = ['plateforme', 'parcours', 'equipe', 'tarifs', 'questions'];
@@ -108,10 +109,12 @@ function FeatureArt({ index, copy }: { index: number; copy: Copy }) {
 }
 
 function DemoDialog({ copy, close }: { copy: Copy; close: () => void }) {
+  const locale = useLocale() === 'en' ? 'en' : 'fr';
   const id = useId();
   const dialog = useRef<HTMLDivElement>(null);
   const inFlight = useRef(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [validationError, setValidationError] = useState('');
   const busy = status === 'loading';
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -126,10 +129,18 @@ function DemoDialog({ copy, close }: { copy: Copy; close: () => void }) {
   }, [status]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (inFlight.current) return;
-    inFlight.current = true; setStatus('loading');
     const form = event.currentTarget;
     const data = new FormData(form);
     const value = (key: string) => String(data.get(key) || '').trim();
+    if (!value('country')) {
+      setValidationError(locale === 'fr' ? 'Sélectionnez le pays de votre agence.' : 'Select your agency’s country.');
+      setStatus('error');
+      form.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')?.focus();
+      return;
+    }
+    setValidationError('');
+    if (!form.reportValidity()) { setStatus('idle'); return; }
+    inFlight.current = true; setValidationError(''); setStatus('loading');
     try {
       await createDemoRequest({ full_name: value('full_name'), email: value('email'), agency_name: value('agency_name'), country: value('country'), phone: value('phone'), message: value('message') });
       form.reset(); setStatus('success');
@@ -140,7 +151,7 @@ function DemoDialog({ copy, close }: { copy: Copy; close: () => void }) {
     <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={id} className={styles.dialog} onKeyDown={event => {
       if (event.key === 'Escape' && !busy) { event.stopPropagation(); close(); }
       if (event.key !== 'Tab') return;
-      const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled)') || []);
+      const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not([type="hidden"]):not(:disabled), textarea:not(:disabled)') || []).filter(control => control.tabIndex >= 0);
       const first = controls[0], last = controls[controls.length - 1];
       if (!first) { event.preventDefault(); return; }
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -151,8 +162,8 @@ function DemoDialog({ copy, close }: { copy: Copy; close: () => void }) {
       {status === 'success' ? <div role="status" className={styles.success}><CheckCircle2 size={30} /><p>{copy.successText}</p><button type="button" className={`${styles.button} ${styles.greenButton}`} onClick={close}>{copy.close}</button></div> : <>
         <p className={styles.formIntro}>{copy.formIntro}</p>
         <form onSubmit={event => void submit(event)} aria-busy={busy}>
-          <fieldset disabled={busy} className={styles.formGrid}>{['full_name', 'email', 'agency_name', 'country', 'phone'].map((name, index) => <label key={name}>{copy.fields[index]}<input name={name} required={index < 4} type={name === 'email' ? 'email' : name === 'phone' ? 'tel' : 'text'} autoComplete={['name', 'email', 'organization', 'country-name', 'tel'][index]} maxLength={name === 'email' ? 254 : 160} minLength={name === 'full_name' || name === 'agency_name' ? 2 : undefined} /></label>)}<label className={styles.fullWidth}>{copy.fields[5]}<textarea name="message" rows={3} maxLength={2000} /></label></fieldset>
-          {status === 'error' && <p role="alert" className={styles.formError}>{copy.error}</p>}
+          <fieldset disabled={busy} className={styles.formGrid}>{['full_name', 'email', 'agency_name'].map((name, index) => <label key={name}>{copy.fields[index]}<input name={name} required type={name === 'email' ? 'email' : 'text'} autoComplete={['name', 'email', 'organization'][index]} maxLength={name === 'email' ? 254 : 160} minLength={name === 'full_name' || name === 'agency_name' ? 2 : undefined} /></label>)}<DemoContactFields locale={locale} countryLabel={copy.fields[3]} phoneLabel={copy.fields[4]}/><label className={styles.fullWidth}>{copy.fields[5]}<textarea name="message" rows={3} maxLength={2000} /></label></fieldset>
+          {status === 'error' && <p role="alert" className={styles.formError}>{validationError || copy.error}</p>}
           <button type="submit" disabled={busy} className={`${styles.button} ${styles.greenButton} ${styles.fullButton}`}>{busy ? copy.sending : copy.demo}{!busy && <ArrowRight size={16} />}</button>
           <p className={styles.formPrivacy}>{copy.privacy}</p>
         </form>

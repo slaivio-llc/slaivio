@@ -15,6 +15,8 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  demo_request_was_modified:"Cette demande a été modifiée. Rechargez sa fiche avant de réessayer ; votre note est conservée.",
+  demo_request_not_found:"Cette demande de démo est introuvable ou n’est plus disponible.",
   wallet_client_mutation_retired:"Cette ancienne opération n’est plus disponible. Un solde ne peut être modifié qu’après confirmation du paiement.",
   legacy_payment_simulator_disabled:"Cet ancien moyen de paiement n’est plus disponible. Utilisez les paiements proposés dans Finance.",
   billing_checkout_already_paid:"Ce paiement est déjà confirmé. Actualisez votre abonnement avant de continuer.",

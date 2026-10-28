@@ -1,8 +1,9 @@
 import {api} from './api';
-export type PlatformMetrics={agencies:number;active_agencies:number;active_users:number;trials:number;paid_subscriptions:number;open_tickets:number;urgent_tickets:number;quarantined_events:number;collected_minor:number};
+export type PlatformMetrics={agencies:number;active_agencies:number;active_offices:number;active_users:number;trials:number;paid_subscriptions:number;open_tickets:number;urgent_tickets:number;quarantined_events:number;demo_requests:number;new_demo_requests:number;demos_last_30_days:number;packages_month:number;shipments_month:number;demo_statuses:Array<{status:string;count:number}>;revenues_by_currency:Array<{currency_code:string;collected_minor:number;month_collected_minor:number}>;plan_distribution:Array<{code:string;name:string;count:number}>};
 export type Agency={id:string;name:string;organization_name?:string;country?:string;city?:string;email?:string;status:string;provisioning_status:string;members:number;subscription_status?:string;plan_name?:string;row_version:number;created_at:string};
 export type PlatformTicket={id:string;ticket_reference:string;organization_name:string;subject:string;priority:string;status:string;platform_row_version:number;updated_at:string};
 export const platformAccess=async()=>(await api.get<{allowed:boolean}>('/platform/admin/access',{timeout:8000})).data.allowed;
+export const platformAccessDetails=async()=>(await api.get<{allowed:boolean;permissions:string[]}>('/platform/admin/access',{timeout:8000})).data;
 export const platformOverview=async()=>(await api.get<{metrics:PlatformMetrics}>('/platform/admin/overview')).data.metrics;
 export const platformAgencies=async(params:Record<string,unknown>={})=>(await api.get<{items:Agency[]}>('/platform/admin/agencies',{params})).data.items;
 export const platformAgency=async(id:string)=>(await api.get(`/platform/admin/agencies/${id}`)).data;
@@ -15,3 +16,13 @@ export const platformAudit=async()=>(await api.get<{items:Array<Record<string,un
 export const platformOperators=async()=>(await api.get<{items:Array<{user_id:string;permissions:string[]}>}>('/platform/admin/operators')).data.items;
 export const savePlatformOperator=async(user_id:string,permissions:string[])=>(await api.put('/platform/admin/operators',{user_id,permissions})).data;
 export const quarantineMetrics=async()=>(await api.get('/platform/quarantine/metrics')).data;
+
+export type DemoStatus='NEW'|'CONTACTED'|'SCHEDULED'|'COMPLETED'|'CLOSED';
+export const demoStatusLabels:Record<DemoStatus,string>={NEW:'Nouvelle',CONTACTED:'Contactée',SCHEDULED:'Démo planifiée',COMPLETED:'Démo réalisée',CLOSED:'Clôturée'};
+export type DemoRequest={id:string;full_name:string;email:string;agency_name:string|null;phone:string|null;country:string|null;message:string|null;monthly_shipments:string|null;status:DemoStatus;source:string;created_at:string;updated_at:string};
+export type DemoHistory={id:string;action:string;old_data:{status?:DemoStatus};new_data:{status?:DemoStatus};reason:string|null;created_at:string};
+export type DemoDetail={request:DemoRequest;history:DemoHistory[]};
+export type DemoPage={items:DemoRequest[];total:number;page:number;page_size:number;total_pages:number};
+export const platformDemoRequests=async(params:{q?:string;status?:DemoStatus;page:number},signal?:AbortSignal)=>(await api.get<DemoPage>('/platform/admin/demo-requests',{params,signal})).data;
+export const platformDemoRequest=async(id:string)=>(await api.get<DemoDetail>(`/platform/admin/demo-requests/${encodeURIComponent(id)}`)).data;
+export const updatePlatformDemoRequest=async(id:string,payload:{status:DemoStatus;expected_updated_at:string;note:string|null})=>(await api.patch<{request:DemoRequest}>(`/platform/admin/demo-requests/${encodeURIComponent(id)}`,payload)).data.request;

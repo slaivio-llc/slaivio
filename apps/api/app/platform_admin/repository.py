@@ -6,15 +6,35 @@ def _audit(c,actor,action,target_type,target_id,old=None,new=None,reason=None):
  c.execute(text("insert into platform_admin_audit_log(actor_user_id,action,target_type,target_id,old_data,new_data,reason) values(:a,:x,:t,:i,cast(:old as jsonb),cast(:new as jsonb),:r)"),{'a':actor,'x':action,'t':target_type,'i':str(target_id),'old':json.dumps(old or{},default=str),'new':json.dumps(new or{},default=str),'r':reason})
 def overview():
  with engine.connect() as c:
-  return dict(c.execute(text("""select
-   (select count(*) from organizations)::int agencies,(select count(*) from organizations where status='ACTIVE')::int active_agencies,
-   (select count(*) from organization_memberships where status='ACTIVE')::int active_users,
-   (select count(*) from agency_subscriptions where status='TRIAL')::int trials,
-   (select count(*) from agency_subscriptions where status='ACTIVE')::int paid_subscriptions,
+  metrics=dict(c.execute(text("""select
+   (select count(*) from organizations where parent_org_id is null)::int agencies,
+   (select count(*) from organizations where parent_org_id is null and status='ACTIVE')::int active_agencies,
+   (select count(*) from organizations where parent_org_id is not null and status='ACTIVE')::int active_offices,
+   (select count(distinct clerk_user_id) from organization_memberships where status='ACTIVE')::int active_users,
+   (select count(*) from agency_subscriptions s join organizations o on o.id=s.org_id where o.parent_org_id is null and s.status='TRIAL' and s.trial_ends_at>now())::int trials,
+   (select count(*) from agency_subscriptions s join organizations o on o.id=s.org_id where o.parent_org_id is null and s.status='ACTIVE' and (s.ends_at is null or s.ends_at>now()))::int paid_subscriptions,
    (select count(*) from support_tickets where status not in('RESOLVED','CLOSED'))::int open_tickets,
    (select count(*) from support_tickets where priority='URGENT' and status not in('RESOLVED','CLOSED'))::int urgent_tickets,
-   (select count(*) from platform_inbound_event_envelopes where routing_status<>'PROCESSED')::int quarantined_events,
-   (select coalesce(sum(amount_paid_minor),0) from billing_invoices where status='PAID')::bigint collected_minor"""),{}).mappings().one())
+   (select count(*) from platform_inbound_event_envelopes where routing_status in('QUARANTINED','PENDING_REPLAY','REPLAY_FAILED'))::int quarantined_events,
+   (select count(*) from landing_demo_requests)::int demo_requests,
+   (select count(*) from landing_demo_requests where status='NEW')::int new_demo_requests,
+   (select count(*) from landing_demo_requests where created_at>=now()-interval '30 days')::int demos_last_30_days,
+   (select count(*) from cargo_packages where deleted_at is null and created_at>=(date_trunc('month',now() at time zone 'UTC') at time zone 'UTC'))::int packages_month,
+   (select count(*) from cargo_expeditions where created_at>=(date_trunc('month',now() at time zone 'UTC') at time zone 'UTC'))::int shipments_month"""),{}).mappings().one())
+  metrics['demo_statuses']=_rows(c.execute(text('select status,count(*)::int count from landing_demo_requests group by status order by status')))
+  metrics['revenues_by_currency']=_rows(c.execute(text("""select currency_code,
+   coalesce(sum(amount_paid_minor),0)::bigint collected_minor,
+   coalesce(sum(amount_paid_minor) filter(where paid_at>=(date_trunc('month',now() at time zone 'UTC') at time zone 'UTC')),0)::bigint month_collected_minor
+   from billing_invoices where status='PAID' group by currency_code order by currency_code""")))
+  metrics['plan_distribution']=_rows(c.execute(text("""select p.code,p.name,count(*)::int count
+   from agency_subscriptions s join organizations o on o.id=s.org_id join pricing_plans p on p.id=s.pricing_plan_id
+   where o.parent_org_id is null and s.status='ACTIVE' and (s.ends_at is null or s.ends_at>now())
+   group by p.code,p.name order by p.code""")))
+  return metrics
+
+def operator_permissions(user_id):
+ with engine.connect() as c:
+  return list(c.execute(text("select permission_code from platform_operator_permissions where user_id=:id and status='ACTIVE' order by permission_code"),{'id':user_id}).scalars().all())
 def agencies(q=None,status=None,limit=200):
  filters=['true'];p={'limit':limit}
  if q:filters.append('(o.name ilike :q or o.id ilike :q or o.email ilike :q)');p['q']=f'%{q}%'

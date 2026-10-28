@@ -1,4 +1,5 @@
 "use client";
+import { PlatformAdminEntry } from '@/components/platform/platform-admin-entry';
 
 import { useClerk, useUser } from "@clerk/nextjs";
 import { accountDisplayName } from "./account-identity";
@@ -583,6 +584,7 @@ function AccountMenuContent({ close, name, email, imageUrl, openProfile, logout 
           <button type="button" onClick={() => openProfile?.()} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><UserRound size={14} className="text-[#697179]" />Mon profil<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
           <button type="button" onClick={() => navigate("preferences")} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><SlidersHorizontal size={14} className="text-[#697179]" />Préférences<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
           <button type="button" onClick={() => navigate("security")} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] hover:bg-[#f7f8f8]"><ShieldCheck size={14} className="text-[#697179]" />Sécurité<ChevronRight size={14} className="ml-auto text-[#939ba2]" /></button>
+          <PlatformAdminEntry close={close}/>
           <button type="button" onClick={() => void signOutAccount()} disabled={signingOut} className="flex h-10 w-full items-center gap-2.5 px-3.5 text-left text-[12px] text-[#c73535] hover:bg-[#fff7f7] disabled:opacity-60"><LogOut size={14} />{locale === "en" ? "Sign out" : "Se déconnecter"}</button>
         </>}
         {view === "preferences" && <>

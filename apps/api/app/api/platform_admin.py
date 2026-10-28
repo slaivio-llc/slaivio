@@ -1,7 +1,10 @@
-from fastapi import APIRouter,Depends,HTTPException
-from pydantic import BaseModel,Field
+from fastapi import APIRouter,Depends,HTTPException,Query
+from pydantic import BaseModel,Field,AwareDatetime
+from typing import Literal
+from uuid import UUID
 from app.core.platform_permissions import require_platform_permission
 from app.platform_admin import repository as repo
+from app.platform_admin import demo_requests as demos
 router=APIRouter(prefix='/platform/admin',tags=['platform-admin']);ALLOWED={'platform.admin.read','platform.agencies.manage','platform.billing.manage','platform.support.manage','platform.audit.read','platform.permissions.manage','quarantine.read','quarantine.resolve','quarantine.replay'}
 def uid(m):return str(m.get('user_id')or m.get('id'))
 class AgencyStatus(BaseModel):status:str;reason:str=Field(min_length=5,max_length=500);expected_version:int
@@ -9,8 +12,27 @@ class Subscription(BaseModel):plan_code:str;status:str;reason:str=Field(min_leng
 class Note(BaseModel):note:str=Field(min_length=2,max_length=5000)
 class Reply(BaseModel):message:str=Field(min_length=2,max_length=10000);status:str='IN_PROGRESS';expected_version:int
 class Grant(BaseModel):user_id:str;permissions:list[str]
+DemoStatus = Literal['NEW','CONTACTED','SCHEDULED','COMPLETED','CLOSED']
+class DemoUpdate(BaseModel):
+ status:DemoStatus
+ expected_updated_at:AwareDatetime
+ note:str|None=Field(default=None,max_length=2000)
 @router.get('/access')
-def access(manager=Depends(require_platform_permission('platform.admin.read'))):return {'allowed':True,'user_id':uid(manager)}
+def access(manager=Depends(require_platform_permission('platform.admin.read'))):return {'allowed':True,'user_id':uid(manager),'permissions':repo.operator_permissions(uid(manager))}
+@router.get('/demo-requests')
+def demo_requests(q:str|None=Query(default=None,max_length=120),status:DemoStatus|None=None,page:int=Query(default=1,ge=1,le=100000),page_size:int=Query(default=25,ge=1,le=100),_=Depends(require_platform_permission('platform.admin.read'))):
+ return demos.listing(q,status,page,page_size)
+@router.get('/demo-requests/{request_id}')
+def demo_request(request_id:UUID,_=Depends(require_platform_permission('platform.admin.read'))):
+ row=demos.detail(request_id)
+ if row is None:raise HTTPException(404,'demo_request_not_found')
+ return row
+@router.patch('/demo-requests/{request_id}')
+def update_demo_request(request_id:UUID,body:DemoUpdate,manager=Depends(require_platform_permission('platform.agencies.manage'))):
+ row=demos.update(request_id,uid(manager),body.status,body.expected_updated_at,body.note)
+ if row=='missing':raise HTTPException(404,'demo_request_not_found')
+ if row=='conflict':raise HTTPException(409,'demo_request_was_modified')
+ return {'request':row}
 @router.get('/overview')
 def overview(_=Depends(require_platform_permission('platform.admin.read'))):return {'status':'ok','metrics':repo.overview()}
 @router.get('/agencies')
@@ -31,7 +53,7 @@ def agency_status(org_id:str,body:AgencyStatus,manager=Depends(require_platform_
 def subscription(org_id:str,body:Subscription,manager=Depends(require_platform_permission('platform.billing.manage'))):
  if body.status not in {'TRIAL','ACTIVE','PAST_DUE','SUSPENDED','CANCELLED'}:raise HTTPException(422,'invalid_subscription_status')
  row=repo.subscription(org_id,uid(manager),body.plan_code,body.status,body.reason,body.expected_version)
- if row in {'missing','plan'}:raise HTTPException(404,row)
+ if isinstance(row,str) and row in {'missing','plan'}:raise HTTPException(404,row)
  if row=='conflict':raise HTTPException(409,'subscription_was_modified')
  return {'subscription':row}
 @router.post('/agencies/{org_id}/notes')

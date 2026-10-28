@@ -1,5 +1,7 @@
 # Demandes de démo dans le Super Admin
 
+Pour activer votre compte interne et déployer l’ensemble de la console (y compris la migration 160), consulter [le guide Super Admin](super-admin.md). Le script d’activation est manuel et ne fait pas partie des migrations automatiques.
+
 Les demandes du formulaire public sont enregistrées dans `landing_demo_requests` et consultables dans **Super Admin SLAIVIO → Demandes de démo**. Le lien figure dans le menu du compte uniquement pour les opérateurs autorisés. Accès direct : `/app/platform`.
 
 ## Déploiement et accès

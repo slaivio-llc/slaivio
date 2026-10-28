@@ -1,60 +1,74 @@
 'use client';
 import axios from 'axios';
-import {PlatformDemoRequests} from './platform-demo-requests';
-import {PlatformBusinessOverview} from './platform-business-overview';
-import {FormEvent,useCallback,useEffect,useState} from 'react';import {RefreshCcw} from 'lucide-react';import {addPlatformNote,changeAgencyStatus,changeSubscription,platformAccessDetails,platformAgencies,platformAgency,platformAudit,platformOperators,platformOverview,platformReply,platformTickets,savePlatformOperator,type Agency,type PlatformMetrics,type PlatformTicket} from '@/services/platform-admin';import {ErrorState,ForbiddenState,LoadingState} from '@/components/ui/page-state';import {OperationDrawer} from '@/components/ui/operation-drawer';import {OperationPageHeader,OperationTabs} from '@/components/ui/operation-page-header';import {OperationMetrics,OperationTable} from '@/components/ui/operation-primitives';
-const btn='h-9 rounded-[5px] border border-[#d8d9dc] bg-white px-3 text-[13px] font-medium',primary='h-9 rounded-[5px] bg-[#202124] px-3 text-[13px] font-semibold text-white',input='h-9 w-full rounded-[5px] border border-[#d8d9dc] bg-white px-3 text-[13px]';
-const permissions=['platform.admin.read','platform.agencies.manage','platform.billing.manage','platform.support.manage','platform.audit.read','platform.permissions.manage','quarantine.read','quarantine.resolve','quarantine.replay'];
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Activity, Building2, CreditCard, Headphones, History, LayoutDashboard, RefreshCcw, ShieldCheck, Users, Video } from 'lucide-react';
+import { OperationButton } from '@/components/ui/operation-controls';
+import { OperationPageHeader, OperationTabs } from '@/components/ui/operation-page-header';
+import { OperationMetrics } from '@/components/ui/operation-primitives';
+import { ErrorState, ForbiddenState, LoadingState } from '@/components/ui/page-state';
+import { platformAccessDetails, platformOverview, type ConsoleRow, type PlatformMetrics } from '@/services/platform-admin';
+import { PlatformDemoRequests } from './platform-demo-requests';
+import { PlatformBusinessOverview } from './platform-business-overview';
+import { PlatformRegister } from './platform-register';
+import { PlatformAgencySheet } from './platform-agency-sheet';
+import { PlatformSupportSheet } from './platform-support-sheet';
+import { PlatformBilling } from './platform-billing';
+import { PlatformOperators } from './platform-operators';
+import { PlatformOperations } from './platform-operations';
+import { Alert } from './platform-console-ui';
 
 export function PlatformAdminPage(){
-  const [allowed,setAllowed]=useState<boolean|null>(null),[granted,setGranted]=useState<string[]>([]),[tab,setTab]=useState('overview');
-  const [metrics,setMetrics]=useState<PlatformMetrics|null>(null),[agencies,setAgencies]=useState<Agency[]>([]),[tickets,setTickets]=useState<PlatformTicket[]>([]);
-  const [audit,setAudit]=useState<Array<Record<string,unknown>>>([]),[operators,setOperators]=useState<Array<{user_id:string;permissions:string[]}>>([]);
-  const [selected,setSelected]=useState<Record<string,unknown>|null>(null),[error,setError]=useState(''),[checking,setChecking]=useState(true),[refreshing,setRefreshing]=useState(false),[sectionLoading,setSectionLoading]=useState(false),[revision,setRevision]=useState(0);
-  const load=useCallback(async()=>{
-    setRefreshing(true);setError('');
-    try{
-      const access=await platformAccessDetails();setAllowed(access.allowed);setGranted(access.permissions||[]);
-      if(!access.allowed)return;
-      setMetrics(await platformOverview());setRevision(value=>value+1);
-    }catch(cause){
-      if(axios.isAxiosError(cause)&&cause.response?.status===403)setAllowed(false);
-      else setError('La console ne répond pas. Réessayez. Les données précédemment chargées ne sont pas actualisées.');
-    }finally{setChecking(false);setRefreshing(false);}
-  },[]);
-  useEffect(()=>{void load();},[load]);
-  useEffect(()=>{
-    if(!allowed||['overview','demos'].includes(tab))return;
-    let active=true;setSectionLoading(true);setError('');
-    const request=tab==='agencies'?platformAgencies():tab==='tickets'?platformTickets():tab==='audit'?platformAudit():platformOperators();
-    request.then(value=>{if(!active)return;if(tab==='agencies')setAgencies(value as Agency[]);else if(tab==='tickets')setTickets(value as PlatformTicket[]);else if(tab==='audit')setAudit(value as Array<Record<string,unknown>>);else setOperators(value as Array<{user_id:string;permissions:string[]}>);})
-      .catch(()=>{if(active)setError('Cette section est indisponible ou votre accès a changé. Réessayez.');})
-      .finally(()=>{if(active)setSectionLoading(false);});
-    return()=>{active=false;};
-  },[tab,allowed,revision]);
-  const refreshMetrics=()=>{platformOverview().then(setMetrics).catch(()=>setError('Le suivi est enregistré, mais les indicateurs n’ont pas pu être actualisés.'));};
-  const can=(permission:string)=>granted.includes(permission);
-  if(checking)return <LoadingState label="Ouverture de la console Super Admin…"/>;
-  if(allowed===false)return <ForbiddenState description="Cette console est réservée aux opérateurs internes SLAIVIO explicitement autorisés."/>;
-  if(!metrics)return <ErrorState title="Console temporairement indisponible" description={error||'Les indicateurs ne sont pas disponibles.'} retry={()=>void load()}/>;
-  const tabs=[['overview','Vue d’ensemble'],['demos','Demandes de démo'],['agencies','Agences'],...(can('platform.support.manage')?[['tickets','Support']]:[]),...(can('platform.audit.read')?[['audit','Audit']]:[]),...(can('platform.permissions.manage')?[['operators','Opérateurs']]:[])];
-  const cards:Array<[string,number]>=[['Agences actives',metrics.active_agencies],['Agences inscrites',metrics.agencies],['Essais en cours',metrics.trials],['Abonnements payants en cours',metrics.paid_subscriptions],['Demandes de démo',metrics.demo_requests],['Nouvelles demandes',metrics.new_demo_requests],['Tickets ouverts',metrics.open_tickets],['Événements à vérifier',metrics.quarantined_events]];
-  return <div className="min-h-full min-w-0 bg-white">
-    <OperationPageHeader title="Super Admin" description="Pilotage de SLAIVIO : acquisition, agences, abonnements et activité." actions={<button type="button" className={btn} disabled={refreshing} onClick={()=>void load()}><RefreshCcw className="mr-2 inline" size={14}/>{refreshing?'Actualisation…':'Actualiser'}</button>}/>
-    <OperationMetrics><div className="grid grid-cols-2 gap-5 py-4 lg:grid-cols-4">{cards.map(([label,value])=><div key={label} className="min-w-0"><span className="text-xs text-slate-500">{label}</span><strong className="mt-2 block text-2xl font-semibold text-slate-900">{value}</strong></div>)}</div></OperationMetrics>
-    <OperationTabs><nav aria-label="Sections Super Admin" className="flex min-w-0 gap-1 overflow-x-auto">{tabs.map(([id,label])=><button key={id} type="button" aria-current={tab===id?'page':undefined} onClick={()=>setTab(id)} className={`min-h-10 shrink-0 border-b-2 px-3 text-sm ${tab===id?'border-emerald-600 font-semibold text-emerald-800':'border-transparent text-slate-500 hover:text-emerald-800'}`}>{label}{id==='demos'&&metrics.new_demo_requests>0&&<span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800">{metrics.new_demo_requests}</span>}</button>)}</nav></OperationTabs>
-    <main className="mx-auto w-full min-w-0 max-w-[1200px] px-6 py-6 sm:px-8">{error&&<p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {tab==='overview'&&<PlatformBusinessOverview metrics={metrics} openDemos={()=>setTab('demos')}/>}
-      {tab==='demos'&&<PlatformDemoRequests canManage={can('platform.agencies.manage')} onSaved={refreshMetrics} refreshToken={revision}/>}
-      {!['overview','demos'].includes(tab)&&(sectionLoading?<LoadingState label="Chargement de la section…"/>:!error?<>{tab==='agencies'&&<AgencyTable items={agencies} open={async id=>{try{setSelected(await platformAgency(id));}catch{setError('Impossible d’ouvrir cette agence.');}}}/>}{tab==='tickets'&&can('platform.support.manage')&&<Tickets items={tickets} reload={()=>void load()}/>} {tab==='audit'&&can('platform.audit.read')&&<DataTable rows={audit}/>} {tab==='operators'&&can('platform.permissions.manage')&&<Operators items={operators} reload={()=>setRevision(value=>value+1)}/>}</>:null)}
-    </main>
-    {selected&&<AgencyPanel detail={selected} close={()=>setSelected(null)} reload={async()=>{setSelected(await platformAgency(String((selected.organization as Record<string,unknown>).id)));void load();}}/>}
-  </div>;
+ const [allowed,setAllowed]=useState<boolean|null>(null),[granted,setGranted]=useState<string[]>([]),[currentUser,setCurrentUser]=useState(''),[tab,setTab]=useState('overview');
+ const [metrics,setMetrics]=useState<PlatformMetrics|null>(null),[error,setError]=useState(''),[checking,setChecking]=useState(true),[refreshing,setRefreshing]=useState(false),[revision,setRevision]=useState(0);
+ const [agency,setAgency]=useState<string|null>(null),[ticket,setTicket]=useState<string|null>(null);
+ const generation=useRef(0),pending=useRef(false);
+ const load=useCallback(async()=>{
+  if(pending.current)return;pending.current=true;setRefreshing(true);setError('');
+  const request=++generation.current;
+  try{
+   const access=await platformAccessDetails();if(request!==generation.current)return;
+   setAllowed(access.allowed);setGranted(access.permissions||[]);setCurrentUser(access.user_id||'');
+   if(!access.allowed)return;
+   const value=await platformOverview();if(request!==generation.current)return;setMetrics(value);setRevision(value=>value+1);
+  }catch(cause){if(request!==generation.current)return;if(axios.isAxiosError(cause)&&cause.response?.status===403)setAllowed(false);else setError('La console ne répond pas. Réessayez. Les données précédemment chargées ne sont pas actualisées.');}
+  finally{if(request===generation.current){pending.current=false;setChecking(false);setRefreshing(false);}}
+ },[]);
+ useEffect(()=>{void load();const request=generation.current;return()=>{generation.current=request+1;pending.current=false;};},[load]);
+ const refreshMetrics=()=>{setRevision(value=>value+1);platformOverview().then(setMetrics).catch(()=>setError('L’action est enregistrée, mais les indicateurs n’ont pas pu être actualisés.'));};
+ const can=(permission:string)=>granted.includes(permission);
+ if(checking)return <LoadingState label="Ouverture de la console Super Admin…"/>;
+ if(allowed===false)return <ForbiddenState description="Cette console est réservée aux opérateurs internes SLAIVIO explicitement autorisés."/>;
+ if(!metrics)return <ErrorState title="Console temporairement indisponible" description={error||'Les indicateurs ne sont pas disponibles.'} retry={()=>void load()}/>;
+ const tabs=[
+  {id:'overview',title:'Vue d’ensemble',icon:LayoutDashboard},
+  {id:'demos',title:'Demandes de démo',icon:Video},
+  {id:'agencies',title:'Agences',icon:Building2},
+  ...(can('platform.billing.manage')?[{id:'billing',title:'Abonnements et paiements',icon:CreditCard}]:[]),
+  ...(can('platform.support.manage')?[{id:'tickets',title:'Support',icon:Headphones}]:[]),
+  ...(can('quarantine.read')?[{id:'operations',title:'Suivi technique',icon:Activity}]:[]),
+  ...(can('platform.audit.read')?[{id:'audit',title:'Journal des actions',icon:History}]:[]),
+  ...(can('platform.permissions.manage')?[{id:'operators',title:'Équipe SLAIVIO',icon:Users}]:[]),
+ ];
+ const active=tabs.some(item=>item.id===tab)?tab:'overview';
+ const openAgency=(row:ConsoleRow)=>setAgency(String(row.org_id||row.id));
+ const cards:Array<[string,number,string]>=[['Agences actives',metrics.active_agencies,'agencies'],['Agences inscrites',metrics.agencies,'agencies'],['Essais en cours',metrics.trials,'billing'],['Abonnements payants en cours',metrics.paid_subscriptions,'billing'],['Demandes de démo',metrics.demo_requests,'demos'],['Nouvelles demandes',metrics.new_demo_requests,'demos'],['Tickets ouverts',metrics.open_tickets,'tickets'],['Événements à vérifier',metrics.quarantined_events,'operations']];
+ return <div className="min-h-full min-w-0 bg-white">
+  <OperationPageHeader title="Super Admin" description="Pilotage interne de SLAIVIO : acquisition, agences, abonnements et qualité de service." actions={<OperationButton disabled={refreshing} onClick={()=>void load()} aria-label="Actualiser la console"><RefreshCcw size={15}/>{refreshing?'Actualisation…':'Actualiser la console'}</OperationButton>}/>
+  <div className="flex items-center gap-2 border-b border-[#e5e9ed] bg-[#f5fbf7] px-6 py-2 text-xs text-[#087a46] sm:px-8"><ShieldCheck size={14}/><span>Espace interne SLAIVIO · Accès protégé et actions historisées</span></div>
+  <OperationMetrics><div className="grid grid-cols-2 gap-4 py-4 lg:grid-cols-4">{cards.map(([title,value,target])=><div key={title} className="min-w-0">{tabs.some(item=>item.id===target)?<button className="group w-full text-left" onClick={()=>setTab(target)}><span className="text-xs text-[#69747f] group-hover:text-[#087a46]">{title}</span><strong className="mt-2 block text-2xl font-semibold text-[#242a30] group-hover:text-[#087a46]">{value}</strong></button>:<><span className="text-xs text-[#69747f]">{title}</span><strong className="mt-2 block text-2xl font-semibold text-[#242a30]">{value}</strong></>}</div>)}</div></OperationMetrics>
+  <OperationTabs><nav aria-label="Sections Super Admin" className="flex min-w-0 gap-1 overflow-x-auto">{tabs.map(({id,title,icon:Icon})=><button key={id} type="button" aria-current={active===id?'page':undefined} onClick={()=>setTab(id)} className={`flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm ${active===id?'border-[#087a46] font-semibold text-[#087a46]':'border-transparent text-[#69747f] hover:bg-[#f7faf8] hover:text-[#087a46]'}`}><Icon size={15}/>{title}{id==='demos'&&metrics.new_demo_requests>0&&<span className="rounded-full bg-[#e8f8ef] px-2 py-0.5 text-xs text-[#087a46]">{metrics.new_demo_requests}</span>}</button>)}</nav></OperationTabs>
+  <main className="mx-auto grid w-full min-w-0 max-w-[1400px] gap-5 px-4 py-6 sm:px-8">
+   {error&&<Alert>{error}</Alert>}
+   {active==='overview'&&<PlatformBusinessOverview metrics={metrics} openDemos={()=>setTab('demos')}/>}
+   {active==='demos'&&<PlatformDemoRequests canManage={can('platform.agencies.manage')} onSaved={refreshMetrics} refreshToken={revision}/>}
+   {active==='agencies'&&<PlatformRegister kind="agencies" revision={revision} onOpen={openAgency}/>}
+   {active==='billing'&&<PlatformBilling revision={revision} openAgency={openAgency}/>}
+   {active==='tickets'&&<PlatformRegister kind="support" revision={revision} onOpen={row=>setTicket(String(row.id))}/>}
+   {active==='operations'&&<PlatformOperations revision={revision}/>}
+   {active==='audit'&&<PlatformRegister kind="audit" revision={revision}/>}
+   {active==='operators'&&<PlatformOperators currentUser={currentUser} revision={revision} saved={refreshMetrics}/>}
+  </main>
+  {agency&&<PlatformAgencySheet key={agency} id={agency} granted={granted} close={()=>setAgency(null)} saved={refreshMetrics}/>}
+  {ticket&&<PlatformSupportSheet key={ticket} id={ticket} close={()=>setTicket(null)} saved={refreshMetrics}/>}
+ </div>;
 }
-
-function AgencyTable({items,open}:{items:Agency[];open:(id:string)=>void}){return <Card title={`Agences (${items.length})`}><OperationTable><table className="w-full whitespace-nowrap text-left text-[13px]"><thead><tr>{['Agence','Pays','Membres','Plan','Abonnement','Statut','Créée'].map(x=><th className="border-b px-3 py-2" key={x}>{x}</th>)}</tr></thead><tbody>{items.map(a=><tr className="h-11 cursor-pointer border-b hover:bg-[#f7f7f6]" key={a.id} onClick={()=>open(a.id)}><td className="px-3 py-3 font-semibold">{a.organization_name||a.name}</td><td>{a.country||'—'} · {a.city||'—'}</td><td>{a.members}</td><td>{a.plan_name||'—'}</td><td>{a.subscription_status||'—'}</td><td>{a.status}</td><td>{new Date(a.created_at).toLocaleDateString('fr-FR')}</td></tr>)}</tbody></table></OperationTable></Card>}
-function AgencyPanel({detail,close,reload}:{detail:Record<string,unknown>;close:()=>void;reload:()=>void}){const o=detail.organization as Record<string,unknown>,s=detail.subscription as Record<string,unknown>|null,members=detail.members as Array<Record<string,unknown>>,notes=detail.notes as Array<Record<string,unknown>>;async function note(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);await addPlatformNote(String(o.id),String(f.get('note')));e.currentTarget.reset();reload()}return <OperationDrawer open close={close} title={String(o.organization_name||o.name)} description={`${String(o.status)} · ${members.length} membre(s) · ${String(o.id)}`} width="max-w-3xl"><div className="grid gap-4 md:grid-cols-2"><Card title="Statut agence"><form className="grid gap-2" onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);await changeAgencyStatus(String(o.id),{status:f.get('status'),reason:f.get('reason'),expected_version:o.row_version});reload()}}><select name="status" className={input} defaultValue={String(o.status)}><option>ACTIVE</option><option>SUSPENDED</option><option>CLOSED</option></select><input required minLength={5} name="reason" className={input} placeholder="Motif obligatoire"/><button className={primary}>Appliquer</button></form></Card><Card title="Abonnement">{s?<form className="grid gap-2" onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);await changeSubscription(String(o.id),{plan_code:f.get('plan'),status:f.get('status'),reason:f.get('reason'),expected_version:s.row_version});reload()}}><select name="plan" className={input} defaultValue={String(s.plan_code)}><option>STARTER</option><option>PRO</option><option>ENTERPRISE</option></select><select name="status" className={input} defaultValue={String(s.status)}><option>TRIAL</option><option>ACTIVE</option><option>PAST_DUE</option><option>SUSPENDED</option><option>CANCELLED</option></select><input required minLength={5} name="reason" className={input} placeholder="Motif obligatoire"/><button className={primary}>Modifier</button></form>:<p className="text-sm">Aucun abonnement.</p>}</Card></div><Card title="Note interne"><form onSubmit={note} className="flex gap-2"><input required name="note" className={input} placeholder="Note réservée aux opérateurs Slaivio"/><button className={btn}>Ajouter</button></form>{notes.map(n=><p className="mt-2 border-t pt-2 text-[12px]" key={String(n.id)}>{String(n.note)}</p>)}</Card><Card title="Membres"><DataTable rows={members}/></Card></OperationDrawer>}
-function Tickets({items,reload}:{items:PlatformTicket[];reload:()=>void}){return <Card title={`Tickets support (${items.length})`}><div className="space-y-2">{items.map(t=><form key={t.id} onSubmit={async e=>{e.preventDefault();const f=new FormData(e.currentTarget);await platformReply(t.id,{message:f.get('message'),status:f.get('status'),expected_version:t.platform_row_version});reload()}} className="grid gap-2 rounded border p-3 md:grid-cols-[1fr_180px_2fr_auto]"><div><b className="text-[12px]">{t.ticket_reference} · {t.organization_name}</b><p className="text-[13px]">{t.subject}</p><small>{t.priority} · {t.status}</small></div><select name="status" className={input}><option>IN_PROGRESS</option><option>WAITING_CUSTOMER</option><option>RESOLVED</option></select><input required minLength={2} name="message" className={input} placeholder="Réponse du support…"/><button className={primary}>Répondre</button></form>)}</div></Card>}
-function Operators({items,reload}:{items:Array<{user_id:string;permissions:string[]}>;reload:()=>void}){async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);await savePlatformOperator(String(f.get('user_id')),f.getAll('permissions').map(String));reload()}return <div className="grid gap-4 lg:grid-cols-2"><Card title="Opérateurs actuels"><DataTable rows={items as unknown as Array<Record<string,unknown>>}/></Card><Card title="Accorder les droits plateforme"><form onSubmit={submit} className="grid gap-3"><input required name="user_id" className={input} placeholder="Clerk User ID exact"/>{permissions.map(p=><label className="flex gap-2 text-[12px]" key={p}><input type="checkbox" name="permissions" value={p}/>{p}</label>)}<button className={primary}>Enregistrer les permissions</button></form></Card></div>}
-function DataTable({rows}:{rows:Array<Record<string,unknown>>}){if(!rows.length)return <p className="py-6 text-center text-sm">Aucune donnée.</p>;const cols=Object.keys(rows[0]).slice(0,8);return <div className="max-h-[500px] overflow-auto"><table className="w-full whitespace-nowrap text-left text-[11px]"><thead><tr>{cols.map(c=><th className="border-b p-2" key={c}>{c}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr className="border-b" key={i}>{cols.map(c=><td className="max-w-52 truncate p-2" key={c}>{typeof r[c]==='object'?JSON.stringify(r[c]):String(r[c]??'—')}</td>)}</tr>)}</tbody></table></div>}
-function Card({title,children}:{title:string;children:React.ReactNode}){return <section className="mb-4 overflow-hidden border border-[#dfe3e4] bg-white"><h2 className="border-b border-[#e5e8e9] bg-[#fafbfb] px-4 py-3 text-[14px] font-semibold">{title}</h2><div className="p-4">{children}</div></section>}

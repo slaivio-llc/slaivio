@@ -15,6 +15,16 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  platform_self_permissions_protected:"Vos propres accès sont protégés. Demandez à un autre administrateur autorisé.",
+  platform_last_admin_protected:"Le dernier accès administrateur ne peut pas être retiré.",
+  platform_permissions_were_modified:"Ces accès ont été modifiés. Rechargez la fiche avant de réessayer.",
+  platform_read_permission_required:"La consultation de la console doit être incluse dans cet accès.",
+  invalid_platform_permissions:"Certaines autorisations ne sont pas valides. Rechargez la console.",
+  platform_permission_required:"Votre compte n’est pas autorisé à accéder à cette fonction interne SLAIVIO.",
+  subscription_future_expiry_required:"Une échéance future est nécessaire pour activer cet abonnement ou cet essai.",
+  subscription_was_modified:"Cet abonnement a été modifié. Rechargez la fiche avant de réessayer.",
+  agency_was_modified:"Cette agence a été modifiée. Rechargez la fiche avant de réessayer.",
+  ticket_was_modified:"Ce ticket a été modifié. Rechargez sa conversation avant de réessayer.",
   demo_request_was_modified:"Cette demande a été modifiée. Rechargez sa fiche avant de réessayer ; votre note est conservée.",
   demo_request_not_found:"Cette demande de démo est introuvable ou n’est plus disponible.",
   wallet_client_mutation_retired:"Cette ancienne opération n’est plus disponible. Un solde ne peut être modifié qu’après confirmation du paiement.",

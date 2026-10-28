@@ -1,4 +1,5 @@
 import json
+from datetime import datetime,timezone
 from sqlalchemy import text
 from app.db.database import engine
 def _rows(r):return [dict(x._mapping) for x in r]
@@ -56,17 +57,25 @@ def update_agency(org_id,actor,status,reason,version):
    where id=:o and row_version=:v returning *"""),{'s':status,'r':reason,'o':org_id,'v':version}).mappings().first()
   if not row:return 'conflict'
   _audit(c,actor,'AGENCY_STATUS_CHANGED','organization',org_id,dict(old),dict(row),reason);return dict(row)
-def subscription(org_id,actor,plan_code,status,reason,version):
+def subscription(org_id,actor,plan_code,status,reason,version,ends_at=None,trial_ends_at=None):
  with engine.begin() as c:
   plan=c.execute(text("select id from pricing_plans where code=:p and active"),{'p':plan_code}).scalar()
   if not plan:return 'plan'
   old=c.execute(text("select * from agency_subscriptions where org_id=:o"),{'o':org_id}).mappings().first()
   if not old:return 'missing'
-  row=c.execute(text("update agency_subscriptions set pricing_plan_id=:p,status=:s,row_version=row_version+1,updated_at=now() where org_id=:o and row_version=:v returning *"),{'p':plan,'s':status,'o':org_id,'v':version}).mappings().first()
+  end=ends_at or old['ends_at'];trial=trial_ends_at or old['trial_ends_at']
+  if status=='ACTIVE' and (end is None or end<=datetime.now(timezone.utc)):return 'expiry'
+  if status=='TRIAL' and (trial is None or trial<=datetime.now(timezone.utc)):return 'expiry'
+  if status=='TRIAL' and (end is None or end<trial):end=trial
+  row=c.execute(text("update agency_subscriptions set pricing_plan_id=:p,status=:s,ends_at=:end,trial_ends_at=:trial,row_version=row_version+1,updated_at=now() where org_id=:o and row_version=:v returning *"),{'p':plan,'s':status,'end':end,'trial':trial,'o':org_id,'v':version}).mappings().first()
   if not row:return 'conflict'
   c.execute(text("insert into subscription_access_logs(org_id,subscription_id,old_status,new_status,reason) values(:o,:id,:old,:new,:r)"),{'o':org_id,'id':row['id'],'old':old['status'],'new':status,'r':reason});_audit(c,actor,'SUBSCRIPTION_CHANGED','subscription',row['id'],dict(old),dict(row),reason);return dict(row)
 def add_note(org_id,actor,note):
- with engine.begin() as c:return dict(c.execute(text("insert into platform_agency_notes(org_id,author_id,note) select :o,:a,:n where exists(select 1 from organizations where id=:o) returning *"),{'o':org_id,'a':actor,'n':note}).mappings().one())
+ with engine.begin() as c:
+  row=c.execute(text("insert into platform_agency_notes(org_id,author_id,note) select :o,:a,:n where exists(select 1 from organizations where id=:o) returning *"),{'o':org_id,'a':actor,'n':note}).mappings().first()
+  if not row:return None
+  _audit(c,actor,'AGENCY_NOTE_ADDED','organization',org_id,new={'note_id':str(row['id'])})
+  return dict(row)
 def tickets(status=None,priority=None):
  filters=['true'];p={}
  if status:filters.append('t.status=:s');p['s']=status
@@ -78,13 +87,25 @@ def support_reply(ticket_id,actor,name,message,status,version):
   if not ticket:return 'missing'
   if ticket['platform_row_version']!=version:return 'conflict'
   msg=c.execute(text("insert into support_ticket_messages(org_id,ticket_id,author_id,author_name,author_type,message) values(:o,:t,:a,:n,'PLATFORM_SUPPORT',:m) returning *"),{'o':ticket['org_id'],'t':ticket_id,'a':actor,'n':name,'m':message}).mappings().one()
-  c.execute(text("""update support_tickets set status=:s,first_responded_at=coalesce(first_responded_at,now()),resolved_at=case when :s='RESOLVED' then now() else resolved_at end,assigned_to=:a,assigned_name=:n,platform_row_version=platform_row_version+1,row_version=row_version+1,updated_at=now() where id=:t"""),{'s':status,'a':actor,'n':name,'t':ticket_id});_audit(c,actor,'SUPPORT_REPLIED','support_ticket',ticket_id,new={'status':status});return dict(msg)
+  c.execute(text("""update support_tickets set status=:s,first_responded_at=coalesce(first_responded_at,now()),resolved_at=case when :s='RESOLVED' then now() else null end,closed_at=null,assigned_to=:a,assigned_name=:n,platform_row_version=platform_row_version+1,row_version=row_version+1,updated_at=now() where id=:t"""),{'s':status,'a':actor,'n':name,'t':ticket_id});_audit(c,actor,'SUPPORT_REPLIED','support_ticket',ticket_id,new={'status':status});return dict(msg)
 def audit(limit=200):
  with engine.connect() as c:return _rows(c.execute(text("select * from platform_admin_audit_log order by created_at desc limit :l"),{'l':limit}))
 def operators():
  with engine.connect() as c:return _rows(c.execute(text("select user_id,array_agg(permission_code order by permission_code) permissions,max(granted_at) granted_at from platform_operator_permissions where status='ACTIVE' group by user_id order by user_id")))
-def grant(actor,user_id,permissions):
+def grant(actor,user_id,permissions,expected_permissions,reason):
  with engine.begin() as c:
+  # Serialize permission changes, then recheck the actor inside the same lock.
+  c.execute(text("select pg_advisory_xact_lock(hashtextextended('platform-permissions',0))"))
+  active=list(c.execute(text("select permission_code from platform_operator_permissions where user_id=:u and status='ACTIVE' order by permission_code"),{'u':actor}).scalars().all())
+  if not {'platform.admin.read','platform.permissions.manage'}<=set(active):return 'forbidden'
+  if actor==user_id:return 'self'
+  old=list(c.execute(text("select permission_code from platform_operator_permissions where user_id=:u and status='ACTIVE' order by permission_code"),{'u':user_id}).scalars().all())
+  if set(old)!=set(expected_permissions):return 'conflict'
+  if {'platform.admin.read','platform.permissions.manage'}<=set(old) and not {'platform.admin.read','platform.permissions.manage'}<=set(permissions):
+   remaining=c.execute(text("""select count(*) from (select user_id from platform_operator_permissions
+    where status='ACTIVE' and user_id<>:u and permission_code in('platform.admin.read','platform.permissions.manage')
+    group by user_id having count(distinct permission_code)=2) admins"""),{'u':user_id}).scalar_one()
+   if not remaining:return 'last_admin'
   c.execute(text("update platform_operator_permissions set status='REVOKED' where user_id=:u"),{'u':user_id})
   for permission in permissions:c.execute(text("insert into platform_operator_permissions(user_id,permission_code,status,granted_by) values(:u,:p,'ACTIVE',:a) on conflict(user_id,permission_code) do update set status='ACTIVE',granted_by=:a,granted_at=now()"),{'u':user_id,'p':permission,'a':actor})
-  _audit(c,actor,'PLATFORM_PERMISSIONS_CHANGED','platform_operator',user_id,new={'permissions':permissions});return permissions
+  _audit(c,actor,'PLATFORM_PERMISSIONS_CHANGED','platform_operator',user_id,old={'permissions':old},new={'permissions':permissions},reason=reason);return permissions

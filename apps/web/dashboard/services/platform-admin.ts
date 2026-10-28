@@ -3,7 +3,7 @@ export type PlatformMetrics={agencies:number;active_agencies:number;active_offic
 export type Agency={id:string;name:string;organization_name?:string;country?:string;city?:string;email?:string;status:string;provisioning_status:string;members:number;subscription_status?:string;plan_name?:string;row_version:number;created_at:string};
 export type PlatformTicket={id:string;ticket_reference:string;organization_name:string;subject:string;priority:string;status:string;platform_row_version:number;updated_at:string};
 export const platformAccess=async()=>(await api.get<{allowed:boolean}>('/platform/admin/access',{timeout:8000})).data.allowed;
-export const platformAccessDetails=async()=>(await api.get<{allowed:boolean;permissions:string[]}>('/platform/admin/access',{timeout:8000})).data;
+export const platformAccessDetails=async()=>(await api.get<{allowed:boolean;user_id?:string;permissions:string[]}>('/platform/admin/access',{timeout:8000})).data;
 export const platformOverview=async()=>(await api.get<{metrics:PlatformMetrics}>('/platform/admin/overview')).data.metrics;
 export const platformAgencies=async(params:Record<string,unknown>={})=>(await api.get<{items:Agency[]}>('/platform/admin/agencies',{params})).data.items;
 export const platformAgency=async(id:string)=>(await api.get(`/platform/admin/agencies/${id}`)).data;
@@ -14,8 +14,19 @@ export const platformTickets=async(params:Record<string,unknown>={})=>(await api
 export const platformReply=async(id:string,payload:Record<string,unknown>)=>(await api.post(`/platform/admin/tickets/${id}/reply`,payload)).data;
 export const platformAudit=async()=>(await api.get<{items:Array<Record<string,unknown>>}>('/platform/admin/audit')).data.items;
 export const platformOperators=async()=>(await api.get<{items:Array<{user_id:string;permissions:string[]}>}>('/platform/admin/operators')).data.items;
-export const savePlatformOperator=async(user_id:string,permissions:string[])=>(await api.put('/platform/admin/operators',{user_id,permissions})).data;
+export const savePlatformOperator=async(user_id:string,permissions:string[],expected_permissions:string[],reason:string)=>(await api.put('/platform/admin/operators',{user_id,permissions,expected_permissions,reason})).data;
 export const quarantineMetrics=async()=>(await api.get('/platform/quarantine/metrics')).data;
+export type RegisterKind='agencies'|'subscriptions'|'invoices'|'checkouts'|'support'|'audit'|'quarantine';
+export type ConsoleRow=Record<string,unknown>;
+export type ConsolePage={items:ConsoleRow[];total:number;page:number;total_pages:number;page_size:number};
+export type PlatformPlan={id:string;code:string;name:string;active:boolean;monthly_price_minor:number;currency_code:string;limits:Record<string,number>};
+export type OperationSummary={notifications:Array<{status:string;count:number;oldest_at:string}>;automations:Array<{status:string;count:number;oldest_at:string}>;overdue_automations:number};
+export const platformRegister=async(kind:RegisterKind,params:{q?:string;status?:string;page:number},signal?:AbortSignal)=>(await api.get<ConsolePage>(`/platform/admin/register/${kind}`,{params,signal})).data;
+export const platformPlans=async()=>(await api.get<{items:PlatformPlan[]}>('/platform/admin/plans')).data.items;
+export const platformOperations=async()=>(await api.get<OperationSummary>('/platform/admin/operations')).data;
+export const platformTicketDetail=async(id:string)=>(await api.get<{ticket:ConsoleRow;messages:ConsoleRow[]}>(`/platform/admin/tickets/${encodeURIComponent(id)}`)).data;
+export type PlatformCapacity={limits:Record<string,number>;usage:Record<string,number>;transition_active:boolean;enforce_from:string|null;period_ends_at:string;timezone:string};
+export const platformCapacity=async(id:string)=>(await api.get<PlatformCapacity>(`/platform/admin/agencies/${encodeURIComponent(id)}/capacity`)).data;
 
 export type DemoStatus='NEW'|'CONTACTED'|'SCHEDULED'|'COMPLETED'|'CLOSED';
 export const demoStatusLabels:Record<DemoStatus,string>={NEW:'Nouvelle',CONTACTED:'Contactée',SCHEDULED:'Démo planifiée',COMPLETED:'Démo réalisée',CLOSED:'Clôturée'};

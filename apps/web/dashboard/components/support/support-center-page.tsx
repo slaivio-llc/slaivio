@@ -196,17 +196,20 @@ function Detail({ detail, close, reload }: { detail: TicketDetail; close: () => 
   const [error, setError] = useState("");
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    setError("");
     try {
       await addTicketMessage(ticket.id, String(form.get("message")));
-      event.currentTarget.reset();
+      formElement.reset();
       reload();
     } catch {
       setError("Message non envoyé.");
     }
   }
   async function upload(event: FormEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const inputElement = event.currentTarget;
+    const file = inputElement.files?.[0];
     if (!file) return;
     try {
       await uploadTicketAttachment(ticket.id, file);
@@ -214,17 +217,17 @@ function Detail({ detail, close, reload }: { detail: TicketDetail; close: () => 
     } catch {
       setError("Pièce jointe refusée.");
     } finally {
-      event.currentTarget.value = "";
+      inputElement.value = "";
     }
   }
   return (
-    <Panel close={close} title={ticket.subject} description={`${ticket.ticket_reference} · ${ticket.status}`}>
-      <p className="mt-1 text-[12px] text-[#6b7075]">{ticket.priority} · réponse avant {ticket.first_response_due_at ? new Date(ticket.first_response_due_at).toLocaleString("fr-FR") : "—"}</p>
+    <Panel close={close} title={ticket.subject} description={`${ticket.ticket_reference} · ${ticketStatusLabel(ticket.status)}`}>
+      <p className="mt-1 text-[12px] text-[#6b7075]">Priorité {priorityLabel(ticket.priority).toLocaleLowerCase("fr")} · réponse avant {ticket.first_response_due_at ? new Date(ticket.first_response_due_at).toLocaleString("fr-FR") : "—"}</p>
       {error && <p className="mt-3 rounded-[5px] bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
       <div className="mt-5 overflow-hidden rounded-[6px] border border-[#d3d3d0] bg-white">
         {detail.messages.map((message) => (
           <div key={message.id} className="border-b border-[#eeeeeb] p-4 last:border-0">
-            <div className="flex justify-between text-[11px] text-[#6b7075]"><b>{message.author_name || message.author_type}</b><span>{new Date(message.created_at).toLocaleString("fr-FR")}</span></div>
+            <div className="flex justify-between text-[11px] text-[#6b7075]"><b>{message.author_name || (message.author_type === "PLATFORM" ? "Support SLAIVIO" : "Votre équipe")}</b><span>{new Date(message.created_at).toLocaleString("fr-FR")}</span></div>
             <p className="mt-2 whitespace-pre-wrap text-[13px]">{message.message}</p>
           </div>
         ))}
@@ -261,11 +264,11 @@ function Panel({ close, children, title = "Support Slaivio", description = "Arti
 }
 
 function priorityLabel(value: string) {
-  return ({ LOW: "Faible", NORMAL: "Normale", HIGH: "Haute", URGENT: "Urgente" } as Record<string, string>)[value] || value;
+  return ({ LOW: "Faible", NORMAL: "Normale", HIGH: "Haute", URGENT: "Urgente" } as Record<string, string>)[value] || "Non précisée";
 }
 
 function ticketStatusLabel(value: string) {
-  return ({ OPEN: "Ouvert", IN_PROGRESS: "En cours", WAITING_CUSTOMER: "Votre réponse est attendue", RESOLVED: "Résolu", CLOSED: "Fermé", REOPENED: "Rouvert" } as Record<string, string>)[value] || value;
+  return ({ OPEN: "Ouvert", IN_PROGRESS: "En cours", WAITING_CUSTOMER: "Votre réponse est attendue", RESOLVED: "Résolu", CLOSED: "Fermé", REOPENED: "Rouvert" } as Record<string, string>)[value] || "État non renseigné";
 }
 
 function ticketStatusTone(value: string): "neutral" | "success" | "warning" | "danger" | "info" {

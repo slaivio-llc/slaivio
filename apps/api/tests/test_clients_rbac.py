@@ -137,6 +137,7 @@ def test_vehicle_payment_tracking_normalizes_currency_and_rejects_negative_amoun
         payment_currency="cdf",
     )
     assert payload.payment_currency == "CDF"
+    assert payload.payment_amount_due is not None and payload.payment_amount_paid is not None
     assert payload.payment_amount_due - payload.payment_amount_paid == 1000
 
 

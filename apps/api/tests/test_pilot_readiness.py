@@ -45,8 +45,9 @@ def test_readiness_api_is_permission_protected():
 
 def test_dashboard_exposes_human_readable_readiness_actions():
     component = read("apps/web/dashboard/components/dashboard/pilot-readiness.tsx")
-    dashboard = read("apps/web/dashboard/components/dashboard/dashboard-overview.tsx")
+    dashboard = read("apps/web/dashboard/components/layout/app-shell.tsx")
     assert "PilotReadinessPanel" in dashboard
+    assert "pilot && !cargo" in dashboard
     assert "Préparation à la mise en service" in component
     assert "Voir les vérifications" in component
     assert "Enregistrer la vérification" in component

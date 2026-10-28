@@ -119,6 +119,7 @@ def test_registration_requires_confirmed_intent_and_valid_confidence(monkeypatch
     monkeypatch.setattr(service, 'upsert_journey', lambda org, phone, values, **kwargs: values)
     monkeypatch.setattr(service, 'convert_journey', lambda *args: pytest.fail('No confirmed registration'), raising=False)
     result = service._parcel_qualification({}, {'org_id': 'agency'}, '+123')
+    assert result is not None
     assert result['journey']['stage'] == 'INTERESTED'
 
 
@@ -136,8 +137,11 @@ def test_qualified_whatsapp_prospect_waits_for_agency_by_default(monkeypatch):
         **values, 'missing_fields': _missing(values)})
     monkeypatch.setattr(service, 'convert_journey', lambda *args: pytest.fail('Prospect conversion needs an explicit agency action'), raising=False)
     result = service._parcel_qualification({}, {'org_id': 'agency'}, '+123')
+    assert result is not None
     assert result['client'] is None
+    assert result is not None
     assert result['journey']['stage'] == 'QUALIFIED'
+    assert result is not None
     assert 'doit confirmer votre inscription' in result['reply']
 
 
@@ -151,7 +155,9 @@ def test_qualified_whatsapp_prospect_can_be_created_when_agency_opted_in(monkeyp
         **values, 'missing_fields': _missing(values)})
     monkeypatch.setattr(service, 'convert_journey', lambda org, phone: {'id': 'client', 'display_name': 'Jean Mukendi'})
     result = service._parcel_qualification({'auto_create_qualified_whatsapp_clients': True}, {'org_id': 'agency'}, '+123')
+    assert result is not None
     assert result['client']['id'] == 'client'
+    assert result is not None
     assert 'fiche client est créée' in result['reply']
 
 

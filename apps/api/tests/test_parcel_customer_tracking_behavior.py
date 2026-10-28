@@ -54,11 +54,16 @@ def test_public_lookup_returns_brand_without_internal_package_id(monkeypatch):
     engine.connect.return_value.__enter__.return_value = conn
     monkeypatch.setattr(repository, "engine", engine)
     result = repository.public_package_tracking("LUZA-001")
+    assert result is not None
     assert result["agency_name"] == "LUZA SERVICES"
+    assert result is not None
     assert result["agency_logo_url"] == "https://example.com/logo.png"
     assert "id" not in result
+    assert result is not None
     assert result["events"] == []
+    assert result is not None
     assert result["weight_kg"] == 12.5
+    assert result is not None
     assert result["volume_cbm"] == 0.125
     assert "package.weight_kg" in str(conn.execute.call_args_list[0].args[0])
     assert "package.volume_cbm" in str(conn.execute.call_args_list[0].args[0])

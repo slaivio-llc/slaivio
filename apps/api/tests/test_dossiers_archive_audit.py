@@ -1,10 +1,11 @@
+from fastapi.routing import APIRoute
 from pathlib import Path
 
 from app.api.dossiers import router
 
 
 def test_archive_routes_are_static_and_versioned():
-    routes = {(route.path, method) for route in router.routes for method in route.methods}
+    routes = {(route.path, method) for route in router.routes if isinstance(route, APIRoute) for method in (route.methods or set())}
     assert ("/dossiers/archived", "GET") in routes
     assert ("/dossiers/{dossier_id}", "DELETE") in routes
     assert ("/dossiers/{dossier_id}/restore", "POST") in routes

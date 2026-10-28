@@ -1,0 +1,33 @@
+name: WhatsApp gateway CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/whatsapp-qr-gateway/**"
+      - ".github/workflows/gateway-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/whatsapp-qr-gateway/**"
+      - ".github/workflows/gateway-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/whatsapp-qr-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/whatsapp-qr-gateway/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+      - run: npm test

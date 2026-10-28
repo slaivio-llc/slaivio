@@ -38,7 +38,7 @@ def test_unknown_weight_stays_unknown_and_context_cannot_be_forged():
     assert original["status"] == "DELIVERED"
 
 
-def setup_repository(monkeypatch, *, client=True, route=True, service_route="route", canonical_offering=False):
+def setup_repository(monkeypatch, *, client=True, route=True, service_route: str | None="route", canonical_offering=False):
     conn, engine = MagicMock(), MagicMock()
     engine.begin.return_value.__enter__.return_value = conn
     statements = []

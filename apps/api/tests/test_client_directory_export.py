@@ -19,7 +19,7 @@ def test_export_uses_directory_filters_and_escapes_spreadsheet_values(monkeypatc
     query.assert_called_once_with('office','Jean','business',date(2026,1,1),date(2026,2,1),1,'created_desc',page_size=10001)
 
     async def consume():
-        return ''.join([chunk async for chunk in result.body_iterator])
+        return ''.join([chunk if isinstance(chunk, str) else bytes(chunk).decode('utf-8') async for chunk in result.body_iterator])
 
     content = asyncio.run(consume())
     assert "'=FORMULA()" in content

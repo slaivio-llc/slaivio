@@ -143,11 +143,13 @@ def test_auto_create_prospect_setting_is_opt_in_and_permission_gated():
 
 def test_naive_campaign_schedule_is_interpreted_in_workspace_timezone():
     value = broadcast_repository._scheduled_at_utc('2026-10-20T15:30', 'Africa/Kinshasa')
+    assert value is not None
     assert value.isoformat() == '2026-10-20T14:30:00+00:00'
 
 
 def test_campaign_schedule_with_offset_preserves_absolute_instant():
     value = broadcast_repository._scheduled_at_utc('2026-10-20T15:30:00+02:00', 'UTC')
+    assert value is not None
     assert value.isoformat() == '2026-10-20T13:30:00+00:00'
 
 
@@ -178,5 +180,6 @@ def test_new_campaign_selects_existing_clients_directly():
     assert "selected_client_ids jsonb" in migration
     assert "a.org_id=b.org_id and a.id=b.audience_id" in repo
     assert "Tous les clients éligibles" in ui
-    assert "Clients sélectionnés manuellement" in ui
+    assert "selectedClientIds.length" in ui
+    assert 'aria-label="Rechercher un client destinataire"' in ui
     assert "Sélectionner les {clientOptions.length} clients affichés" in ui

@@ -33,12 +33,10 @@ def test_dossier_relations_drive_legacy_snapshots():
     assert '"shipping_mode": data.get("shipping_mode") or route["transport_mode"]' in source
 
 
-def test_dossier_ui_uses_shared_relations():
+def test_dossier_ui_links_shared_clients_without_duplicating_transport_forms():
     source = read("apps/web/dashboard/components/dossiers/dossiers-page.tsx")
-    assert 'name="route_id"' in source
-    assert 'name="shipping_service_id"' in source
-    assert 'name="origin_warehouse_id"' in source
-    assert 'name="destination_office_id"' in source
+    assert 'client_ids: selectedClients.map((client) => client.id)' in source
+    assert 'createDossier(payload)' in source
     assert 'name="origin_country"' not in source
     assert 'name="destination_country"' not in source
 
@@ -57,4 +55,4 @@ def test_pricing_accepts_service_route_offerings_and_ui_reports_mutation_errors(
     assert "service_route_offerings" in pricing
     assert "route_service_mismatch" in pricing
     assert "API_MUTATION_FAILED_EVENT" in api
-    assert "Action non enregistrée" in feedback
+    assert "Échec de l’action" in feedback

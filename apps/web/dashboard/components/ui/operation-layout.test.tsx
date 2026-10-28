@@ -35,7 +35,7 @@ describe("Pilot visual foundation", () => {
     expect(pageHeader?.firstElementChild?.firstElementChild).not.toHaveClass("border-b");
     expect(screen.getByRole("navigation", { name: "Vues du module" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tous" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: "Tous" })).toHaveClass("rounded-full", "bg-[#111111]");
+    expect(screen.getByRole("button", { name: "Tous" })).toHaveClass("rounded-none", "bg-[#111111]");
     expect(screen.getByText("Actifs").closest("section")).toHaveAttribute("data-ui", "operation-metrics");
     expect(screen.getByText("Actifs").closest("section")?.firstElementChild).toHaveClass("mx-auto", "max-w-[1200px]", "px-6", "sm:px-8");
     expect(screen.getByText("Actifs").closest("section")?.firstElementChild?.firstElementChild).toHaveClass("py-3");

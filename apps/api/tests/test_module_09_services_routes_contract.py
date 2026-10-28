@@ -44,16 +44,17 @@ def test_routes_and_services_use_the_canonical_many_to_many_offerings():
     assert 'def available_services(o):' in routes
     assert 'insert into service_route_offerings' in routes
     assert 'offering.route_id=r.id' in routes
-    assert "'ACTIVE','AVAILABLE'" in services
+    assert "x.availability in('AVAILABLE','LIMITED','QUOTE_ONLY')" in services
+    assert "r.status in('ACTIVE','LIMITED')" in services
     assert 'service_route_offerings x' in pricing
     assert 'on conflict (service_id, route_id, workspace_id) do nothing' in migration
 
 
-def test_new_service_transport_mode_does_not_conflate_express_with_a_transport():
+def test_new_service_name_is_free_and_transport_is_an_explicit_choice():
     service = ServiceCreate(service_name="Express", description="Livraison rapide.")
     ui = (
         ROOT
-        / "apps/web/dashboard/components/services/service-catalog-center.tsx"
+        / "apps/web/dashboard/components/settings/organization-transport-settings.tsx"
     ).read_text(encoding="utf-8")
     repository = (ROOT / "apps/api/app/service_catalog/repository.py").read_text(encoding="utf-8")
 
@@ -61,5 +62,7 @@ def test_new_service_transport_mode_does_not_conflate_express_with_a_transport()
     assert service.shipping_mode == "AIR"
     assert "unicodedata.normalize" in repository
     assert "status,availability" in repository
-    assert 'value !== "EXPRESS"' in ui
-    assert "Nom commercial libre, par exemple « Express »" in ui
+    assert 'name="service_name"' in ui
+    assert 'name="shipping_mode"' in ui
+    assert '<option value="AIR">Transport aérien</option>' in ui
+    assert '<option value="SEA">Transport maritime</option>' in ui

@@ -45,9 +45,13 @@ def test_operational_overview_uses_real_reporting_data(monkeypatch):
         "agency-a", "Donne-moi une vue d’ensemble de l’agence", actor_id="owner-a"
     )
 
+    assert result is not None
     assert result["tool"] == "operations.overview"
+    assert result is not None
     assert "12 colis" in result["content"]
+    assert result is not None
     assert "640 USD" in result["content"]
+    assert result is not None
     assert result["cards"][0]["href"] == "/app/reports"
 
 
@@ -69,8 +73,11 @@ def test_daily_priorities_merge_operational_sources(monkeypatch):
         "agency-a", "Que dois-je traiter aujourd’hui ?", actor_id="manager-a"
     )
 
+    assert result is not None
     assert "2 relance(s)" in result["content"]
+    assert result is not None
     assert "1 alerte(s) colis" in result["content"]
+    assert result is not None
     assert [card["title"] for card in result["cards"]] == ["FUP-1", "COL-1"]
 
 
@@ -83,8 +90,11 @@ def test_client_count_uses_real_tenant_pagination(monkeypatch):
         "agency-a","Il y a combien de clients ?",actor_id="manager-a"
     )
 
+    assert result is not None
     assert result["tool"]=="clients.search"
+    assert result is not None
     assert "42 clients" in result["content"]
+    assert result is not None
     assert result["cards"][0]["href"]=="/app/clients"
 
 

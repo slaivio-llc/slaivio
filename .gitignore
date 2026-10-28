@@ -32,3 +32,6 @@ Thumbs.db
 
 # Local reference-video inspection tools and extracted frames
 .tmp/
+
+# Generated JavaScript dependencies (recreated with npm ci).
+node_modules/

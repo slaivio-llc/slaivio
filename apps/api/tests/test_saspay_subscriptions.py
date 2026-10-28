@@ -1,3 +1,4 @@
+from fastapi.routing import APIRoute
 import asyncio
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -342,7 +343,7 @@ def test_expired_subscription_blocks_operations_but_allows_renewal(monkeypatch):
 
 
 def test_manual_payment_confirmation_is_not_exposed_to_agency_users():
-    route=next(route for route in billing.router.routes if route.path=='/billing/payments/confirm')
+    route=next(route for route in billing.router.routes if isinstance(route, APIRoute) and route.path=='/billing/payments/confirm')
     assert any('platform.billing.manage' in [cell.cell_contents for cell in (getattr(dep.call,'__closure__',None) or ())] for dep in route.dependant.dependencies)
 
 

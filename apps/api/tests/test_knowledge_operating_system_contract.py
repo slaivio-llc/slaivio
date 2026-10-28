@@ -28,8 +28,10 @@ def test_knowledge_api_has_real_workflow_import_playground_and_permissions():
 def test_knowledge_dashboard_exposes_the_simple_pilot_workflow():
     page = (ROOT / "apps/web/dashboard/components/knowledge/knowledge-page.tsx").read_text(encoding="utf-8")
     service = (ROOT / "apps/web/dashboard/services/knowledge.ts").read_text(encoding="utf-8")
-    for feature in ("Réponse client", "Information de l’entreprise", "Consigne interne", "Enregistrer en brouillon", "Enregistrer et publier", "Cette information peut-elle être communiquée aux clients ?"):
+    for feature in ("Réponse client", "Information sur l’agence", "Instruction interne", "Enregistrer le brouillon", "Vérifier et publier", "Autorisé pour les réponses clients et l’IA"):
         assert feature in page
+    assert 'permission="pilot.knowledge.publish"' in page
+    assert "publishPilotKnowledge(item.id,item.version)" in page
     for endpoint in ("/knowledge/pilot", "/knowledge/pilot/stats", "/publish"):
         assert endpoint in service
     assert "/app/knowledge" in (ROOT / "apps/web/dashboard/config/app-navigation.ts").read_text(encoding="utf-8")

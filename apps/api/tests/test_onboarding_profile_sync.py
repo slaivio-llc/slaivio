@@ -17,7 +17,9 @@ def test_profile_is_saved_with_workspace_identity_and_preferences(monkeypatch):
         'country': 'RDC', 'city': 'Kinshasa', 'default_language': 'fr',
         'default_currency': 'CDF',
     })
+    assert result is not None
     assert result['org_id'] == 'office-rdc'
+    assert result is not None
     assert result['default_currency'] == 'CDF'
     # One statement keeps the profile and dashboard identity in one transaction.
     query = captured['query']

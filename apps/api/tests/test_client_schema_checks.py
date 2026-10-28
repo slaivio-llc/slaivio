@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,8 +16,12 @@ def test_missing_creation_table_stops_before_lock_or_write():
     with pytest.raises(HTTPException) as error:
         replay_request(conn, 'office', 'actor', 'key', 'hash')
     assert error.value.status_code == 503
-    assert error.value.detail['code'] == 'crm_migration_required'
-    assert error.value.detail['migrations'] == ['126_client_creation_requests.sql']
+    detail = cast(object, error.value.detail)
+    assert isinstance(detail, dict)
+    assert detail['code'] == 'crm_migration_required'
+    detail = cast(object, error.value.detail)
+    assert isinstance(detail, dict)
+    assert detail['migrations'] == ['126_client_creation_requests.sql']
     assert conn.execute.call_count == 1
     assert 'to_regclass' in str(conn.execute.call_args.args[0])
 
@@ -33,7 +38,9 @@ def test_missing_contacts_table_returns_deployment_error(monkeypatch, write):
         else:
             list_contacts('office', 'company')
     assert error.value.status_code == 503
-    assert error.value.detail['migrations'] == ['127_client_company_contacts.sql']
+    detail = cast(object, error.value.detail)
+    assert isinstance(detail, dict)
+    assert detail['migrations'] == ['127_client_company_contacts.sql']
 
 
 def test_schema_report_lists_both_missing_migrations():

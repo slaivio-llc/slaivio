@@ -471,7 +471,7 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
             </div>
           </div>
           <PermissionGuard permission={isServices ? "services.create" : "routes.manage"}>
-            <OperationButton variant="primary" className="h-10 shrink-0 px-4" onClick={openCreateService}>
+            <OperationButton variant="primary" className="h-10 shrink-0 px-4" onClick={isServices ? openCreateService : openCreateRoute}>
               <Plus size={16} />{isServices ? "Ajouter un service" : "Ajouter une route"}
             </OperationButton>
           </PermissionGuard>

@@ -102,8 +102,9 @@ def test_regulated_goods_can_be_received_but_cannot_ship_without_review():
 def test_settings_write_cannot_change_security_without_security_manage(monkeypatch):
     connection=MagicMock()
     connection.execute.return_value.mappings.return_value.first.return_value={'security':{'require_mfa':False}}
-    monkeypatch.setattr(repository,'engine',MagicMock())
-    repository.engine.connect.return_value.__enter__.return_value=connection
+    mock_engine=MagicMock()
+    monkeypatch.setattr(repository,'engine',mock_engine)
+    mock_engine.connect.return_value.__enter__.return_value=connection
     permission=MagicMock(side_effect=HTTPException(403,'permission_denied'))
     monkeypatch.setattr(repository,'assert_permission',permission)
     with pytest.raises(HTTPException):
@@ -114,8 +115,9 @@ def test_settings_write_cannot_change_security_without_security_manage(monkeypat
 def test_mfa_activation_requires_verified_second_factor(monkeypatch):
     connection=MagicMock()
     connection.execute.return_value.mappings.return_value.first.return_value={'security':{}}
-    monkeypatch.setattr(repository,'engine',MagicMock())
-    repository.engine.connect.return_value.__enter__.return_value=connection
+    mock_engine=MagicMock()
+    monkeypatch.setattr(repository,'engine',mock_engine)
+    mock_engine.connect.return_value.__enter__.return_value=connection
     monkeypatch.setattr(repository,'assert_permission',MagicMock())
     with pytest.raises(HTTPException) as error:
         repository.authorize_settings_update('agency','owner',{'security':{'require_mfa':True}}, {})
@@ -162,9 +164,11 @@ def test_settings_storage_merges_json_without_resetting_other_sections(monkeypat
         result.mappings.return_value.first.return_value=updated if str(sql).startswith('update organization_settings') else old
         return result
     connection.execute.side_effect=execute
-    monkeypatch.setattr(repository,'engine',MagicMock())
-    repository.engine.begin.return_value.__enter__.return_value=connection
+    mock_engine=MagicMock()
+    monkeypatch.setattr(repository,'engine',mock_engine)
+    mock_engine.begin.return_value.__enter__.return_value=connection
     result=repository.save_settings('agency','owner',{'settings':{'agency_hours':{'text':'09–18'}}},3)
+    assert result is not None
     assert result['row_version']==4
     sql,parameters=next(item for item in statements if item[0].startswith('update organization_settings'))
     assert "coalesce(settings,'{}'::jsonb) || cast(:settings as jsonb)" in sql
@@ -213,6 +217,7 @@ def test_notification_dispatch_rechecks_preferences_and_opt_out(monkeypatch,pref
     connection=MagicMock()
     connection.execute.return_value.mappings.return_value.first.return_value={'settings':preferences,'notify_package_milestones':True}
     connection.execute.return_value.first.return_value=(1,) if excluded else None
-    monkeypatch.setattr(notification_policy,'engine',MagicMock())
-    notification_policy.engine.connect.return_value.__enter__.return_value=connection
+    mock_engine=MagicMock()
+    monkeypatch.setattr(notification_policy,'engine',mock_engine)
+    mock_engine.connect.return_value.__enter__.return_value=connection
     assert notification_policy.can_dispatch({'org_id':'agency','notification_type':'PACKAGE_STATUS:parcel:ARRIVED','recipient_phone':'+243812345678'}) is allowed

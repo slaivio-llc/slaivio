@@ -9,7 +9,7 @@ import json
 def create_notification_outbox(
     org_id: str,
     client_id: str,
-    dossier_id: str,
+    dossier_id: str | None,
     recipient_phone: str,
     notification_type: str,
     message: str,

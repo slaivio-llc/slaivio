@@ -50,12 +50,15 @@ def test_luza_departure_allocation_explains_blockers_and_manifest_is_operational
     page = read("apps/web/dashboard/components/departures/departures-page.tsx")
 
     for rule in (
-        "PAYMENT_NOT_CLEARED", "GOODS_PROHIBITED", "MISSING_DOCUMENTS",
+        "departure_clearance", "GOODS_PROHIBITED", "MISSING_DOCUMENTS",
         "WAREHOUSE_MISMATCH", "SERVICE_MISMATCH", "ROUTE_MISMATCH",
         "WEIGHT_CAPACITY_EXCEEDED", "VOLUME_CAPACITY_EXCEEDED",
         "departure_has_no_packages", "departure_packages_not_eligible",
     ):
         assert rule in repository
+    finance = read("apps/api/app/finance/clearance.py")
+    assert "PAYMENT_CLEARANCE_REQUIRED" in finance
+    assert "if not clearance['allowed']" in repository
     for manifest_field in (
         "client_phone", "goods_classification", "pieces_count",
         "declared_value", "payment_status", "transport_reference",
@@ -101,10 +104,12 @@ def test_luza_parcel_navigation_keeps_every_daily_module_available():
     navigation = read("apps/web/dashboard/config/app-navigation.ts")
     for route in (
         "/app/clients", "/app/packages", "/app/departures", "/app/shipments",
-        "/app/warehouses", "/app/routes", "/app/inbox", "/app/followups",
+        "/app/warehouses", "/app/management", "/app/inbox", "/app/followups",
         "/app/knowledge", "/app/finance",
     ):
         assert f'href: "{route}"' in navigation
+    hub = read("apps/web/dashboard/components/workspace/parcel-management-hub.tsx")
+    assert 'OrganizationTransportSettings section="management"' in hub
 
 
 def test_departure_calendar_reads_expeditions_and_keeps_departure_mutations_out_of_the_view():
@@ -117,16 +122,25 @@ def test_departure_calendar_reads_expeditions_and_keeps_departure_mutations_out_
     assert "from cargo_expeditions e" in projection
     assert "coalesce(e.departed_at,e.planned_departure_at)" in projection
     assert "createDeparture" not in page and "transitionDeparture" not in page
-    assert "href: \"/app/departures\", icon: Truck, permission: \"shipments.read\"" in navigation
+    hub = read("apps/web/dashboard/components/workspace/parcel-operations-hub.tsx")
+    assert 'permissions.includes("shipments.read")' in hub
+    assert 'requested === "calendar"' in hub
+    assert '<DepartureCalendarPage embedded' in hub
 
 
 def test_communication_settings_are_scoped_to_the_communication_module():
     navigation = read("apps/web/dashboard/config/app-navigation.ts")
     page = read("apps/web/dashboard/app/app/communication/settings/page.tsx")
     settings = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
-    assert 'href: "/app/communication/settings"' in navigation
-    assert 'PilotSettingsPage scope="communication"' in page
-    assert '["channels","ai","notifications"]' in settings
+    assert 'href: "/app/communication"' in navigation
+    hub = read("apps/web/dashboard/components/workspace/parcel-communication-hub.tsx")
+    assert 'tab === "settings"' in hub
+    assert 'PilotSettingsPage scope="communication" embedded' in hub
+    assert 'CommunicationSettingsHub' in page
+    assert 'permission="pilot.settings.read"' in page
+    configuration = read("apps/web/dashboard/components/workspace/communication-settings-hub.tsx")
+    assert 'PilotSettingsPage scope="communication"' in configuration
+    assert '["channels","ai","responses"]' in settings
     assert 'router.replace(scope==="communication"?' in settings
 
 
@@ -163,7 +177,7 @@ def test_luza_multi_office_network_has_secure_office_scope_and_shared_destinatio
     assert "role_permissions(role_id,permission_id)" in network_repository
     assert "status='SUSPENDED'" in network_repository
     assert "tenant.city" in switcher and "tenant.country" in switcher
-    assert "active_org.parent_org_id" in entitlements
+    assert "s.org_id = billing_root(active_org.id)" in entitlements
     assert "parent_flag.enabled" in features
 
 
@@ -181,12 +195,14 @@ def test_luza_network_offices_are_created_from_the_switcher_and_invitations_prov
     assert '@router.post("/invitations"' in network_api
     assert "list_invitation_office_grants" in membership_service
     assert "network_memberships" in membership_service
-    assert "Créer un espace" in switcher
+    assert "Créer un bureau" in switcher
+    assert "Créer un entrepôt" in switcher
     assert 'name="workspace_kind"' in switcher
-    assert '<option value="OFFICE">' in switcher
-    assert '<option value="WAREHOUSE">' in switcher
+    assert 'kind:"OFFICE" as const' in switcher
+    assert 'kind:"WAREHOUSE" as const' in switcher
     assert "createNetworkOffice" in switcher
-    assert "Les routes et services restent dans leurs modules opérationnels" in settings
+    management = read("apps/web/dashboard/components/workspace/parcel-management-hub.tsx")
+    assert 'OrganizationTransportSettings section="management"' in management
     assert "inviteNetworkMember" in settings
 
 

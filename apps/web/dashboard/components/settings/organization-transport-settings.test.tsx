@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { OrganizationTransportSettings } from "./organization-transport-settings";
 import { catalog, createRoute } from "@/services/route-catalog";
-import { createService } from "@/services/service-catalog";
+import { createService, serviceCatalog } from "@/services/service-catalog";
 import { getOfficeContext } from "@/services/organization-admin";
 
 vi.mock("@/services/route-catalog", () => ({
@@ -15,6 +15,7 @@ vi.mock("@/services/route-catalog", () => ({
 vi.mock("@/services/service-catalog", () => ({
   createService: vi.fn(),
   transitionService: vi.fn(),
+  serviceCatalog: vi.fn(),
 }));
 vi.mock("@/components/permissions/permission-guard", () => ({
   PermissionGuard: ({ children }: { children: ReactNode }) => children,
@@ -70,6 +71,8 @@ const fixture = {
 } as Awaited<ReturnType<typeof catalog>>;
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(serviceCatalog).mockResolvedValue({routes:[],warehouses:[],offices:[],categories:[]});
   vi.mocked(getOfficeContext).mockResolvedValue({ offices: [], selected_office_id: null, office_access_scope: "ALL_OFFICES", allowed_office_ids: [] });
   vi.mocked(catalog).mockResolvedValue(fixture);
   vi.mocked(createRoute).mockResolvedValue({});
@@ -108,15 +111,18 @@ describe("agency transport settings", () => {
     await screen.findByRole("heading", { name: "Guangzhou → Kinshasa" });
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une route" }));
 
-    fireEvent.change(screen.getByLabelText("Pays d’origine"), { target: { value: "Chine" } });
-    fireEvent.change(screen.getByLabelText("Ville d’origine"), { target: { value: "Guangzhou" } });
-    fireEvent.change(screen.getByLabelText("Pays de destination"), { target: { value: "RDC" } });
-    fireEvent.change(screen.getByLabelText("Ville de destination"), { target: { value: "Kinshasa" } });
+    fireEvent.change(screen.getByLabelText("Pays de départ *"), { target: { value: "Chine" } });
+    fireEvent.change(screen.getByLabelText("Ville de départ *"), { target: { value: "Guangzhou" } });
+    fireEvent.change(screen.getByLabelText("Pays de destination *"), { target: { value: "RDC" } });
+    fireEvent.change(screen.getByLabelText("Ville de destination *"), { target: { value: "Kinshasa" } });
     fireEvent.submit(document.getElementById("create-commercial-route")!);
-    expect(await screen.findByText("Associez au moins un service actif à cette route.")).toBeVisible();
+    expect(await screen.findByText("Sélectionnez un service de transport actif.")).toBeVisible();
     expect(createRoute).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("checkbox", { name: /Fret aérien/ }));
+    fireEvent.change(screen.getByLabelText(/^Service associé/),{target:{value:"service-1"}});
     fireEvent.submit(document.getElementById("create-commercial-route")!);
+    expect(await screen.findByRole("heading",{name:"Vérifier la route"})).toBeInTheDocument();
+    expect(createRoute).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button",{name:"Créer la route"}));
 
     await waitFor(() => expect(createRoute).toHaveBeenCalledWith(expect.objectContaining({
       origin_country: "Chine",

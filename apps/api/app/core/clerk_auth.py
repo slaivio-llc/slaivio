@@ -6,6 +6,7 @@ import jwt
 from jwt import InvalidTokenError
 from jwt.algorithms import RSAAlgorithm
 from typing import cast
+from urllib.parse import urlsplit
 
 from app.core.config import settings
 
@@ -18,6 +19,17 @@ def _resolve_jwks_url() -> str | None:
     return None
 
 _jwks_cache = TTLCache(maxsize=1, ttl=3600)
+
+
+def _authorized_parties() -> set[str]:
+    configured = settings.clerk_authorized_parties
+    if configured:
+        return {value.strip().rstrip('/') for value in configured.split(',') if value.strip()}
+    web = urlsplit(settings.public_web_base_url)
+    allowed = {f'{web.scheme}://{web.netloc}'} if web.scheme and web.netloc else set()
+    if settings.app_env not in ('production', 'staging'):
+        allowed.update({'http://localhost:3000', 'http://127.0.0.1:3000'})
+    return allowed
 
 
 @cached(_jwks_cache)
@@ -63,7 +75,7 @@ def verify_clerk_token(
 
     try:
         public_key = cast(RSAPublicKey, RSAAlgorithm.from_jwk(key))
-        return jwt.decode(
+        claims = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
@@ -74,6 +86,14 @@ def verify_clerk_token(
                 "verify_iss": bool(settings.clerk_issuer_url),
             },
         )
+        # Clerk can omit azp for navigation requests without an Origin header.
+        # When present, it must match an explicit application origin, not a
+        # suffix or arbitrary subdomain. The signed claim cannot be overridden
+        # by a request header.
+        party = claims.get('azp')
+        if party is not None and (not isinstance(party, str) or party not in _authorized_parties()):
+            raise InvalidTokenError('untrusted_authorized_party')
+        return claims
     except (InvalidTokenError, TypeError, ValueError) as exc:
         raise HTTPException(
             status_code=401,

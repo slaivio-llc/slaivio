@@ -1,3 +1,4 @@
+from fastapi.routing import APIRoute
 from unittest.mock import MagicMock
 import pytest
 
@@ -30,7 +31,7 @@ def test_legacy_status_update_is_scoped_by_agency_and_provider(monkeypatch):
 
 
 def test_media_sending_requires_the_same_permission_as_inbox_replies():
-    route = next(route for route in media_router.routes if route.path == '/media/send-whatsapp')
+    route = next(route for route in media_router.routes if isinstance(route, APIRoute) and route.path == '/media/send-whatsapp')
     permissions = [cell.cell_contents for dependency in route.dependant.dependencies
                    for cell in (getattr(dependency.call, '__closure__', None) or ())
                    if isinstance(cell.cell_contents, str)]

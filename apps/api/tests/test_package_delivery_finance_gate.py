@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -40,7 +41,10 @@ def test_financially_blocked_delivery_does_not_write_status_or_proof(monkeypatch
         else:
             repository.delivery_proof("agency", "parcel", "agent", {"recipient_name": "Client"})
 
-    assert error.value.detail["remaining"] == "80.00"
+    detail = cast(object, error.value.detail)
+
+    assert isinstance(detail, dict)
+    assert detail["remaining"] == "80.00"
     clearance.assert_called_once()
     assert all(str(call.args[0]).lstrip().lower().startswith('select')
                for call in conn.execute.call_args_list)  # lock/policy reads only

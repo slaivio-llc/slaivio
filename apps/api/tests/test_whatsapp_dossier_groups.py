@@ -12,7 +12,7 @@ def test_runtime_repair_contains_inbox_and_group_dependencies():
     assert "whatsapp_group_on_dossier_create" in migration
 
 
-def test_group_status_and_manual_sync_are_exposed_to_the_dashboard():
+def test_legacy_group_sync_remains_permission_gated_without_showing_technical_ids():
     root = Path(__file__).parents[3]
     repository = (root / "apps/api/app/db/dossier_repository.py").read_text(encoding="utf-8")
     api = (root / "apps/api/app/api/dossiers.py").read_text(encoding="utf-8")
@@ -22,10 +22,8 @@ def test_group_status_and_manual_sync_are_exposed_to_the_dashboard():
     assert "whatsapp_group_enabled" in repository
     assert '"/dossiers/{dossier_id}/whatsapp-group/sync"' in api
     assert 'require_permission("dossiers.update")' in api
-    assert "WhatsappGroupPanel" in dashboard
-    assert "Créer le groupe" in dashboard
-    assert "Ajouter un participant" in dashboard
-    assert "whatsapp_group_jid" in dashboard
+    assert "whatsapp_group_jid" not in dashboard
+    assert "sync_dossier_whatsapp_group" in api
 
 
 def test_group_conversation_identity_is_persisted_and_visible_in_the_inbox():
@@ -39,9 +37,10 @@ def test_group_conversation_identity_is_persisted_and_visible_in_the_inbox():
         assert f"add column if not exists {column}" in migration
         assert column in repository
     assert "from messages_raw raw" in migration
-    assert 'rawTarget.endsWith("@g.us")' in gateway
+    assert 'item.key.remoteJid?.endsWith("@g.us")' in gateway
     assert "item.pushName" in gateway
-    assert 'label: "Groupes"' in dashboard
+    assert 'Groupe WhatsApp' in dashboard
+    assert 'detail.is_group' in dashboard
     assert "message.sender_phone" in dashboard
 
 

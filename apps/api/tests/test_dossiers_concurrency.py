@@ -37,8 +37,8 @@ def _dossier(**changes):
 
 def test_dossier_patch_requires_concurrency_version():
     with pytest.raises(ValidationError):
-        DossierPatchPayload(status_global="QUOTED")
-    assert DossierPatchPayload(row_version=4, status_global="QUOTED").row_version == 4
+        DossierPatchPayload.model_validate({'status_global': "QUOTED"})
+    assert DossierPatchPayload.model_validate({'row_version': 4, 'status_global': "QUOTED"}).row_version == 4
 
 
 def test_dossier_creation_starts_in_an_initial_state():
@@ -55,31 +55,19 @@ def test_pilot_dossier_can_start_before_the_first_client_is_known():
 
 def test_client_created_inside_a_dossier_requires_only_identity_and_phone():
     with pytest.raises(ValidationError):
-        DossierClientCreatePayload(
-            phone="+243900000000", idempotency_key="client-create-0001"
-        )
+        DossierClientCreatePayload.model_validate({'phone': "+243900000000", 'idempotency_key': "client-create-0001"})
     with pytest.raises(ValidationError):
-        DossierClientCreatePayload(
-            name="Jean", idempotency_key="client-create-0002"
-        )
+        DossierClientCreatePayload.model_validate({'name': "Jean", 'idempotency_key': "client-create-0002"})
     with pytest.raises(ValidationError, match="extra_forbidden"):
-        DossierClientCreatePayload(
-            name="Jean", phone="+243900000000", attention_required=True,
-            idempotency_key="client-create-0003",
-        )
-    client = DossierClientCreatePayload(
-        name="Jean", phone="+243900000000", email=None,
-        idempotency_key="client-create-0004",
-    )
+        DossierClientCreatePayload.model_validate({'name': "Jean", 'phone': "+243900000000", 'attention_required': True, 'idempotency_key': "client-create-0003"})
+    client = DossierClientCreatePayload.model_validate({'name': "Jean", 'phone': "+243900000000", 'email': None, 'idempotency_key': "client-create-0004"})
     assert client.name == "Jean"
 
 
 def test_relation_update_is_versioned():
     with pytest.raises(ValidationError):
-        DossierClientPatchPayload(situation="En attente de confirmation")
-    assert DossierClientPatchPayload(
-        row_version=3, situation="En attente de confirmation"
-    ).row_version == 3
+        DossierClientPatchPayload.model_validate({'situation': "En attente de confirmation"})
+    assert DossierClientPatchPayload.model_validate({'row_version': 3, 'situation': "En attente de confirmation"}).row_version == 3
 
 
 def test_dossier_status_machine_rejects_skips_and_terminal_reopens():

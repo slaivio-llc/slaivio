@@ -55,6 +55,7 @@ def test_finance_is_paginated_but_totals_are_grouped_over_all_invoices(monkeypat
     conn.execute.return_value.scalar_one.return_value = 60
     conn.execute.return_value.mappings.return_value.all.return_value = []
     result = crm.read_section('office', str(uuid4()), 'finance', 3)
+    assert result is not None
     assert result['total'] == 60
     for call in conn.execute.call_args_list:
         sql, params = call.args
@@ -76,7 +77,9 @@ def test_legacy_workspace_does_not_read_unauthorized_sections(monkeypatch):
     result = repository.client_workspace('office', str(uuid4()), permissions=set())
     exists.assert_not_called()
     engine.connect.return_value.__enter__.return_value.execute.assert_not_called()
+    assert result is not None
     assert 'current_balance' not in result['client']
+    assert result is not None
     assert result['messages'] == result['documents'] == result['payments'] == []
 
 

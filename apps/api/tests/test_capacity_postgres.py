@@ -34,6 +34,7 @@ insert into organization_settings values('agency','Africa/Kinshasa');
 
 @pytest.fixture
 def database():
+    assert URL is not None
     engine=create_engine(URL)
     schema='slaivio_capacity_test_'+uuid4().hex
     migration=(Path(__file__).resolve().parents[3]/'infra/sql/158_subscription_capacity_limits.sql').read_text(encoding='utf-8')
@@ -139,6 +140,7 @@ def test_two_simultaneous_requests_cannot_both_take_the_last_parcel_slot(databas
     c.commit()
     barrier=Barrier(2)
     def create():
+        assert URL is not None
         engine=create_engine(URL)
         try:
             with engine.begin() as other:

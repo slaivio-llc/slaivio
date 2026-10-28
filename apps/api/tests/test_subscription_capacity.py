@@ -12,8 +12,11 @@ from app.organizations.services import invitation_service
 def test_only_known_quota_details_are_exposed():
     error=SimpleNamespace(orig=SimpleNamespace(diag=SimpleNamespace(message_primary='slaivio_plan_limit_reached',message_detail='{"resource":"max_users","limit":3}')))
     detail=capacity.limit_error(error)
+    assert detail is not None
     assert detail['code']=='plan_limit_reached'
+    assert detail is not None
     assert '3 membres' in detail['message']
+    assert detail is not None
     assert 'existants restent accessibles' in detail['message']
     error.orig.diag.message_detail='secret database diagnostics'
     assert capacity.limit_error(error) is None

@@ -72,12 +72,12 @@ def test_location_filters_are_bound_and_tenant_scoped(monkeypatch):
 @pytest.mark.parametrize('extra', [{'status':'DISPATCHED'}, {'org_id':'foreign'}, {'packages_count':100}, {'departed_at':'2026-10-14T10:00:00Z'}])
 def test_creation_rejects_client_controlled_state(extra):
     with pytest.raises(ValidationError):
-        PlannedShipmentPayload(route_id=ROUTE, request_key=KEY, **extra)
+        PlannedShipmentPayload.model_validate({'route_id': ROUTE, 'request_key': KEY, **extra})
 
 
 def test_naive_planned_datetime_rejected():
     with pytest.raises(ValidationError):
-        PlannedShipmentPayload(route_id=ROUTE, request_key=KEY, planned_departure_at='2026-10-14T10:00:00')
+        PlannedShipmentPayload.model_validate({'route_id': ROUTE, 'request_key': KEY, 'planned_departure_at': '2026-10-14T10:00:00'})
 
 
 def test_creation_is_planned_with_server_context_and_no_notification(monkeypatch):

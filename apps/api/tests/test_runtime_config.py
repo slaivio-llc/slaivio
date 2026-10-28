@@ -2,12 +2,18 @@ import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 from pathlib import Path
+from typing import Any
 
 from app.core.config import Settings
 
 
+def configured_settings(**kwargs: Any) -> Settings:
+    # BaseSettings accepts runtime configuration such as _env_file.
+    return Settings(**kwargs)
+
+
 def test_production_cron_only_requires_database_contract():
-    config = Settings(
+    config = configured_settings(
         _env_file=None,
         app_env="production",
         app_runtime="cron",
@@ -18,7 +24,7 @@ def test_production_cron_only_requires_database_contract():
 
 def test_production_api_keeps_full_security_contract():
     with pytest.raises(ValidationError) as exc:
-        Settings(
+        configured_settings(
             _env_file=None,
             app_env="production",
             app_runtime="api",
@@ -30,7 +36,7 @@ def test_production_api_keeps_full_security_contract():
 
 
 def test_production_api_accepts_isolated_qr_gateway_contract():
-    config = Settings(
+    config = configured_settings(
         _env_file=None,
         app_env="production",
         app_runtime="api",

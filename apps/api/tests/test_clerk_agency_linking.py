@@ -23,6 +23,7 @@ def test_backend_created_clerk_organization_links_to_the_existing_agency(monkeyp
     result = deliver(monkeypatch, {"type": "organization.created", "data": {
         "id": "org_real", "name": "Cargo", "private_metadata": {"slaivio_org_id": "agency"},
     }})
+    assert isinstance(result["organization"], dict)
     assert result["organization"]["id"] == "agency"
     link.assert_called_once_with("agency", "org_real")
     provision.assert_not_called()

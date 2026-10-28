@@ -11,7 +11,7 @@ from app.api import billing
 def test_authenticated_email_is_not_replaced_by_browser_input(monkeypatch):
     checkout = Mock(return_value={'status': 'PENDING'})
     monkeypatch.setattr(billing.saspay_service, 'start_checkout', checkout)
-    body = billing.CheckoutRequest(plan_code='PRO', customer_email='attacker@example.com', customer_name='Untrusted')
+    body = billing.CheckoutRequest.model_validate({'plan_code': 'PRO', 'customer_email': 'attacker@example.com', 'customer_name': 'Untrusted'})
     billing.create_checkout(body, {'org_id': 'agency'}, {'email': 'owner@example.com', 'full_name': 'Awa Sossou'})
     checkout.assert_called_once_with('agency', 'PRO', 'owner@example.com', 'Awa Sossou')
 
@@ -35,7 +35,7 @@ def test_identity_outage_never_creates_a_checkout(monkeypatch):
     checkout = Mock()
     monkeypatch.setattr(billing.saspay_service, 'start_checkout', checkout)
     with pytest.raises(HTTPException) as exc:
-        billing.create_checkout(billing.CheckoutRequest(), {'org_id': 'agency'}, {'user_id': 'user_123'})
+        billing.create_checkout(billing.CheckoutRequest.model_validate({}), {'org_id': 'agency'}, {'user_id': 'user_123'})
     assert exc.value.status_code == 503
     checkout.assert_not_called()
 

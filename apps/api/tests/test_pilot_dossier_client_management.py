@@ -25,16 +25,11 @@ def test_client_numbering_uses_the_agency_identifier_configuration():
 
 
 def test_profile_update_requires_human_identity_and_contact():
-    payload = DossierClientProfilePatchPayload(
-        client_row_version=3,
-        name="Jérémie",
-        phone="+243970000000",
-        customer_type="partner",
-    )
+    payload = DossierClientProfilePatchPayload.model_validate({'client_row_version': 3, 'name': "Jérémie", 'phone': "+243970000000", 'customer_type': "partner"})
     assert payload.name == "Jérémie"
 
     with pytest.raises(ValidationError):
-        DossierClientProfilePatchPayload(client_row_version=3, name="Jérémie")
+        DossierClientProfilePatchPayload.model_validate({'client_row_version': 3, 'name': "Jérémie"})
 
 
 def test_client_creation_rejects_the_old_unconfirmed_profile_fields():

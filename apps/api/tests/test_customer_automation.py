@@ -1,3 +1,4 @@
+from typing import cast
 """No provider calls, no production DB: exercise policies and transactional commands."""
 from datetime import datetime,timezone
 from decimal import Decimal
@@ -105,7 +106,9 @@ def test_unpaid_storage_blocks_release_even_with_a_manually_marked_pickup(monkey
  monkeypatch.setattr(repo,'storage_totals',lambda *_:{'total':'10','paid':'4','balance':'6'})
  with pytest.raises(HTTPException) as exc:repo.check_release(MagicMock(),'agency',['parcel'])
  assert exc.value.status_code==409
- assert exc.value.detail['code']=='storage_payment_required'
+ detail = cast(object, exc.value.detail)
+ assert isinstance(detail, dict)
+ assert detail['code']=='storage_payment_required'
  assert repo.check_release(MagicMock(),'agency',['parcel'],False)['balance']=='6'
 
 

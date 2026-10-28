@@ -13,11 +13,7 @@ from app.pickups import repository as pickups_repository
 
 
 def test_office_request_requires_only_name_country_and_city():
-    office = LocationSave(
-        name="Bureau de Bobo-Dioulasso",
-        country="Burkina Faso",
-        city="Bobo-Dioulasso",
-    )
+    office = LocationSave.model_validate({'name': "Bureau de Bobo-Dioulasso", 'country': "Burkina Faso", 'city': "Bobo-Dioulasso"})
 
     assert office.location_type == "OFFICE"
     assert office.code is None
@@ -36,7 +32,7 @@ def test_office_request_requires_core_location_fields(missing):
     payload.pop(missing)
 
     with pytest.raises(ValidationError):
-        LocationSave(**payload)
+        LocationSave.model_validate({**payload})
 
 
 def test_duplicate_active_office_is_rejected_without_writing(monkeypatch):

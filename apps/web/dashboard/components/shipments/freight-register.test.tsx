@@ -17,8 +17,8 @@ beforeEach(()=>{
 async function openCreation(){
   fireEvent.click(screen.getByRole("button",{name:"Nouvelle expédition"}));
   await screen.findByRole("option",{name:"Guangzhou, CN"});
-  fireEvent.change(screen.getByLabelText("Origine"),{target:{value:JSON.stringify(["CN","Guangzhou"])}});
-  fireEvent.change(screen.getByLabelText("Destination"),{target:{value:"route"}});
+  fireEvent.change(screen.getByLabelText(/^Origine/),{target:{value:JSON.stringify(["CN","Guangzhou"])}});
+  fireEvent.change(screen.getByLabelText(/^Destination/),{target:{value:"route"}});
   fireEvent.click(screen.getByLabelText("Aérien"));
 }
 
@@ -57,7 +57,7 @@ describe("Registre Expéditions fret",()=>{
     render(<FreightShipmentRegister/>);await openCreation();
     fireEvent.click(screen.getByRole("button",{name:"Planifier le départ"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("Confirmation non reçue");
-    expect(screen.getByLabelText("Origine")).toBeDisabled();
+    expect(screen.getByLabelText(/^Origine/)).toBeDisabled();
     fireEvent.click(screen.getByRole("button",{name:"Réessayer la confirmation"}));
     await waitFor(()=>expect(api.post).toHaveBeenCalledTimes(2));
     expect(vi.mocked(api.post).mock.calls[0][1]).toEqual(vi.mocked(api.post).mock.calls[1][1]);

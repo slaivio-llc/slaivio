@@ -30,12 +30,12 @@ def test_due_policy_upsert_is_versioned(monkeypatch):
         'is_active': True,
         'row_version': 1,
     }
-    def result(row=None):
+    def db_result(row=None):
         value = MagicMock()
         value.mappings.return_value.first.return_value = row
         value.mappings.return_value.one.return_value = row
         return value
-    conn.execute.side_effect = [MagicMock(), result(None), result(current), MagicMock(), result({**current, 'row_version': 2})]
+    conn.execute.side_effect = [MagicMock(), db_result(None), db_result(current), MagicMock(), db_result({**current, 'row_version': 2})]
     monkeypatch.setattr(repository, 'engine', engine)
     monkeypatch.setattr(repository, 'event', MagicMock())
     result = repository.upsert_due_policy('agency', 'actor', 'Agent', {
@@ -97,13 +97,7 @@ def test_create_uses_selected_office_for_scoped_members(monkeypatch):
         return {'created': True, 'office_id': payload.get('office_id')}
 
     monkeypatch.setattr(api.repo, 'create', fake_create)
-    payload = api.DocumentCreate(
-        document_type='INVOICE',
-        client_id='client-1',
-        currency='USD',
-        office_id=None,
-        lines=[{'description': 'Cargo', 'quantity': 1, 'unit_price': 10, 'discount_rate': 0, 'tax_rate': 0}],
-    )
+    payload = api.DocumentCreate.model_validate({'document_type': 'INVOICE', 'client_id': 'client-1', 'currency': 'USD', 'office_id': None, 'lines': [{'description': 'Cargo', 'quantity': 1, 'unit_price': 10, 'discount_rate': 0, 'tax_rate': 0}]})
     result = api.resolve_create_payload(payload, {'selected_office_id': 'office-1', 'allowed_office_ids': ['office-1']})
 
     assert result['office_id'] == 'office-1'

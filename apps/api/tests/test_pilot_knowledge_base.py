@@ -66,12 +66,12 @@ def test_pilot_ui_uses_agency_language_and_hides_technical_governance():
     page = read("apps/web/dashboard/components/knowledge/knowledge-page.tsx")
     route = read("apps/web/dashboard/app/app/knowledge/page.tsx")
     for label in (
-        "Question ou sujet",
-        "Information officielle",
-        "Communicable aux clients",
+        "Titre *",
+        "Information sur l’agence",
+        "Autorisé pour les réponses clients et l’IA",
         "Interne uniquement",
-        "Date de prochaine vérification",
-        "Modification en brouillon",
+        "Date de révision",
+        "Une modification est en brouillon",
     ):
         assert label in page
     for hidden_term in ("AI_SCOPE", "CUSTOMS", "prompt injection", "Recherche vectorielle"):
@@ -103,7 +103,7 @@ def test_pilot_accepts_reviewed_files_without_bypassing_publication():
     ):
         assert guard in repository
     assert "status='PUBLISHED'" not in repository.split("def create(", 1)[1].split("def save_draft", 1)[0]
-    for label in ("Écrire un texte", "Importer une image", "Importer un document", "Texte détecté à vérifier"):
+    for label in ("['TEXT','Texte']", "['IMAGE','Image']", "['DOCUMENT','Document']", "uploadPilotKnowledgeFile(file)", "extracted_text", "Contrôle de publication"):
         assert label in page
     assert "/knowledge/pilot/files" in service
 

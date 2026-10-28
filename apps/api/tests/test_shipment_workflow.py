@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -95,7 +96,9 @@ def test_service_mismatch_is_rejected_before_assignment_writes(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         workflow.loading('office','shipment','actor',3,['parcel'])
     assert exc.value.status_code==409
-    assert exc.value.detail['reasons']==['service_mismatch']
+    detail = cast(object, exc.value.detail)
+    assert isinstance(detail, dict)
+    assert detail['reasons']==['service_mismatch']
     assert not any(sql.startswith(('update','insert')) for sql,_ in statements)
     events.assert_not_called()
 
@@ -186,8 +189,8 @@ def test_arrival_requires_a_recorded_departure(monkeypatch):
 def test_command_schemas_are_bounded():
     with pytest.raises(ValidationError): ShipmentLoadingPayload(expected_version=1,package_ids=[])
     with pytest.raises(ValidationError): ShipmentLoadingPayload(expected_version=1,package_ids=[uuid4() for _ in range(201)])
-    with pytest.raises(ValidationError): ShipmentMilestonePayload(expected_version=1,action='deliver')
-    with pytest.raises(ValidationError): ShipmentMilestonePayload(expected_version=1,action='depart',org_id='other')
+    with pytest.raises(ValidationError): ShipmentMilestonePayload.model_validate({'expected_version': 1, 'action': 'deliver'})
+    with pytest.raises(ValidationError): ShipmentMilestonePayload.model_validate({'expected_version': 1, 'action': 'depart', 'org_id': 'other'})
     with pytest.raises(ValidationError): ShipmentCancelPayload(expected_version=1,reason='')
 
 
@@ -233,7 +236,10 @@ def test_manifest_excel_preserves_unknown_weight_and_literal_text(monkeypatch):
     response=shipment_manifest_excel(uuid4(),{'org_id':'office'})
     book=load_workbook(io.BytesIO(response.body))
     sheet=book.active
+    assert sheet is not None
     assert sheet['B1'].value=='=1+1' and sheet['B1'].data_type=='s'
+    assert sheet is not None
     assert sheet['A10'].value=='=CMD()' and sheet['A10'].data_type=='s'
+    assert sheet is not None
     assert sheet['D10'].value is None and sheet['B7'].value is None
     assert response.headers['cache-control']=='no-store'

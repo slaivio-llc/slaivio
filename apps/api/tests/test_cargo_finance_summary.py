@@ -19,7 +19,9 @@ def test_finance_uses_active_office_currency_and_confirmed_payments():
     ]
     period = resolve_period(now=datetime(2026,10,7,tzinfo=timezone.utc))
     result = finance_summary(conn,'office-a',['finance.read'],period)
+    assert result is not None
     assert len(result['currencies']) == 2
+    assert result is not None
     assert result['scope'] == 'office'
     sql,params = conn.execute.call_args.args
     assert "status='CONFIRMED'" in str(sql)

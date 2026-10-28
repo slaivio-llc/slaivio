@@ -15,6 +15,8 @@ def package(**changes):
 
 def test_price_is_reused_not_recomputed():
     result = invoices.invoice_payload(package())
+    assert isinstance(result['lines'], list)
+    assert isinstance(result['lines'][0], dict)
     assert result['lines'][0]['unit_price'] == Decimal('100')
     assert result['lines'][0]['quantity'] == 1
     assert result['client_id'] == 'client'

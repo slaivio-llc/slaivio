@@ -48,6 +48,7 @@ def setup_conversion(monkeypatch, matches=None):
 def test_conversion_reuses_crm_and_one_transaction(monkeypatch):
     conn, engine, journey, create = setup_conversion(monkeypatch)
     result = journeys.convert_journey('agency', '+243812345678')
+    assert result is not None
     assert result['id'] == 'client'
     org, actor, payload = create.call_args.args
     assert org == 'agency'

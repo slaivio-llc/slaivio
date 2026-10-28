@@ -1,3 +1,4 @@
+from fastapi.routing import APIRoute
 import asyncio
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
@@ -85,6 +86,6 @@ def test_unsupported_upload_is_rejected_before_reading_or_storing(monkeypatch):
 
 
 def test_upload_route_requires_organization_manage():
-    route = next(route for route in organization_admin.router.routes if route.path.endswith("/brand/images"))
+    route = next(route for route in organization_admin.router.routes if isinstance(route, APIRoute) and route.path.endswith("/brand/images"))
     assert any("organization.manage" in [cell.cell_contents for cell in (getattr(dependency.call, "__closure__", None) or ())]
                for dependency in route.dependant.dependencies)

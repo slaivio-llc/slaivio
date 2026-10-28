@@ -1,3 +1,4 @@
+from typing import cast
 from pathlib import Path
 
 import pytest
@@ -127,7 +128,9 @@ def test_incomplete_dossier_cannot_be_approved(monkeypatch):
         service.approve_operator_workflow("org-1", "workflow-1")
 
     assert error.value.status_code == 422
-    assert error.value.detail["code"] == "workflow_incomplete"
+    detail = cast(object, error.value.detail)
+    assert isinstance(detail, dict)
+    assert detail["code"] == "workflow_incomplete"
     assert created == []
 
 

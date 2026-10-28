@@ -25,7 +25,7 @@ def test_service_detail_uses_service_goods_policy_foreign_key():
  schema=read('infra/sql/051_routes_services_completion.sql')
  assert 'shipping_service_id uuid not null references shipping_services(id)' in schema
  assert 'from service_goods_policies where org_id=:o and shipping_service_id=:s' in repo
-def test_dashboard_is_a_real_service_center():
- ui=read('apps/web/dashboard/components/services/service-catalog-center.tsx')
- for label in ('Complémentaires','Grilles tarifaires — source Tarification','Service Recommendation Engine','Routes liées','Documents requis'):
+def test_dashboard_configures_real_services_in_management():
+ ui=read('apps/web/dashboard/components/settings/organization-transport-settings.tsx')
+ for label in ('getServiceDetail(', 'transitionService(', 'createCatalogService(', 'getServiceCatalog(', 'Unité de facturation habituelle'):
   assert label in ui

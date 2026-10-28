@@ -45,6 +45,7 @@ class Settings(BaseSettings):
 
     clerk_issuer_url: str | None = None
     clerk_jwks_url: str | None = None
+    clerk_authorized_parties: str | None = None
     clerk_webhook_secret: str | None = None
 
     mistral_api_key: str | None = None

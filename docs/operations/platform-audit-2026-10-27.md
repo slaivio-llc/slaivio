@@ -6,8 +6,9 @@ Ce passage apporte des correctifs vérifiés, pas une certification de sécurit�
 toute la plateforme. Aucun accès à la base de production, paiement réel, invitation
 réelle ou envoi WhatsApp n’a été effectué. Aucune migration SQL n’est ajoutée.
 
-La livraison complète reste conditionnée à la résolution des tests historiques
-en échec, à une recette multi-agences et à la qualification de l’outillage de test.
+Les tests historiques et l’outillage ont été repris dans le second passage,
+détaillé en fin de document. La livraison complète reste conditionnée à une
+recette multi-agences et aux validations externes indiquées ci-dessous.
 Les tests PostgreSQL nécessitent une base **jetable** via `TEST_POSTGRES_URL` ;
 ne jamais utiliser la production pour ces tests.
 
@@ -161,3 +162,97 @@ sessions, portefeuille et simulateur de paiement passent : **42 tests**.
 
 Références pour le durcissement JWT : [vérification Clerk](https://clerk.com/docs/guides/sessions/manual-jwt-verification)
 et [claims obligatoires PyJWT](https://pyjwt.readthedocs.io/en/stable/api.html).
+
+## Second passage — résultats consolidés
+
+Cette section remplace les états d’échec et les alertes d’outillage consignés
+plus haut, qui décrivent le premier passage.
+
+### Corrections supplémentaires
+
+- Routes : « Ajouter une route » ouvrait réellement le formulaire de service.
+  Le bouton ouvre désormais la configuration de route ; le test couvre la
+  sélection obligatoire d’un service, la vérification et l’enregistrement réel.
+- Connaissances : le bouton de publication avait disparu. « Vérifier et publier »
+  appelle maintenant l’API existante avec confirmation, permission de publication
+  et version courante. Une erreur conserve la confirmation et n’annonce aucun
+  succès. La publication n’est pas proposée pour une connaissance archivée.
+- Support : après une réponse asynchrone, `event.currentTarget` n’est plus fiable.
+  Le formulaire et le champ fichier sont mémorisés avant l’attente réseau. Un
+  message envoyé n’est plus présenté comme échoué ; un vrai échec garde le texte.
+  Statuts, priorité et auteurs par défaut sont affichés en français.
+- Entrepôts : les champs d’emplacement et d’anomalie ont des libellés français
+  et accessibles au lieu des clés techniques. Traduction des statuts de transfert,
+  des emplacements et des actions d’audit ; erreurs via le présentateur commun.
+- Clerk : contrôle exact de `azp` lorsqu’il est présent. Aucun suffixe ni
+  sous-domaine arbitraire accepté. Son absence reste compatible avec les sessions
+  de navigation décrites dans la documentation Clerk. Six nouveaux scénarios
+  couvrent les origines autorisées, falsifiées et la production sans localhost.
+- Dépôt : 3 019 fichiers générés de la passerelle étaient suivis dans Git sous
+  `node_modules`. Ils ont été retirés de l’index, **pas du disque**, et ignorés.
+  `npm ci` les recrée depuis les manifestes. Ces retraits sont déjà préparés dans
+  l’index ; les autres modifications ne sont ni commitées ni déployées.
+
+### Tests et dépendances
+
+- API : **1 093 tests réussis, aucun échec, sept ignorés** uniquement faute de
+  `TEST_POSTGRES_URL` local. Aucun test n’a utilisé la base de production.
+- Dashboard : **265 tests réussis, aucun échec**, sous Node **22.23.4** et Vitest
+  **5.0.5**. Les tests d’expédition suivent maintenant les onglets de la fiche,
+  tout en conservant les contrôles de reprise, manifeste figé et conflit de version.
+- Les anciens tests de chaînes UI ont été alignés sur Gestion, Communication et
+  les fiches actuelles. Aucun test n’a été désactivé. La synchronisation des groupes
+  de dossiers reste testée côté API ; l’ancien panneau absent n’est pas réintroduit.
+  Les assertions de permissions et d’isolation existantes restent conservées.
+- Les 112 erreurs statiques des tests Python ont été corrigées sans exclusion de
+  fichiers ni désactivation de règles : gardes sur les résultats optionnels,
+  contrôles explicites des détails d’erreur structurés et des routes FastAPI,
+  références de mocks typées et validation des entrées négatives via Pydantic.
+  `pyright` : **zéro erreur, zéro avertissement** ; `ruff check app scripts tests` :
+  réussi. Après les derniers ajustements, les 122 tests concernés passent aussi.
+  L’import de démarrage `scripts/check_imports.py` réussit en mode test avec une
+  URL PostgreSQL locale factice ; aucun serveur ni accès de production utilisé.
+- Dashboard : **typecheck, lint sans avertissement et compilation Next de production
+  réussis** sous Node 22. Un ancien attribut HTML contenant du vocabulaire non
+  affiché, utilisé par les tests de chaînes, a été supprimé ; les contrats portent
+  désormais sur les vrais intitulés et la publication testée par interaction.
+- `npm audit` dashboard : **zéro vulnérabilité connue**, outils de test inclus.
+- `pip-audit --local` : **aucune vulnérabilité connue** dans le venv installé ;
+  `pip check` valide sa cohérence. Outils corrigés : pytest **9.1.1**, pip **26.2.2**,
+  filelock **4.2.4**. `requirements-dev.txt` accepte pytest 9 corrigé.
+- Passerelle WhatsApp : cinq dépendances vulnérables corrigées par mises à jour
+  compatibles du lockfile (sans `--force`). Audit : **zéro vulnérabilité connue**.
+  Tests chiffrement, signature/anti-rejeu et identité : réussis. Imports Baileys
+  et Sharp **0.35.5** validés sous Node 22, sans démarrer le serveur.
+  L’image Docker et le contrat Node de la passerelle sont alignés sur Node 22.
+- CI frontend alignée sur `.nvmrc` (Node 22) et audit npm ajouté. CI API : les tests
+  PostgreSQL utilisent maintenant explicitement le PostgreSQL jetable du job.
+  Nouvelle CI passerelle : installation, audit et tests. Ces workflows n’ont pas
+  été exécutés sur GitHub depuis cet environnement.
+
+### Configuration à vérifier avant déploiement
+
+Le dashboard nécessite désormais **Node 22** (au moins 22.12 ; validation locale
+avec 22.23.4). Utiliser cette version pour `npm ci`, tests et compilation ; le
+Node 21 global de ce poste n’a pas été modifié.
+
+Pour l’API, vérifier `PUBLIC_WEB_BASE_URL`. Si plusieurs domaines servent
+réellement l’application, définir par exemple :
+
+```dotenv
+CLERK_AUTHORIZED_PARTIES=https://slaivio.com,https://www.slaivio.com
+```
+
+Ne lister que les origines réellement utilisées, sans chemin ni joker. Sans cette
+variable, seule l’origine de `PUBLIC_WEB_BASE_URL` est acceptée ; localhost:3000
+est ajouté uniquement hors staging/production. Aucun secret n’est nécessaire pour
+cette liste. L’exemple de configuration API est à jour.
+
+### Limites de la validation
+
+Un audit de dépendances sans alerte et des tests verts ne certifient pas toute la
+plateforme. Restent à exécuter : les sept tests PostgreSQL (localement ou en CI),
+la recette navigateur authentifiée mobile/desktop, l’isolation avec deux vraies
+agences et différents rôles, les fournisseurs en sandbox, les politiques Supabase,
+les sauvegardes et les secrets de déploiement. Les anciennes pages encore ciblées
+par des liens ou par le profil CARGO_OS n’ont pas été supprimées sans remplacement.

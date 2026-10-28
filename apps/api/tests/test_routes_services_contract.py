@@ -9,7 +9,9 @@ def test_routes_router_is_registered():assert 'routes_services_router' in (ROOT/
 def test_package_receipt_catalog_uses_package_permission():
  a=(ROOT/'apps/api/app/api/routes_services.py').read_text()
  assert '@router.get("/receipt-options",dependencies=[Depends(require_permission("packages.create")),Depends(require_package_office_scope)])' in a
- assert 'def receipt_options(tenant=Depends(get_current_tenant)):return repo.list_all(tenant[\'org_id\'])' in a
+ receipt=a.split('def receipt_options(',1)[1].split('@router.',1)[0]
+ assert "repo.list_all(tenant['org_id'])" in receipt
+ assert "operational_settings(tenant['org_id'])" in receipt
 def test_completion_has_restrictions_adjustments_and_snapshots():
  m=(ROOT/'infra/sql/051_routes_services_completion.sql').read_text();r=(ROOT/'apps/api/app/routes_services/repository.py').read_text();a=(ROOT/'apps/api/app/api/routes_services.py').read_text()
  for value in ('service_goods_policies','service_price_adjustments','pricing_simulation_snapshots'):assert value in m and value in r
@@ -24,8 +26,10 @@ def test_route_intelligence_is_separate_complete_and_audited():
  for operation in ('route_listing','route_stats','route_detail','route_engine','compare_routes','route_analytics','export_routes','suspend_route','reactivate_route','duplicate_route'):assert f'def {operation}' in r
  assert 'route_version_conflict' in r and 'ROUTE_SUSPENDED' in r and 'requires_confirmation' in r
 
-def test_routes_and_services_have_distinct_dashboard_routes():
- routes=(ROOT/'apps/web/dashboard/app/app/routes/page.tsx').read_text(encoding='utf-8');services=(ROOT/'apps/web/dashboard/app/app/services/page.tsx').read_text(encoding='utf-8');ui=(ROOT/'apps/web/dashboard/components/routes/route-intelligence-center.tsx').read_text(encoding='utf-8')
- assert 'RouteIntelligenceCenter' in routes and 'RouteCatalogPage' not in routes
- assert 'ServiceCatalogCenter' in services and 'permission="services.read"' in services
- for feature in ('Route Engine','Sources métier live' if False else 'Routes actives','Capacité limitée','Suspendre','Dupliquer','Ajouter escale','Ajouter transporteur','Ajouter restriction','Simulateur de route'):assert feature in ui
+def test_routes_and_services_use_the_shared_management_configuration():
+ hub=(ROOT/'apps/web/dashboard/components/workspace/parcel-management-hub.tsx').read_text(encoding='utf-8')
+ ui=(ROOT/'apps/web/dashboard/components/settings/organization-transport-settings.tsx').read_text(encoding='utf-8')
+ assert 'OrganizationTransportSettings section="management"' in hub
+ for feature in ('Nouveau service','Nouvelle route','createRoute(', 'createCatalogService(', 'service_ids: [draft.service_id]'):
+  assert feature in ui
+ assert 'permission="services.create"' in ui and 'permission="routes.manage"' in ui

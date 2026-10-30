@@ -1,6 +1,6 @@
 /** Display labels only: API identifiers and custom permissions stay unchanged. */
 const roles: Record<string,string> = {
-  OWNER:'Propriétaire', MANAGER:'Responsable', OPERATOR:'Agent opérationnel',
+  OWNER:'Propriétaire', MANAGER:'Responsable du bureau', OPERATOR:'Agent opérationnel',
   AGENT:'Agent', WAREHOUSE:'Responsable d’entrepôt', SUPPORT:'Assistance clients',
   FINANCE:'Gestion financière', ADMIN:'Administrateur', ADMINISTRATOR:'Administrateur',
   MEMBER:'Collaborateur', VIEWER:'Consultation uniquement',

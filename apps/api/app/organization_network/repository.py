@@ -229,6 +229,7 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
             join organization_roles target_role
               on target_role.org_id=:office_id and target_role.role_code=source_role.role_code
             where source_role.org_id=:source_org_id
+              and not (target_role.role_code='MANAGER' and target_role.system_role)
             on conflict do nothing
         """), {"office_id": office_id, "source_org_id": org_id})
         conn.execute(text("""

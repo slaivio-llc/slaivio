@@ -2,11 +2,12 @@ from app.organizations.repositories.organization_repository import upsert_organi
 from sqlalchemy import text
 
 from app.db.database import engine
+from app.organizations.services.manager_policy import ensure_manager_role_permissions
 
 
 DEFAULT_ORGANIZATION_ROLES = (
     ("OWNER", "Owner", "Accès total"),
-    ("MANAGER", "Manager", "Gestion opérationnelle"),
+    ("MANAGER", "Responsable du bureau", "Gestion complète du bureau actif, sans administration du réseau"),
     ("OPERATOR", "Operator", "Opérations dossiers et expéditions"),
     ("WAREHOUSE", "Warehouse", "Opérations entrepôt"),
     ("SUPPORT", "Support", "Support client"),
@@ -181,6 +182,7 @@ def provision_organization(
         ensure_shipment_role_permissions(org_id)
         ensure_tracking_role_permissions(org_id)
         ensure_finance_role_permissions(org_id)
+        ensure_manager_role_permissions(org_id)
         from app.billing.repositories.saspay_repository import ensure_trial
         ensure_trial(org_id)
     return org

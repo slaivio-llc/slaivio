@@ -5,6 +5,7 @@ import {agencyNotification} from './notification-center';
 
 it('translates built-in roles and statuses while preserving custom French names',()=>{
   expect(agencyRoleLabel('OWNER','Owner')).toBe('Propriétaire');
+  expect(agencyRoleLabel('MANAGER','Manager')).toBe('Responsable du bureau');
   expect(agencyRoleLabel('WAREHOUSE','Warehouse')).toBe('Responsable d’entrepôt');
   expect(agencyRoleLabel('CUSTOM','Chargé des retraits')).toBe('Chargé des retraits');
   expect(agencyRoleLabel('CUSTOM_INTERNAL')).toBe('Rôle personnalisé');

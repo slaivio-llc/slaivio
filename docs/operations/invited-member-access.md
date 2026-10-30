@@ -11,6 +11,33 @@ Les rôles personnalisés sont conservés ; les droits de plateforme ne peuvent 
 
 ## Parcours attendu
 
+### Responsable du bureau sélectionné
+
+Après la migration `162_bureau_manager_access.sql`, le rôle standard MANAGER
+devient « Responsable du bureau ». Il ouvre les fonctions métier du bureau actif :
+clients, colis, expéditions, entrepôt, retraits, tarification, communication,
+facturation, paiements, rapports et gestion de l’équipe. Il arrive sur le tableau
+de bord de ce bureau. L’invitation propose par défaut l’ensemble de ses sites
+physiques ; l’administrateur reste libre de choisir une restriction explicite.
+
+Ce rôle ne donne pas l’administration du réseau, l’accès réseau consolidé, la
+création d’autres bureaux, les réglages de sécurité propriétaire, les clés API,
+la suppression de l’agence, ni la gestion de l’abonnement SLAIVIO. Les permissions
+financières concernent la facturation des clients, pas la facturation SLAIVIO.
+L’attribution du rôle Propriétaire reste interdite au responsable.
+
+Appliquer 162 après 161, avant déploiement. Elle réconcilie uniquement les droits
+du rôle système MANAGER ; elle ne modifie ni les appartenances à d’autres bureaux,
+ni les restrictions physiques existantes, ni les rôles personnalisés.
+Les plafonds et fonctions de l’abonnement continuent de s’appliquer.
+
+Pour nommer le responsable de Matadi, sélectionner Matadi dans le dashboard,
+puis Paramètres → Équipe → Responsable du bureau. Inviter depuis Kinshasa ne
+donne pas automatiquement accès à Matadi. Si une personne dispose déjà d’autres
+affectations explicites, celles-ci restent visibles dans son sélecteur.
+
+### Acceptation de l’invitation
+
 1. Dans Paramètres → Équipe, choisir l’adresse, le rôle et les bureaux physiques.
 2. Le collaborateur ouvre son email et accepte l’invitation avec le compte invité.
 3. La page `/join` vérifie côté serveur son appartenance confirmée dans Clerk.

@@ -33,7 +33,7 @@ def test_catalog_features_come_from_implemented_products_and_enabled_entitlement
 def test_provisioning_a_new_agency_creates_its_trial_automatically(monkeypatch):
     monkeypatch.setattr(provisioning_service,'upsert_organization',Mock(return_value={'id':'new-agency'}))
     for name in ('ensure_default_roles','ensure_owner_permissions','ensure_client_role_permissions',
-                 'ensure_dossier_role_permissions','ensure_shipment_role_permissions','ensure_tracking_role_permissions','ensure_finance_role_permissions'):
+                 'ensure_dossier_role_permissions','ensure_shipment_role_permissions','ensure_tracking_role_permissions','ensure_finance_role_permissions','ensure_manager_role_permissions'):
         monkeypatch.setattr(provisioning_service,name,Mock())
     trial=Mock();monkeypatch.setattr(saspay_repository,'ensure_trial',trial)
     provisioning_service.provision_organization('clerk_org','Nouvelle agence')

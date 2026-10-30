@@ -28,6 +28,19 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it('invites a bureau manager for the whole active workspace without granting network offices',async()=>{
+    vi.mocked(getAdmin).mockResolvedValue({...fixture,roles:[{...fixture.roles[0],role_code:'MANAGER',role_name:'Manager',permission_codes:['finance.read','packages.read','team.manage']}]});
+    const {container}=render(<OrganizationAdminPage/>);
+    await screen.findByRole('heading',{name:'Paramètres de l’agence'});
+    fireEvent.click(within(container.querySelector('aside')!).getByRole('button',{name:'Équipe'}));
+    fireEvent.change(screen.getByRole('combobox',{name:'Accès du collaborateur'}),{target:{value:'MANAGER'}});
+    expect(screen.getByRole('option',{name:'Responsable du bureau'})).toBeVisible();
+    expect(screen.getByRole('combobox',{name:'Bureaux autorisés pour l’invitation'})).toHaveValue('ALL_OFFICES');
+    expect(screen.getByText(/L’invitation concerne uniquement le bureau actuellement sélectionné/)).toBeVisible();
+    fireEvent.change(screen.getByPlaceholderText('collaborateur@agence.com'),{target:{value:'responsable@example.com'}});
+    fireEvent.submit(screen.getByPlaceholderText('collaborateur@agence.com').closest('form')!);
+    await waitFor(()=>expect(inviteMember).toHaveBeenCalledWith('responsable@example.com','MANAGER',{office_access_scope:'ALL_OFFICES',office_ids:[]}));
+  });
   it('requires an explicit office selection before sending a Finance invitation',async()=>{
     vi.mocked(getAdmin).mockResolvedValue({...fixture,
       roles:[{...fixture.roles[0],role_code:'FINANCE',role_name:'Finance',permission_codes:['finance.read','finance.create']}],

@@ -69,3 +69,21 @@ def test_legacy_invitation_defaults_are_preserved(database):
     row=conn.exec_driver_sql("insert into organization_invitations(email,org_id,status) values('member@example.com','agency','PENDING') returning office_access_scope,office_ids").one()
     assert row.office_access_scope=='ALL_OFFICES'
     assert row.office_ids==[]
+
+
+def test_bureau_manager_migration_is_scoped_and_repeatable(database):
+    conn,_=database
+    conn.exec_driver_sql('alter table organization_roles add column role_name text, add column description text')
+    conn.exec_driver_sql("insert into permissions(permission_code) values('network.overview'),('billing.manage'),('team.manage'),('analytics.read')")
+    conn.exec_driver_sql("insert into organization_roles(org_id,role_code,system_role) values('custom','MANAGER',false)")
+    conn.exec_driver_sql("insert into role_permissions select r.id,p.id from organization_roles r cross join permissions p where r.role_code='MANAGER' on conflict do nothing")
+    migration=(Path(__file__).resolve().parents[3]/'infra/sql/162_bureau_manager_access.sql').read_text(encoding='utf-8')
+    script=migration.replace('begin;','').replace('commit;','')
+    conn.exec_driver_sql(script);conn.commit()
+    conn.exec_driver_sql(script);conn.commit()
+    standard=set(conn.exec_driver_sql("select p.permission_code from permissions p join role_permissions rp on rp.permission_id=p.id join organization_roles r on r.id=rp.role_id where r.org_id='agency' and r.role_code='MANAGER'").scalars())
+    assert {'packages.read','finance.read','finance.payments','team.manage','analytics.read'}<=standard
+    assert not {'platform.admin.read','quarantine.read','network.overview','billing.manage'}&standard
+    custom=set(conn.exec_driver_sql("select p.permission_code from permissions p join role_permissions rp on rp.permission_id=p.id join organization_roles r on r.id=rp.role_id where r.org_id='custom' and r.role_code='MANAGER'").scalars())
+    assert 'network.overview' in custom
+    assert conn.exec_driver_sql('select count(*) from organization_memberships').scalar_one()==1

@@ -83,6 +83,9 @@ def dashboard_overview(manager=Depends(get_current_manager)):
 @router.get("/dashboard/home",dependencies=[Depends(require_operational_dashboard)])
 def dashboard_home(scope: str = Query(default="office", pattern="^(office|network)$"), manager=Depends(get_current_manager)):
     tenant = _resolve_active_tenant(manager)
+    if scope=='network':
+        permissions=list_permissions_for_user(user_id=manager.get('user_id') or manager.get('id'),org_id=tenant['org_id'])
+        if 'network.overview' not in permissions:raise HTTPException(403,'network_overview_required')
     return get_home(
         org_id=tenant.get("org_id"),
         user_id=str(manager.get("user_id") or manager.get("id")),

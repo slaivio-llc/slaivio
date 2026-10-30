@@ -19,6 +19,7 @@ def my_permissions(
         "status": "ok",
         "user_id": user_id,
         "org_id": tenant["org_id"],
+        "role_code":tenant.get('actor_role'),
         "permissions": get_user_permissions(
             user_id=user_id,
             org_id=tenant["org_id"],

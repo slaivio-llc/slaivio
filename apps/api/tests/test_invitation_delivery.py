@@ -11,6 +11,10 @@ from app.organizations.services import invitation_service
 @pytest.fixture(autouse=True)
 def isolated_capacity(monkeypatch):
     monkeypatch.setattr(invitation_service,'invitation_capacity',lambda *_:nullcontext(None))
+    # These tests isolate delivery. Authorization and office validation have
+    # dedicated tests in test_member_access_product.py.
+    monkeypatch.setattr(invitation_service,'validate_role_assignment',Mock())
+    monkeypatch.setattr(invitation_service,'validate_invitation_office_scope',Mock())
 
 
 class ClerkResponse:
@@ -74,7 +78,7 @@ def test_invitation_uses_clerk_response_id_and_persists_on_success(monkeypatch):
     assert save_record.call_args.kwargs["clerk_invitation_id"] == "clerk-invite-1"
     sent = invitation_service.requests.post.call_args.kwargs["json"]
     assert sent["role"] == "org:member"
-    assert sent["redirect_url"].endswith("/app")
+    assert sent["redirect_url"].endswith('/join?agency=org-1')
 
 
 @pytest.mark.parametrize("code,status,expected", [

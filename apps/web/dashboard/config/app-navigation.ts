@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { getProductProfile, PRODUCT_PROFILES, type ProductProfile } from "@/config/product-profile";
+import {canOpenMemberPath} from './member-access';
 
 export type AppRoute = {
   label: string;
@@ -241,7 +242,7 @@ export function canAccessRoute(
   permissions: readonly string[],
   permissionsAvailable: boolean,
 ) {
-  if (!route.permission) return true;
-  // The APIs remain authoritative if the permission service is temporarily unavailable.
-  return !permissionsAvailable || permissions.includes(route.permission);
+  if(!permissionsAvailable)return false;
+  if (!route.permission) return canOpenMemberPath(route.href,permissions);
+  return permissions.includes(route.permission);
 }

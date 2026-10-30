@@ -795,11 +795,17 @@ function Team({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  const [inviteRole,setInviteRole]=useState(data.roles.some(role=>role.role_code==='FINANCE')?'FINANCE':'');
+  const [inviteScope,setInviteScope]=useState<'ALL_OFFICES'|'SELECTED_OFFICES'>('SELECTED_OFFICES');
+  const [inviteOffices,setInviteOffices]=useState<string[]>([]);
+  const offices=data.locations.filter(location=>location.location_type==='OFFICE'&&location.status==='ACTIVE');
+  const selectedRole=data.roles.find(role=>role.role_code===inviteRole);
   async function invite(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if(!selectedRole||(inviteScope==='SELECTED_OFFICES'&&!inviteOffices.length))return;
     const f = new FormData(e.currentTarget);
     run(
-      () => inviteMember(String(f.get("email")), String(f.get("role"))),
+      () => inviteMember(String(f.get("email")), inviteRole,{office_access_scope:inviteScope,office_ids:inviteScope==='SELECTED_OFFICES'?inviteOffices:[]}),
       "Invitation envoyée.",
     );
   }
@@ -807,10 +813,10 @@ function Team({
     <div className="grid gap-4">
       <FormSection
         title="Inviter un collaborateur"
-        description="Envoyez une invitation par email et attribuez un rôle au collaborateur."
+        description="Choisissez ce que le collaborateur pourra faire et les bureaux concernés avant d’envoyer son invitation."
       >
         <PermissionGuard permission="team.write" fallback={<ReadOnly />}>
-          <form onSubmit={invite} className="flex flex-wrap gap-2">
+          <form onSubmit={invite} className="grid max-w-2xl gap-4">
             <input
               required
               type="email"
@@ -818,14 +824,19 @@ function Team({
               className={`${input} max-w-sm`}
               placeholder="collaborateur@agence.com"
             />
-            <select name="role" className={`${input} max-w-[220px]`}>
-              {data.roles.map((r) => (
+            <select aria-label="Accès du collaborateur" name="role" value={inviteRole} onChange={event=>setInviteRole(event.target.value)} className={`${input} max-w-[320px]`}>
+              <option value="" disabled>Choisir un rôle</option>
+              {data.roles.filter(role=>role.role_code!=='OWNER').map((r) => (
                 <option key={r.id} value={r.role_code}>
                   {agencyRoleLabel(r.role_code,r.role_name)}
                 </option>
               ))}
             </select>
-            <button className={primary}>
+            <div className="rounded-xl border border-[#dfe3e4] bg-[#f7faf8] p-4 text-sm"><p className="font-medium text-[#087a46]">{selectedRole?agencyRoleLabel(selectedRole.role_code,selectedRole.role_name):'Sélectionnez un rôle'}</p><p className="mt-1 text-xs text-[#69747f]">{inviteRole==='FINANCE'?'Accès aux factures et paiements de l’agence, sans ouvrir les autres modules.':'Les actions autorisées sont définies par les permissions de ce rôle.'}</p>{selectedRole?.permission_codes&&<ul className="mt-3 grid gap-1 text-xs text-[#69747f]">{selectedRole.permission_codes.map(code=><li key={code}>{permissionGroupLabel(code.split('.')[0])} · {permissionActionLabel(code)}</li>)}</ul>}</div>
+            <label className="grid gap-2 text-sm">Bureaux autorisés<select aria-label="Bureaux autorisés pour l’invitation" value={inviteScope} onChange={event=>setInviteScope(event.target.value as 'ALL_OFFICES'|'SELECTED_OFFICES')} className={input}><option value="SELECTED_OFFICES">Uniquement les bureaux sélectionnés</option><option value="ALL_OFFICES">Tous les bureaux de cette agence, actuels et futurs</option></select></label>
+            {inviteScope==='SELECTED_OFFICES'&&<div className="grid gap-2 rounded-lg border border-[#dfe3e4] p-3">{offices.map(office=><label key={String(office.id)} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={inviteOffices.includes(String(office.id))} onChange={event=>setInviteOffices(values=>event.target.checked?[...values,String(office.id)]:values.filter(id=>id!==office.id))}/>{String(office.name)} · {String(office.city||'')}</label>)}{!offices.length&&<p className="text-xs text-[#69747f]">Aucun bureau physique actif n’est configuré. Ajoutez un bureau ou choisissez explicitement l’accès à toute l’agence.</p>}</div>}
+            <p className="text-xs leading-5 text-[#69747f]">Ces bureaux sont les sites physiques de l’agence active. Les autres agences et espaces du réseau restent soumis à leurs propres affectations.</p>
+            <button disabled={!selectedRole||(inviteScope==='SELECTED_OFFICES'&&!inviteOffices.length)} className={primary}>
               <UserPlus className="mr-2 inline" size={14} />
               Inviter
             </button>

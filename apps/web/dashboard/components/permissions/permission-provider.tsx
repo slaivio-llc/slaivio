@@ -15,6 +15,8 @@ type PermissionContextValue = {
   loading: boolean;
   available: boolean;
   reload: () => Promise<void>;
+  roleCode?:string;
+  orgId?:string;
 };
 
 const PermissionContext = createContext<PermissionContextValue | null>(null);
@@ -27,15 +29,19 @@ export function PermissionProvider({
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [available, setAvailable] = useState(false);
+  const [roleCode,setRoleCode]=useState<string|undefined>(),[orgId,setOrgId]=useState<string|undefined>();
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const data = await getMyPermissions();
       setPermissions(data.permissions || []);
       setAvailable(true);
+      setRoleCode(data.role_code);setOrgId(data.org_id);
     } catch {
       setPermissions([]);
       setAvailable(false);
+      setRoleCode(undefined);setOrgId(undefined);
     } finally {
       setLoading(false);
     }
@@ -52,6 +58,7 @@ export function PermissionProvider({
         loading,
         available,
         reload: load,
+        roleCode,orgId,
       }}
     >
       {children}

@@ -25,6 +25,7 @@ def test_only_known_quota_details_are_exposed():
 
 
 def test_invitation_quota_is_checked_before_any_remote_invitation(monkeypatch):
+    monkeypatch.setattr(invitation_service,'validate_role_assignment',Mock())
     @contextmanager
     def full(*_):
         raise HTTPException(409,'quota')

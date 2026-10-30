@@ -26,7 +26,8 @@ export function AppProviders({
   if (pathname === "/" || pathname === "/landing" || /^\/(fr|en)(\/|$)/.test(pathname)) {
     return <>{children}</>;
   }
-  const content = (
+  const authenticationOnly=pathname==='/join'||pathname.startsWith('/sign-in')||pathname.startsWith('/sign-up');
+  const content = authenticationOnly?children:(
     <PermissionProvider>
       <FeatureProvider>
         <EntitlementProvider>{children}<ApiMutationFeedback /></EntitlementProvider>

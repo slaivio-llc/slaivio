@@ -27,7 +27,6 @@ DOSSIER_ROLE_PERMISSIONS = {
     "OPERATOR": ("dossiers.read", "dossiers.create", "dossiers.update", "dossiers.clients.read", "dossiers.clients.manage"),
     "SUPPORT": ("dossiers.read", "dossiers.export", "dossiers.clients.read"),
     "WAREHOUSE": ("dossiers.read", "dossiers.clients.read"),
-    "FINANCE": ("dossiers.read", "dossiers.clients.read"),
 }
 
 SHIPMENT_ROLE_PERMISSIONS = {
@@ -36,7 +35,6 @@ SHIPMENT_ROLE_PERMISSIONS = {
     "OPERATOR": ("shipments.read", "shipments.create", "shipments.update"),
     "SUPPORT": ("shipments.read",),
     "WAREHOUSE": ("shipments.read", "shipments.update", "shipments.confirm_arrival"),
-    "FINANCE": ("shipments.read",),
 }
 
 TRACKING_ROLE_PERMISSIONS = {
@@ -45,8 +43,14 @@ TRACKING_ROLE_PERMISSIONS = {
     "OPERATOR": ("tracking.read", "tracking.update", "tracking.alerts", "tracking.notify"),
     "WAREHOUSE": ("tracking.read", "tracking.update", "tracking.alerts", "tracking.notify"),
     "SUPPORT": ("tracking.read", "tracking.export"),
-    "FINANCE": ("tracking.read", "tracking.export"),
 }
+
+FINANCE_ROLE_PERMISSIONS = ('finance.read','finance.create','finance.issue','finance.payments','finance.export')
+
+def ensure_finance_role_permissions(org_id:str):
+    with engine.begin() as conn:
+        conn.execute(text(CLIENT_ROLE_PERMISSION_INSERT_SQL.replace('on conflict do nothing','and r.system_role on conflict do nothing')),
+            {'org_id':org_id,'role_code':'FINANCE','permission_codes':list(FINANCE_ROLE_PERMISSIONS)})
 
 CLIENT_ROLE_PERMISSION_INSERT_SQL = """
     insert into role_permissions (role_id, permission_id)
@@ -105,6 +109,7 @@ def ensure_owner_permissions(org_id: str):
                 where role.org_id = :org_id
                   and role.role_code = 'OWNER'
                   and permission.permission_code not like 'platform.%'
+                  and permission.permission_code not like 'quarantine.%'
                 on conflict do nothing
             """),
             {"org_id": org_id},
@@ -175,6 +180,7 @@ def provision_organization(
         ensure_dossier_role_permissions(org_id)
         ensure_shipment_role_permissions(org_id)
         ensure_tracking_role_permissions(org_id)
+        ensure_finance_role_permissions(org_id)
         from app.billing.repositories.saspay_repository import ensure_trial
         ensure_trial(org_id)
     return org

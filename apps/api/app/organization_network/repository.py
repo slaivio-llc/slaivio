@@ -355,9 +355,11 @@ def validate_invitation_offices(org_id: str, office_ids: list[str]) -> dict:
 
 def attach_invitation_offices(
     org_id: str, actor_id: str, invitation_id: str, office_ids: list[str], role_code: str,
+    connection=None,
 ) -> dict:
+    from contextlib import nullcontext
     validated = validate_invitation_offices(org_id, office_ids)
-    with engine.begin() as conn:
+    with (nullcontext(connection) if connection is not None else engine.begin()) as conn:
         invitation = conn.execute(text("""
             select id::text,email,status from organization_invitations
             where id=cast(:invitation_id as uuid) and org_id=:org_id

@@ -31,6 +31,13 @@ function isPublicI18nRoute(pathname: string) {
 
 export default function middleware(request: NextRequest, event: Parameters<typeof clerkProtection>[1]) {
   const { pathname } = request.nextUrl;
+  // Older invitations pointed at /app. Complete their authentication before
+  // rendering agency providers; never log or persist the invitation ticket.
+  if(pathname==='/app'&&(request.nextUrl.searchParams.has('__clerk_ticket')||request.nextUrl.searchParams.has('__clerk_status'))){
+    const target=request.nextUrl.clone();target.pathname='/join';
+    const response=NextResponse.redirect(target);response.headers.set('Referrer-Policy','no-referrer');
+    response.headers.set('Cache-Control','no-store');return response;
+  }
 
   if (isProtectedRoute(pathname)) {
     if (isProduction && (!hasClerkKey || !hasApiUrl)) {

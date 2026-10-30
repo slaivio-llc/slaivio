@@ -97,14 +97,11 @@ def invite_network_member(
             email=body.email.strip().lower(), role_code=body.role_code,
             invited_by_id=actor_id(manager),
             invited_by_name=manager.get("full_name") or manager.get("name") or manager.get("email"),
+            network_office_ids=body.office_ids,
         )
     except InvitationProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     invitation = result.get("invitation") or {}
     if not invitation.get("id"):
         raise HTTPException(500, "network_invitation_record_not_created")
-    attached = repo.attach_invitation_offices(
-        tenant["org_id"], actor_id(manager), str(invitation.get("id")),
-        body.office_ids, body.role_code,
-    )
-    return {"status": "ok", "invitation": attached, "delivery": result.get("clerk")}
+    return {"status": "ok", "invitation": invitation, "delivery": result.get("clerk")}

@@ -12,6 +12,8 @@ def create_invitation_record(
     invited_by_id: str | None = None,
     invited_by_name: str | None = None,
     connection=None,
+    office_access_scope='ALL_OFFICES',
+    office_ids=None,
 ):
     with (nullcontext(connection) if connection is not None else engine.begin()) as conn:
         row = conn.execute(
@@ -22,7 +24,7 @@ def create_invitation_record(
                     email,
                     role_code,
                     invited_by_id,
-                    invited_by_name
+                    invited_by_name,office_access_scope,office_ids
                 )
                 values (
                     :org_id,
@@ -30,7 +32,7 @@ def create_invitation_record(
                     :email,
                     :role_code,
                     :invited_by_id,
-                    :invited_by_name
+                    :invited_by_name,:office_access_scope,cast(:office_ids as uuid[])
                 )
                 returning *
             """),
@@ -41,6 +43,8 @@ def create_invitation_record(
                 "role_code": role_code,
                 "invited_by_id": invited_by_id,
                 "invited_by_name": invited_by_name,
+                'office_access_scope':office_access_scope,
+                'office_ids':office_ids if office_access_scope=='SELECTED_OFFICES' else [],
             },
         ).fetchone()
 
@@ -51,8 +55,9 @@ def mark_invitation_accepted(
     clerk_invitation_id: str | None = None,
     email: str | None = None,
     org_id: str | None = None,
+    connection=None,
 ):
-    with engine.connect() as conn:
+    with (nullcontext(connection) if connection is not None else engine.begin()) as conn:
         if clerk_invitation_id:
             row = conn.execute(
                 text("""
@@ -61,6 +66,7 @@ def mark_invitation_accepted(
                         status = 'ACCEPTED',
                         accepted_at = now()
                     where clerk_invitation_id = :clerk_invitation_id
+                      and status='PENDING'
                       and (:org_id is null or org_id = :org_id)
                     returning *
                 """),
@@ -79,12 +85,13 @@ def mark_invitation_accepted(
                     where id = (
                         select id
                         from organization_invitations
-                        where email = :email
+                        where lower(email) = lower(:email)
                           and status = 'PENDING'
                           and (:org_id is null or org_id = :org_id)
                         order by created_at desc
                         limit 1
                     )
+                    and status='PENDING'
                     returning *
                 """),
                 {
@@ -92,8 +99,6 @@ def mark_invitation_accepted(
                     "org_id": org_id,
                 },
             ).fetchone()
-
-        conn.commit()
 
         return dict(row._mapping) if row else None
 
@@ -117,8 +122,8 @@ def list_invitations(
         return [dict(row._mapping) for row in rows]
 
 
-def list_invitation_office_grants(invitation_id: str):
-    with engine.connect() as conn:
+def list_invitation_office_grants(invitation_id: str, connection=None):
+    with (nullcontext(connection) if connection is not None else engine.connect()) as conn:
         rows = conn.execute(
             text("""
                 select grant_row.org_id, grant_row.role_code, organization.clerk_org_id

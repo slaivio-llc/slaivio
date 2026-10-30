@@ -1,6 +1,7 @@
 "use client";
 import { PlatformAdminEntry } from '@/components/platform/platform-admin-entry';
 import { SessionRecoveryPrompt } from '@/components/auth/session-recovery-prompt';
+import {memberLanding} from '@/config/member-access';
 
 import { useClerk, useUser } from "@clerk/nextjs";
 import { accountDisplayName } from "./account-identity";
@@ -81,7 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const reportsView = pathname === "/app/reports" || pathname.startsWith("/app/reports/");
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
-  const { permissions, loading: permissionsLoading, available: permissionsAvailable } = usePermissions();
+  const { permissions, loading: permissionsLoading, available: permissionsAvailable,roleCode } = usePermissions();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -274,7 +275,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           ) : cargo ? <>
             <div aria-hidden="true" className="mb-4 border-t border-[#e8eaed]" />
-            <CargoSidebarLink href="/app" icon={<LayoutDashboard size={17}/>} active={pathname === "/app"} label="Tableau de bord" collapsed={sidebarCollapsed}/>
+            {permissionsAvailable&&memberLanding(permissions,roleCode)==='/app'&&<CargoSidebarLink href="/app" icon={<LayoutDashboard size={17}/>} active={pathname === "/app"} label="Tableau de bord" collapsed={sidebarCollapsed}/>}
             <div className="mt-2 space-y-2">
               {groupedRoutes.flatMap(group => group.routes).map(route => <CargoSidebarLink key={route.href} href={route.href} icon={cargoSidebarIcon(route.href, route.label)} active={isNavigationRouteActive(pathname, searchParams, route.href)} label={dashboardLabel(locale, route.label, route.href)} collapsed={sidebarCollapsed}/>) }
             </div>

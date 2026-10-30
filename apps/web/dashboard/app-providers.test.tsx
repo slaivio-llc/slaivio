@@ -27,6 +27,13 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllEnvs(); });
 
 describe("public landing isolation", () => {
+  it('keeps invitation acceptance outside agency data providers',()=>{
+    state.pathname='/join';state.loaded=true;
+    render(<AppProviders><h1>Invitation</h1></AppProviders>);
+    expect(screen.getByText('Invitation')).toBeVisible();
+    expect(state.clerk).toHaveBeenCalled();
+    expect(state.privateProvider).not.toHaveBeenCalled();
+  });
   it('recovers when authentication becomes available without navigating away',()=>{
     vi.useFakeTimers(); state.pathname='/app/settings';
     const view=render(<AppProviders><h1>Espace retrouvé</h1></AppProviders>);

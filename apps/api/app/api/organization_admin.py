@@ -261,7 +261,7 @@ def patch_member(member_id:str,body:MemberUpdate,tenant=Depends(get_current_tena
         body.expected_version,
     )
     if row=='last_owner':raise HTTPException(409,'organization_requires_an_active_owner')
-    if row in {'missing','invalid_role'}:raise HTTPException(404,row)
+    if isinstance(row,str) and row in {'missing','invalid_role'}:raise HTTPException(404,row)
     if row=='conflict':raise HTTPException(409,'membership_was_modified')
     return {'status':'ok','member':row}
 @router.patch('/members/{member_id}/offices',dependencies=[Depends(require_permission('locations.access.manage'))])
@@ -271,7 +271,7 @@ def patch_member_offices(member_id:str,body:MemberOfficeAccessUpdate,tenant=Depe
         [str(value) for value in body.office_ids],body.expected_version,
     )
     if row=='owner_requires_all_offices':raise HTTPException(422,row)
-    if row in {'invalid_office_assignment','invalid_office_access_scope'}:raise HTTPException(422,row)
+    if isinstance(row,str) and row in {'invalid_office_assignment','invalid_office_access_scope'}:raise HTTPException(422,row)
     if row=='missing':raise HTTPException(404,'membership_not_found')
     if row=='conflict':raise HTTPException(409,'membership_was_modified')
     return {'status':'ok','member':row}

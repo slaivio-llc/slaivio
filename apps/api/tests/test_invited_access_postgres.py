@@ -1,0 +1,71 @@
+"""Migration verification only on an explicitly configured disposable database."""
+import os
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+from sqlalchemy import create_engine
+
+URL=os.getenv('TEST_POSTGRES_URL')
+pytestmark=pytest.mark.skipif(not URL,reason='Dedicated TEST_POSTGRES_URL is not configured')
+DDL='''
+create table organization_invitations(id uuid primary key default gen_random_uuid(),email text,org_id text,status text);
+create table organization_roles(id uuid primary key default gen_random_uuid(),org_id text,role_code text,system_role boolean);
+create table permissions(id uuid primary key default gen_random_uuid(),permission_code text unique);
+create table role_permissions(role_id uuid,permission_id uuid,unique(role_id,permission_id));
+create table organization_memberships(org_id text,clerk_user_id text,role_code text,status text);
+create table user_role_assignments(user_id text,org_id text,role_id uuid,assignment_status text);
+insert into permissions(permission_code) values('finance.read'),('finance.create'),('finance.issue'),('finance.payments'),('finance.export'),('packages.read'),('platform.admin.read'),('quarantine.read');
+insert into organization_roles(org_id,role_code,system_role) values('agency','FINANCE',true),('custom','FINANCE',false),('agency','MANAGER',true);
+insert into role_permissions select r.id,p.id from organization_roles r cross join permissions p;
+insert into organization_memberships values('agency','user','FINANCE','ACTIVE');
+insert into user_role_assignments select 'user','agency',id,'ACTIVE' from organization_roles where org_id='agency';
+'''
+
+
+@pytest.fixture
+def database():
+    assert URL is not None
+    engine=create_engine(URL)
+    # Fixed prefix plus a generated hex suffix; cleanup never targets app schemas.
+    schema='slaivio_invited_access_test_'+uuid4().hex
+    migration=(Path(__file__).resolve().parents[3]/'infra/sql/161_invited_member_access.sql').read_text(encoding='utf-8')
+    script=migration.replace('begin;','').replace('commit;','')
+    with engine.connect() as conn:
+        conn.exec_driver_sql(f'create schema {schema}')
+        conn.exec_driver_sql(f'set search_path to {schema},public')
+        try:
+            conn.exec_driver_sql(DDL)
+            conn.exec_driver_sql(script)
+            conn.commit()
+            yield conn,script
+        finally:
+            conn.rollback()
+            conn.exec_driver_sql('set search_path to public')
+            conn.exec_driver_sql(f'drop schema {schema} cascade')
+            conn.commit()
+    engine.dispose()
+
+
+def test_migration_restricts_only_standard_finance_and_is_repeatable(database):
+    conn,script=database
+    def granted(org):
+        return set(conn.exec_driver_sql('''select p.permission_code from permissions p
+            join role_permissions rp on rp.permission_id=p.id join organization_roles r on r.id=rp.role_id
+            where r.role_code='FINANCE' and r.org_id=%s''',(org,)).scalars())
+    expected={'finance.read','finance.create','finance.issue','finance.payments','finance.export'}
+    assert granted('agency')==expected
+    assert granted('custom')==expected|{'packages.read'}
+    conn.exec_driver_sql(script)
+    assert granted('agency')==expected
+    assert conn.exec_driver_sql('''select a.assignment_status from user_role_assignments a
+        join organization_roles r on r.id=a.role_id where r.role_code='MANAGER' ''').scalar_one()=='REVOKED'
+    assert conn.exec_driver_sql('''select a.assignment_status from user_role_assignments a
+        join organization_roles r on r.id=a.role_id where r.role_code='FINANCE' ''').scalar_one()=='ACTIVE'
+
+
+def test_legacy_invitation_defaults_are_preserved(database):
+    conn,_=database
+    row=conn.exec_driver_sql("insert into organization_invitations(email,org_id,status) values('member@example.com','agency','PENDING') returning office_access_scope,office_ids").one()
+    assert row.office_access_scope=='ALL_OFFICES'
+    assert row.office_ids==[]

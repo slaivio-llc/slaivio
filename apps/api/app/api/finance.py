@@ -10,10 +10,16 @@ from app.finance.package_invoices import create_package_invoice, get_package_inv
 from app.core.office_context import get_current_office_context, office_scope_ids, require_package_office_scope, validate_office_assignment
 from app.finance.office_scope import require_document, assign_office
 from app.finance import saspay_repository
+from app.finance import lookups
 
 def require_finance_scope(request:Request,context=Depends(get_current_office_context),tenant=Depends(get_current_tenant)):
  offices=office_scope_ids(context)
  if offices is None:return
+ if request.path_params.get('package_id'):
+  try:UUID(str(request.path_params['package_id']))
+  except ValueError:raise HTTPException(404,'package_not_found')
+  require_package_office_scope(request,tenant,context)
+  return
  document_id=request.path_params.get('document_id')
  if document_id:
   try:UUID(document_id)
@@ -23,7 +29,8 @@ def require_finance_scope(request:Request,context=Depends(get_current_office_con
    raise HTTPException(403,'finance_organization_context_required')
   return
  # These list endpoints explicitly apply the office predicate in the repository.
- if request.method=='GET' and request.url.path.rstrip('/').endswith(('/finance','/finance/stats','/finance/export','/finance/payments','/finance/balances')):return
+ if request.method=='GET' and request.url.path.rstrip('/').endswith(('/finance','/finance/stats','/finance/export','/finance/payments','/finance/balances','/finance/lookup/clients','/finance/lookup/packages')):return
+ if request.method=='POST' and request.url.path.rstrip('/')=='/finance':return
  raise HTTPException(403,'finance_organization_context_required')
 
 router=APIRouter(prefix="/finance",tags=["finance"],dependencies=[Depends(require_finance_scope)])
@@ -43,6 +50,7 @@ class DocumentCreate(BaseModel):
  def currency_code(cls,v):return v.upper()
 class Version(BaseModel):expected_version:int=Field(ge=1)
 class PackageInvoiceCreate(Version):
+ office_id:UUID|None=None
  due_date:date|None=None
  notes:str|None=Field(default=None,max_length=2000)
  terms:str|None=Field(default=None,max_length=2000)
@@ -101,6 +109,12 @@ webhook_router=APIRouter(tags=["finance-saspay-webhooks"])
 
 @router.get("")
 def index(q:str|None=None,status:str|None=None,document_type:str|None=None,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read")),context=Depends(get_current_office_context)):return repo.list_documents(tenant['org_id'],q,status,document_type,page,page_size,office_ids=office_scope_ids(context))
+@router.get('/lookup/clients')
+def lookup_clients(q:str=Query(default='',max_length=120),tenant=Depends(get_current_tenant),_=Depends(require_permission('finance.create')),context=Depends(get_current_office_context)):
+ return lookups.clients(tenant['org_id'],q,office_scope_ids(context))
+@router.get('/lookup/packages')
+def lookup_packages(client_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission('finance.create')),context=Depends(get_current_office_context)):
+ return lookups.packages(tenant['org_id'],str(client_id),office_scope_ids(context))
 @router.get("/due-policies")
 def due_policies(tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.list_due_policies(tenant['org_id'])
 @router.post("/due-policies")
@@ -143,6 +157,10 @@ def resolve_create_payload(body:DocumentCreate, context:dict|None=None):
  office_id = payload.get('office_id')
  if not office_id and isinstance(context, dict):
   office_id = context.get('selected_office_id')
+  offices=office_scope_ids(context)
+  if not office_id and offices is not None:
+   if len(offices)!=1:raise HTTPException(422,'finance_office_selection_required')
+   office_id=offices[0]
  if office_id:
   office_id = str(office_id)
   if isinstance(context, dict):
@@ -152,6 +170,7 @@ def resolve_create_payload(body:DocumentCreate, context:dict|None=None):
 
 @router.post("")
 def create(body:DocumentCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create")),context=Depends(get_current_office_context)):
+ if not lookups.client_visible(tenant['org_id'],body.client_id,office_scope_ids(context)):raise HTTPException(404,'finance_client_not_found')
  return repo.create(tenant['org_id'],actor(tenant),name(tenant),resolve_create_payload(body, context))
 @router.get("/{document_id}/due-obligations")
 def due_obligations(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return repo.get_due_obligations(tenant['org_id'],document_id)
@@ -164,12 +183,21 @@ def detail(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_
 @router.post("/{document_id}/office")
 def office_assignment(document_id:UUID,body:OfficeAssignment,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.settings"))):
  return assign_office(tenant['org_id'],str(document_id),str(body.office_id),body.expected_version,actor(tenant),name(tenant))
-@router.get("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_package_office_scope),Depends(require_permission("finance.read"))])
-def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant)):
- return get_package_invoice(tenant['org_id'],str(package_id))
-@router.post("/packages/{package_id}/invoice",dependencies=[Depends(require_permission("packages.read")),Depends(require_package_office_scope),Depends(require_permission("finance.read"))])
+@router.get("/packages/{package_id}/invoice",dependencies=[Depends(require_package_office_scope),Depends(require_permission("finance.read"))])
+def package_invoice(package_id:UUID,tenant=Depends(get_current_tenant),context=Depends(get_current_office_context)):
+ result=get_package_invoice(tenant['org_id'],str(package_id))
+ if result:require_document(tenant['org_id'],result['id'],office_scope_ids(context))
+ return result
+@router.post("/packages/{package_id}/invoice",dependencies=[Depends(require_package_office_scope),Depends(require_permission("finance.read"))])
 def package_invoice_create(package_id:UUID,body:PackageInvoiceCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.create")),context=Depends(get_current_office_context)):
- office_id = context.get('selected_office_id')
+ office_id = str(body.office_id) if body.office_id else context.get('selected_office_id')
+ offices=office_scope_ids(context)
+ if offices is not None:
+  existing=get_package_invoice(tenant['org_id'],str(package_id))
+  if existing:require_document(tenant['org_id'],existing['id'],offices)
+  if not office_id:
+   if len(offices)!=1:raise HTTPException(422,'finance_office_selection_required')
+   office_id=offices[0]
  if office_id:
   validate_office_assignment(context, office_id)
  return create_package_invoice(tenant['org_id'],str(package_id),actor(tenant),name(tenant),body.expected_version, office_id=office_id, extras=[line.model_dump() for line in body.additional_lines], due_date=body.due_date, notes=body.notes, terms=body.terms)

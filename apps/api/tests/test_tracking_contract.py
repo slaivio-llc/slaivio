@@ -43,7 +43,7 @@ def test_tracking_default_roles_are_least_privilege():
     assert TRACKING_ROLE_PERMISSIONS["MANAGER"]==TRACKING_ROLE_PERMISSIONS["OWNER"]
     assert "tracking.public" not in TRACKING_ROLE_PERMISSIONS["OPERATOR"]
     assert "tracking.update" not in TRACKING_ROLE_PERMISSIONS["SUPPORT"]
-    assert TRACKING_ROLE_PERMISSIONS["FINANCE"]==("tracking.read","tracking.export")
+    assert not TRACKING_ROLE_PERMISSIONS.get('FINANCE')
 
 def test_tracking_migration_contains_tenant_and_concurrency_guards():
     sql=(Path(__file__).parents[3]/"infra/sql/042_tracking_control_tower.sql").read_text(encoding="utf-8").lower()

@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
+from typing import Literal
+from uuid import UUID
 
 from app.core.auth import get_current_manager
 from app.core.permissions import require_permission
@@ -14,10 +16,20 @@ from app.organizations.services.invitation_service import (
 
 router = APIRouter()
 
+class CompleteInvitationRequest(BaseModel):
+    org_id:str|None=Field(default=None,max_length=160)
+
+@router.post('/organization/invitations/complete')
+def complete_invitation(body:CompleteInvitationRequest,manager=Depends(get_current_manager)):
+    from app.organizations.services.invitation_completion import complete_invitation
+    return complete_invitation(manager,body.org_id)
+
 
 class InviteUserRequest(BaseModel):
-    email: str
-    role_code: str
+    email: str=Field(min_length=3,max_length=254,pattern=r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+    role_code: str=Field(min_length=1,max_length=60)
+    office_access_scope:Literal['ALL_OFFICES','SELECTED_OFFICES']='ALL_OFFICES'
+    office_ids:list[UUID]=Field(default_factory=list,max_length=100)
 
 
 @router.post(
@@ -51,6 +63,8 @@ def invite_user(
             role_code=body.role_code,
             invited_by_id=manager.get("user_id") or manager.get("id"),
             invited_by_name=manager.get("name") or manager.get("email"),
+            office_access_scope=body.office_access_scope,
+            office_ids=[str(value) for value in body.office_ids],
         )
     except InvitationProviderError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

@@ -114,7 +114,7 @@ def test_finance_package_invoice_routes_require_package_scope_in_context():
 def test_finance_does_not_leak_global_ledger_to_scoped_members(context):
     from app.api.finance import require_finance_scope
     from starlette.requests import Request
-    request = Request({'type':'http','method':'POST','path':'/finance','headers':[]})
+    request = Request({'type':'http','method':'PUT','path':'/finance/settings','headers':[]})
     with pytest.raises(HTTPException) as exc:
         require_finance_scope(request, context, {'org_id':'org'})
     assert exc.value.status_code == 403

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.core.tenant_context import get_current_tenant
+from app.core.permissions import require_permission
 from app.onboarding_experience.schemas.onboarding_experience_schemas import (
     CompleteExperienceStepIn,
     TrackOnboardingEventIn,
@@ -16,6 +17,7 @@ from app.onboarding_experience.services.onboarding_experience_service import (
 router = APIRouter(
     prefix="/api",
     tags=["onboarding-experience"],
+    dependencies=[Depends(require_permission('organization.manage'))],
 )
 
 

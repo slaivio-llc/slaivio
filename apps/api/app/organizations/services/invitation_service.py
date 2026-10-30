@@ -2,6 +2,8 @@ import os
 import re
 import hashlib
 import logging
+from urllib.parse import urlencode
+from app.organizations.services.access_policy import validate_role_assignment,validate_invitation_office_scope
 
 import requests
 from app.billing.services.capacity import invitation_capacity
@@ -106,15 +108,20 @@ def invite_user_to_org(
     role_code: str,
     invited_by_id: str | None = None,
     invited_by_name: str | None = None,
+    office_access_scope: str = 'ALL_OFFICES',
+    office_ids: list[str] | None = None,
+    network_office_ids: list[str] | None = None,
 ):
     if not CLERK_SECRET_KEY:
         raise InvitationProviderError("invitation_provider_not_configured", 503)
     if not clerk_org_id:
         raise InvitationProviderError("invitation_organization_not_found", 409)
+    validate_role_assignment(org_id,invited_by_id,role_code)
     clerk_org_id = _ensure_clerk_organization(org_id, clerk_org_id)
     email = email.strip().lower()
-    redirect_url = settings.public_web_base_url.rstrip("/") + "/app"
+    redirect_url = settings.public_web_base_url.rstrip("/") + '/join?' + urlencode({'agency':org_id})
     with invitation_capacity(org_id,email) as capacity_connection:
+        validate_invitation_office_scope(capacity_connection,org_id,role_code,office_access_scope,office_ids or [],actor_id=invited_by_id)
         response = _post_invitation(
                 f"https://api.clerk.com/v1/organizations/{clerk_org_id}/invitations",
                 headers={
@@ -141,7 +148,13 @@ def invite_user_to_org(
             invited_by_id=invited_by_id,
             invited_by_name=invited_by_name,
             connection=capacity_connection,
+            office_access_scope=office_access_scope,
+            office_ids=office_ids or [],
         )
+        if network_office_ids is not None:
+            from app.organization_network.repository import attach_invitation_offices
+            invitation=attach_invitation_offices(org_id,invited_by_id,str(invitation['id']),
+                network_office_ids,role_code,connection=capacity_connection)
 
     return {
         "clerk": clerk_data,

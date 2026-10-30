@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.core.tenant_context import get_current_tenant
+from app.core.permissions import require_permission
 from app.onboarding.schemas.onboarding_schemas import AgencyProfileIn
 from app.onboarding.services.onboarding_service import (
     get_onboarding_status,
@@ -13,6 +14,7 @@ from app.onboarding.repositories.onboarding_repository import get_agency_profile
 router = APIRouter(
     prefix="/api",
     tags=["onboarding"],
+    dependencies=[Depends(require_permission('organization.manage'))],
 )
 
 

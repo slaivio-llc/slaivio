@@ -17,8 +17,17 @@ from app.dashboard.search_repository import search_home
 
 router = APIRouter()
 
+def require_operational_dashboard(tenant=Depends(get_current_tenant)):
+    permissions=list_permissions_for_user(user_id=tenant['user_id'],org_id=tenant['org_id'])
+    if not any(p in permissions for p in ('packages.read','dossiers.read','analytics.read','organization.read')):
+        raise HTTPException(403,'dashboard_access_not_granted')
 
-@router.get('/dashboard/cargo')
+def require_agency_overview(tenant=Depends(get_current_tenant)):
+    if tenant.get('actor_role') not in ('OWNER','MANAGER'):
+        raise HTTPException(403,'dashboard_access_not_granted')
+
+
+@router.get('/dashboard/cargo',dependencies=[Depends(require_operational_dashboard)])
 def cargo_dashboard(preset: str = '30d', comparison: str = 'previous',
                     start: date | None = None, end: date | None = None,
                     compare_start: date | None = None, compare_end: date | None = None,
@@ -61,7 +70,7 @@ def _resolve_active_tenant(manager: dict) -> dict:
     }
 
 
-@router.get("/dashboard/overview")
+@router.get("/dashboard/overview",dependencies=[Depends(require_agency_overview)])
 def dashboard_overview(manager=Depends(get_current_manager)):
     tenant = _resolve_active_tenant(manager)
     return get_dashboard_overview(
@@ -71,7 +80,7 @@ def dashboard_overview(manager=Depends(get_current_manager)):
     )
 
 
-@router.get("/dashboard/home")
+@router.get("/dashboard/home",dependencies=[Depends(require_operational_dashboard)])
 def dashboard_home(scope: str = Query(default="office", pattern="^(office|network)$"), manager=Depends(get_current_manager)):
     tenant = _resolve_active_tenant(manager)
     return get_home(

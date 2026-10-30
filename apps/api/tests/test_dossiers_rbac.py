@@ -78,7 +78,7 @@ def test_dossier_default_roles_follow_least_privilege():
     assert "dossiers.export" in DOSSIER_ROLE_PERMISSIONS["MANAGER"]
     assert "dossiers.export" not in DOSSIER_ROLE_PERMISSIONS["OPERATOR"]
     assert DOSSIER_ROLE_PERMISSIONS["WAREHOUSE"] == ("dossiers.read", "dossiers.clients.read")
-    assert DOSSIER_ROLE_PERMISSIONS["FINANCE"] == ("dossiers.read", "dossiers.clients.read")
+    assert not DOSSIER_ROLE_PERMISSIONS.get('FINANCE')  # Finance uses scoped billing lookups, not the Dossiers module.
     assert "dossiers.update" not in DOSSIER_ROLE_PERMISSIONS["SUPPORT"]
     assert "dossiers.clients.manage" in DOSSIER_ROLE_PERMISSIONS["OPERATOR"]
 

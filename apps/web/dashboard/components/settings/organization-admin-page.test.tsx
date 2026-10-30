@@ -28,6 +28,21 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it('requires an explicit office selection before sending a Finance invitation',async()=>{
+    vi.mocked(getAdmin).mockResolvedValue({...fixture,
+      roles:[{...fixture.roles[0],role_code:'FINANCE',role_name:'Finance',permission_codes:['finance.read','finance.create']}],
+      locations:[{id:'site-1',location_type:'OFFICE',status:'ACTIVE',name:'Bureau Kinshasa',city:'Kinshasa'}],
+    });
+    const {container}=render(<OrganizationAdminPage/>);
+    await screen.findByRole('heading',{name:'Paramètres de l’agence'});
+    fireEvent.click(within(container.querySelector('aside')!).getByRole('button',{name:'Équipe'}));
+    expect(screen.getByRole('button',{name:'Inviter'})).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText('collaborateur@agence.com'),{target:{value:'finance@example.com'}});
+    fireEvent.click(screen.getByRole('checkbox',{name:/Bureau Kinshasa/}));
+    expect(screen.getByRole('button',{name:'Inviter'})).toBeEnabled();
+    fireEvent.submit(screen.getByPlaceholderText('collaborateur@agence.com').closest('form')!);
+    await waitFor(()=>expect(inviteMember).toHaveBeenCalledWith('finance@example.com','FINANCE',{office_access_scope:'SELECTED_OFFICES',office_ids:['site-1']}));
+  });
   it('shows French roles and invitation statuses without invitation separators',async()=>{
     vi.mocked(getAdmin).mockResolvedValue({...fixture,roles:[{...fixture.roles[0],role_code:'WAREHOUSE',role_name:'Warehouse'}],invitations:[{id:'inv',email:'agent@example.com',role_code:'WAREHOUSE',status:'PENDING'}]});
     const {container}=render(<OrganizationAdminPage/>);
@@ -51,8 +66,10 @@ describe("agency settings navigation and uploads", () => {
     fireEvent.click(within(menu).getByRole("button", { name: "Équipe" }));
     expect(screen.getByRole("heading", { name: "Inviter un collaborateur" })).toBeVisible();
     fireEvent.change(screen.getByPlaceholderText("collaborateur@agence.com"), { target: { value: "agent@example.com" } });
+    fireEvent.change(screen.getByRole('combobox',{name:'Accès du collaborateur'}),{target:{value:'AGENT'}});
+    fireEvent.change(screen.getByRole('combobox',{name:'Bureaux autorisés pour l’invitation'}),{target:{value:'ALL_OFFICES'}});
     fireEvent.submit(screen.getByPlaceholderText("collaborateur@agence.com").closest("form")!);
-    await waitFor(() => expect(inviteMember).toHaveBeenCalledWith("agent@example.com", "AGENT"));
+    await waitFor(() => expect(inviteMember).toHaveBeenCalledWith("agent@example.com", "AGENT",{office_access_scope:'ALL_OFFICES',office_ids:[]}));
   });
 
   it("uploads the agency logo from the profile before saving its returned URL", async () => {

@@ -3,9 +3,10 @@ import { useResourceLink } from "@/components/ui/use-resource-link";
 import { businessHistoryTitle } from "@/components/ui/business-labels";
 import { RecordPaymentForm } from "./record-payment-form";
 import { FinanceOfficeAssignment } from "./finance-office-assignment";
+import {getOfficeContext,type OfficeContext} from '@/services/organization-admin';
 import { FinanceSettingsOverview } from "./finance-settings-overview";
 import { PaymentReverseButton } from "./finance-completion-actions";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, CalendarDays, Download, HandCoins, Plus, ReceiptText, RefreshCcw, Search, Share2, Users, Wallet } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -14,8 +15,8 @@ import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationContent, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
 import { OperationButton, OperationField, OperationFilterPopover } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
-import { listClients, type ClientRecord } from "@/services/clients";
-import { listPackages, pricePackage, type PackageRecord } from "@/services/packages";
+import {financeClientOptions,financePackageOptions,type FinanceClientOption,type FinancePackageOption} from "@/services/finance";
+
 import {
   createPackageInvoice,
   createFinance,
@@ -325,11 +326,13 @@ function FinanceOverview({loading,stats,payments,onViewAll,onNewInvoice,onBalanc
 }
 
 function CreateModal({ close, done }: { close: () => void; done: (document?: FinanceDocument) => void | Promise<void> }) {
-  const [clients, setClients] = useState<ClientRecord[]>([]),
+  const [officeContext,setOfficeContext]=useState<OfficeContext|null>(null),[officeId,setOfficeId]=useState('');
+  useEffect(()=>{let active=true;getOfficeContext().then(value=>{if(active){setOfficeContext(value);setOfficeId(value.selected_office_id||(value.offices.length===1?value.offices[0].location_id:''));}}).catch(()=>{if(active)setError('Les bureaux autorisés n’ont pas pu être vérifiés. Rouvrez le formulaire avant de poursuivre.');});return()=>{active=false;};},[]);
+  const [clients, setClients] = useState<FinanceClientOption[]>([]),
     [step, setStep] = useState<1 | 2>(1),
     [clientId, setClientId] = useState(""),
     [association, setAssociation] = useState<"PACKAGE" | "SHIPMENT" | "NONE">("NONE"),
-    [packages, setPackages] = useState<PackageRecord[]>([]),
+    [packages, setPackages] = useState<FinancePackageOption[]>([]),
     [associatedPackageId, setAssociatedPackageId] = useState(""),
     [packagesLoading, setPackagesLoading] = useState(false),
     [pricingBusy, setPricingBusy] = useState(false),
@@ -342,7 +345,6 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
     [lines, setLines] = useState<Array<{description:string;quantity:number;unit_price:number;discount_rate:number;tax_rate:number}>>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const pricingRequestRef = useRef(0);
   const selectedAssociatedPackage = packages.find((item) => item.id === associatedPackageId);
   const selectedClient = clients.find((client) => client.id === clientId);
   const today = new Date().toISOString().slice(0, 10);
@@ -350,14 +352,14 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
   const packageTotal = association === "NONE" ? 0 : Number(selectedAssociatedPackage?.fees_total || 0);
   const total = packageTotal + lines.reduce((sum, line) => sum + line.quantity * line.unit_price * (1 - line.discount_rate / 100) * (1 + line.tax_rate / 100), 0);
   useEffect(() => {
-    listClients({ page_size: 100 }).then((r) => setClients(r.items)).catch(()=>setError("Chargement des clients impossible. Rouvrez le formulaire pour réessayer."));
+    financeClientOptions().then((r) => setClients(r.items)).catch(()=>setError("Chargement des clients impossible. Rouvrez le formulaire pour réessayer."));
   }, []);
   useEffect(() => {
     if (association === "NONE" || !clientId) { setPackages([]); setPackagesLoading(false); return; }
     let active = true;
     const timer = setTimeout(() => {
       setPackagesLoading(true);
-      listPackages({ client_id: clientId, page: 1, page_size: 50 })
+      financePackageOptions(clientId)
         .then((result) => { if (active) setPackages(result.items); })
         .catch((cause) => { if (active) setError(err(cause)); })
         .finally(() => { if (active) setPackagesLoading(false); });
@@ -365,24 +367,20 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
     return () => { active = false; clearTimeout(timer); };
   }, [association, clientId]);
   useEffect(() => {
-    const requestId = ++pricingRequestRef.current;
     if (association === "NONE" || !selectedAssociatedPackage) { setExistingPackageInvoice(null); setExistingInvoiceLoading(false); setPricingBusy(false); return; }
     let active = true;
     if (selectedAssociatedPackage.currency) setCurrency(selectedAssociatedPackage.currency);
     setExistingInvoiceLoading(true);
     setExistingPackageInvoice(null);
     getPackageInvoice(selectedAssociatedPackage.id).then(invoice => { if (active) setExistingPackageInvoice(invoice); }).catch(() => { if (active) setError("La facture existante du colis n’a pas pu être vérifiée."); }).finally(() => { if (active) setExistingInvoiceLoading(false); });
-    if (!packageIsPriced && selectedAssociatedPackage.shipping_service_id) {
-      setPricingBusy(true); setError("");
-      pricePackage(selectedAssociatedPackage.id, selectedAssociatedPackage.shipping_service_id)
-        .then(updated => { if (active) { setPackages(current => current.map(item => item.id === updated.id ? updated : item)); setCurrency(updated.currency || "USD"); } })
-        .catch(cause => { if (active) setError(packageInvoiceError(cause)); })
-        .finally(() => { if (pricingRequestRef.current === requestId) setPricingBusy(false); });
-    } else setPricingBusy(false);
+    // Finance uses a validated price; opening an invoice must not change logistics.
+    if (!packageIsPriced) setError("Le tarif de ce colis doit d’abord être validé dans les opérations.");
+    setPricingBusy(false);
     return () => { active = false; };
   }, [association, selectedAssociatedPackage, packageIsPriced]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if(!officeContext||(officeContext.office_access_scope==='SELECTED_OFFICES'&&!officeId)){setError('Choisissez un bureau autorisé avant de poursuivre.');return;}
     if (step === 1) {
       const invalid = !clientId || !dueDate || (association === "NONE" && !lines.length) || lines.some((line) => !line.description.trim() || line.quantity <= 0 || line.unit_price < 0);
       if (invalid) { setError("Sélectionnez un client, indiquez l’échéance et ajoutez une prestation ou un colis tarifé."); return; }
@@ -398,7 +396,7 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
         if (!selectedPackage || !selectedPackage.row_version || !packageIsPriced) throw new Error("Sélectionnez un colis dont le tarif est actualisé avant de préparer la facture.");
         let invoice: FinanceDocument;
         try {
-          invoice = await createPackageInvoice(selectedPackage.id, selectedPackage.row_version, { due_date: dueDate || null, notes: notes || null, terms: paymentTerms, additional_lines: lines });
+          invoice = await createPackageInvoice(selectedPackage.id, selectedPackage.row_version, {office_id:officeId||null, due_date: dueDate || null, notes: notes || null, terms: paymentTerms, additional_lines: lines });
         } catch (cause) {
           setError(packageInvoiceError(cause));
           setBusy(false);
@@ -410,6 +408,7 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
       await createFinance({
         document_type: "INVOICE",
         client_id: clientId,
+        office_id:officeId||null,
         currency,
         due_date: dueDate || null,
         notes: notes || null,
@@ -442,7 +441,8 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
             </select></label>
             <fieldset className="space-y-1"><legend className="text-[12px]">Associer à</legend><div className="grid grid-cols-3 rounded-full bg-[#f2f3f3] p-1">{([ ["PACKAGE","Colis"],["SHIPMENT","Expédition"],["NONE","Aucun"] ] as const).map(([value,label])=><button key={value} type="button" aria-pressed={association===value} onClick={()=>{setAssociation(value);setAssociatedPackageId("");}} className={`rounded-full px-3 py-1.5 text-[12px] ${association===value?"bg-white font-semibold text-[#20272d] shadow-sm":"text-[#78828a]"}`}>{label}</button>)}</div></fieldset>
             {association!=="NONE"&&<><label className="grid gap-1 text-[12px]">{association==="PACKAGE"?"Colis concerné":"Expédition concernée"}<select value={associatedPackageId} onChange={(event)=>{setAssociatedPackageId(event.target.value);setExistingPackageInvoice(null);}} disabled={!clientId||packagesLoading} className={input}><option value="">{!clientId?"Sélectionnez d’abord un client":packagesLoading?"Chargement…":`Sélectionner ${association==="PACKAGE"?"un colis":"une expédition"}`}</option>{packages.filter(item=>association==="PACKAGE"?true:Boolean(item.shipment_id)).map(item=><option key={item.id} value={item.id}>{association==="PACKAGE"?(item.package_reference||item.tracking_id||item.id):(item.shipment_reference||item.shipment_id)} · {item.description||item.package_type}</option>)}</select></label>{selectedAssociatedPackage&&<div className="rounded-[7px] bg-[#f8f9f9] p-3 text-[12px]">{pricingBusy?<span className="text-[#78828a]">Calcul du tarif selon les règles de tarification…</span>:packageIsPriced?<div className="flex items-center justify-between gap-3"><span><strong className="block">Tarif calculé du colis</strong><span className="text-[10px] text-[#78828a]">Tarif validé · ajouté automatiquement aux prestations</span></span><strong>{cash(packageTotal,selectedAssociatedPackage.currency||currency)}</strong></div>:<span className="text-amber-700">{selectedAssociatedPackage.shipping_service_id?error||"Calcul du tarif en cours…":"Ce colis n’a pas de service tarifable associé."}</span>}{existingPackageInvoice&&<p className="mt-2 text-[11px] text-amber-700">Une facture existe déjà pour ce colis : {existingPackageInvoice.document_number}.</p>}</div>}</>}
-            <p className="text-[10px] text-[#78828a]">Le tarif du colis est calculé automatiquement. Sans colis, ajoutez librement les prestations et leurs montants.</p>
+            <p className="text-[10px] text-[#78828a]">Le tarif validé du colis est repris sans modifier les opérations. Sans colis, ajoutez les prestations et leurs montants.</p>
+            <label className="grid gap-1 text-[12px]">Bureau responsable<select aria-label="Bureau responsable de la nouvelle facture" value={officeId} onChange={event=>setOfficeId(event.target.value)} required={officeContext?.office_access_scope==='SELECTED_OFFICES'} disabled={!officeContext} className={input}><option value="">{officeContext?'Sélectionner un bureau':'Vérification des bureaux…'}</option>{officeContext?.offices.map(office=><option key={office.location_id} value={office.location_id}>{office.name} · {office.city}</option>)}</select></label>
             <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-[12px]">Date de facture<input type="date" value={today} readOnly className={`${input} bg-[#f7f8f8]`} /><span className="text-[10px] text-[#78828a]">La date officielle est fixée à l’émission.</span></label><label className="grid gap-1 text-[12px]">Date d’échéance *<input required type="date" value={dueDate} onChange={(event)=>setDueDate(event.target.value)} className={input}/></label></div>
             <label className="grid gap-1 text-[12px]">Devise<select disabled={association!=="NONE"} value={currency} onChange={(event)=>setCurrency(event.target.value)} className={`${input} disabled:bg-[#f7f8f8]`}>{["USD","EUR","CDF","AOA","CNY","XOF","XAF"].map(code=><option key={code} value={code}>{code} — {code==="USD"?"Dollar américain":code==="CDF"?"Franc congolais":code==="EUR"?"Euro":code}</option>)}</select><span className="text-[10px] text-[#78828a]">{association==="NONE"?"Changer la devise ne convertit pas automatiquement les montants saisis.":"La devise suit automatiquement celle du tarif validé du colis."}</span></label>
           </section>
@@ -460,7 +460,7 @@ function CreateModal({ close, done }: { close: () => void; done: (document?: Fin
           <section className="space-y-1 text-[12px]"><h4 className="font-semibold">Règlement</h4><p>{paymentTerms}</p>{notes&&<p className="text-[#78828a]">{notes}</p>}</section>
         </div>}
         {error && <p className="text-[13px] text-red-600">{error}</p>}
-        <div className="flex items-center justify-between gap-3 pt-2"><button type="button" className={button} onClick={()=>step===2?setStep(1):close()}>{step===2?"Retour aux informations":"Annuler"}</button><div className="flex gap-2">{step===1&&<button type="button" disabled={busy||existingInvoiceLoading||pricingBusy} className={button} onClick={()=>void (async()=>{if(!clientId||!dueDate||(association==="NONE"&&!lines.length)||association!=="NONE"&&!packageIsPriced||existingPackageInvoice){setError("Complétez le client, l’échéance et ajoutez une prestation ou choisissez un colis tarifé.");return;}setBusy(true);try{if(association!=="NONE"&&selectedAssociatedPackage?.row_version){await createPackageInvoice(selectedAssociatedPackage.id,selectedAssociatedPackage.row_version,{due_date:dueDate,notes:notes||null,terms:paymentTerms,additional_lines:lines});}else{await createFinance({document_type:"INVOICE",client_id:clientId,currency,due_date:dueDate,notes:notes||null,terms:paymentTerms,lines});}await done();}catch(cause){setError(err(cause));setBusy(false);}})()}>{busy?"Enregistrement…":"Enregistrer en brouillon"}</button>}<button disabled={busy||pricingBusy||packagesLoading||existingInvoiceLoading||(association!=="NONE"&&(!packageIsPriced||Boolean(existingPackageInvoice)))} className={primary}>{step===1?"Vérifier la facture →":busy?"Enregistrement…":"Confirmer et enregistrer"}</button></div></div>
+        <div className="flex items-center justify-between gap-3 pt-2"><button type="button" className={button} onClick={()=>step===2?setStep(1):close()}>{step===2?"Retour aux informations":"Annuler"}</button><div className="flex gap-2">{step===1&&<button type="button" disabled={busy||existingInvoiceLoading||pricingBusy||!officeContext||(officeContext.office_access_scope==='SELECTED_OFFICES'&&!officeId)} className={button} onClick={()=>void (async()=>{if(!clientId||!dueDate||(association==="NONE"&&!lines.length)||association!=="NONE"&&!packageIsPriced||existingPackageInvoice){setError("Complétez le client, l’échéance et ajoutez une prestation ou choisissez un colis tarifé.");return;}setBusy(true);try{if(association!=="NONE"&&selectedAssociatedPackage?.row_version){await createPackageInvoice(selectedAssociatedPackage.id,selectedAssociatedPackage.row_version,{office_id:officeId||null,due_date:dueDate,notes:notes||null,terms:paymentTerms,additional_lines:lines});}else{await createFinance({document_type:"INVOICE",client_id:clientId,office_id:officeId||null,currency,due_date:dueDate,notes:notes||null,terms:paymentTerms,lines});}await done();}catch(cause){setError(err(cause));setBusy(false);}})()}>{busy?"Enregistrement…":"Enregistrer en brouillon"}</button>}<button disabled={busy||pricingBusy||packagesLoading||existingInvoiceLoading||!officeContext||(officeContext.office_access_scope==='SELECTED_OFFICES'&&!officeId)||(association!=="NONE"&&(!packageIsPriced||Boolean(existingPackageInvoice)))} className={primary}>{step===1?"Vérifier la facture →":busy?"Enregistrement…":"Confirmer et enregistrer"}</button></div></div>
       </form>
     </OperationDrawer>
   );

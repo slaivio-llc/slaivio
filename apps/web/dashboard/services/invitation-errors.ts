@@ -1,4 +1,13 @@
 export const invitationErrorMessages: Record<string, string> = {
+  role_exceeds_your_permissions: "Ce rôle contient des accès que vous ne pouvez pas attribuer. Demandez au propriétaire de l’agence de gérer cette invitation.",
+  owner_role_assignment_required: "Seul le propriétaire peut attribuer ou modifier un accès propriétaire.",
+  platform_permissions_not_assignable: "Les accès internes SLAIVIO ne peuvent pas être attribués à travers un rôle d’agence.",
+  system_role_is_protected: "Ce rôle standard ne peut pas être remplacé. Créez un rôle personnalisé pour adapter les accès.",
+  invalid_role: "Choisissez un rôle existant dans cette agence.",
+  invalid_role_permissions: "Certaines autorisations ne sont plus disponibles. Rechargez les rôles avant de réessayer.",
+  invitation_office_scope_exceeds_yours: "Vous ne pouvez attribuer que les bureaux auxquels vous avez vous-même accès.",
+  invalid_office_assignment: "Sélectionnez au moins un bureau actif de cette agence.",
+  finance_office_selection_required: "Choisissez un bureau autorisé avant de préparer cette facture.",
   clerk_organization_slugs_disabled: "Les invitations nécessitent l’activation de « Organization slugs » dans Clerk. Contactez l’administrateur SLAIVIO.",
   clerk_organizations_not_enabled: "L’envoi d’invitations n’est pas activé sur le service de connexion. Contactez le support SLAIVIO.",
   invitation_provider_not_configured: "Le service d’invitation n’est pas configuré. Contactez le support SLAIVIO.",

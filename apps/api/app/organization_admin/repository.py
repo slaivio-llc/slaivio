@@ -62,11 +62,12 @@ def overview(org_id):
           from organization_memberships m left join organization_roles r on r.org_id=m.org_id and r.role_code=m.role_code
           where m.org_id=:o order by case m.status when 'ACTIVE' then 0 else 1 end,m.created_at"""),{"o":org_id}))
         invitations=_rows(c.execute(text("select * from organization_invitations where org_id=:o order by created_at desc"),{"o":org_id}))
-        roles=_rows(c.execute(text("""select r.*,count(rp.permission_id)::int permission_count,count(m.id)::int member_count
+        roles=_rows(c.execute(text("""select r.*,count(distinct rp.permission_id)::int permission_count,count(distinct m.id)::int member_count,
+          coalesce((select array_agg(p.permission_code order by p.permission_code) from role_permissions grants join permissions p on p.id=grants.permission_id where grants.role_id=r.id),'{}') permission_codes
           from organization_roles r left join role_permissions rp on rp.role_id=r.id
           left join organization_memberships m on m.org_id=r.org_id and m.role_code=r.role_code and m.status='ACTIVE'
           where r.org_id=:o group by r.id order by r.system_role desc,r.role_name"""),{"o":org_id}))
-        permissions=_rows(c.execute(text("select id,permission_code,description from permissions order by permission_code")))
+        permissions=_rows(c.execute(text("select id,permission_code,description from permissions where permission_code not like 'platform.%' and permission_code not like 'quarantine.%' order by permission_code")))
         audit=_rows(c.execute(text("select * from audit_logs where org_id=:o order by created_at desc limit 100"),{"o":org_id}))
         workspaces=_rows(c.execute(text("select * from organization_workspaces where org_id=:o order by status,name"),{"o":org_id}))
         locations=_rows(c.execute(text("select * from organization_locations where org_id=:o order by status,name"),{"o":org_id}))
@@ -114,17 +115,22 @@ def save_settings(org_id,actor,data,version,connection=None):
         return dict(row) if row else None
 
 def update_member(org_id,member_id,actor,role_code,status,version):
+    from app.organizations.services.access_policy import validate_role_assignment
+    actor_role=validate_role_assignment(org_id,actor,role_code)
     with engine.begin() as c:
+        c.execute(text("select pg_advisory_xact_lock(hashtextextended('agency-access:'||:o,0))"),{'o':org_id})
         role=c.execute(text("select 1 from organization_roles where org_id=:o and role_code=:r"),{"o":org_id,"r":role_code}).first()
         if not role:return 'invalid_role'
         member=c.execute(text("select * from organization_memberships where id=:i and org_id=:o for update"),{"i":member_id,"o":org_id}).mappings().first()
         if not member:return 'missing'
+        if member['role_code']=='OWNER' and actor_role!='OWNER':raise HTTPException(403,'owner_role_assignment_required')
         if member['role_code']=='OWNER' and (role_code!='OWNER' or status!='ACTIVE'):
             owners=c.execute(text("select count(*) from organization_memberships where org_id=:o and role_code='OWNER' and status='ACTIVE'"),{"o":org_id}).scalar_one()
             if owners<=1:return 'last_owner'
         row=c.execute(text("""update organization_memberships set role_code=:r,status=:s,suspended_at=case when :s='SUSPENDED' then now() else null end,row_version=row_version+1,updated_at=now()
           where id=:i and org_id=:o and row_version=:v returning *"""),{"r":role_code,"s":status,"i":member_id,"o":org_id,"v":version}).mappings().first()
         if not row:return 'conflict'
+        c.execute(text("update user_role_assignments a set assignment_status='REVOKED' where a.user_id=:u and a.org_id=:o and (not exists(select 1 from organization_roles r where r.id=a.role_id and r.org_id=:o and r.role_code=:r) or :status<>'ACTIVE')"),{'u':row['clerk_user_id'],'o':org_id,'r':role_code,'status':status})
         _audit(c,org_id,actor,'MEMBER_UPDATED','membership',member_id,dict(member),dict(row));return dict(row)
 
 def office_context(org_id,user_id,selected_office_id=None):
@@ -162,6 +168,7 @@ def office_context(org_id,user_id,selected_office_id=None):
         }
 
 def update_member_office_access(org_id,member_id,actor,scope,office_ids,version):
+    from app.organizations.services.access_policy import validate_invitation_office_scope
     if scope not in {'ALL_OFFICES','SELECTED_OFFICES'}:
         return 'invalid_office_access_scope'
     office_ids=list(dict.fromkeys(office_ids or []))
@@ -169,6 +176,7 @@ def update_member_office_access(org_id,member_id,actor,scope,office_ids,version)
         member=c.execute(text("""select * from organization_memberships
           where id=:i and org_id=:o for update"""),{"i":member_id,"o":org_id}).mappings().first()
         if not member:return 'missing'
+        validate_invitation_office_scope(c,org_id,member['role_code'],scope,office_ids,actor_id=actor)
         if member['role_code']=='OWNER' and scope!='ALL_OFFICES':
             return 'owner_requires_all_offices'
         if scope=='SELECTED_OFFICES':
@@ -199,9 +207,16 @@ def update_member_office_access(org_id,member_id,actor,scope,office_ids,version)
         return result
 
 def save_role(org_id,actor,data):
+    from app.organizations.services.access_policy import validate_granted_permissions
+    validate_granted_permissions(org_id,actor,data['permissions'])
     with engine.begin() as c:
+        existing=c.execute(text('select system_role from organization_roles where org_id=:o and role_code=:code for update'),{'o':org_id,'code':data['code']}).mappings().first()
+        if existing and existing['system_role']:raise HTTPException(409,'system_role_is_protected')
+        valid=c.execute(text('select count(*) from permissions where permission_code=any(:p)'),{'p':list(set(data['permissions']))}).scalar_one()
+        if valid!=len(set(data['permissions'])):raise HTTPException(422,'invalid_role_permissions')
         role=c.execute(text("""insert into organization_roles(org_id,role_code,role_name,description,system_role)
-          values(:o,:code,:name,:description,false) on conflict(org_id,role_code) do update set role_name=excluded.role_name,description=excluded.description returning *"""),{"o":org_id,**data}).mappings().one()
+          values(:o,:code,:name,:description,false) on conflict(org_id,role_code) do update set role_name=excluded.role_name,description=excluded.description where not organization_roles.system_role returning *"""),{"o":org_id,**data}).mappings().first()
+        if role is None:raise HTTPException(409,'system_role_is_protected')
         c.execute(text("delete from role_permissions where role_id=:r"),{"r":role['id']})
         c.execute(text("""insert into role_permissions(role_id,permission_id) select :r,id from permissions where permission_code=any(:p) on conflict do nothing"""),{"r":role['id'],"p":data['permissions']})
         _audit(c,org_id,actor,'ROLE_SAVED','role',role['id'],new=data);return dict(role)

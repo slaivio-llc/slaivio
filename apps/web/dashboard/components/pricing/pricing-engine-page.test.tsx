@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PricingEnginePage, PricingManagementSection } from "./pricing-engine-page";
+import {getOperationalSettings} from '@/services/organization-admin';
 
 const pricingService = vi.hoisted(() => ({
   addGridFee: vi.fn(), addGridRule: vi.fn(), addGridTier: vi.fn(), approveGrid: vi.fn(),
@@ -11,6 +12,7 @@ const pricingService = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/pricing-engine", () => pricingService);
+vi.mock('@/services/organization-admin',()=>({getOperationalSettings:vi.fn()}));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/ui/operation-page-header", () => ({ OperationPageHeader: ({ actions }: { actions: ReactNode }) => <header>{actions}</header> }));
 vi.mock("@/components/ui/operation-drawer", () => ({ OperationDrawer: ({ children, open }: { children: ReactNode; open: boolean }) => open ? <div>{children}</div> : null }));
@@ -34,6 +36,7 @@ vi.mock("@/components/ui/page-state", () => ({
 describe("PricingEnginePage tariff creation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getOperationalSettings).mockResolvedValue({currency_code:'USD',timezone:'UTC',language_code:'fr',settings:{}});
     pricingService.pricingDashboard.mockResolvedValue({ stats: {}, settings: {}, alerts: [], grids: [] });
     pricingService.pricingCatalog.mockResolvedValue({
       routes: [{ id: "route-1", route_code: "R1", route_name: "Route 1" }],
@@ -51,6 +54,7 @@ describe("PricingEnginePage tariff creation", () => {
   it("reviews and saves a unit tariff as a draft", async () => {
     render(<PricingEnginePage />);
     fireEvent.click(await screen.findByRole("button", { name: /Nouveau tarif/ }));
+    await waitFor(()=>expect(screen.getByLabelText('Devise')).toHaveValue('USD'));
     fireEvent.change(screen.getByLabelText(/Nom du tarif/), { target: { value: "Tarif cargo" } });
     fireEvent.change(screen.getByLabelText(/^Service/), { target: { value: "service-1" } });
     fireEvent.change(screen.getByLabelText(/^Route/), { target: { value: "route-1" } });
@@ -81,5 +85,44 @@ describe("PricingEnginePage tariff creation", () => {
       view.unmount();
       header.remove();
     }
+  });
+
+  it.each(['CNY','AED','XAF','XOF','AOA','GBP','GHS','KES','SAR'])('uses the configured %s currency for a new tariff',async code=>{
+    vi.mocked(getOperationalSettings).mockResolvedValue({currency_code:code,timezone:'UTC',language_code:'fr',settings:{}});
+    render(<PricingManagementSection/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Ajouter un tarif'}));
+    const currency=await screen.findByLabelText('Devise');
+    await waitFor(()=>expect(currency).toHaveValue(code));
+    expect(within(currency).getByRole('option',{name:'KES'})).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Nom du tarif/),{target:{value:'Tarif local'}});
+    fireEvent.change(screen.getByLabelText(/^Service/),{target:{value:'service-1'}});
+    fireEvent.change(screen.getByLabelText(/^Route/),{target:{value:'route-1'}});
+    fireEvent.change(screen.getByLabelText(/Prix par kilogramme/),{target:{value:'12.50'}});
+    fireEvent.click(screen.getByRole('button',{name:/Vérifier le tarif/}));
+    fireEvent.click(screen.getByRole('button',{name:/Enregistrer le tarif/}));
+    await waitFor(()=>expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({currency_code:code,initial_price:12.5})));
+  });
+
+  it('allows an explicit currency override and keeps the configured currency selectable',async()=>{
+    vi.mocked(getOperationalSettings).mockResolvedValue({currency_code:'SAR',timezone:'UTC',language_code:'fr',settings:{}});
+    render(<PricingEnginePage/>);
+    fireEvent.click(await screen.findByRole('button',{name:/Nouveau tarif/}));
+    await waitFor(()=>expect(screen.getByLabelText('Devise')).toHaveValue('SAR'));
+    fireEvent.change(screen.getByLabelText('Devise'),{target:{value:'EUR'}});
+    expect(screen.getByLabelText('Devise')).toHaveValue('EUR');
+    expect(within(screen.getByLabelText('Devise')).getByRole('option',{name:'SAR'})).toBeInTheDocument();
+    expect(screen.getByText(/ne sont pas convertis automatiquement/)).toBeVisible();
+  });
+
+  it('does not silently use USD when agency settings cannot be loaded',async()=>{
+    vi.mocked(getOperationalSettings).mockRejectedValueOnce(new Error('unavailable'));
+    render(<PricingEnginePage/>);
+    fireEvent.click(await screen.findByRole('button',{name:/Nouveau tarif/}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('La devise de référence n’a pas pu être chargée');
+    expect(screen.getByRole('button',{name:/Vérifier le tarif/})).toBeDisabled();
+    vi.mocked(getOperationalSettings).mockResolvedValue({currency_code:'AOA',timezone:'UTC',language_code:'fr',settings:{}});
+    fireEvent.click(screen.getByRole('button',{name:'Réessayer'}));
+    await waitFor(()=>expect(screen.getByLabelText('Devise')).toHaveValue('AOA'));
+    expect(screen.getByRole('button',{name:/Vérifier le tarif/})).toBeEnabled();
   });
 });

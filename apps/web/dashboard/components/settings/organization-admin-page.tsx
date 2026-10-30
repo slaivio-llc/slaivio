@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { invitationErrorMessages } from "@/services/invitation-errors";
 import { agencyRoleLabel, agencyStatusLabel } from "@/services/agency-labels";
+import {agencyCurrency,agencyCurrencyOptions} from '@/config/currencies';
 import { BrandImageUpload } from "./brand-image-upload";
 import { SubscriptionSettings } from "./subscription-settings";
 import { CustomerAutomationSettings } from "./customer-automation-settings";
@@ -1190,7 +1191,7 @@ function Preferences({
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-4">
         <SettingSelect label="Langue par défaut" name="language" value={String(settings.language_code || "fr")} options={[["fr", "Français"], ["en", "English"]]} />
-        <SettingSelect label="Devise de référence" name="currency" value={String(settings.currency_code || "USD")} options={["USD", "CDF", "EUR", "CNY", "AED", "XAF", "XOF", "AOA", "GBP", "GHS", "KES"].map(currency => [currency, currency])} />
+        <SettingSelect label="Devise de référence" name="currency" value={agencyCurrency(settings.currency_code)} options={agencyCurrencyOptions(settings.currency_code).map(currency => [currency, currency])} />
         <SettingSelect label="Fuseau horaire" name="timezone" value={String(settings.timezone || "Africa/Kinshasa")} options={[["Africa/Kinshasa", "Kinshasa"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]]} />
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4">
           <span className="text-[11px] text-[#858d93]">Paramètres de l’agence</span>

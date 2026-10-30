@@ -1,5 +1,7 @@
 "use client";
 import { goodsClassificationLabels } from "@/services/goods-classification";
+import {getOperationalSettings} from '@/services/organization-admin';
+import {agencyCurrency,agencyCurrencyOptions} from '@/config/currencies';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
@@ -428,18 +430,31 @@ function CreateGrid({
   const [route, setRoute] = useState(initialRouteId || "");
   const [service, setService] = useState(initialServiceId || "");
   const [unit, setUnit] = useState<Draft["unit"]>("PER_KG");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState('');
+  const [referenceCurrency,setReferenceCurrency]=useState('USD');
+  const [currencyReady,setCurrencyReady]=useState(false);
+  const [currencyFailed,setCurrencyFailed]=useState(false);
+  const [currencyAttempt,setCurrencyAttempt]=useState(0);
   const [priceMode, setPriceMode] = useState<Draft["priceMode"]>("single");
   const [tiers, setTiers] = useState<TierInput[]>([{ min: "0", max: "", price: "" }]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const routeName = catalog.routes.find((item) => item.id === draft?.route)?.route_name || "—";
+  useEffect(()=>{
+    let active=true;
+    setCurrencyReady(false);setCurrencyFailed(false);
+    getOperationalSettings().then(settings=>{
+      if(active){const code=agencyCurrency(settings.currency_code);setReferenceCurrency(code);setCurrency(code);setCurrencyReady(true);}
+    }).catch(()=>{if(active)setCurrencyFailed(true);});
+    return()=>{active=false;};
+  },[currencyAttempt]);
   const serviceName = catalog.services.find((item) => item.id === draft?.service)?.service_name || "—";
   const unitLabel = { PER_KG: "Kilogramme (kg)", PER_CBM: "Mètre cube (CBM)", PER_PACKAGE: "Colis", PER_UNIT: "Unité" }[unit];
 
   function continueToReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if(!currencyReady){setError('La devise du bureau doit être vérifiée avant de poursuivre.');return;}
     const form = new FormData(event.currentTarget);
     if (priceMode === "tiered" && tiers.some((tier) => !tier.price || (tier.max && Number(tier.max) <= Number(tier.min)))) {
       setError("Complétez chaque prix de palier et vérifiez les limites de quantité.");
@@ -455,7 +470,7 @@ function CreateGrid({
     setDraft({
       name: String(form.get("name") || "").trim(), route, service,
       packageType: String(form.get("package_type") || ""), classification: String(form.get("classification") || ""),
-      unit, currency: String(form.get("currency") || "USD").trim().toUpperCase(), priceMode,
+      unit, currency, priceMode,
       price: String(form.get("price") || ""), minimumAmount: String(form.get("minimum_amount") || ""),
       effectiveFrom, effectiveUntil,
       note: String(form.get("note") || "").trim(), approval: form.get("approval") === "on",
@@ -521,7 +536,8 @@ function CreateGrid({
           <h3 className="text-sm font-semibold">Prix et facturation</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1.5 text-[13px]">Unité<select className={input} value={unit} onChange={(event) => setUnit(event.target.value as Draft["unit"])}><option value="PER_KG">Kilogramme (kg)</option><option value="PER_CBM">Mètre cube (CBM)</option><option value="PER_PACKAGE">Colis</option><option value="PER_UNIT">Unité</option></select></label>
-            <label className="grid gap-1.5 text-[13px]">Devise<select name="currency" className={input} value={currency} onChange={(event) => setCurrency(event.target.value)}><option>USD</option><option>EUR</option><option>CDF</option></select></label>
+            <label className="grid gap-1.5 text-[13px]">Devise<select required name="currency" className={input} value={currency} disabled={!currencyReady} onChange={(event) => setCurrency(event.target.value)}>{!currencyReady&&<option value="">{currencyFailed?'Devise indisponible':'Chargement de la devise…'}</option>}{agencyCurrencyOptions(referenceCurrency).map(code=><option key={code} value={code}>{code}</option>)}</select></label>
+            {currencyFailed?<div role="alert" className="text-xs text-red-700">La devise de référence n’a pas pu être chargée. <button type="button" className="underline" onClick={()=>setCurrencyAttempt(value=>value+1)}>Réessayer</button></div>:<p className="text-xs text-[#697178]">La devise de référence du bureau est présélectionnée. Vous pouvez choisir une autre devise pour ce tarif ; les montants saisis ne sont pas convertis automatiquement.</p>}
           </div>
           <div className="grid gap-2 text-[13px]">
             <label className="flex items-center gap-2"><input type="radio" name="price_mode" checked={priceMode === "single"} onChange={() => setPriceMode("single")} />Prix unique par unité</label>
@@ -540,7 +556,7 @@ function CreateGrid({
           <label className="flex items-start gap-2 text-[13px]"><input name="approval" type="checkbox" defaultChecked className="mt-0.5" /><span>Activer après validation<small className="block text-xs text-slate-500">Le tarif restera en brouillon jusqu’à son approbation et sa publication.</small></span></label>
         </section>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <div className="flex justify-end border-t border-slate-200 pt-4"><button className={primary}>Vérifier le tarif <ChevronRight size={14} /></button></div>
+        <div className="flex justify-end border-t border-slate-200 pt-4"><button disabled={!currencyReady} className={primary}>Vérifier le tarif <ChevronRight size={14} /></button></div>
       </form> : <div className="grid gap-5">
         <section className="grid gap-3"><h3 className="text-sm font-semibold">Récapitulatif du tarif</h3>{[
           ["Tarif", draft?.name], ["Service", serviceName], ["Route", routeName],

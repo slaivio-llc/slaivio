@@ -1,4 +1,5 @@
 from typing import Literal
+from app.organizations.services.staff_roles import StaffRole
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -42,13 +43,13 @@ class OfficeCreate(BaseModel):
 class OfficeGrant(BaseModel):
     user_id: str = Field(min_length=1, max_length=160)
     office_ids: list[str] = Field(min_length=1, max_length=50)
-    role_code: str = Field(pattern=r"^(MANAGER|OPERATOR|WAREHOUSE|SUPPORT|FINANCE|WAREHOUSE_SUPERVISOR|RECEIVER|WEIGHER|QUALITY_CONTROLLER|COUNTER_AGENT|CASHIER)$")
+    role_code: StaffRole
 
 
 class NetworkInvitation(BaseModel):
     email: str = Field(min_length=5, max_length=160, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     office_ids: list[str] = Field(min_length=1, max_length=50)
-    role_code: str = Field(pattern=r"^(MANAGER|OPERATOR|WAREHOUSE|SUPPORT|FINANCE|WAREHOUSE_SUPERVISOR|RECEIVER|WEIGHER|QUALITY_CONTROLLER|COUNTER_AGENT|CASHIER)$")
+    role_code: StaffRole
 
 
 def actor_id(manager: dict) -> str:

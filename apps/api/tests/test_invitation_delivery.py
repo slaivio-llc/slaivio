@@ -112,11 +112,12 @@ def test_missing_secret_never_pretends_an_email_was_delivered(monkeypatch):
     save.assert_not_called()
 
 
-def test_local_agency_is_linked_without_giving_the_inviter_owner_access(monkeypatch):
+@pytest.mark.parametrize('local_id', ['personal_user_owner', 'office_'+'a'*32, 'org_'+'b'*32])
+def test_local_agency_is_linked_without_giving_the_inviter_owner_access(monkeypatch, local_id):
     monkeypatch.setattr(invitation_service, "CLERK_SECRET_KEY", "test-secret")
     connection = Mock()
     monkeypatch.setattr(invitation_service, "organization_clerk_link_lock", lambda _: nullcontext((
-        {"clerk_org_id": "personal_user_owner", "organization_name": "Cargo"}, "user_owner", connection,
+        {"clerk_org_id": local_id, "organization_name": "Cargo"}, "user_owner", connection,
     )))
     monkeypatch.setattr(invitation_service.requests, "get", Mock(return_value=ClerkResponse({}, status_code=404)))
     post = Mock(side_effect=[ClerkResponse({"id": "org_real", "private_metadata": {"slaivio_org_id": "agency"}}, ok=True), ClerkResponse({"id": "inv_1"}, ok=True)])
@@ -124,7 +125,7 @@ def test_local_agency_is_linked_without_giving_the_inviter_owner_access(monkeypa
     link, save = Mock(), Mock(return_value={"id": "local-inv"})
     monkeypatch.setattr(invitation_service, "link_clerk_organization", link)
     monkeypatch.setattr(invitation_service, "create_invitation_record", save)
-    invitation_service.invite_user_to_org("agency", "personal_user_owner", " AGENT@example.com ", "FINANCE", invited_by_id="user_manager")
+    invitation_service.invite_user_to_org("agency", local_id, " AGENT@example.com ", "FINANCE", invited_by_id="user_manager")
     assert post.call_args_list[0].kwargs["json"]["created_by"] == "user_owner"
     assert post.call_args_list[1].args[0].endswith("/organizations/org_real/invitations")
     assert post.call_args_list[1].kwargs["json"]["role"] == "org:member"

@@ -10,14 +10,17 @@ import { API_MUTATION_FAILED_EVENT, API_MUTATION_SUCCEEDED_EVENT } from "@/servi
 export function ApiMutationFeedback() {
   useDashboardMessages();
   const [message, setMessage] = useState("");
+  const [title, setTitle] = useState("");
   const [tone, setTone] = useState<"success"|"error">("error");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function failed(event: Event) {
-      const next = (event as CustomEvent<{ message?: string }>).detail?.message;
+      const detail = (event as CustomEvent<{ message?: string; title?: string }>).detail;
+      const next = detail?.message;
       if (!next) return;
       setTone("error");
+      setTitle(detail?.title||'');
       setMessage(next);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setMessage(""), 9000);
@@ -26,6 +29,7 @@ export function ApiMutationFeedback() {
       const next = (event as CustomEvent<{ message?: string }>).detail?.message;
       if (!next) return;
       setTone("success");
+      setTitle('');
       setMessage(next);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => setMessage(""), 4500);
@@ -43,7 +47,7 @@ export function ApiMutationFeedback() {
   return (
     <div role="status" className={`fixed bottom-5 right-5 z-[100] flex max-w-[430px] items-start gap-3 rounded-lg border bg-white p-4 text-[13px] shadow-xl ${tone==="success"?"border-emerald-200 text-emerald-800":"border-red-200 text-red-800"}`}>
       {tone==="success"?<CheckCircle2 className="mt-0.5 shrink-0" size={18}/>:<AlertTriangle className="mt-0.5 shrink-0" size={18} />}
-      <div><b className={`block ${tone==="success"?"text-emerald-900":"text-red-900"}`}>{tone==="success"?dashboardText("Terminé"):dashboardText("Échec de l’action")}</b><p className="mt-1 leading-5">{dashboardText(message)}</p></div>
+      <div><b className={`block ${tone==="success"?"text-emerald-900":"text-red-900"}`}>{title?dashboardText(title):tone==="success"?dashboardText("Terminé"):dashboardText("Échec de l’action")}</b><p className="mt-1 leading-5">{dashboardText(message)}</p></div>
       <button onClick={() => setMessage("")} aria-label={dashboardText("Fermer")} className="ml-auto"><X size={16} /></button>
     </div>
   );

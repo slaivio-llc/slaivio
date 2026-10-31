@@ -1,7 +1,6 @@
 import { api } from "@/services/api";
 
-export type NetworkAgencyRole = "MANAGER" | "OPERATOR" | "WAREHOUSE" | "SUPPORT" | "FINANCE"
-  | "WAREHOUSE_SUPERVISOR" | "RECEIVER" | "WEIGHER" | "QUALITY_CONTROLLER" | "COUNTER_AGENT" | "CASHIER";
+export type NetworkAgencyRole = "MANAGER" | "OPERATOR" | "WAREHOUSE" | "SUPPORT" | "FINANCE";
 
 export type NetworkOffice = {
   workspace_kind?: "OFFICE" | "WAREHOUSE";

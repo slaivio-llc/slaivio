@@ -252,7 +252,7 @@ api.interceptors.response.use(
           : raw === "workflow_already_decided"
             ? "Cette action a déjà été traitée. Rechargez la page pour voir son état actuel."
             : `Cette opération entre en conflit avec l’état actuel.${detailMessage ? ` ${detailMessage}` : ""}`;
-        const message = quotaMessage||(!error.response
+        const message = invitationErrorMessages[raw]||quotaMessage||(!error.response
           ? "Le serveur est injoignable. Vérifiez le déploiement du backend."
           : error.response.status === 403
             ? "Vous n’avez pas la permission d’effectuer cette action."
@@ -261,7 +261,8 @@ api.interceptors.response.use(
               : error.response.status === 422
                 ? `Certaines données sont invalides ou incompatibles.${detailMessage ? ` ${detailMessage}` : ""}`
                 : detailMessage || `L’opération a échoué (erreur ${error.response.status}).`);
-        window.dispatchEvent(new CustomEvent(API_MUTATION_FAILED_EVENT, { detail: { message, status: error.response?.status } }));
+        const title=requestUrl==='/organization/invitations'||requestUrl==='/organization/network/invitations'?'Invitation non envoyée':undefined;
+        window.dispatchEvent(new CustomEvent(API_MUTATION_FAILED_EVENT, { detail: { message, title, status: error.response?.status } }));
       }
     }
     return Promise.reject(error);

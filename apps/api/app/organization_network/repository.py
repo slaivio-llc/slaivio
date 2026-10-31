@@ -254,6 +254,8 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
 
 
 def grant_offices(org_id: str, actor_id: str, target_user_id: str, office_ids: list[str], role_code: str) -> dict:
+    from app.organizations.services.staff_roles import validate_staff_role
+    validate_staff_role(role_code)
     with engine.connect() as conn:
         current = _current_network(conn, org_id)
         if not current or not current.get("group_id"):

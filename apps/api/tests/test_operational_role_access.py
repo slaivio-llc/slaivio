@@ -8,6 +8,8 @@ from app.organizations.services import operational_role_policy as policy
 from app.permissions.services import permission_service
 from app.api.organization_network import NetworkInvitation, OfficeGrant
 from pydantic import ValidationError
+from app.organizations.services.staff_roles import STAFF_ROLES
+from app.api.invitations import InviteUserRequest
 
 
 def test_migration_and_new_agencies_use_the_same_explicit_matrix():
@@ -59,13 +61,34 @@ def test_provisioning_is_scoped_to_standard_roles_and_one_agency(monkeypatch):
         assert params['permissions'] == policy.OPERATIONAL_ROLES[params['code']][2].split()
 
 
-@pytest.mark.parametrize('role', policy.OPERATIONAL_ROLES)
+@pytest.mark.parametrize('role', STAFF_ROLES)
 def test_staff_roles_can_be_invited_and_granted_network_offices(role):
+    assert InviteUserRequest(email='staff@example.com', role_code=role).role_code == role
     assert NetworkInvitation(email='staff@example.com', office_ids=['bureau'], role_code=role).role_code == role
     assert OfficeGrant(user_id='user_staff', office_ids=['bureau'], role_code=role).role_code == role
 
 
-@pytest.mark.parametrize('role', ['OWNER', 'PLATFORM_ADMIN', 'UNKNOWN'])
+@pytest.mark.parametrize('role', ['OWNER', 'PLATFORM_ADMIN', 'UNKNOWN', 'CUSTOM', 'WAREHOUSE_SUPERVISOR', 'RECEIVER', 'WEIGHER', 'QUALITY_CONTROLLER', 'COUNTER_AGENT', 'CASHIER'])
 def test_network_invitation_cannot_assign_owner_or_unknown_roles(role):
     with pytest.raises(ValidationError):
         NetworkInvitation(email='staff@example.com', office_ids=['bureau'], role_code=role)
+    with pytest.raises(ValidationError):
+        InviteUserRequest(email='staff@example.com', role_code=role)
+    with pytest.raises(ValidationError):
+        OfficeGrant(user_id='user_staff', office_ids=['bureau'], role_code=role)
+
+
+@pytest.mark.parametrize('role', ['OWNER', 'RECEIVER', 'CUSTOM', 'CASHIER'])
+def test_direct_service_calls_reject_retired_assignments_before_io(role, monkeypatch):
+    from app.organizations.services import invitation_service
+    from app.organization_network import repository
+    post = MagicMock()
+    monkeypatch.setattr(invitation_service.requests, 'post', post)
+    for operation in (
+        lambda: invitation_service.invite_user_to_org('bureau', 'org_real', 'staff@example.com', role),
+        lambda: repository.grant_offices('bureau', 'owner', 'staff', ['bureau'], role),
+    ):
+        with pytest.raises(HTTPException) as error:
+            operation()
+        assert error.value.detail == 'staff_role_not_available'
+    post.assert_not_called()

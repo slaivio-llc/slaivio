@@ -123,6 +123,9 @@ def update_member(org_id,member_id,actor,role_code,status,version):
         if not role:return 'invalid_role'
         member=c.execute(text("select * from organization_memberships where id=:i and org_id=:o for update"),{"i":member_id,"o":org_id}).mappings().first()
         if not member:return 'missing'
+        if role_code != member['role_code']:
+            from app.organizations.services.staff_roles import validate_staff_role
+            validate_staff_role(role_code)
         if member['role_code']=='OWNER' and actor_role!='OWNER':raise HTTPException(403,'owner_role_assignment_required')
         if member['role_code']=='OWNER' and (role_code!='OWNER' or status!='ACTIVE'):
             owners=c.execute(text("select count(*) from organization_memberships where org_id=:o and role_code='OWNER' and status='ACTIVE'"),{"o":org_id}).scalar_one()

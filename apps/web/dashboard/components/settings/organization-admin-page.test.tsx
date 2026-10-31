@@ -15,7 +15,7 @@ vi.mock("@/components/ui/geography-fields", () => ({ FormGeographyFields: () => 
 const fixture: AdminData = {
   organization: { organization_name: "Agence Cargo", row_version: 3, logo_url: "https://example.com/current.png" },
   settings: { row_version: 2, settings: {} }, members: [], invitations: [],
-  roles: [{ id: "role", role_code: "AGENT", role_name: "Agent", system_role: true, permission_count: 1, member_count: 0 }],
+  roles: [{ id: "role", role_code: "OPERATOR", role_name: "Agent opérationnel", system_role: true, permission_count: 1, member_count: 0 }],
   permissions: [], audit: [], workspaces: [], locations: [], integrations: [], numbering: [], billing: null, data_requests: [], api_keys: [],
 };
 
@@ -28,6 +28,18 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it('offers only five simple invitation roles without deleting specialised or custom roles',async()=>{
+    const codes=['MANAGER','OPERATOR','WAREHOUSE','SUPPORT','FINANCE','OWNER','RECEIVER','WEIGHER','QUALITY_CONTROLLER','WAREHOUSE_SUPERVISOR','COUNTER_AGENT','CASHIER','CUSTOM'];
+    vi.mocked(getAdmin).mockResolvedValue({...fixture,roles:codes.map(code=>({...fixture.roles[0],id:code,role_code:code,role_name:code,system_role:code!=='CUSTOM'}))});
+    const {container}=render(<OrganizationAdminPage/>);
+    await screen.findByRole('heading',{name:'Paramètres de l’agence'});
+    fireEvent.click(within(container.querySelector('aside')!).getByRole('button',{name:'Équipe'}));
+    const select=screen.getByRole('combobox',{name:'Accès du collaborateur'});
+    expect(within(select).getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(['','MANAGER','OPERATOR','WAREHOUSE','SUPPORT','FINANCE']);
+    expect(within(select).getAllByRole('option').slice(1).map(option=>option.textContent)).toEqual(['Responsable du bureau','Opérations','Entrepôt','Service client','Finance']);
+    expect(getAdmin).toHaveBeenCalledTimes(1);
+    expect(inviteMember).not.toHaveBeenCalled();
+  });
   it('invites a bureau manager for the whole active workspace without granting network offices',async()=>{
     vi.mocked(getAdmin).mockResolvedValue({...fixture,roles:[{...fixture.roles[0],role_code:'MANAGER',role_name:'Manager',permission_codes:['finance.read','packages.read','team.manage']}]});
     const {container}=render(<OrganizationAdminPage/>);
@@ -61,8 +73,8 @@ describe("agency settings navigation and uploads", () => {
     const {container}=render(<OrganizationAdminPage/>);
     await screen.findByRole('heading',{name:'Paramètres de l’agence'});
     fireEvent.click(within(container.querySelector('aside')!).getByRole('button',{name:'Équipe'}));
-    expect(screen.getByRole('option',{name:'Responsable d’entrepôt'})).toBeVisible();
-    expect(screen.getByText('Responsable d’entrepôt · En attente')).toBeVisible();
+    expect(screen.getByRole('option',{name:'Entrepôt'})).toBeVisible();
+    expect(screen.getByText('Agent entrepôt · En attente')).toBeVisible();
     expect(container.querySelector('[data-ui="team-invitations"]')).not.toHaveClass('divide-y');
     expect(screen.queryByText('Warehouse')).not.toBeInTheDocument();
   });
@@ -79,10 +91,10 @@ describe("agency settings navigation and uploads", () => {
     fireEvent.click(within(menu).getByRole("button", { name: "Équipe" }));
     expect(screen.getByRole("heading", { name: "Inviter un collaborateur" })).toBeVisible();
     fireEvent.change(screen.getByPlaceholderText("collaborateur@agence.com"), { target: { value: "agent@example.com" } });
-    fireEvent.change(screen.getByRole('combobox',{name:'Accès du collaborateur'}),{target:{value:'AGENT'}});
+    fireEvent.change(screen.getByRole('combobox',{name:'Accès du collaborateur'}),{target:{value:'OPERATOR'}});
     fireEvent.change(screen.getByRole('combobox',{name:'Bureaux autorisés pour l’invitation'}),{target:{value:'ALL_OFFICES'}});
     fireEvent.submit(screen.getByPlaceholderText("collaborateur@agence.com").closest("form")!);
-    await waitFor(() => expect(inviteMember).toHaveBeenCalledWith("agent@example.com", "AGENT",{office_access_scope:'ALL_OFFICES',office_ids:[]}));
+    await waitFor(() => expect(inviteMember).toHaveBeenCalledWith("agent@example.com", "OPERATOR",{office_access_scope:'ALL_OFFICES',office_ids:[]}));
   });
 
   it("uploads the agency logo from the profile before saving its returned URL", async () => {

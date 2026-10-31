@@ -4,6 +4,7 @@ from typing import Literal
 from uuid import UUID
 
 from app.core.auth import get_current_manager
+from app.organizations.services.staff_roles import StaffRole
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
 from app.organizations.repositories.organization_repository import get_organization
@@ -27,7 +28,7 @@ def complete_invitation(body:CompleteInvitationRequest,manager=Depends(get_curre
 
 class InviteUserRequest(BaseModel):
     email: str=Field(min_length=3,max_length=254,pattern=r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-    role_code: str=Field(min_length=1,max_length=60)
+    role_code: StaffRole
     office_access_scope:Literal['ALL_OFFICES','SELECTED_OFFICES']='ALL_OFFICES'
     office_ids:list[UUID]=Field(default_factory=list,max_length=100)
 

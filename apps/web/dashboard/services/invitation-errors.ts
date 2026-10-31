@@ -1,4 +1,5 @@
 export const invitationErrorMessages: Record<string, string> = {
+  staff_role_not_available: "Choisissez Responsable du bureau, Opérations, Entrepôt, Service client ou Finance.",
   role_exceeds_your_permissions: "Ce rôle contient des accès que vous ne pouvez pas attribuer. Demandez au propriétaire de l’agence de gérer cette invitation.",
   owner_role_assignment_required: "Seul le propriétaire peut attribuer ou modifier un accès propriétaire.",
   platform_permissions_not_assignable: "Les accès internes SLAIVIO ne peuvent pas être attribués à travers un rôle d’agence.",
@@ -8,7 +9,7 @@ export const invitationErrorMessages: Record<string, string> = {
   invitation_office_scope_exceeds_yours: "Vous ne pouvez attribuer que les bureaux auxquels vous avez vous-même accès.",
   invalid_office_assignment: "Sélectionnez au moins un bureau actif de cette agence.",
   finance_office_selection_required: "Choisissez un bureau autorisé avant de préparer cette facture.",
-  clerk_organization_slugs_disabled: "Les invitations nécessitent l’activation de « Organization slugs » dans Clerk. Contactez l’administrateur SLAIVIO.",
+  clerk_organization_slugs_disabled: "L’invitation n’a pas pu être envoyée. Contactez le support SLAIVIO pour activer les invitations de votre bureau.",
   clerk_organizations_not_enabled: "L’envoi d’invitations n’est pas activé sur le service de connexion. Contactez le support SLAIVIO.",
   invitation_provider_not_configured: "Le service d’invitation n’est pas configuré. Contactez le support SLAIVIO.",
   invitation_provider_configuration_invalid: "La configuration du service d’invitation doit être vérifiée par le support SLAIVIO.",
@@ -19,8 +20,8 @@ export const invitationErrorMessages: Record<string, string> = {
   invitation_member_already_exists: "Cette personne fait déjà partie de l’équipe.",
   invitation_member_limit_reached: "La limite de membres et d’invitations de cette agence est atteinte. Contactez le support SLAIVIO.",
   invitation_organization_limit_reached: "Le service de connexion a atteint sa limite d’espaces. Contactez le support SLAIVIO.",
-  invitation_organization_not_found: "L’agence n’est pas correctement reliée au service de connexion. Contactez le support SLAIVIO.",
+  invitation_organization_not_found: "L’invitation n’a pas été envoyée. Contactez le support SLAIVIO pour rétablir les invitations de votre bureau. Les accès de votre équipe restent inchangés.",
   invitation_organization_owner_required: "Un propriétaire actif doit être désigné pour activer les invitations de cette agence.",
-  invitation_organization_link_invalid: "La liaison de l’agence doit être vérifiée par le support SLAIVIO.",
+  invitation_organization_link_invalid: "L’invitation n’a pas été envoyée. Le support SLAIVIO doit vérifier l’accès à votre bureau avant un nouvel envoi.",
   invitation_rate_limited: "Trop d’invitations ont été demandées. Patientez quelques instants avant de réessayer.",
 };

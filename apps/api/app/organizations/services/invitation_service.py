@@ -4,6 +4,7 @@ import hashlib
 import logging
 from urllib.parse import urlencode
 from app.organizations.services.access_policy import validate_role_assignment,validate_invitation_office_scope
+from app.organizations.services.staff_roles import validate_staff_role
 
 import requests
 from app.billing.services.capacity import invitation_capacity
@@ -69,7 +70,7 @@ def _provider_data(response):
 
 
 def _local_organization_id(value):
-    return value.startswith("personal_") or bool(re.fullmatch(r"org_[0-9a-f]{32}", value))
+    return value.startswith("personal_") or bool(re.fullmatch(r"(?:org|office)_[0-9a-f]{32}", value))
 
 
 def _ensure_clerk_organization(org_id, clerk_org_id):
@@ -112,6 +113,7 @@ def invite_user_to_org(
     office_ids: list[str] | None = None,
     network_office_ids: list[str] | None = None,
 ):
+    validate_staff_role(role_code)
     if not CLERK_SECRET_KEY:
         raise InvitationProviderError("invitation_provider_not_configured", 503)
     if not clerk_org_id:

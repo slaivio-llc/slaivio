@@ -1,5 +1,11 @@
 # Accès des collaborateurs
 
+Les nouvelles invitations et attributions proposent uniquement Responsable du
+bureau, Opérations, Entrepôt, Service client et Finance, dans le dashboard et
+dans l’API. Les profils spécialisés ci-dessous sont conservés pour les accès
+historiques ; ils ne sont plus attribuables. Les droits du propriétaire restent
+distincts et ne s’accordent pas via une invitation de collaborateur.
+
 Appliquer `infra/sql/164_operational_member_access.sql` avant de déployer l’API
 et le dashboard. La migration et le provisionnement des nouvelles agences
 utilisent la même liste explicite de droits. Seuls les rôles standard sont

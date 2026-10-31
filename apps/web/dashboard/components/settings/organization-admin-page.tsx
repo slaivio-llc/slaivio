@@ -1,5 +1,6 @@
 "use client";
 import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+import {INVITATION_ROLE_OPTIONS} from '@/config/invitation-roles';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -845,9 +846,9 @@ function Team({
             />
             <select aria-label={dashboardText("Accès du collaborateur")} name="role" value={inviteRole} onChange={event=>{setInviteRole(event.target.value);if(event.target.value==='MANAGER')setInviteScope('ALL_OFFICES');}} className={`${input} max-w-[320px]`}>
               <option value="" disabled>{dashboardText("Choisir un rôle")}</option>
-              {data.roles.filter(role=>role.role_code!=='OWNER').map((r) => (
-                <option key={r.id} value={r.role_code}>
-                  {agencyRoleLabel(r.role_code,r.role_name)}
+              {INVITATION_ROLE_OPTIONS.filter(role=>data.roles.some(r=>r.role_code===role.code)).map((role) => (
+                <option key={role.code} value={role.code}>
+                  {dashboardText(role.label)}
                 </option>
               ))}
             </select>

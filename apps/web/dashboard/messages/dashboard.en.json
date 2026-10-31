@@ -1,4 +1,9 @@
 {
+  "Invitation non envoyée": "Invitation not sent",
+  "Choisissez Responsable du bureau, Opérations, Entrepôt, Service client ou Finance.": "Choose Office manager, Operations, Warehouse, Customer service or Finance.",
+  "L’invitation n’a pas pu être envoyée. Contactez le support SLAIVIO pour activer les invitations de votre bureau.": "The invitation could not be sent. Contact SLAIVIO support to enable invitations for your office.",
+  "L’invitation n’a pas été envoyée. Contactez le support SLAIVIO pour rétablir les invitations de votre bureau. Les accès de votre équipe restent inchangés.": "The invitation was not sent. Contact SLAIVIO support to restore invitations for your office. Your team's existing access is unchanged.",
+  "L’invitation n’a pas été envoyée. Le support SLAIVIO doit vérifier l’accès à votre bureau avant un nouvel envoi.": "The invitation was not sent. SLAIVIO support needs to check access to your office before another invitation can be sent.",
   "Agent entrepôt": "Warehouse agent",
   "Superviseur entrepôt": "Warehouse supervisor",
   "Réceptionnaire": "Receiving clerk",

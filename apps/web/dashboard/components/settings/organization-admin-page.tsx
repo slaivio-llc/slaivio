@@ -1,6 +1,6 @@
 "use client";
 import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
-import {INVITATION_ROLE_OPTIONS} from '@/config/invitation-roles';
+import {INVITATION_ROLE_OPTIONS,INVITATION_ROLE_SUMMARIES} from '@/config/invitation-roles';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -836,15 +836,19 @@ function Team({
         description={dashboardText("Choisissez ce que le collaborateur pourra faire et les bureaux concernés avant d’envoyer son invitation.")}
       >
         <PermissionGuard permission="team.write" fallback={<ReadOnly />}>
-          <form onSubmit={invite} className="grid max-w-2xl gap-4">
+          <form onSubmit={invite} className="grid max-w-2xl gap-4 rounded-xl border border-[#e0e5e3] bg-white p-4 sm:p-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+            <label className="grid min-w-0 gap-2 text-[13px] font-medium text-[#303b35]">{dashboardText("Email professionnel")}
             <input
               required
               type="email"
               name="email"
-              className={`${input} max-w-sm`}
+              className={`${input} w-full min-w-0`}
               placeholder={dashboardText("collaborateur@agence.com")}
             />
-            <select aria-label={dashboardText("Accès du collaborateur")} name="role" value={inviteRole} onChange={event=>{setInviteRole(event.target.value);if(event.target.value==='MANAGER')setInviteScope('ALL_OFFICES');}} className={`${input} max-w-[320px]`}>
+            </label>
+            <label className="grid min-w-0 gap-2 text-[13px] font-medium text-[#303b35]">{dashboardText("Rôle")}
+            <select aria-label={dashboardText("Accès du collaborateur")} name="role" value={inviteRole} onChange={event=>{setInviteRole(event.target.value);if(event.target.value==='MANAGER')setInviteScope('ALL_OFFICES');}} className={`${input} w-full min-w-0`}>
               <option value="" disabled>{dashboardText("Choisir un rôle")}</option>
               {INVITATION_ROLE_OPTIONS.filter(role=>data.roles.some(r=>r.role_code===role.code)).map((role) => (
                 <option key={role.code} value={role.code}>
@@ -852,14 +856,16 @@ function Team({
                 </option>
               ))}
             </select>
-            <div className="rounded-xl border border-[#dfe3e4] bg-[#f7faf8] p-4 text-sm"><p className="font-medium text-[#087a46]">{selectedRole?agencyRoleLabel(selectedRole.role_code,selectedRole.role_name):dashboardText("Sélectionnez un rôle")}</p><p className="mt-1 text-xs text-[#69747f]">{selectedRole?.system_role&&inviteRole==='MANAGER'?dashboardText("Gestion des clients, colis, expéditions, entrepôt, factures, paiements, rapports et équipe du bureau actif. Aucun accès supplémentaire aux autres bureaux, à l’administration du réseau ou aux droits du propriétaire."):selectedRole?.system_role&&inviteRole==='FINANCE'?dashboardText("Accès aux factures et paiements de l’agence, sans ouvrir les autres modules."):dashboardText("Les actions autorisées sont définies par les permissions de ce rôle.")}</p>{selectedRole?.permission_codes&&<ul className="mt-3 grid gap-1 text-xs text-[#69747f]">{selectedRole.permission_codes.map(code=><li key={code}>{permissionGroupLabel(code.split('.')[0])} · {permissionActionLabel(code)}</li>)}</ul>}</div>
+            </label>
+            </div>
+            {selectedRole&&<p className="rounded-lg bg-[#f3f8f5] px-3 py-2.5 text-[12px] leading-5 text-[#476154]">{dashboardText(selectedRole.system_role?INVITATION_ROLE_SUMMARIES[inviteRole]||'Les actions autorisées sont définies par les permissions de ce rôle.':'Les actions autorisées sont définies par les permissions de ce rôle.')}</p>}
             {inviteRole==='MANAGER'&&<p className="rounded-lg border border-[#dfe3e4] p-3 text-xs leading-5 text-[#69747f]">{dashboardText("L’invitation concerne uniquement le bureau actuellement sélectionné dans le dashboard. Pour un autre bureau du réseau, changez d’abord de bureau dans le sélecteur. L’accès à tous les sites internes ci-dessous n’ouvre pas les autres bureaux du réseau.")}</p>}
             <label className="grid gap-2 text-sm">{dashboardText("Bureaux autorisés")}<select aria-label={dashboardText("Bureaux autorisés pour l’invitation")} value={inviteScope} onChange={event=>setInviteScope(event.target.value as 'ALL_OFFICES'|'SELECTED_OFFICES')} className={input}><option value="SELECTED_OFFICES">{dashboardText("Uniquement les bureaux sélectionnés")}</option><option value="ALL_OFFICES">{dashboardText("Tous les bureaux de cette agence, actuels et futurs")}</option></select></label>
             {inviteScope==='SELECTED_OFFICES'&&<div className="grid gap-2 rounded-lg border border-[#dfe3e4] p-3">{offices.map(office=><label key={String(office.id)} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={inviteOffices.includes(String(office.id))} onChange={event=>setInviteOffices(values=>event.target.checked?[...values,String(office.id)]:values.filter(id=>id!==office.id))}/>{String(office.name)} · {String(office.city||'')}</label>)}{!offices.length&&<p className="text-xs text-[#69747f]">{dashboardText("Aucun bureau physique actif n’est configuré. Ajoutez un bureau ou choisissez explicitement l’accès à toute l’agence.")}</p>}</div>}
             <p className="text-xs leading-5 text-[#69747f]">{dashboardText("Ces bureaux sont les sites physiques de l’agence active. Les autres agences et espaces du réseau restent soumis à leurs propres affectations.")}</p>
-            <button disabled={!selectedRole||(inviteScope==='SELECTED_OFFICES'&&!inviteOffices.length)} className={primary}>
+            <div className="flex justify-end border-t border-[#edf0ee] pt-4"><button disabled={!selectedRole||(inviteScope==='SELECTED_OFFICES'&&!inviteOffices.length)} className={`${primary} w-full sm:w-auto`}>
               <UserPlus className="mr-2 inline" size={14} />
-              {dashboardText("Inviter")}</button>
+              {dashboardText("Inviter")}</button></div>
           </form>
         </PermissionGuard>
       </FormSection>
@@ -882,11 +888,11 @@ function Team({
           <div className="grid gap-1" data-ui="team-invitations">
             {data.invitations.map((x) => (
               <div
-                className="flex items-center justify-between py-3 text-[13px]"
+                className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13px]"
                 key={String(x.id)}
               >
-                <div>
-                  <b>{String(x.email)}</b>
+                <div className="min-w-0 flex-1">
+                  <b className="break-all">{String(x.email)}</b>
                   <p className="text-[12px] text-[#69707d]">
                     {agencyRoleLabel(x.role_code,data.roles.find(role=>role.role_code===x.role_code)?.role_name)} · {agencyStatusLabel(x.status)}
                   </p>
@@ -934,12 +940,19 @@ function MemberRow({
   );
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13px]">
-      <div>
-        <b>{member.member_display_name || member.member_email || dashboardText("Membre")}</b>
-        <p className="text-[12px] text-[#69707d]">
+      <div className="min-w-0 flex-1">
+        <b className="break-words">{member.member_display_name || member.member_email || (member.role_code==='OWNER'?dashboardText("Propriétaire"):dashboardText("Membre"))}</b>
+        <p className="break-all text-[12px] text-[#69707d]">
           {member.member_email || dashboardText("Adresse email non renseignée")}
         </p>
       </div>
+      <div className="flex flex-wrap items-center gap-2 text-[12px]">
+        <span className="rounded-md bg-[#f1f4f2] px-2 py-1 text-[#45554c]">{agencyRoleLabel(member.role_code,member.role_name)}</span>
+        <span className={`rounded-md px-2 py-1 ${member.status==='ACTIVE'?'bg-[#edf8f1] text-[#18794e]':'bg-[#f7f1e8] text-[#835b26]'}`}>{agencyStatusLabel(member.status)}</span>
+      </div>
+      {member.role_code!=='OWNER'&&<PermissionGuard permission="team.manage"><details className="basis-full rounded-lg border border-[#e0e5e3] bg-white">
+      <summary className="cursor-pointer px-3 py-2 text-[12px] font-medium text-[#476154]">{dashboardText("Modifier les accès")}</summary>
+      <div className="grid gap-3 border-t border-[#edf0ee] p-3">
       <PermissionGuard
         permission="team.manage"
         fallback={
@@ -950,17 +963,20 @@ function MemberRow({
       >
         <div className="flex min-w-0 flex-wrap gap-2">
           <select
+            aria-label={dashboardText("Rôle du membre")}
             className={input}
             value={role}
             onChange={(e) => setRole(e.target.value)}
           >
-            {roles.map((r) => (
-              <option key={r.id} value={r.role_code}>
-                {agencyRoleLabel(r.role_code,r.role_name)}
+            {!INVITATION_ROLE_OPTIONS.some(option=>option.code===role)&&<option value={role} disabled>{agencyRoleLabel(role,member.role_name)}</option>}
+            {INVITATION_ROLE_OPTIONS.filter(option=>roles.some(r=>r.role_code===option.code)).map((option) => (
+              <option key={option.code} value={option.code}>
+                {dashboardText(option.label)}
               </option>
             ))}
           </select>
           <select
+            aria-label={dashboardText("Statut du membre")}
             className={input}
             value={status}
             onChange={(e) => setStatus(e.target.value)}
@@ -1036,6 +1052,7 @@ function MemberRow({
           </div>
         </PermissionGuard>
       )}
+      </div></details></PermissionGuard>}
     </div>
   );
 }

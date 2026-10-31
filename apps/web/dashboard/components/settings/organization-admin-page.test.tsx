@@ -2,12 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OrganizationAdminPage } from "./organization-admin-page";
-import { getAdmin, inviteMember, updateOrganization, uploadAgencyBrandImage, type AdminData } from "@/services/organization-admin";
+import { getAdmin, inviteMember, updateMember, updateOrganization, uploadAgencyBrandImage, type AdminData } from "@/services/organization-admin";
 
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }), useSearchParams: () => navigation.params }));
 vi.mock("@/services/organization-admin", () => ({
-  getAdmin: vi.fn(), inviteMember: vi.fn(), updateOrganization: vi.fn(), uploadAgencyBrandImage: vi.fn(),
+  getAdmin: vi.fn(), inviteMember: vi.fn(), updateMember: vi.fn(), updateOrganization: vi.fn(), uploadAgencyBrandImage: vi.fn(),
 }));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children, permission }: { children: ReactNode; permission: string }) => permission === "platform.admin.read" ? null : children }));
 vi.mock("@/components/ui/geography-fields", () => ({ FormGeographyFields: () => <><input name="country" aria-label="Pays"/><input name="city" aria-label="Ville"/></> }));
@@ -20,6 +20,7 @@ const fixture: AdminData = {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   navigation.params = new URLSearchParams();
   vi.mocked(getAdmin).mockResolvedValue(fixture);
   vi.mocked(uploadAgencyBrandImage).mockResolvedValue("https://storage.example.com/agency/logo.webp");
@@ -28,6 +29,35 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it('keeps the invitation compact and member role controls closed until requested',async()=>{
+    const roleCodes=['MANAGER','OPERATOR','WAREHOUSE','SUPPORT','FINANCE'];
+    vi.mocked(getAdmin).mockResolvedValue({...fixture,
+      roles:roleCodes.map(code=>({...fixture.roles[0],id:code,role_code:code,permission_codes:['warehouses.receive','packages.update','warehouses.quality']})),
+      members:[
+        {id:'owner',role_code:'OWNER',status:'ACTIVE',row_version:1,office_access_scope:'ALL_OFFICES',office_ids:[]},
+        {id:'staff',member_display_name:'Awa',member_email:'awa@example.com',role_code:'OPERATOR',status:'ACTIVE',row_version:2,office_access_scope:'ALL_OFFICES',office_ids:[]},
+      ],
+    });
+    const {container}=render(<OrganizationAdminPage/>);
+    await screen.findByRole('heading',{name:'Paramètres de l’agence'});
+    fireEvent.click(within(container.querySelector('aside')!).getByRole('button',{name:'Équipe'}));
+    expect(screen.getByLabelText('Email professionnel')).toHaveAttribute('type','email');
+    expect(screen.queryByText(/Action avancée/)).not.toBeInTheDocument();
+    const form=screen.getByPlaceholderText('collaborateur@agence.com').closest('form')!;
+    expect(within(form).getAllByRole('combobox')).toHaveLength(2); // Invitation role and bureau scope only.
+    expect(form.querySelector('ul')).toBeNull();
+    expect(container.querySelectorAll('details')).toHaveLength(1); // Never expose owner controls here.
+    const editor=container.querySelector('details')!;
+    expect(editor.open).toBe(false);
+    expect(within(editor).getByLabelText('Rôle du membre')).not.toBeVisible();
+    fireEvent.click(within(editor).getByText('Modifier les accès'));
+    expect(editor.open).toBe(true);
+    const roleSelect=screen.getByRole('combobox',{name:'Rôle du membre'});
+    expect(within(roleSelect).getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(roleCodes);
+    fireEvent.change(roleSelect,{target:{value:'SUPPORT'}});
+    fireEvent.click(within(editor).getByRole('button',{name:'Appliquer'}));
+    await waitFor(()=>expect(updateMember).toHaveBeenCalledWith('staff',{role_code:'SUPPORT',status:'ACTIVE',expected_version:2}));
+  });
   it('offers only five simple invitation roles without deleting specialised or custom roles',async()=>{
     const codes=['MANAGER','OPERATOR','WAREHOUSE','SUPPORT','FINANCE','OWNER','RECEIVER','WEIGHER','QUALITY_CONTROLLER','WAREHOUSE_SUPERVISOR','COUNTER_AGENT','CASHIER','CUSTOM'];
     vi.mocked(getAdmin).mockResolvedValue({...fixture,roles:codes.map(code=>({...fixture.roles[0],id:code,role_code:code,role_name:code,system_role:code!=='CUSTOM'}))});

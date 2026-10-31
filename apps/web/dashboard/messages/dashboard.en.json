@@ -1,4 +1,11 @@
 {
+  "Rôle du membre": "Member role",
+  "Statut du membre": "Member status",
+  "Gère les opérations, la finance et l’équipe du bureau, sans administrer le réseau ni l’abonnement.": "Manages office operations, finance and staff, without network or subscription administration.",
+  "Crée et suit les colis, prépare les expéditions et applique les tarifs du bureau.": "Creates and tracks parcels, prepares shipments and applies the office's rates.",
+  "Réceptionne, pèse et organise les colis en entrepôt, sans gérer les encaissements.": "Receives, weighs and organises parcels in the warehouse, without handling payments.",
+  "Répond aux clients et consulte le suivi des colis, sans modifier les opérations ni les paiements.": "Replies to customers and checks parcel tracking, without changing operations or payments.",
+  "Prépare les factures, enregistre les paiements et exporte les données financières.": "Prepares invoices, records payments and exports financial data.",
   "Invitation non envoyée": "Invitation not sent",
   "Choisissez Responsable du bureau, Opérations, Entrepôt, Service client ou Finance.": "Choose Office manager, Operations, Warehouse, Customer service or Finance.",
   "L’invitation n’a pas pu être envoyée. Contactez le support SLAIVIO pour activer les invitations de votre bureau.": "The invitation could not be sent. Contact SLAIVIO support to enable invitations for your office.",

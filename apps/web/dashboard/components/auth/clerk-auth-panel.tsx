@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { SignIn, SignUp, useUser } from "@clerk/nextjs";
 
@@ -7,15 +9,15 @@ import { clerkAppearance } from "@/components/auth/clerk-appearance";
 import { SlaivioLogoLoader } from "@/components/ui/slaivio-logo-loader";
 
 export function ClerkAuthPanel({ mode }: { mode: "sign-in" | "sign-up" }) {
+  useDashboardMessages();
   const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   if (!publishableKey) {
     return (
       <div className="rounded-3xl border border-red-100 bg-red-50 p-6 text-sm leading-6 text-red-700 shadow-sm">
-        <p className="font-semibold">Authentification indisponible.</p>
+        <p className="font-semibold">{dashboardText("Authentification indisponible.")}</p>
         <p className="mt-2">
-          La connexion à votre espace n’est pas disponible pour le moment. Réessayez ultérieurement ou contactez le support Slaivio.
-        </p>
+          {dashboardText("La connexion à votre espace n’est pas disponible pour le moment. Réessayez ultérieurement ou contactez le support Slaivio.")}</p>
       </div>
     );
   }
@@ -24,17 +26,18 @@ export function ClerkAuthPanel({ mode }: { mode: "sign-in" | "sign-up" }) {
 }
 
 function ClerkAuthPanelContent({ mode }: { mode: "sign-in" | "sign-up" }) {
+  useDashboardMessages();
   const { isLoaded, isSignedIn } = useUser();
 
   if (!isLoaded) {
-    return <SlaivioLogoLoader overlay label="Préparation de votre espace sécurisé" />;
+    return <SlaivioLogoLoader overlay label={dashboardText("Préparation de votre espace sécurisé")} />;
   }
 
   if (isSignedIn) {
     return mode === "sign-up" ? (
       <AuthSessionState
-        title="Vous avez déjà un compte actif"
-        description="Votre session SLAIVIO est déjà ouverte. Déconnectez-vous si vous voulez créer un autre compte."
+        title={dashboardText("Vous avez déjà un compte actif")}
+        description={dashboardText("Votre session SLAIVIO est déjà ouverte. Déconnectez-vous si vous voulez créer un autre compte.")}
       />
     ) : (
       <AuthSessionState />

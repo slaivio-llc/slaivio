@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import axios from "axios";
@@ -30,13 +32,14 @@ export function parcelError(cause: unknown) {
     document_storage_not_configured: "Le stockage des photos n’est pas configuré. Contactez votre administrateur.",
     client_phone_unavailable: "Aucun numéro WhatsApp n’est enregistré pour ce client.",
   };
-  return messages[String(detail)] || "Opération impossible. Vérifiez vos droits et la connexion, puis réessayez.";
+  return dashboardText(messages[String(detail)] || "Opération impossible. Vérifiez vos droits et la connexion, puis réessayez.");
 }
 
 export function ParcelEditForm({ item, saving, error, save, cancel }: {
   item: ParcelOverview; saving: boolean; error: string;
   save: (changes: Record<string, unknown>, reason: string) => void; cancel: () => void;
 }) {
+  useDashboardMessages();
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const data = new FormData(event.currentTarget);
     const changes: Record<string, unknown> = {};
@@ -48,22 +51,23 @@ export function ParcelEditForm({ item, saving, error, save, cancel }: {
     }
     save(changes, String(data.get("reason") || "").trim());
   }
-  return <form onSubmit={submit} className="grid gap-4" aria-label="Modifier les informations du colis">
+  return <form onSubmit={submit} className="grid gap-4" aria-label={dashboardText("Modifier les informations du colis")}>
     <fieldset disabled={saving} className="grid gap-4">
-      {item.local_client && <><label className="grid gap-1.5 text-sm">Description<input name="description" maxLength={260} defaultValue={item.description || ""} className={field}/></label>
-        <label className="grid gap-1.5 text-sm">Référence fournisseur<input name="supplier_tracking" maxLength={180} defaultValue={item.supplier_tracking || ""} className={field}/></label>
-        <label className="grid gap-1.5 text-sm">Poids (kg)<input name="weight_kg" type="number" min="0.001" step="0.001" defaultValue={item.weight_kg ?? ""} disabled={!item.weight_editable} className={field}/></label>
-        {!item.weight_editable && <p className="text-xs text-slate-500">La correction du poids nécessite une réévaluation du tarif ou de l’expédition.</p>}</>}
-      <label className="grid gap-1.5 text-sm">Emplacement de stockage<input name="warehouse_location" maxLength={160} defaultValue={item.warehouse_location || ""} className={field}/></label>
-      <label className="grid gap-1.5 text-sm">Motif de la correction<input name="reason" required minLength={3} maxLength={500} className={field} placeholder="Ex. poids vérifié à la réception"/></label>
+      {item.local_client && <><label className="grid gap-1.5 text-sm">{dashboardText("Description")}<input name="description" maxLength={260} defaultValue={item.description || ""} className={field}/></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Référence fournisseur")}<input name="supplier_tracking" maxLength={180} defaultValue={item.supplier_tracking || ""} className={field}/></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Poids (kg)")}<input name="weight_kg" type="number" min="0.001" step="0.001" defaultValue={item.weight_kg ?? ""} disabled={!item.weight_editable} className={field}/></label>
+        {!item.weight_editable && <p className="text-xs text-slate-500">{dashboardText("La correction du poids nécessite une réévaluation du tarif ou de l’expédition.")}</p>}</>}
+      <label className="grid gap-1.5 text-sm">{dashboardText("Emplacement de stockage")}<input name="warehouse_location" maxLength={160} defaultValue={item.warehouse_location || ""} className={field}/></label>
+      <label className="grid gap-1.5 text-sm">{dashboardText("Motif de la correction")}<input name="reason" required minLength={3} maxLength={500} className={field} placeholder={dashboardText("Ex. poids vérifié à la réception")}/></label>
     </fieldset>
-    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-    <div className="flex justify-end gap-2"><OperationButton disabled={saving} onClick={cancel}>Annuler</OperationButton><OperationButton type="submit" variant="primary" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer"}</OperationButton></div>
+    {error && <p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
+    <div className="flex justify-end gap-2"><OperationButton disabled={saving} onClick={cancel}>{dashboardText("Annuler")}</OperationButton><OperationButton type="submit" variant="primary" disabled={saving}>{saving ? dashboardText("Enregistrement…") : dashboardText("Enregistrer")}</OperationButton></div>
   </form>;
 }
 
 type Photos = {items: {id:string;file_name:string;caption:string|null;customer_visible:boolean}[];page:number;total_pages:number;total:number;customer_visible_count:number};
 export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: { item: ParcelOverview; changed: () => Promise<void>; busyChanged: (value: boolean) => void; disabled?: boolean }) {
+  useDashboardMessages();
   const [result,setResult]=useState<Photos|null>(null);
   const [error,setError]=useState("");const [notice,setNotice]=useState("");
   const [busy,setBusy]=useState(false);const pending=useRef(false);
@@ -135,19 +139,19 @@ export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: {
   }
   // These signed private media URLs must be rendered directly, not proxied by Next Image.
   /* eslint-disable @next/next/no-img-element */
-  return <section aria-label="Photos du colis" className="grid gap-3">
-    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Photos du colis</h3><p className="mt-1 text-xs text-slate-500">Privées par défaut. Le partage client est explicite, photo par photo.</p></div>
-      {item.local_client && <PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled} onClick={()=>input.current?.click()}><Upload size={14}/>Ajouter</OperationButton><input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" hidden aria-label="Ajouter des photos" onChange={event=>{const files=Array.from(event.target.files||[]);event.target.value="";void upload(files);}}/></PermissionGuard>}
+  return <section aria-label={dashboardText("Photos du colis")} className="grid gap-3">
+    <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">{dashboardText("Photos du colis")}</h3><p className="mt-1 text-xs text-slate-500">{dashboardText("Privées par défaut. Le partage client est explicite, photo par photo.")}</p></div>
+      {item.local_client && <PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled} onClick={()=>input.current?.click()}><Upload size={14}/>{dashboardText("Ajouter")}</OperationButton><input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" hidden aria-label={dashboardText("Ajouter des photos")} onChange={event=>{const files=Array.from(event.target.files||[]);event.target.value="";void upload(files);}}/></PermissionGuard>}
     </div>
-    {notice && <p role="status" className="text-xs text-slate-600">{notice}</p>}
-    {result&&result.customer_visible_count>0&&<div className="flex flex-wrap items-center gap-2"><PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled||!item.public_tracking_enabled||!item.reference} onClick={()=>void sendTrackingLink()}>Envoyer le lien au client sur WhatsApp</OperationButton></PermissionGuard>{!item.public_tracking_enabled&&<span className="text-xs text-amber-700">Le suivi public est désactivé pour ce colis.</span>}</div>}
-    {error && <div role="alert" className="text-sm text-red-700">{error} <OperationButton aria-label="Actualiser les photos" disabled={busy||disabled} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={14}/></OperationButton></div>}
-    {!result&&!error?<p className="text-sm text-slate-500">Chargement des photos…</p>:result?.items.length?<ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">{result.items.map(photo=><li key={photo.id} className="min-w-0"><button type="button" disabled={busy||disabled||!photoUrls[photo.id]} onClick={()=>void view(photo.id,photo.caption||photo.file_name)} className="group block w-full overflow-hidden rounded-lg border border-slate-200 text-left disabled:opacity-60"><span className="grid h-28 place-items-center bg-slate-50">{photoUrls[photo.id]?<><img src={photoUrls[photo.id]} alt={photo.caption||photo.file_name} className="h-full w-full object-cover" referrerPolicy="no-referrer"/></>:<ImageIcon size={22} className="text-slate-400"/>}</span><span className="block truncate px-2 py-1.5 text-xs text-slate-600">{photo.caption||photo.file_name}</span></button><PermissionGuard permission="packages.update"><button type="button" disabled={busy||disabled} aria-pressed={photo.customer_visible} onClick={()=>void toggleCustomerVisibility(photo)} className="mt-1 text-[11px] font-medium text-slate-600 underline underline-offset-2 disabled:opacity-50">{photo.customer_visible?"Visible au client":"Partager au client"}</button></PermissionGuard></li>)}</ul>:result&&<p className="text-sm text-slate-500">Aucune photo ajoutée.</p>}
-    {result&&result.total_pages>1&&<div className="flex justify-end gap-2"><OperationButton disabled={busy||disabled||page===1} onClick={()=>setPage(value=>value-1)}>Précédent</OperationButton><OperationButton disabled={busy||disabled||page>=result.total_pages} onClick={()=>setPage(value=>value+1)}>Suivant</OperationButton></div>}
+    {notice && <p role="status" className="text-xs text-slate-600">{dashboardText(notice)}</p>}
+    {result&&result.customer_visible_count>0&&<div className="flex flex-wrap items-center gap-2"><PermissionGuard permission="packages.update"><OperationButton disabled={busy||disabled||!item.public_tracking_enabled||!item.reference} onClick={()=>void sendTrackingLink()}>{dashboardText("Envoyer le lien au client sur WhatsApp")}</OperationButton></PermissionGuard>{!item.public_tracking_enabled&&<span className="text-xs text-amber-700">{dashboardText("Le suivi public est désactivé pour ce colis.")}</span>}</div>}
+    {error && <div role="alert" className="text-sm text-red-700">{dashboardText(error)} <OperationButton aria-label={dashboardText("Actualiser les photos")} disabled={busy||disabled} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={14}/></OperationButton></div>}
+    {!result&&!error?<p className="text-sm text-slate-500">{dashboardText("Chargement des photos…")}</p>:result?.items.length?<ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">{result.items.map(photo=><li key={photo.id} className="min-w-0"><button type="button" disabled={busy||disabled||!photoUrls[photo.id]} onClick={()=>void view(photo.id,photo.caption||photo.file_name)} className="group block w-full overflow-hidden rounded-lg border border-slate-200 text-left disabled:opacity-60"><span className="grid h-28 place-items-center bg-slate-50">{photoUrls[photo.id]?<><img src={photoUrls[photo.id]} alt={photo.caption||photo.file_name} className="h-full w-full object-cover" referrerPolicy="no-referrer"/></>:<ImageIcon size={22} className="text-slate-400"/>}</span><span className="block truncate px-2 py-1.5 text-xs text-slate-600">{photo.caption||photo.file_name}</span></button><PermissionGuard permission="packages.update"><button type="button" disabled={busy||disabled} aria-pressed={photo.customer_visible} onClick={()=>void toggleCustomerVisibility(photo)} className="mt-1 text-[11px] font-medium text-slate-600 underline underline-offset-2 disabled:opacity-50">{photo.customer_visible?dashboardText("Visible au client"):dashboardText("Partager au client")}</button></PermissionGuard></li>)}</ul>:result&&<p className="text-sm text-slate-500">{dashboardText("Aucune photo ajoutée.")}</p>}
+    {result&&result.total_pages>1&&<div className="flex justify-end gap-2"><OperationButton disabled={busy||disabled||page===1} onClick={()=>setPage(value=>value-1)}>{dashboardText("Précédent")}</OperationButton><OperationButton disabled={busy||disabled||page>=result.total_pages} onClick={()=>setPage(value=>value+1)}>{dashboardText("Suivant")}</OperationButton></div>}
     {preview&&<figure className="rounded-xl border border-slate-200 p-3">
       {/* Signed private URLs must not be forwarded to an image optimization proxy. */}
       <img src={preview.url} alt={preview.name} className="max-h-80 w-full rounded-lg object-contain" referrerPolicy="no-referrer" onError={()=>{setPreview(null);setError("L’aperçu a expiré ou est indisponible. Ouvrez à nouveau la photo.");}}/>
-      <figcaption className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500"><span className="truncate">{preview.name}</span><OperationButton onClick={()=>setPreview(null)}>Fermer l’aperçu</OperationButton></figcaption>
+      <figcaption className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500"><span className="truncate">{preview.name}</span><OperationButton onClick={()=>setPreview(null)}>{dashboardText("Fermer l’aperçu")}</OperationButton></figcaption>
     </figure>}
   </section>;
 }

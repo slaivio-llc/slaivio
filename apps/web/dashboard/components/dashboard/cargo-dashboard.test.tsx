@@ -5,7 +5,7 @@ import { CargoDashboard } from './cargo-dashboard';
 const mocks=vi.hoisted(()=>({get:vi.fn(),replace:vi.fn(),query:''}));
 vi.mock('next/navigation',()=>({useRouter:()=>({replace:mocks.replace}),usePathname:()=>'/app',useSearchParams:()=>new URLSearchParams(mocks.query)}));
 vi.mock('@/components/permissions/permission-provider',()=>({usePermissions:()=>({permissions:['packages.read']})}));
-vi.mock('@/components/i18n/dashboard-language',()=>({useDashboardLocale:()=> 'en'}));
+vi.mock('@/components/i18n/dashboard-language',async importOriginal=>({...await importOriginal<typeof import('@/components/i18n/dashboard-language')>(),useDashboardLocale:()=> 'en',readDashboardLocale:()=> 'en',readDashboardPresentationLocale:()=> 'en'}));
 vi.mock('@/services/cargo-dashboard',()=>({getCargoDashboard:(...args:unknown[])=>mocks.get(...args)}));
 const data={workspace:{id:'a',name:'Agency',country:'CD',city:'Kinshasa'},scope:'office',office_count:1,
   generated_at:'2026-10-07T12:00:00Z',period:{timezone:'UTC',current:{start:'2026-10-01',end:'2026-10-07'},previous:null},

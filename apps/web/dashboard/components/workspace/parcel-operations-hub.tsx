@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -38,10 +40,11 @@ const initialData: HubData = {
   failed: { packages: false, shipments: false, upcoming: false, tracking: false },
 };
 
-const dateOnly = (value: string) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(value));
+const dateOnly = (value: string) => new Intl.DateTimeFormat(dashboardFormatLocale(), { day: "numeric", month: "short" }).format(new Date(value));
 const routeName = (item: ShipmentDepartureCalendarItem) => item.route_label || `${item.origin_city || item.origin_country || "Origine"} → ${item.destination_city || item.destination_country || "Destination"}`;
 
 export function ParcelOperationsHub() {
+  useDashboardMessages();
   const { permissions, loading: permissionsLoading, available } = usePermissions();
   const canPackages = available && permissions.includes("packages.read");
   const canShipments = available && permissions.includes("shipments.read");
@@ -120,42 +123,42 @@ export function ParcelOperationsHub() {
   }, [canPackages, canShipments, canTracking, permissionsLoading]);
 
   return <div className="min-h-full bg-white">
-    <OperationPageHeader title="Opérations" description="Vue d’ensemble de l’activité cargo" actions={<div className="flex flex-wrap items-center justify-end gap-2">
-      {view === "packages" && available && permissions.includes("packages.create") && <OperationButton variant="primary" onClick={() => requestCreate("packages")}><Plus size={14}/>Créer un colis</OperationButton>}
-      {view === "shipments" && available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("shipments")}><Plus size={14}/>Nouvelle expédition</OperationButton>}
-      {view === "calendar" && available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("calendar")}><CalendarDays size={14}/>Planifier calendrier</OperationButton>}
+    <OperationPageHeader title={dashboardText("Opérations")} description={dashboardText("Vue d’ensemble de l’activité cargo")} actions={<div className="flex flex-wrap items-center justify-end gap-2">
+      {view === "packages" && available && permissions.includes("packages.create") && <OperationButton variant="primary" onClick={() => requestCreate("packages")}><Plus size={14}/>{dashboardText("Créer un colis")}</OperationButton>}
+      {view === "shipments" && available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("shipments")}><Plus size={14}/>{dashboardText("Nouvelle expédition")}</OperationButton>}
+      {view === "calendar" && available && permissions.includes("shipments.create") && <OperationButton variant="primary" onClick={() => requestCreate("calendar")}><CalendarDays size={14}/>{dashboardText("Planifier calendrier")}</OperationButton>}
     </div>}/>
     <main className="mx-auto w-full max-w-[1200px] px-6 pb-10 sm:px-8">
-      <nav aria-label="Sections Opérations" className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
-        <ViewTab active={view === "overview"} onClick={() => selectView("overview")}>Vue d’ensemble</ViewTab>
-        {canPackages && <ViewTab active={view === "packages"} onClick={() => selectView("packages")}>Colis</ViewTab>}
-        {canShipments && <ViewTab active={view === "shipments"} onClick={() => selectView("shipments")}>Expéditions</ViewTab>}
-        {canShipments && <ViewTab active={view === "calendar"} onClick={() => selectView("calendar")}>Calendrier</ViewTab>}
-        {canTracking && <ViewTab active={view === "tracking"} onClick={() => selectView("tracking")}>Tracking</ViewTab>}
+      <nav aria-label={dashboardText("Sections Opérations")} className="operation-tabs mb-4 flex flex-nowrap items-center gap-0 overflow-x-auto pb-2">
+        <ViewTab active={view === "overview"} onClick={() => selectView("overview")}>{dashboardText("Vue d’ensemble")}</ViewTab>
+        {canPackages && <ViewTab active={view === "packages"} onClick={() => selectView("packages")}>{dashboardText("Colis")}</ViewTab>}
+        {canShipments && <ViewTab active={view === "shipments"} onClick={() => selectView("shipments")}>{dashboardText("Expéditions")}</ViewTab>}
+        {canShipments && <ViewTab active={view === "calendar"} onClick={() => selectView("calendar")}>{dashboardText("Calendrier")}</ViewTab>}
+        {canTracking && <ViewTab active={view === "tracking"} onClick={() => selectView("tracking")}>{dashboardText("Tracking")}</ViewTab>}
       </nav>
 
       {view === "overview" && <>
-      <section aria-label="Indicateurs opérationnels" className="grid gap-2 sm:grid-cols-2">
-        <MetricCard onClick={() => selectView("packages")} permission="packages.read" icon={<Package size={15}/>} label="Colis reçus" value={data.packages?.received} loading={loading} error={data.failed.packages} detail="Enregistrés comme reçus"/>
-        <MetricCard onClick={() => selectView("shipments")} permission="shipments.read" icon={<Truck size={15}/>} label="Expéditions en cours" value={data.shipments?.active} loading={loading} error={data.failed.shipments} detail="Non clôturées ni annulées"/>
-        <MetricCard onClick={() => selectView("calendar")} permission="shipments.read" icon={<CalendarDays size={15}/>} label="Départs à venir" value={data.upcomingTruncated ? "500+" : data.upcoming.length} loading={loading} error={data.failed.upcoming} detail="Sur les 30 prochains jours"/>
-        <MetricCard onClick={() => selectView("packages")} permission="packages.read" icon={<Package size={15}/>} label="Colis à livrer" value={data.packages?.ready_for_pickup} loading={loading} error={data.failed.packages} detail="Disponibles pour remise au client"/>
+      <section aria-label={dashboardText("Indicateurs opérationnels")} className="grid gap-2 sm:grid-cols-2">
+        <MetricCard onClick={() => selectView("packages")} permission="packages.read" icon={<Package size={15}/>} label={dashboardText("Colis reçus")} value={data.packages?.received} loading={loading} error={data.failed.packages} detail="Enregistrés comme reçus"/>
+        <MetricCard onClick={() => selectView("shipments")} permission="shipments.read" icon={<Truck size={15}/>} label={dashboardText("Expéditions en cours")} value={data.shipments?.active} loading={loading} error={data.failed.shipments} detail="Non clôturées ni annulées"/>
+        <MetricCard onClick={() => selectView("calendar")} permission="shipments.read" icon={<CalendarDays size={15}/>} label={dashboardText("Départs à venir")} value={data.upcomingTruncated ? "500+" : data.upcoming.length} loading={loading} error={data.failed.upcoming} detail="Sur les 30 prochains jours"/>
+        <MetricCard onClick={() => selectView("packages")} permission="packages.read" icon={<Package size={15}/>} label={dashboardText("Colis à livrer")} value={data.packages?.ready_for_pickup} loading={loading} error={data.failed.packages} detail="Disponibles pour remise au client"/>
       </section>
 
       {canShipments && <section className="mt-6" aria-labelledby="upcoming-heading">
-        <div className="mb-2 flex items-center justify-between gap-3"><h2 id="upcoming-heading" className="text-sm font-semibold text-slate-900">Prochains départs</h2><button type="button" onClick={() => selectView("calendar")} className="text-xs text-slate-600 hover:text-emerald-800">Voir calendrier →</button></div>
+        <div className="mb-2 flex items-center justify-between gap-3"><h2 id="upcoming-heading" className="text-sm font-semibold text-slate-900">{dashboardText("Prochains départs")}</h2><button type="button" onClick={() => selectView("calendar")} className="text-xs text-slate-600 hover:text-emerald-800">{dashboardText("Voir calendrier →")}</button></div>
         <div className="overflow-hidden rounded-lg border border-slate-200">
-          {data.failed.upcoming ? <ErrorMessage text="Les prochains départs n’ont pas pu être chargés."/> : loading ? <div role="status" className="p-4 text-xs text-slate-500">Chargement des départs…</div> : !data.upcoming.length ? <p className="p-4 text-xs text-slate-500">Aucun départ planifié dans les 30 prochains jours.</p> : <>
-            <div className="grid grid-cols-[88px_minmax(0,1fr)_72px] gap-2 bg-slate-50 px-3 py-2 text-[10px] font-medium text-slate-500 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><span>Date</span><span>Route</span><span className="text-right">Colis</span></div>
+          {data.failed.upcoming ? <ErrorMessage text="Les prochains départs n’ont pas pu être chargés."/> : loading ? <div role="status" className="p-4 text-xs text-slate-500">{dashboardText("Chargement des départs…")}</div> : !data.upcoming.length ? <p className="p-4 text-xs text-slate-500">{dashboardText("Aucun départ planifié dans les 30 prochains jours.")}</p> : <>
+            <div className="grid grid-cols-[88px_minmax(0,1fr)_72px] gap-2 bg-slate-50 px-3 py-2 text-[10px] font-medium text-slate-500 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><span>{dashboardText("Date")}</span><span>{dashboardText("Route")}</span><span className="text-right">{dashboardText("Colis")}</span></div>
             {data.upcoming.slice(0, 3).map(item => <button key={item.id} type="button" onClick={() => setSelectedShipment(item.id)} className="grid w-full grid-cols-[88px_minmax(0,1fr)_72px] items-center gap-2 border-t border-slate-100 px-3 py-2.5 text-left text-xs hover:bg-slate-50 sm:grid-cols-[120px_minmax(0,1fr)_90px]"><time dateTime={item.calendar_at} className="text-slate-600">{dateOnly(item.calendar_at)}</time><span className="truncate font-medium text-slate-800">{routeName(item)}</span><span className="text-right text-slate-600">{item.packages_count}</span></button>)}
           </>}
         </div>
       </section>}
 
       {canTracking && <section className="mt-6" aria-labelledby="tracking-heading">
-        <div className="mb-2 flex items-center justify-between gap-3"><h2 id="tracking-heading" className="text-sm font-semibold text-slate-900">Suivi des opérations</h2><button type="button" onClick={() => selectView("tracking")} className="text-xs text-slate-600 hover:text-emerald-800">Voir tracking →</button></div>
-        {data.failed.tracking ? <ErrorMessage text="Le suivi opérationnel n’a pas pu être chargé."/> : loading ? <div role="status" className="rounded-lg border border-slate-200 p-4 text-xs text-slate-500">Chargement du suivi…</div> : !data.tracking.length ? <p className="rounded-lg border border-slate-200 p-4 text-xs text-slate-500">Aucune expédition à suivre.</p> : <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-3">
-          {data.tracking.map(item => <li key={item.id}><Link href={`/app/tracking/${encodeURIComponent(item.id)}`} className="flex items-center justify-between gap-3 py-3"><span className="min-w-0"><span className="block truncate text-xs font-medium text-slate-900">{item.tracking_id}</span><span className="mt-1 block truncate text-[11px] text-slate-500">{item.route_label || `${item.origin_city || item.origin_country || "Origine"} → ${item.destination_city || item.destination_country || "Destination"}`}</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${item.is_delayed ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-700"}`}>{item.is_delayed ? "Retard signalé" : businessLabel(item.status)}</span></Link></li>)}
+        <div className="mb-2 flex items-center justify-between gap-3"><h2 id="tracking-heading" className="text-sm font-semibold text-slate-900">{dashboardText("Suivi des opérations")}</h2><button type="button" onClick={() => selectView("tracking")} className="text-xs text-slate-600 hover:text-emerald-800">{dashboardText("Voir tracking →")}</button></div>
+        {data.failed.tracking ? <ErrorMessage text="Le suivi opérationnel n’a pas pu être chargé."/> : loading ? <div role="status" className="rounded-lg border border-slate-200 p-4 text-xs text-slate-500">{dashboardText("Chargement du suivi…")}</div> : !data.tracking.length ? <p className="rounded-lg border border-slate-200 p-4 text-xs text-slate-500">{dashboardText("Aucune expédition à suivre.")}</p> : <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 px-3">
+          {data.tracking.map(item => <li key={item.id}><Link href={`/app/tracking/${encodeURIComponent(item.id)}`} className="flex items-center justify-between gap-3 py-3"><span className="min-w-0"><span className="block truncate text-xs font-medium text-slate-900">{item.tracking_id}</span><span className="mt-1 block truncate text-[11px] text-slate-500">{item.route_label || `${item.origin_city || item.origin_country || dashboardText("Origine")} → ${item.destination_city || item.destination_country || dashboardText("Destination")}`}</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium ${item.is_delayed ? "bg-red-50 text-red-700" : "bg-slate-100 text-slate-700"}`}>{item.is_delayed ? dashboardText("Retard signalé") : businessLabel(item.status)}</span></Link></li>)}
         </ul>}
       </section>}
       </>}
@@ -169,19 +172,22 @@ export function ParcelOperationsHub() {
 }
 
 function ViewTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  useDashboardMessages();
   return <OperationTab active={active} onClick={onClick}>{children}</OperationTab>;
 }
 
 function MetricCard({ onClick, permission, icon, label, value, loading, error, detail }: { onClick: () => void; permission: string; icon: ReactNode; label: string; value?: number | string; loading: boolean; error: boolean; detail: string }) {
+  useDashboardMessages();
   const { permissions, available, loading: permissionsLoading } = usePermissions();
   if (permissionsLoading || !available || !permissions.includes(permission)) return null;
   return <button type="button" onClick={onClick} className="rounded-lg border border-slate-200 p-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-50/50">
-    <div className="flex items-start justify-between gap-2"><span className="text-[11px] text-slate-600">{label}</span><span className="text-slate-500">{icon}</span></div>
-    <strong className="mt-2 block text-xl font-semibold leading-none text-slate-900">{loading ? "—" : error ? "Indisponible" : value ?? "—"}</strong>
+    <div className="flex items-start justify-between gap-2"><span className="text-[11px] text-slate-600">{dashboardText(label)}</span><span className="text-slate-500">{icon}</span></div>
+    <strong className="mt-2 block text-xl font-semibold leading-none text-slate-900">{loading ? "—" : error ? dashboardText("Indisponible") : value ?? "—"}</strong>
     <span className="mt-2 block text-[10px] text-slate-500">{detail}</span>
   </button>;
 }
 
 function ErrorMessage({ text }: { text: string }) {
+  useDashboardMessages();
   return <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">{text}</p>;
 }

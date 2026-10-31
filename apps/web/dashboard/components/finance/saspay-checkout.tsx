@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { useEffect, useState } from "react";
 import {
@@ -24,6 +26,7 @@ export function SasPayCheckout({ document, onConfirmed }: {
   document: FinanceDocument;
   onConfirmed: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const manualPaymentsOnly = process.env.NEXT_PUBLIC_FINANCE_MANUAL_PAYMENTS_ONLY !== "0" && process.env.NEXT_PUBLIC_FINANCE_MANUAL_PAYMENTS_ONLY !== "false";
   const [attempt, setAttempt] = useState<SasPayAttempt | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,30 +102,29 @@ export function SasPayCheckout({ document, onConfirmed }: {
   const retryAllowed = attempt && ["FAILED", "CANCELLED"].includes(attempt.status);
 
   if (manualPaymentsOnly) {
-    return <section className="space-y-2 rounded-lg border border-[#e5e8eb] bg-slate-50 p-4" aria-label="Paiement manuel uniquement">
+    return <section className="space-y-2 rounded-lg border border-[#e5e8eb] bg-slate-50 p-4" aria-label={dashboardText("Paiement manuel uniquement")}>
       <div>
-        <h3 className="text-sm font-semibold">Paiement manuel uniquement</h3>
-        <p className="mt-1 text-xs text-slate-600">La V1 exige un enregistrement manuel des paiements. Le paiement en ligne est désactivé par défaut et ne sera réactivé explicitement par l’équipe produit.</p>
+        <h3 className="text-sm font-semibold">{dashboardText("Paiement manuel uniquement")}</h3>
+        <p className="mt-1 text-xs text-slate-600">{dashboardText("La V1 exige un enregistrement manuel des paiements. Le paiement en ligne est désactivé par défaut et ne sera réactivé explicitement par l’équipe produit.")}</p>
       </div>
     </section>;
   }
 
-  return <section className="space-y-2 rounded-lg border border-[#e5e8eb] p-4" aria-label="Paiement SasPay">
+  return <section className="space-y-2 rounded-lg border border-[#e5e8eb] p-4" aria-label={dashboardText("Paiement SasPay")}>
     <div>
-      <h3 className="text-sm font-semibold">Paiement en ligne SasPay</h3>
-      <p className="mt-1 text-xs text-slate-500">Le paiement n’est enregistré dans Finance qu’après vérification côté SasPay.</p>
+      <h3 className="text-sm font-semibold">{dashboardText("Paiement en ligne SasPay")}</h3>
+      <p className="mt-1 text-xs text-slate-500">{dashboardText("Le paiement n’est enregistré dans Finance qu’après vérification côté SasPay.")}</p>
     </div>
     {!open && attempt?.status !== "SUCCEEDED" && <button type="button" disabled={busy || (!retryAllowed && !!attempt)} onClick={start} className="h-9 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white disabled:opacity-50">
-      {busy ? "Préparation…" : retryAllowed ? "Nouvelle tentative SasPay" : "Créer le lien de paiement"}
+      {busy ? dashboardText("Préparation…") : retryAllowed ? dashboardText("Nouvelle tentative SasPay") : dashboardText("Créer le lien de paiement")}
     </button>}
     {attempt?.checkout_url && attempt.status === "PENDING" && <a href={attempt.checkout_url} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center rounded-md border border-slate-300 px-3 text-sm font-medium">
-      Ouvrir le paiement SasPay
-    </a>}
+      {dashboardText("Ouvrir le paiement SasPay")}</a>}
     {open && <button type="button" disabled={busy} onClick={reconcile} className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium disabled:opacity-50">
-      {busy ? "Vérification…" : "Vérifier le statut auprès de SasPay"}
+      {busy ? dashboardText("Vérification…") : dashboardText("Vérifier le statut auprès de SasPay")}
     </button>}
-    {attempt?.status === "SUCCEEDED" && <p className="text-sm text-emerald-700">Paiement vérifié et enregistré dans Finance.</p>}
-    {attempt?.status === "AMBIGUOUS" && <p className="text-xs text-amber-800">Résultat de création incertain : aucune nouvelle session ne sera créée automatiquement.</p>}
-    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    {attempt?.status === "SUCCEEDED" && <p className="text-sm text-emerald-700">{dashboardText("Paiement vérifié et enregistré dans Finance.")}</p>}
+    {attempt?.status === "AMBIGUOUS" && <p className="text-xs text-amber-800">{dashboardText("Résultat de création incertain : aucune nouvelle session ne sera créée automatiquement.")}</p>}
+    {error && <p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
   </section>;
 }

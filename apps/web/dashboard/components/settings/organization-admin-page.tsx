@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
@@ -123,6 +125,7 @@ function val(f: FormData, k: string) {
   return String(f.get(k) || "").trim() || null;
 }
 export function OrganizationAdminPage() {
+  useDashboardMessages();
   const router = useRouter(),
     params = useSearchParams();
   const [data, setData] = useState<AdminData | null>(null),
@@ -199,33 +202,33 @@ export function OrganizationAdminPage() {
     router.replace(`/app/settings?section=${section}`, { scroll: false });
   }
   if (!data) return error
-    ? <ErrorState title="Paramètres indisponibles" description={error} retry={load} />
-    : <LoadingState label="Chargement des paramètres…" />;
+    ? <ErrorState title={dashboardText("Paramètres indisponibles")} description={dashboardText(error)} retry={load} />
+    : <LoadingState label={dashboardText("Chargement des paramètres…")} />;
   return (
     <div className="min-h-full bg-[#fff] px-4 py-5 sm:px-6 lg:py-8">
       <div className={`mx-auto bg-white ${tab === "subscription" ? "max-w-[1400px]" : "max-w-[1080px]"}`}>
         <header className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <div className="flex min-w-0 items-center"><h1 className="text-[19px] font-semibold text-[#25292e]">Paramètres de l’agence</h1></div>
+          <div className="flex min-w-0 items-center"><h1 className="text-[19px] font-semibold text-[#25292e]">{dashboardText("Paramètres de l’agence")}</h1></div>
         </header>
         <div className="grid min-h-[620px] lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="hidden space-y-1 border-b border-[#e0e2e4] p-2.5 lg:block lg:border-b-0 lg:border-r lg:p-3">
           {settingGroups.slice(4).map(([group, sections]) => <SettingsGroup key={group} label={group}>
-            {sections.map(id => { const item = tabs.find(([key]) => key === id)!; const [key, label] = item; return <SettingsItem key={key} active={tab === key} label={label} onClick={() => select(key)}/>; })}
+            {sections.map(id => { const item = tabs.find(([key]) => key === id)!; const [key, label] = item; return <SettingsItem key={key} active={tab === key} label={dashboardText(label)} onClick={() => select(key)}/>; })}
           </SettingsGroup>)}
-          <PermissionGuard permission="platform.admin.read"><SettingsGroup label="Plateforme"><SettingsLink href="/app/platform" label="Console Super Admin"/></SettingsGroup></PermissionGuard>
+          <PermissionGuard permission="platform.admin.read"><SettingsGroup label={dashboardText("Plateforme")}><SettingsLink href="/app/platform" label={dashboardText("Console Super Admin")}/></SettingsGroup></PermissionGuard>
         </aside>
         <main className="min-w-0 p-4 sm:p-6 [&_form_label]:text-[13px] [&_form_input]:text-[14px] [&_form_textarea]:text-[14px]">
           <fieldset disabled={saving} aria-busy={saving} className={`mx-auto min-w-0 ${tab === "subscription" ? "w-full" : "max-w-[640px]"}`} key={`${data.settings?.row_version}-${data.organization.row_version}`}>
-            <label className="mb-5 grid gap-1.5 text-[13px] font-medium text-[#59636e] lg:hidden">Section des paramètres<select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>{visibleSettings.map(id => { const [key, label] = tabs.find(([key]) => key === id)!; return <option key={key} value={key}>{label}</option>; })}</select></label>
+            <label className="mb-5 grid gap-1.5 text-[13px] font-medium text-[#59636e] lg:hidden">{dashboardText("Section des paramètres")}<select className={input} value={tab} onChange={(event) => select(event.target.value as Section)}>{visibleSettings.map(id => { const [key, label] = tabs.find(([key]) => key === id)!; return <option key={key} value={key}>{dashboardText(label)}</option>; })}</select></label>
             <div className="mb-5 border-b border-[#e7eaec] pb-4"><h2 className="text-[20px] font-semibold text-[#25292e]">{sectionTitles[tab]?.[0] || tab}</h2><p className="mt-1.5 text-[14px] leading-5 text-[#697178]">{sectionTitles[tab]?.[1] || ""}</p></div>
             {notice && (
               <div className="mb-3 rounded-[5px] bg-emerald-50 px-4 py-3 text-[13px] text-emerald-800">
-                {notice}
+                {dashboardText(notice)}
               </div>
             )}
             {error && (
               <div className="mb-3 rounded-[5px] bg-red-50 px-4 py-3 text-[13px] text-red-700">
-                {error}
+                {dashboardText(error)}
               </div>
             )}
             {tab === "general" && <Preferences data={data} run={run} />}{" "}
@@ -264,8 +267,9 @@ function SettingsGroup({
   label: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
-    <section aria-label={label}>
+    <section aria-label={dashboardText(label)}>
       <div className="space-y-1">{children}</div>
     </section>
   );
@@ -281,13 +285,14 @@ function SettingsItem({
   label: string;
   onClick: () => void;
 }) {
+  useDashboardMessages();
   return (
     <button
       type="button"
       onClick={onClick}
       className={`${settingsItemClass} ${active ? "bg-[#f0f1f1] font-semibold text-[#25292e]" : "text-[#444b52] hover:bg-[#f5f6f6]"}`}
     >
-      <span className="truncate">{label}</span>
+      <span className="truncate">{dashboardText(label)}</span>
     </button>
   );
 }
@@ -298,12 +303,13 @@ function SettingsLink({
   href: string;
   label: string;
 }) {
+  useDashboardMessages();
   return (
     <Link
       href={href}
       className={`${settingsItemClass} text-[#444b52] hover:bg-[#eeeeed]`}
     >
-      <span className="truncate">{label}</span>
+      <span className="truncate">{dashboardText(label)}</span>
     </Link>
   );
 }
@@ -316,6 +322,7 @@ function Card({
   description: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <section className="overflow-hidden rounded-[8px] border border-[#e3e7ea] bg-white">
       <div className="border-b border-[#edf0f3] px-5 py-4">
@@ -335,6 +342,7 @@ const customerMilestones = [
 ] as const;
 
 function CustomerMilestoneNotifications({ data, run }: { data: AdminData; run: (action: () => Promise<unknown>, message: string) => void }) {
+  useDashboardMessages();
   const rawSettings = data.settings?.settings;
   const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings) ? rawSettings as Record<string, unknown> : {};
   const rawMilestones = storedSettings.customer_milestone_notifications;
@@ -346,11 +354,11 @@ function CustomerMilestoneNotifications({ data, run }: { data: AdminData; run: (
   }
   return <PermissionGuard permission="settings.write" fallback={<ReadOnly />}><form onSubmit={submit} className="max-w-[640px]">
     <section className="border-b border-[#e7eaec] pb-4">
-      <h3 className="text-[15px] font-semibold text-[#25292e]">Notifications automatiques</h3>
-      <div className="mt-3 divide-y divide-[#edf0f2]">{customerMilestones.map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center justify-between gap-4 py-2 text-[14px] text-[#30363a]"><span>{label}</span><input aria-label={label} type="checkbox" checked={milestones[key] !== false} onChange={event => setMilestones(current => ({ ...current, [key]: event.target.checked }))} className="h-5 w-5 shrink-0 accent-[#202326]" /></label>)}</div>
-      <p className="mt-3 text-[12px] leading-5 text-[#697178]">Envoi soumis aux connexions actives, aux modèles approuvés, au consentement et à la prévention des doublons.</p>
+      <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Notifications automatiques")}</h3>
+      <div className="mt-3 divide-y divide-[#edf0f2]">{customerMilestones.map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center justify-between gap-4 py-2 text-[14px] text-[#30363a]"><span>{dashboardText(label)}</span><input aria-label={dashboardText(label)} type="checkbox" checked={milestones[key] !== false} onChange={event => setMilestones(current => ({ ...current, [key]: event.target.checked }))} className="h-5 w-5 shrink-0 accent-[#202326]" /></label>)}</div>
+      <p className="mt-3 text-[12px] leading-5 text-[#697178]">{dashboardText("Envoi soumis aux connexions actives, aux modèles approuvés, au consentement et à la prévention des doublons.")}</p>
     </section>
-    <div className="flex justify-end pt-4"><button className={primary}>Enregistrer</button></div>
+    <div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
   </form><CustomerAutomationSettings data={data} run={run}/></PermissionGuard>;
 }
 function PublicTrackingSettings({
@@ -362,6 +370,7 @@ function PublicTrackingSettings({
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
 }) {
+  useDashboardMessages();
   const rawSettings = data.settings?.settings;
   const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
     ? rawSettings as Record<string, unknown>
@@ -404,43 +413,44 @@ function PublicTrackingSettings({
   return <section className="grid gap-5">
     <form onSubmit={submit} className="grid max-w-[640px] gap-5">
       <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
-        <h3 className="text-[15px] font-semibold text-[#25292e]">Suivi public</h3>
+        <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Suivi public")}</h3>
         <label className="flex items-center justify-between gap-4 py-1 text-[14px] font-medium text-[#30363a]">
-          <span><span className="block">Activer le suivi public</span><span className="mt-1 block text-[12px] font-normal text-[#697178]">Les clients peuvent consulter leurs colis sans compte.</span></span>
-          <input aria-label="Activer le suivi public" type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} className="h-5 w-5 accent-[#137c56]" />
+          <span><span className="block">{dashboardText("Activer le suivi public")}</span><span className="mt-1 block text-[12px] font-normal text-[#697178]">{dashboardText("Les clients peuvent consulter leurs colis sans compte.")}</span></span>
+          <input aria-label={dashboardText("Activer le suivi public")} type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} className="h-5 w-5 accent-[#137c56]" />
         </label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Identifiant public de l’agence<input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={event => setSlug(event.target.value.toLowerCase())} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-        <div className="pt-1"><p className="text-[12px] text-[#697178]">Adresse publique</p><a href={publicUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all text-[13px] font-medium text-[#30363a] underline">{publicUrl}</a></div>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Message d’accueil<textarea name="welcome" rows={3} maxLength={300} value={welcome} onChange={event => setWelcome(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Identifiant public de l’agence")}<input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={event => setSlug(event.target.value.toLowerCase())} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <div className="pt-1"><p className="text-[12px] text-[#697178]">{dashboardText("Adresse publique")}</p><a href={publicUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all text-[13px] font-medium text-[#30363a] underline">{publicUrl}</a></div>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Message d’accueil")}<textarea name="welcome" rows={3} maxLength={300} value={welcome} onChange={event => setWelcome(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
       </section>
       <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
-        <h3 className="text-[15px] font-semibold text-[#25292e]">Éléments visibles sur la page</h3>
-        <VisibilityToggle label="Afficher le logo et le nom de l’agence" checked={showBrand} onChange={setShowBrand}/>
-        <VisibilityToggle label="Afficher les coordonnées du support" checked={showSupport} onChange={setShowSupport}/>
-        <VisibilityToggle label="Afficher l’historique de suivi" checked={showHistory} onChange={setShowHistory}/>
-        <VisibilityToggle label="Afficher les informations tarifaires" checked={showPricing} onChange={setShowPricing}/>
+        <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Éléments visibles sur la page")}</h3>
+        <VisibilityToggle label={dashboardText("Afficher le logo et le nom de l’agence")} checked={showBrand} onChange={setShowBrand}/>
+        <VisibilityToggle label={dashboardText("Afficher les coordonnées du support")} checked={showSupport} onChange={setShowSupport}/>
+        <VisibilityToggle label={dashboardText("Afficher l’historique de suivi")} checked={showHistory} onChange={setShowHistory}/>
+        <VisibilityToggle label={dashboardText("Afficher les informations tarifaires")} checked={showPricing} onChange={setShowPricing}/>
       </section>
       <section>
-        <h3 className="text-[15px] font-semibold text-[#25292e]">Aperçu de la page client</h3>
+        <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Aperçu de la page client")}</h3>
         <div className="mt-3 rounded-lg border border-[#d8dddf] p-4">
           {showBrand && <div className="flex items-center gap-2 text-[13px] font-medium text-[#30363a]"><span className="grid h-8 w-8 place-items-center rounded-md bg-[#f4f6f5]"><Building2 size={16}/></span>{agencyName}</div>}
-          <h4 className="mt-4 text-[15px] font-semibold text-[#25292e]">Suivez votre colis</h4>
+          <h4 className="mt-4 text-[15px] font-semibold text-[#25292e]">{dashboardText("Suivez votre colis")}</h4>
           <p className="mt-1 text-[13px] leading-5 text-[#697178]">{welcome}</p>
-          <div className="mt-4 flex gap-2"><span className="h-10 flex-1 rounded-lg border border-[#d8dddf] px-3 py-2 text-[13px] text-[#9aa1a6]">Référence du colis</span><span className="rounded-lg bg-[#172b4d] px-4 py-2 text-[13px] font-medium text-white">Suivre</span></div>
-          {showSupport && supportPhone && <p className="mt-3 text-[12px] text-[#697178]">Support : {supportPhone}</p>}
-          {!enabled && <p className="mt-3 text-[12px] font-medium text-amber-700">Le suivi public est désactivé.</p>}
-          {!showHistory && <p className="mt-2 text-[11px] text-[#899197]">L’historique de suivi est masqué.</p>}
-          {showPricing && <p className="mt-2 text-[11px] text-[#899197]">Les informations tarifaires ne seront visibles que si elles existent et sont autorisées.</p>}
+          <div className="mt-4 flex gap-2"><span className="h-10 flex-1 rounded-lg border border-[#d8dddf] px-3 py-2 text-[13px] text-[#9aa1a6]">{dashboardText("Référence du colis")}</span><span className="rounded-lg bg-[#172b4d] px-4 py-2 text-[13px] font-medium text-white">{dashboardText("Suivre")}</span></div>
+          {showSupport && supportPhone && <p className="mt-3 text-[12px] text-[#697178]">{dashboardText("Support : ")}{supportPhone}</p>}
+          {!enabled && <p className="mt-3 text-[12px] font-medium text-amber-700">{dashboardText("Le suivi public est désactivé.")}</p>}
+          {!showHistory && <p className="mt-2 text-[11px] text-[#899197]">{dashboardText("L’historique de suivi est masqué.")}</p>}
+          {showPricing && <p className="mt-2 text-[11px] text-[#899197]">{dashboardText("Les informations tarifaires ne seront visibles que si elles existent et sont autorisées.")}</p>}
         </div>
       </section>
-      <p className="text-[12px] leading-5 text-[#697178]">La consultation réelle doit protéger les données personnelles et limiter les informations accessibles avec une simple référence.</p>
-      <PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div></PermissionGuard>
+      <p className="text-[12px] leading-5 text-[#697178]">{dashboardText("La consultation réelle doit protéger les données personnelles et limiter les informations accessibles avec une simple référence.")}</p>
+      <PermissionGuard permission="organization.manage"><div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div></PermissionGuard>
     </form>
   </section>;
 }
 
 function VisibilityToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
-  return <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]">{label}<input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>;
+  useDashboardMessages();
+  return <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]">{dashboardText(label)}<input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>;
 }
 
 function AgencyHoursSettings({
@@ -452,6 +462,7 @@ function AgencyHoursSettings({
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
 }) {
+  useDashboardMessages();
   const settings = data.settings?.settings && typeof data.settings.settings === "object" && !Array.isArray(data.settings.settings)
     ? data.settings.settings as Record<string, unknown>
     : {};
@@ -478,10 +489,10 @@ function AgencyHoursSettings({
   return <section className="grid gap-5">
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Horaires de l’agence<textarea name="agency_hours" rows={3} maxLength={300} required value={hours} onChange={event => setHours(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Fuseau horaire<select name="agency_timezone" value={timezone} onChange={event => setTimezone(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]">{[["Africa/Kinshasa", "Kinshasa"], ["Africa/Lubumbashi", "Lubumbashi"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Africa/Lagos", "Lagos"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Ces horaires sont affichés sur votre page publique lorsque les coordonnées du support sont visibles. Chaque bureau conserve ses propres horaires.</p>
-        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Horaires de l’agence")}<textarea name="agency_hours" rows={3} maxLength={300} required value={hours} onChange={event => setHours(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Fuseau horaire")}<select name="agency_timezone" value={timezone} onChange={event => setTimezone(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]">{[["Africa/Kinshasa", dashboardText("Kinshasa")], ["Africa/Lubumbashi", dashboardText("Lubumbashi")], ["Africa/Douala", dashboardText("Douala")], ["Africa/Abidjan", dashboardText("Abidjan")], ["Africa/Lagos", dashboardText("Lagos")], ["Europe/Brussels", dashboardText("Bruxelles")], ["Europe/Paris", dashboardText("Paris")], ["Asia/Shanghai", dashboardText("Shanghai")], ["Asia/Dubai", dashboardText("Dubaï")], ["UTC", dashboardText("Temps universel (UTC)")]].map(([value, label]) => <option key={value} value={value}>{dashboardText(label)}</option>)}</select></label>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">{dashboardText("Ces horaires sont affichés sur votre page publique lorsque les coordonnées du support sont visibles. Chaque bureau conserve ses propres horaires.")}</p>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -496,6 +507,7 @@ function ParcelReceiptRulesSettings({
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
 }) {
+  useDashboardMessages();
   const rawSettings = data.settings?.settings;
   const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
     ? rawSettings as Record<string, unknown>
@@ -530,19 +542,19 @@ function ParcelReceiptRulesSettings({
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
         <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
-          <h3 className="text-[15px] font-semibold text-[#25292e]">Règles d’enregistrement</h3>
-          <VisibilityToggle label="Catégorie de marchandise obligatoire" checked={categoryRequired} onChange={setCategoryRequired}/>
-          <VisibilityToggle label="Type de conditionnement obligatoire" checked={packagingRequired} onChange={setPackagingRequired}/>
-          <VisibilityToggle label="Autoriser la réception sans mesure" checked={allowUnmeasured} onChange={setAllowUnmeasured}/>
-          <VisibilityToggle label="Autoriser les photos du colis" checked={allowPhotos} onChange={setAllowPhotos}/>
-          <VisibilityToggle label="Recherche automatique du tarif" checked={autoRateLookup} onChange={setAutoRateLookup}/>
+          <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Règles d’enregistrement")}</h3>
+          <VisibilityToggle label={dashboardText("Catégorie de marchandise obligatoire")} checked={categoryRequired} onChange={setCategoryRequired}/>
+          <VisibilityToggle label={dashboardText("Type de conditionnement obligatoire")} checked={packagingRequired} onChange={setPackagingRequired}/>
+          <VisibilityToggle label={dashboardText("Autoriser la réception sans mesure")} checked={allowUnmeasured} onChange={setAllowUnmeasured}/>
+          <VisibilityToggle label={dashboardText("Autoriser les photos du colis")} checked={allowPhotos} onChange={setAllowPhotos}/>
+          <VisibilityToggle label={dashboardText("Recherche automatique du tarif")} checked={autoRateLookup} onChange={setAutoRateLookup}/>
         </section>
         <section className="grid gap-3 border-b border-[#e7eaec] pb-5">
-          <h3 className="text-[15px] font-semibold text-[#25292e]">Mesures selon le service</h3>
-          {[ ["Transport aérien", "KG"], ["Transport maritime", "CBM"], ["Transport express", "KG"] ].map(([service, unit]) => <div key={service} className="flex items-center justify-between px-2 py-1 text-[13px] text-[#30363a]"><span>{service}</span><span className="rounded-full bg-[#f0f1f2] px-2.5 py-1 text-[11px] font-semibold text-[#424a50]">{unit}</span></div>)}
-          <p className="text-[12px] leading-5 text-[#697178]">L’unité de facturation est déterminée automatiquement par la configuration du service, jamais choisie par l’agent.</p>
+          <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Mesures selon le service")}</h3>
+          {[ [dashboardText("Transport aérien"), "KG"], [dashboardText("Transport maritime"), dashboardText("CBM")], [dashboardText("Transport express"), "KG"] ].map(([service, unit]) => <div key={service} className="flex items-center justify-between px-2 py-1 text-[13px] text-[#30363a]"><span>{service}</span><span className="rounded-full bg-[#f0f1f2] px-2.5 py-1 text-[11px] font-semibold text-[#424a50]">{unit}</span></div>)}
+          <p className="text-[12px] leading-5 text-[#697178]">{dashboardText("L’unité de facturation est déterminée automatiquement par la configuration du service, jamais choisie par l’agent.")}</p>
         </section>
-        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -557,6 +569,7 @@ function ShipmentDeliverySettings({
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
 }) {
+  useDashboardMessages();
   const rawSettings = data.settings?.settings;
   const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
     ? rawSettings as Record<string, unknown>
@@ -587,12 +600,12 @@ function ShipmentDeliverySettings({
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
         <div className="grid gap-3 border-b border-[#e7eaec] pb-5">
-          <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]"><span><span className="block font-medium">Preuve de livraison</span><span className="mt-1 block text-[12px] text-[#697178]">Conserver une confirmation lors de la remise.</span></span><input aria-label="Preuve de livraison" type="checkbox" checked={deliveryProof} onChange={event => setDeliveryProof(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>
-          <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]"><span><span className="block font-medium">Avis d’arrivée</span><span className="mt-1 block text-[12px] text-[#697178]">Déclencher après confirmation réelle de l’arrivée.</span></span><input aria-label="Avis d’arrivée" type="checkbox" checked={arrivalNotice} onChange={event => setArrivalNotice(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>
-          <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Délai indicatif de retrait (jours)<input type="number" min={0} max={365} step={1} required value={pickupDays} onChange={event => setPickupDays(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-          <p className="text-[12px] leading-5 text-[#697178]">Les calendriers de départ, routes et expéditions se gèrent dans les modules opérationnels.</p>
+          <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]"><span><span className="block font-medium">{dashboardText("Preuve de livraison")}</span><span className="mt-1 block text-[12px] text-[#697178]">{dashboardText("Conserver une confirmation lors de la remise.")}</span></span><input aria-label={dashboardText("Preuve de livraison")} type="checkbox" checked={deliveryProof} onChange={event => setDeliveryProof(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>
+          <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]"><span><span className="block font-medium">{dashboardText("Avis d’arrivée")}</span><span className="mt-1 block text-[12px] text-[#697178]">{dashboardText("Déclencher après confirmation réelle de l’arrivée.")}</span></span><input aria-label={dashboardText("Avis d’arrivée")} type="checkbox" checked={arrivalNotice} onChange={event => setArrivalNotice(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>
+          <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Délai indicatif de retrait (jours)")}<input type="number" min={0} max={365} step={1} required value={pickupDays} onChange={event => setPickupDays(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+          <p className="text-[12px] leading-5 text-[#697178]">{dashboardText("Les calendriers de départ, routes et expéditions se gèrent dans les modules opérationnels.")}</p>
         </div>
-        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -607,6 +620,7 @@ function PackageNumberingSettings({
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
 }) {
+  useDashboardMessages();
   const numbering = data.numbering.find(item => String(item.document_type).toUpperCase() === "PACKAGE");
   const savedFormat=String(numbering?.prefix_format || 'COL-{YYYY}-{000001}');
   const [prefix,setPrefix]=useState(savedFormat.split('{')[0].replace(/[-_]+$/,''));
@@ -615,7 +629,7 @@ function PackageNumberingSettings({
   const [scope,setScope]=useState(String(numbering?.counter_scope || 'GLOBAL'));
   const [reset,setReset]=useState(String(numbering?.reset_period || 'NEVER'));
   if (!active) return null;
-  if (!numbering) return <p role="alert" className="max-w-[640px] rounded-lg border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-900">Le compteur de références colis n’est pas configuré pour cette agence.</p>;
+  if (!numbering) return <p role="alert" className="max-w-[640px] rounded-lg border border-amber-200 bg-amber-50 p-4 text-[13px] text-amber-900">{dashboardText("Le compteur de références colis n’est pas configuré pour cette agence.")}</p>;
   const packageNumbering = numbering;
 
   const currentFormat = `${prefix.toUpperCase()}-${withOffice || scope === 'OFFICE' ? '{OFFICE}-' : ''}{YYYY}-${reset === 'MONTH' ? '{MM}-' : ''}{${'0'.repeat(Number(digits)-1)}1}`;
@@ -635,14 +649,14 @@ function PackageNumberingSettings({
   return <section className="grid gap-5">
     <PermissionGuard permission="documents.settings" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Modèle de référence colis<select value={withOffice ? 'office' : 'simple'} onChange={event=>{setWithOffice(event.target.value==='office');if(event.target.value==='simple')setScope('GLOBAL');}} className={input}><option value="simple">Préfixe + année + séquence</option><option value="office">Préfixe + bureau + année + séquence</option></select></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Préfixe agence<input name="agency_prefix" required minLength={2} maxLength={12} pattern="[A-Za-z0-9-]+" value={prefix} onChange={event=>setPrefix(event.target.value.toUpperCase())} className={input} /></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Longueur de la séquence<select value={digits} onChange={event=>setDigits(event.target.value)} className={input}>{[4,6,8].map(value=><option key={value} value={value}>{value} chiffres</option>)}</select></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Compteur<select value={scope} onChange={event=>{setScope(event.target.value);if(event.target.value==='OFFICE')setWithOffice(true);}} className={input}><option value="GLOBAL">Global à l’agence</option><option value="OFFICE">Par bureau</option></select></label>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Réinitialisation<select value={reset} onChange={event=>setReset(event.target.value)} className={input}><option value="NEVER">Jamais</option><option value="YEAR">Chaque année</option><option value="MONTH">Chaque mois</option></select></label>
-        <div className="grid gap-1"><span className="text-[12px] text-[#697178]">Exemple fictif</span><strong className="text-[14px] font-semibold text-[#25292e]">{preview}</strong></div>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Le nouveau format s’applique aux prochains colis. Les références existantes sont conservées et les doublons sont évités automatiquement.</p>
-        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Modèle de référence colis")}<select value={withOffice ? 'office' : 'simple'} onChange={event=>{setWithOffice(event.target.value==='office');if(event.target.value==='simple')setScope('GLOBAL');}} className={input}><option value="simple">{dashboardText("Préfixe + année + séquence")}</option><option value="office">{dashboardText("Préfixe + bureau + année + séquence")}</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Préfixe agence")}<input name="agency_prefix" required minLength={2} maxLength={12} pattern="[A-Za-z0-9-]+" value={prefix} onChange={event=>setPrefix(event.target.value.toUpperCase())} className={input} /></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Longueur de la séquence")}<select value={digits} onChange={event=>setDigits(event.target.value)} className={input}>{[4,6,8].map(value=><option key={value} value={value}>{value} {dashboardText(" chiffres")}</option>)}</select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Compteur")}<select value={scope} onChange={event=>{setScope(event.target.value);if(event.target.value==='OFFICE')setWithOffice(true);}} className={input}><option value="GLOBAL">{dashboardText("Global à l’agence")}</option><option value="OFFICE">{dashboardText("Par bureau")}</option></select></label>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Réinitialisation")}<select value={reset} onChange={event=>setReset(event.target.value)} className={input}><option value="NEVER">{dashboardText("Jamais")}</option><option value="YEAR">{dashboardText("Chaque année")}</option><option value="MONTH">{dashboardText("Chaque mois")}</option></select></label>
+        <div className="grid gap-1"><span className="text-[12px] text-[#697178]">{dashboardText("Exemple fictif")}</span><strong className="text-[14px] font-semibold text-[#25292e]">{preview}</strong></div>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">{dashboardText("Le nouveau format s’applique aux prochains colis. Les références existantes sont conservées et les doublons sont évités automatiquement.")}</p>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -657,6 +671,7 @@ function GoodsRestrictionsSettings({
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
 }) {
+  useDashboardMessages();
   const rawSettings = data.settings?.settings;
   const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
     ? rawSettings as Record<string, unknown>
@@ -684,10 +699,10 @@ function GoodsRestrictionsSettings({
   return <section className="grid gap-5">
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
-        <VisibilityToggle label="Vérification des marchandises réglementées" checked={regulatedGoodsCheck} onChange={setRegulatedGoodsCheck}/>
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Conditions et restrictions communiquées aux agents<textarea rows={4} maxLength={2000} required value={instructions} onChange={event => setInstructions(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Les règles doivent pouvoir varier selon le pays, le corridor et le service, avec validation humaine pour les marchandises sensibles.</p>
-        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
+        <VisibilityToggle label={dashboardText("Vérification des marchandises réglementées")} checked={regulatedGoodsCheck} onChange={setRegulatedGoodsCheck}/>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Conditions et restrictions communiquées aux agents")}<textarea rows={4} maxLength={2000} required value={instructions} onChange={event => setInstructions(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">{dashboardText("Les règles doivent pouvoir varier selon le pays, le corridor et le service, avec validation humaine pour les marchandises sensibles.")}</p>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -702,6 +717,7 @@ function ClientConditionsSettings({
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
 }) {
+  useDashboardMessages();
   const rawSettings = data.settings?.settings;
   const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
     ? rawSettings as Record<string, unknown>
@@ -725,10 +741,10 @@ function ClientConditionsSettings({
   return <section className="grid gap-5">
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
-        <VisibilityToggle label="Autoriser le crédit client" checked={allowCredit} onChange={setAllowCredit}/>
-        <p className="-mt-3 text-[12px] leading-5 text-[#697178]">Uniquement pour les clients explicitement approuvés.</p>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Autres règles à prévoir : conditions générales, consentements, réclamations, données obligatoires, gestion des comptes entreprises.</p>
-        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
+        <VisibilityToggle label={dashboardText("Autoriser le crédit client")} checked={allowCredit} onChange={setAllowCredit}/>
+        <p className="-mt-3 text-[12px] leading-5 text-[#697178]">{dashboardText("Uniquement pour les clients explicitement approuvés.")}</p>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">{dashboardText("Autres règles à prévoir : conditions générales, consentements, réclamations, données obligatoires, gestion des comptes entreprises.")}</p>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -741,6 +757,7 @@ function Organization({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const o = data.organization;
   const [logoFile, setLogoFile] = useState<File | null>(null);
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -771,19 +788,19 @@ function Organization({
   }
   return (
     <section className="grid gap-4 [&>header]:hidden">
-      <header className="border-b border-[#e7eaec] pb-3"><h3 className="text-[14px] font-semibold text-[#25292e]">Profil de l’agence</h3><p className="mt-1 text-[10px] leading-4 text-[#697178]">Informations officielles utilisées sur les espaces publics et documents.</p></header>
+      <header className="border-b border-[#e7eaec] pb-3"><h3 className="text-[14px] font-semibold text-[#25292e]">{dashboardText("Profil de l’agence")}</h3><p className="mt-1 text-[10px] leading-4 text-[#697178]">{dashboardText("Informations officielles utilisées sur les espaces publics et documents.")}</p></header>
       <PermissionGuard permission="organization.manage" fallback={<ReadOnly />}>
         <form onSubmit={submit} className="grid max-w-[560px] gap-3">
-          <BrandImageUpload label="Logo de l’agence" currentUrl={String(o.logo_url || "")} file={logoFile} onChange={setLogoFile}/>
-          {[["name", "Nom commercial *", "organization_name"], ["legal", "Raison sociale", "legal_name"], ["slogan", "Slogan", "brand_slogan"]].map(([n, l, k]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")} required={n === "name"}/></label>)}
-          <label className="grid gap-1 text-[10px] text-[#697178]">Description de l’agence<textarea name="description" rows={3} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.brand_description || "")}/></label>
-          <div className="border-t border-[#e7eaec] pt-3"><h4 className="text-[11px] font-semibold text-[#25292e]">Coordonnées officielles</h4></div>
-          {[["phone", "Téléphone", "phone", "tel"], ["email", "Email de contact", "email", "email"], ["website", "Site web", "website", "url"]].map(([n, l, k, type]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input type={type} className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")} placeholder={n === "website" ? "https://" : ""}/></label>)}
+          <BrandImageUpload label={dashboardText("Logo de l’agence")} currentUrl={String(o.logo_url || "")} file={logoFile} onChange={setLogoFile}/>
+          {[["name", dashboardText("Nom commercial *"), "organization_name"], ["legal", dashboardText("Raison sociale"), "legal_name"], ["slogan", dashboardText("Slogan"), "brand_slogan"]].map(([n, l, k]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")} required={n === "name"}/></label>)}
+          <label className="grid gap-1 text-[10px] text-[#697178]">{dashboardText("Description de l’agence")}<textarea name="description" rows={3} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.brand_description || "")}/></label>
+          <div className="border-t border-[#e7eaec] pt-3"><h4 className="text-[11px] font-semibold text-[#25292e]">{dashboardText("Coordonnées officielles")}</h4></div>
+          {[["phone", dashboardText("Téléphone"), "phone", "tel"], ["email", dashboardText("Email de contact"), "email", "email"], ["website", dashboardText("Site web"), "website", "url"]].map(([n, l, k, type]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input type={type} className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")} placeholder={n === "website" ? dashboardText("https://") : ""}/></label>)}
           <FormGeographyFields key={`organization-geo-${String(o.row_version)}`} initialCountry={String(o.country || "")} initialCity={String(o.city || "")} className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e]" fieldClassName="grid gap-1 text-[10px] text-[#697178]" countryLabel="Pays" cityLabel="Ville"/>
-          <label className="grid gap-1 text-[10px] text-[#697178]">Adresse du siège<textarea name="address" rows={2} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.address || "")} placeholder="Adresse complète"/></label>
-          {[["registration", "Numéro d’enregistrement", "registration_number"], ["tax", "Identifiant fiscal", "tax_number"]].map(([n, l, k]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")}/></label>)}
-          <p className="text-[10px] leading-4 text-[#697178]">Les informations publiques sont sélectionnées dans les paramètres de la page publique de suivi. Les données légales peuvent rester privées.</p>
-          <div className="flex items-center justify-between border-t border-[#e7eaec] pt-3"><span className="text-[9px] text-[#8a9297]">Profil de l’agence</span><button className={primary}>Enregistrer</button></div>
+          <label className="grid gap-1 text-[10px] text-[#697178]">{dashboardText("Adresse du siège")}<textarea name="address" rows={2} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.address || "")} placeholder={dashboardText("Adresse complète")}/></label>
+          {[["registration", dashboardText("Numéro d’enregistrement"), "registration_number"], ["tax", dashboardText("Identifiant fiscal"), "tax_number"]].map(([n, l, k]) => <label key={n} className="grid gap-1 text-[10px] text-[#697178]">{l}<input className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" name={n} defaultValue={String(o[k] || "")}/></label>)}
+          <p className="text-[10px] leading-4 text-[#697178]">{dashboardText("Les informations publiques sont sélectionnées dans les paramètres de la page publique de suivi. Les données légales peuvent rester privées.")}</p>
+          <div className="flex items-center justify-between border-t border-[#e7eaec] pt-3"><span className="text-[9px] text-[#8a9297]">{dashboardText("Profil de l’agence")}</span><button className={primary}>{dashboardText("Enregistrer")}</button></div>
         </form>
       </PermissionGuard>
     </section>
@@ -796,6 +813,7 @@ function Team({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const [inviteRole,setInviteRole]=useState(data.roles.some(role=>role.role_code==='FINANCE')?'FINANCE':'');
   const [inviteScope,setInviteScope]=useState<'ALL_OFFICES'|'SELECTED_OFFICES'>('SELECTED_OFFICES');
   const [inviteOffices,setInviteOffices]=useState<string[]>([]);
@@ -813,8 +831,8 @@ function Team({
   return (
     <div className="grid gap-4">
       <FormSection
-        title="Inviter un collaborateur"
-        description="Choisissez ce que le collaborateur pourra faire et les bureaux concernés avant d’envoyer son invitation."
+        title={dashboardText("Inviter un collaborateur")}
+        description={dashboardText("Choisissez ce que le collaborateur pourra faire et les bureaux concernés avant d’envoyer son invitation.")}
       >
         <PermissionGuard permission="team.write" fallback={<ReadOnly />}>
           <form onSubmit={invite} className="grid max-w-2xl gap-4">
@@ -823,34 +841,33 @@ function Team({
               type="email"
               name="email"
               className={`${input} max-w-sm`}
-              placeholder="collaborateur@agence.com"
+              placeholder={dashboardText("collaborateur@agence.com")}
             />
-            <select aria-label="Accès du collaborateur" name="role" value={inviteRole} onChange={event=>{setInviteRole(event.target.value);if(event.target.value==='MANAGER')setInviteScope('ALL_OFFICES');}} className={`${input} max-w-[320px]`}>
-              <option value="" disabled>Choisir un rôle</option>
+            <select aria-label={dashboardText("Accès du collaborateur")} name="role" value={inviteRole} onChange={event=>{setInviteRole(event.target.value);if(event.target.value==='MANAGER')setInviteScope('ALL_OFFICES');}} className={`${input} max-w-[320px]`}>
+              <option value="" disabled>{dashboardText("Choisir un rôle")}</option>
               {data.roles.filter(role=>role.role_code!=='OWNER').map((r) => (
                 <option key={r.id} value={r.role_code}>
                   {agencyRoleLabel(r.role_code,r.role_name)}
                 </option>
               ))}
             </select>
-            <div className="rounded-xl border border-[#dfe3e4] bg-[#f7faf8] p-4 text-sm"><p className="font-medium text-[#087a46]">{selectedRole?agencyRoleLabel(selectedRole.role_code,selectedRole.role_name):'Sélectionnez un rôle'}</p><p className="mt-1 text-xs text-[#69747f]">{selectedRole?.system_role&&inviteRole==='MANAGER'?'Gestion des clients, colis, expéditions, entrepôt, factures, paiements, rapports et équipe du bureau actif. Aucun accès supplémentaire aux autres bureaux, à l’administration du réseau ou aux droits du propriétaire.':selectedRole?.system_role&&inviteRole==='FINANCE'?'Accès aux factures et paiements de l’agence, sans ouvrir les autres modules.':'Les actions autorisées sont définies par les permissions de ce rôle.'}</p>{selectedRole?.permission_codes&&<ul className="mt-3 grid gap-1 text-xs text-[#69747f]">{selectedRole.permission_codes.map(code=><li key={code}>{permissionGroupLabel(code.split('.')[0])} · {permissionActionLabel(code)}</li>)}</ul>}</div>
-            {inviteRole==='MANAGER'&&<p className="rounded-lg border border-[#dfe3e4] p-3 text-xs leading-5 text-[#69747f]">L’invitation concerne uniquement le bureau actuellement sélectionné dans le dashboard. Pour un autre bureau du réseau, changez d’abord de bureau dans le sélecteur. L’accès à tous les sites internes ci-dessous n’ouvre pas les autres bureaux du réseau.</p>}
-            <label className="grid gap-2 text-sm">Bureaux autorisés<select aria-label="Bureaux autorisés pour l’invitation" value={inviteScope} onChange={event=>setInviteScope(event.target.value as 'ALL_OFFICES'|'SELECTED_OFFICES')} className={input}><option value="SELECTED_OFFICES">Uniquement les bureaux sélectionnés</option><option value="ALL_OFFICES">Tous les bureaux de cette agence, actuels et futurs</option></select></label>
-            {inviteScope==='SELECTED_OFFICES'&&<div className="grid gap-2 rounded-lg border border-[#dfe3e4] p-3">{offices.map(office=><label key={String(office.id)} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={inviteOffices.includes(String(office.id))} onChange={event=>setInviteOffices(values=>event.target.checked?[...values,String(office.id)]:values.filter(id=>id!==office.id))}/>{String(office.name)} · {String(office.city||'')}</label>)}{!offices.length&&<p className="text-xs text-[#69747f]">Aucun bureau physique actif n’est configuré. Ajoutez un bureau ou choisissez explicitement l’accès à toute l’agence.</p>}</div>}
-            <p className="text-xs leading-5 text-[#69747f]">Ces bureaux sont les sites physiques de l’agence active. Les autres agences et espaces du réseau restent soumis à leurs propres affectations.</p>
+            <div className="rounded-xl border border-[#dfe3e4] bg-[#f7faf8] p-4 text-sm"><p className="font-medium text-[#087a46]">{selectedRole?agencyRoleLabel(selectedRole.role_code,selectedRole.role_name):dashboardText("Sélectionnez un rôle")}</p><p className="mt-1 text-xs text-[#69747f]">{selectedRole?.system_role&&inviteRole==='MANAGER'?dashboardText("Gestion des clients, colis, expéditions, entrepôt, factures, paiements, rapports et équipe du bureau actif. Aucun accès supplémentaire aux autres bureaux, à l’administration du réseau ou aux droits du propriétaire."):selectedRole?.system_role&&inviteRole==='FINANCE'?dashboardText("Accès aux factures et paiements de l’agence, sans ouvrir les autres modules."):dashboardText("Les actions autorisées sont définies par les permissions de ce rôle.")}</p>{selectedRole?.permission_codes&&<ul className="mt-3 grid gap-1 text-xs text-[#69747f]">{selectedRole.permission_codes.map(code=><li key={code}>{permissionGroupLabel(code.split('.')[0])} · {permissionActionLabel(code)}</li>)}</ul>}</div>
+            {inviteRole==='MANAGER'&&<p className="rounded-lg border border-[#dfe3e4] p-3 text-xs leading-5 text-[#69747f]">{dashboardText("L’invitation concerne uniquement le bureau actuellement sélectionné dans le dashboard. Pour un autre bureau du réseau, changez d’abord de bureau dans le sélecteur. L’accès à tous les sites internes ci-dessous n’ouvre pas les autres bureaux du réseau.")}</p>}
+            <label className="grid gap-2 text-sm">{dashboardText("Bureaux autorisés")}<select aria-label={dashboardText("Bureaux autorisés pour l’invitation")} value={inviteScope} onChange={event=>setInviteScope(event.target.value as 'ALL_OFFICES'|'SELECTED_OFFICES')} className={input}><option value="SELECTED_OFFICES">{dashboardText("Uniquement les bureaux sélectionnés")}</option><option value="ALL_OFFICES">{dashboardText("Tous les bureaux de cette agence, actuels et futurs")}</option></select></label>
+            {inviteScope==='SELECTED_OFFICES'&&<div className="grid gap-2 rounded-lg border border-[#dfe3e4] p-3">{offices.map(office=><label key={String(office.id)} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={inviteOffices.includes(String(office.id))} onChange={event=>setInviteOffices(values=>event.target.checked?[...values,String(office.id)]:values.filter(id=>id!==office.id))}/>{String(office.name)} · {String(office.city||'')}</label>)}{!offices.length&&<p className="text-xs text-[#69747f]">{dashboardText("Aucun bureau physique actif n’est configuré. Ajoutez un bureau ou choisissez explicitement l’accès à toute l’agence.")}</p>}</div>}
+            <p className="text-xs leading-5 text-[#69747f]">{dashboardText("Ces bureaux sont les sites physiques de l’agence active. Les autres agences et espaces du réseau restent soumis à leurs propres affectations.")}</p>
             <button disabled={!selectedRole||(inviteScope==='SELECTED_OFFICES'&&!inviteOffices.length)} className={primary}>
               <UserPlus className="mr-2 inline" size={14} />
-              Inviter
-            </button>
+              {dashboardText("Inviter")}</button>
           </form>
         </PermissionGuard>
       </FormSection>
       <FormSection
-        title={`Membres (${data.members.length})`}
-        description="Gérez les rôles, les accès et les bureaux autorisés de votre équipe."
+        title={dashboardText("Membres ({0})", data.members.length)}
+        description={dashboardText("Gérez les rôles, les accès et les bureaux autorisés de votre équipe.")}
       >
         <div className="divide-y">
-          {!data.members.length && <p className="py-3 text-[13px] text-[#697178]">Aucun collaborateur pour le moment.</p>}
+          {!data.members.length && <p className="py-3 text-[13px] text-[#697178]">{dashboardText("Aucun collaborateur pour le moment.")}</p>}
           {data.members.map((m) => (
             <MemberRow key={m.id} member={m} roles={data.roles} locations={data.locations} run={run} />
           ))}
@@ -858,8 +875,8 @@ function Team({
       </FormSection>
       {data.invitations.length > 0 && (
         <FormSection
-          title="Invitations"
-          description="Invitations en attente, acceptées ou révoquées."
+          title={dashboardText("Invitations")}
+          description={dashboardText("Invitations en attente, acceptées ou révoquées.")}
         >
           <div className="grid gap-1" data-ui="team-invitations">
             {data.invitations.map((x) => (
@@ -884,8 +901,7 @@ function Team({
                         )
                       }
                     >
-                      Révoquer
-                    </button>
+                      {dashboardText("Révoquer")}</button>
                   </PermissionGuard>
                 )}
               </div>
@@ -907,6 +923,7 @@ function MemberRow({
   locations: AdminData["locations"];
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const [role, setRole] = useState(member.role_code),
     [status, setStatus] = useState(member.status),
     [officeScope, setOfficeScope] = useState(member.office_access_scope || "ALL_OFFICES"),
@@ -917,9 +934,9 @@ function MemberRow({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3 text-[13px]">
       <div>
-        <b>{member.member_display_name || member.member_email || "Membre"}</b>
+        <b>{member.member_display_name || member.member_email || dashboardText("Membre")}</b>
         <p className="text-[12px] text-[#69707d]">
-          {member.member_email || "Adresse email non renseignée"}
+          {member.member_email || dashboardText("Adresse email non renseignée")}
         </p>
       </div>
       <PermissionGuard
@@ -947,8 +964,8 @@ function MemberRow({
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            <option value="ACTIVE">Actif</option>
-            <option value="SUSPENDED">Suspendu</option>
+            <option value="ACTIVE">{dashboardText("Actif")}</option>
+            <option value="SUSPENDED">{dashboardText("Suspendu")}</option>
           </select>
           <button
             className={button}
@@ -964,22 +981,21 @@ function MemberRow({
               )
             }
           >
-            Appliquer
-          </button>
+            {dashboardText("Appliquer")}</button>
         </div>
       </PermissionGuard>
       {member.role_code !== "OWNER" && (
         <PermissionGuard permission="locations.access.manage">
           <div className="basis-full rounded-[6px] border border-[#e2e5e7] bg-[#fafbfb] p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-[12px] font-medium">Bureaux autorisés</label>
+              <label className="text-[12px] font-medium">{dashboardText("Bureaux autorisés")}</label>
               <select
                 className={`${input} max-w-[240px]`}
                 value={officeScope}
                 onChange={(event) => setOfficeScope(event.target.value as "ALL_OFFICES" | "SELECTED_OFFICES")}
               >
-                <option value="ALL_OFFICES">Tous les bureaux</option>
-                <option value="SELECTED_OFFICES">Bureaux sélectionnés</option>
+                <option value="ALL_OFFICES">{dashboardText("Tous les bureaux")}</option>
+                <option value="SELECTED_OFFICES">{dashboardText("Bureaux sélectionnés")}</option>
               </select>
               <button
                 className={button}
@@ -992,8 +1008,7 @@ function MemberRow({
                   "Bureaux autorisés mis à jour.",
                 )}
               >
-                Enregistrer les accès
-              </button>
+                {dashboardText("Enregistrer les accès")}</button>
             </div>
             {officeScope === "SELECTED_OFFICES" && (
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
@@ -1014,7 +1029,7 @@ function MemberRow({
                     </label>
                   );
                 })}
-                {!offices.length && <span className="text-[12px] text-[#69707d]">Aucun bureau actif n’est configuré.</span>}
+                {!offices.length && <span className="text-[12px] text-[#69707d]">{dashboardText("Aucun bureau actif n’est configuré.")}</span>}
               </div>
             )}
           </div>
@@ -1043,7 +1058,7 @@ const permissionGroups: Record<string, string> = {
   organization: "Agence",
 };
 function permissionGroupLabel(group: string) {
-  return permissionGroups[group] || "Autres fonctions";
+  return dashboardText(permissionGroups[group] || "Autres fonctions");
 }
 function permissionActionLabel(code: string) {
   const action = code.split(".").slice(1).join(".");
@@ -1061,7 +1076,7 @@ function permissionActionLabel(code: string) {
     scan: "Scanner",
     assign: "Affecter",
   };
-  return labels[action] || "Action avancée";
+  return dashboardText(labels[action] || "Action avancée");
 }
 function Roles({
   data,
@@ -1070,6 +1085,7 @@ function Roles({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const groups = useMemo(
     () =>
       data.permissions.reduce<Record<string, AdminData["permissions"]>>(
@@ -1107,30 +1123,30 @@ function Roles({
   return (
     <div className="grid gap-4 lg:grid-cols-[.8fr_1.2fr]">
       <Card
-        title="Rôles existants"
-        description="Les rôles système forment le socle; les rôles personnalisés répondent à votre organisation."
+        title={dashboardText("Rôles existants")}
+        description={dashboardText("Les rôles système forment le socle; les rôles personnalisés répondent à votre organisation.")}
       >
         {data.roles.map((r) => (
           <div className="border-b py-3 text-[13px]" key={r.id}>
             <b>{agencyRoleLabel(r.role_code,r.role_name)}</b>
             <p className="text-[12px] text-[#69707d]">
-              {r.permission_count} droits · {r.member_count} membres{" "}
-              {r.system_role ? "· Système" : ""}
+              {r.permission_count} {dashboardText(" droits · ")}{r.member_count} {dashboardText(" membres")}{" "}
+              {r.system_role ? dashboardText("· Système") : ""}
             </p>
           </div>
         ))}
       </Card>
       <Card
-        title="Nouveau rôle personnalisé"
-        description="Accordez uniquement les capacités nécessaires."
+        title={dashboardText("Nouveau rôle personnalisé")}
+        description={dashboardText("Accordez uniquement les capacités nécessaires.")}
       >
         <PermissionGuard permission="roles.manage" fallback={<ReadOnly />}>
           <form onSubmit={submit} className="grid gap-5">
-            <FormSection title="Responsabilité" description="Utilisez un nom compris par les responsables et les employés.">
-              <OperationField label="Nom du rôle" required><input required name="name" className={input} placeholder="Ex. Responsable entrepôt Chine" /></OperationField>
-              <OperationField label="À quoi sert ce rôle ?"><input name="description" className={input} placeholder="Décrivez simplement les responsabilités de cette équipe" /></OperationField>
+            <FormSection title={dashboardText("Responsabilité")} description={dashboardText("Utilisez un nom compris par les responsables et les employés.")}>
+              <OperationField label={dashboardText("Nom du rôle")} required><input required name="name" className={input} placeholder={dashboardText("Ex. Responsable entrepôt Chine")} /></OperationField>
+              <OperationField label={dashboardText("À quoi sert ce rôle ?")}><input name="description" className={input} placeholder={dashboardText("Décrivez simplement les responsabilités de cette équipe")} /></OperationField>
             </FormSection>
-            <FormSection title="Actions autorisées" description="Cochez uniquement les actions nécessaires au travail de ce rôle.">
+            <FormSection title={dashboardText("Actions autorisées")} description={dashboardText("Cochez uniquement les actions nécessaires au travail de ce rôle.")}>
             <div className="max-h-[400px] overflow-y-auto rounded-[6px] border border-[#e3e7ea] p-3">
               {Object.entries(groups).map(([group, permissions]) => (
                 <div key={group} className="mb-4">
@@ -1156,7 +1172,7 @@ function Roles({
               ))}
             </div>
             </FormSection>
-            <div className="flex justify-end"><OperationButton type="submit" variant="primary">Créer le rôle</OperationButton></div>
+            <div className="flex justify-end"><OperationButton type="submit" variant="primary">{dashboardText("Créer le rôle")}</OperationButton></div>
           </form>
         </PermissionGuard>
       </Card>
@@ -1170,6 +1186,7 @@ function Preferences({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const settings = data.settings || { row_version: 1 };
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1190,19 +1207,20 @@ function Preferences({
   return (
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-4">
-        <SettingSelect label="Langue par défaut" name="language" value={String(settings.language_code || "fr")} options={[["fr", "Français"], ["en", "English"]]} />
-        <SettingSelect label="Devise de référence" name="currency" value={agencyCurrency(settings.currency_code)} options={agencyCurrencyOptions(settings.currency_code).map(currency => [currency, currency])} />
-        <SettingSelect label="Fuseau horaire" name="timezone" value={String(settings.timezone || "Africa/Kinshasa")} options={[["Africa/Kinshasa", "Kinshasa"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]]} />
+        <SettingSelect label={dashboardText("Langue par défaut")} name="language" value={String(settings.language_code || "fr")} options={[["fr", "Français"], ["en", "English"]]} />
+        <SettingSelect label={dashboardText("Devise de référence")} name="currency" value={agencyCurrency(settings.currency_code)} options={agencyCurrencyOptions(settings.currency_code).map(currency => [currency, currency])} />
+        <SettingSelect label={dashboardText("Fuseau horaire")} name="timezone" value={String(settings.timezone || "Africa/Kinshasa")} options={[["Africa/Kinshasa", "Kinshasa"], ["Africa/Douala", "Douala"], ["Africa/Abidjan", "Abidjan"], ["Europe/Brussels", "Bruxelles"], ["Europe/Paris", "Paris"], ["Asia/Shanghai", "Shanghai"], ["Asia/Dubai", "Dubaï"], ["UTC", "Temps universel (UTC)"]]} />
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4">
-          <span className="text-[11px] text-[#858d93]">Paramètres de l’agence</span>
-          <button className={primary}>Enregistrer</button>
+          <span className="text-[11px] text-[#858d93]">{dashboardText("Paramètres de l’agence")}</span>
+          <button className={primary}>{dashboardText("Enregistrer")}</button>
         </div>
       </form>
     </PermissionGuard>
   );
 }
 function SettingSelect({label,name,value,options}:{label:string;name:string;value:string;options:string[][]}) {
-  return <label>{label}<select name={name} defaultValue={value} className={`${input} mt-1`}>{!options.some(([option])=>option===value)&&<option value={value}>{value}</option>}{options.map(([option,labelText])=><option key={option} value={option}>{labelText}</option>)}</select></label>;
+  useDashboardMessages();
+  return <label>{dashboardText(label)}<select name={name} defaultValue={value} className={`${input} mt-1`}>{!options.some(([option])=>option===value)&&<option value={value}>{value}</option>}{options.map(([option,labelText])=><option key={option} value={option}>{labelText}</option>)}</select></label>;
 }
 function Security({
   data,
@@ -1211,6 +1229,7 @@ function Security({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const clerk=useClerk();
   const s = data.settings || { row_version: 1 };
   const sec = (s.security || {}) as Record<string, unknown>;
@@ -1235,18 +1254,18 @@ function Security({
         <section className="grid gap-3 border-b border-[#e7eaec] pb-4">
           <label className="flex items-center justify-between gap-4 text-[14px] text-[#30363a]">
             <span>
-              <span className="block font-medium">Authentification multifacteur</span>
-              <span className="mt-1 block text-[12px] text-[#697178]">Protection supplémentaire des comptes.</span>
+              <span className="block font-medium">{dashboardText("Authentification multifacteur")}</span>
+              <span className="mt-1 block text-[12px] text-[#697178]">{dashboardText("Protection supplémentaire des comptes.")}</span>
             </span>
-            <input aria-label="Authentification multifacteur" name="mfa" type="checkbox" defaultChecked={sec.require_mfa === true && sec.mfa_enforced === true} className="h-5 w-5 accent-[#202326]" />
+            <input aria-label={dashboardText("Authentification multifacteur")} name="mfa" type="checkbox" defaultChecked={sec.require_mfa === true && sec.mfa_enforced === true} className="h-5 w-5 accent-[#202326]" />
           </label>
-          <p className="text-[12px] leading-5 text-[#697178]">Rôles personnalisés, accès par bureau, historique des connexions et audit des changements sensibles.</p>
-          <button type="button" onClick={()=>clerk.openUserProfile()} className={button}>Configurer la sécurité de mon compte</button>
-          <Link href="/app/settings?section=team" className="flex h-10 w-full items-center justify-center rounded-full border border-[#d8dddf] text-[13px] font-medium text-[#424a50] hover:bg-[#f7f8f8]">Configurer les accès</Link>
+          <p className="text-[12px] leading-5 text-[#697178]">{dashboardText("Rôles personnalisés, accès par bureau, historique des connexions et audit des changements sensibles.")}</p>
+          <button type="button" onClick={()=>clerk.openUserProfile()} className={button}>{dashboardText("Configurer la sécurité de mon compte")}</button>
+          <Link href="/app/settings?section=team" className="flex h-10 w-full items-center justify-center rounded-full border border-[#d8dddf] text-[13px] font-medium text-[#424a50] hover:bg-[#f7f8f8]">{dashboardText("Configurer les accès")}</Link>
         </section>
         <div className="flex items-center justify-between border-t border-[#e7eaec] pt-4">
-          <span className="text-[11px] text-[#858d93]">Paramètres de sécurité de l’agence</span>
-          <button className={primary}>Enregistrer</button>
+          <span className="text-[11px] text-[#858d93]">{dashboardText("Paramètres de sécurité de l’agence")}</span>
+          <button className={primary}>{dashboardText("Enregistrer")}</button>
         </div>
       </form>
     </PermissionGuard>
@@ -1259,6 +1278,7 @@ function Workspaces({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -1278,30 +1298,30 @@ function Workspaces({
   return (
     <div className="grid gap-4">
       <Card
-        title="Nouveau workspace"
-        description="Un périmètre opérationnel isolé par pays ou activité."
+        title={dashboardText("Nouveau workspace")}
+        description={dashboardText("Un périmètre opérationnel isolé par pays ou activité.")}
       >
         <form onSubmit={submit} className="grid gap-2 md:grid-cols-3">
           <input
             required
             name="name"
             className={input}
-            placeholder="Workspace RDC"
+            placeholder={dashboardText("Workspace RDC")}
           />
-          <input required name="code" className={input} placeholder="RDC" />
+          <input required name="code" className={input} placeholder={dashboardText("RDC")} />
           <FormGeographyFields countryValueMode="isoCode" showCity={false} className={input} fieldClassName="grid gap-1 text-[12px] text-[#555d68]" countryLabel="Pays du workspace" />
-          <select name="currency" className={input} defaultValue="USD"><option>USD</option><option>EUR</option><option>CDF</option><option>GBP</option><option>CNY</option><option>AED</option><option>XAF</option><option>GHS</option><option>KES</option></select>
-          <select name="timezone" className={input} defaultValue="UTC"><option value="Africa/Kinshasa">Kinshasa</option><option value="Africa/Douala">Douala</option><option value="Africa/Abidjan">Abidjan</option><option value="Europe/Brussels">Bruxelles</option><option value="Europe/Paris">Paris</option><option value="Asia/Shanghai">Shanghai</option><option value="Asia/Dubai">Dubaï</option><option value="UTC">Temps universel (UTC)</option></select>
+          <select name="currency" className={input} defaultValue="USD"><option>{dashboardText("USD")}</option><option>{dashboardText("EUR")}</option><option>{dashboardText("CDF")}</option><option>{dashboardText("GBP")}</option><option>{dashboardText("CNY")}</option><option>{dashboardText("AED")}</option><option>{dashboardText("XAF")}</option><option>{dashboardText("GHS")}</option><option>{dashboardText("KES")}</option></select>
+          <select name="timezone" className={input} defaultValue="UTC"><option value="Africa/Kinshasa">{dashboardText("Kinshasa")}</option><option value="Africa/Douala">{dashboardText("Douala")}</option><option value="Africa/Abidjan">{dashboardText("Abidjan")}</option><option value="Europe/Brussels">{dashboardText("Bruxelles")}</option><option value="Europe/Paris">{dashboardText("Paris")}</option><option value="Asia/Shanghai">{dashboardText("Shanghai")}</option><option value="Asia/Dubai">{dashboardText("Dubaï")}</option><option value="UTC">{dashboardText("Temps universel (UTC)")}</option></select>
           <select name="language" className={input}>
-            <option value="fr">Français</option>
-            <option value="en">English</option>
+            <option value="fr">{dashboardText("Français")}</option>
+            <option value="en">{dashboardText("English")}</option>
           </select>
-          <button className={primary}>Enregistrer</button>
+          <button className={primary}>{dashboardText("Enregistrer")}</button>
         </form>
       </Card>
       <Card
-        title="Workspaces"
-        description="Les archives restent auditables et ne suppriment aucune donnée."
+        title={dashboardText("Workspaces")}
+        description={dashboardText("Les archives restent auditables et ne suppriment aucune donnée.")}
       >
         {data.workspaces.map((x) => (
           <div
@@ -1325,15 +1345,13 @@ function Workspaces({
                   )
                 }
               >
-                Archiver
-              </button>
+                {dashboardText("Archiver")}</button>
             )}
           </div>
         ))}
         {!data.workspaces.length && (
           <p className="text-[13px] text-[#69707d]">
-            Aucun workspace configuré.
-          </p>
+            {dashboardText("Aucun workspace configuré.")}</p>
         )}
       </Card>
     </div>
@@ -1346,6 +1364,7 @@ function Locations({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const [createOpen, setCreateOpen] = useState(false);
   const offices = data.locations.filter((location) => location.location_type === "OFFICE");
   const officesByCountry = offices.reduce<Record<string, typeof offices>>((groups, office) => {
@@ -1378,57 +1397,55 @@ function Locations({
     <div className="grid gap-4">
       <section className="flex flex-col items-start justify-between gap-4 rounded-xl border border-[#e3e7ea] bg-white p-5 sm:flex-row sm:items-center sm:px-6">
         <div>
-          <h2 className="text-[15px] font-semibold text-[#293034]">Bureaux de l’agence</h2>
-          <p className="mt-1 text-[13px] text-[#697178]">Ajoutez et gérez les implantations physiques de votre organisation.</p>
+          <h2 className="text-[15px] font-semibold text-[#293034]">{dashboardText("Bureaux de l’agence")}</h2>
+          <p className="mt-1 text-[13px] text-[#697178]">{dashboardText("Ajoutez et gérez les implantations physiques de votre organisation.")}</p>
         </div>
         <OperationButton variant="primary" onClick={() => setCreateOpen(true)} className="h-10 shrink-0 px-4">
           <Plus size={16} aria-hidden="true" />
-          Ajouter un bureau
-        </OperationButton>
+          {dashboardText("Ajouter un bureau")}</OperationButton>
       </section>
       <OperationDrawer
         open={createOpen}
         close={() => setCreateOpen(false)}
-        title="Ajouter un bureau"
-        description="Renseignez les informations de cette implantation. Vous pourrez les modifier plus tard."
+        title={dashboardText("Ajouter un bureau")}
+        description={dashboardText("Renseignez les informations de cette implantation. Vous pourrez les modifier plus tard.")}
         width="max-w-3xl"
         placement="center"
         bodyClassName="!bg-[#f5f7f8] p-4 sm:p-7"
         headerLeading={<div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Building2 size={21} aria-hidden="true" /></div>}
-        footer={<><OperationButton type="button" onClick={() => setCreateOpen(false)}>Annuler</OperationButton><OperationButton type="submit" form="create-office-form" variant="primary">Enregistrer le bureau</OperationButton></>}
+        footer={<><OperationButton type="button" onClick={() => setCreateOpen(false)}>{dashboardText("Annuler")}</OperationButton><OperationButton type="submit" form="create-office-form" variant="primary">{dashboardText("Enregistrer le bureau")}</OperationButton></>}
       >
         <form id="create-office-form" onSubmit={submit} className="mx-auto grid w-full max-w-2xl gap-5">
           <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">01 · Identification</p>
-            <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Nom et localisation</h3>
-            <p className="mb-5 mt-1 text-[13px] text-[#69747c]">Les champs marqués d’un astérisque sont obligatoires.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">{dashboardText("01 · Identification")}</p>
+            <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">{dashboardText("Nom et localisation")}</h3>
+            <p className="mb-5 mt-1 text-[13px] text-[#69747c]">{dashboardText("Les champs marqués d’un astérisque sont obligatoires.")}</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">
-                Nom du bureau *
-                <input required minLength={2} maxLength={120} name="name" autoFocus className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="Ex. Bureau de Bobo-Dioulasso" />
+                {dashboardText("Nom du bureau *")}<input required minLength={2} maxLength={120} name="name" autoFocus className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder={dashboardText("Ex. Bureau de Bobo-Dioulasso")} />
               </label>
               <FormGeographyFields required className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]" />
             </div>
           </section>
           <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">02 · Informations complémentaires</p>
-            <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Coordonnées locales <span className="text-[13px] font-normal text-[#849097]">· facultatif</span></h3>
+            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">{dashboardText("02 · Informations complémentaires")}</p>
+            <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">{dashboardText("Coordonnées locales ")}<span className="text-[13px] font-normal text-[#849097]">{dashboardText("· facultatif")}</span></h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">Adresse du bureau<input name="address" maxLength={300} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="Rue, numéro et repère utile" /></label>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Téléphone du bureau<input name="phone" type="tel" maxLength={30} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="+226 ..." /></label>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Horaires d’ouverture<input name="hours" maxLength={300} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder="Lun–Sam, 08:00–17:00" /></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">{dashboardText("Adresse du bureau")}<input name="address" maxLength={300} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder={dashboardText("Rue, numéro et repère utile")} /></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Téléphone du bureau")}<input name="phone" type="tel" maxLength={30} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder={dashboardText("+226 ...")} /></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Horaires d’ouverture")}<input name="hours" maxLength={300} className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder={dashboardText("Lun–Sam, 08:00–17:00")} /></label>
             </div>
           </section>
         </form>
       </OperationDrawer>
       <Card
-        title={`Bureaux de l’agence · ${offices.length}`}
-        description="Les bureaux inactifs restent conservés pour préserver l’historique."
+        title={dashboardText("Bureaux de l’agence · {0}", offices.length)}
+        description={dashboardText("Les bureaux inactifs restent conservés pour préserver l’historique.")}
       >
         {Object.entries(officesByCountry).sort(([left], [right]) => left.localeCompare(right)).map(([country, items]) => (
           <section key={country} className="border-b py-2 last:border-b-0">
             <h3 className="flex items-center justify-between py-2 text-[13px] font-semibold text-[#303a43]">
-              {country}<span className="text-[11px] font-normal text-[#74808c]">{items.length} bureau{items.length > 1 ? "x" : ""}</span>
+              {country}<span className="text-[11px] font-normal text-[#74808c]">{items.length} {dashboardText(" bureau")}{items.length > 1 ? dashboardText("x") : ""}</span>
             </h3>
             {items.map((x) => (
               <div key={String(x.id)} className="flex items-center justify-between gap-4 border-t py-3 text-[13px]">
@@ -1440,7 +1457,7 @@ function Locations({
                     {x.phone ? ` · ${String(x.phone)}` : ""}
                   </p>
                   <span className={x.status === "ACTIVE" ? "text-emerald-700" : "text-slate-500"}>
-                    {x.status === "ACTIVE" ? "Actif" : "Inactif"}
+                    {x.status === "ACTIVE" ? dashboardText("Actif") : dashboardText("Inactif")}
                   </span>
                 </div>
                 <button
@@ -1455,13 +1472,13 @@ function Locations({
                     x.status === "ACTIVE" ? "Bureau désactivé." : "Bureau réactivé.",
                   )}
                 >
-                  {x.status === "ACTIVE" ? "Désactiver" : "Réactiver"}
+                  {x.status === "ACTIVE" ? dashboardText("Désactiver") : dashboardText("Réactiver")}
                 </button>
               </div>
             ))}
           </section>
         ))}
-        {!offices.length && <p className="py-3 text-[13px] text-[#69707d]">Aucun bureau configuré.</p>}
+        {!offices.length && <p className="py-3 text-[13px] text-[#69707d]">{dashboardText("Aucun bureau configuré.")}</p>}
       </Card>
     </div>
   );
@@ -1473,6 +1490,7 @@ function DocumentsSettings({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   const rawSettings = data.settings?.settings;
   const storedSettings = rawSettings && typeof rawSettings === "object" && !Array.isArray(rawSettings)
     ? rawSettings as Record<string, unknown>
@@ -1503,19 +1521,19 @@ function DocumentsSettings({
   return <section className="grid gap-5">
     <PermissionGuard permission="documents.settings" fallback={<ReadOnly />}>
       <form onSubmit={submit} className="grid max-w-[640px] gap-5">
-        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">Format d’étiquette par défaut<select value={labelFormat} onChange={event => setLabelFormat(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]"><option value="THERMAL_100_150">Thermique 100 × 150 mm</option><option value="A4">A4</option><option value="THERMAL_100_100">Thermique 100 × 100 mm</option></select></label>
-        <VisibilityToggle label="Afficher le logo de l’agence" checked={showLogo} onChange={setShowLogo}/>
-        <VisibilityToggle label="Afficher les coordonnées du bureau" checked={showOfficeDetails} onChange={setShowOfficeDetails}/>
-        <h3 className="text-[15px] font-semibold">Factures de votre agence</h3>
-        <label className="grid gap-1.5 text-[13px]">Présentation<select className={input} value={invoice.invoice_layout} onChange={event=>setInvoice(current=>({...current,invoice_layout:event.target.value}))}><option value="CLASSIC">Classique</option><option value="COMPACT">Compacte</option></select></label>
-        <label className="grid gap-1.5 text-[13px]">Titre de la facture<input required maxLength={80} className={input} value={invoice.invoice_title} onChange={event=>setInvoice(current=>({...current,invoice_title:event.target.value}))}/></label>
-        <label className="flex items-center justify-between text-[13px]">Couleur du document<input type="color" aria-label="Couleur du document" value={invoice.invoice_accent_color} onChange={event=>setInvoice(current=>({...current,invoice_accent_color:event.target.value}))}/></label>
-        <label className="grid gap-1.5 text-[13px]">Pied de page<textarea rows={3} maxLength={2000} className="rounded-md border border-[#d8d9dc] p-3 text-sm" value={invoice.invoice_footer} onChange={event=>setInvoice(current=>({...current,invoice_footer:event.target.value}))}/></label>
-        <VisibilityToggle label="Afficher le téléphone du client" checked={invoice.show_client_phone} onChange={value=>setInvoice(current=>({...current,show_client_phone:value}))}/>
-        <VisibilityToggle label="Afficher l’adresse e-mail du client" checked={invoice.show_client_email} onChange={value=>setInvoice(current=>({...current,show_client_email:value}))}/>
-        <VisibilityToggle label="Afficher l’échéance" checked={invoice.show_due_date} onChange={value=>setInvoice(current=>({...current,show_due_date:value}))}/>
-        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">Ces choix s’appliquent aux documents générés ensuite. Les copies numériques transmises après remise conservent leur version d’origine. La facture s’imprime et s’enregistre en PDF depuis le navigateur.</p>
-        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>Enregistrer</button></div>
+        <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Format d’étiquette par défaut")}<select value={labelFormat} onChange={event => setLabelFormat(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]"><option value="THERMAL_100_150">{dashboardText("Thermique 100 × 150 mm")}</option><option value="A4">{dashboardText("A4")}</option><option value="THERMAL_100_100">{dashboardText("Thermique 100 × 100 mm")}</option></select></label>
+        <VisibilityToggle label={dashboardText("Afficher le logo de l’agence")} checked={showLogo} onChange={setShowLogo}/>
+        <VisibilityToggle label={dashboardText("Afficher les coordonnées du bureau")} checked={showOfficeDetails} onChange={setShowOfficeDetails}/>
+        <h3 className="text-[15px] font-semibold">{dashboardText("Factures de votre agence")}</h3>
+        <label className="grid gap-1.5 text-[13px]">{dashboardText("Présentation")}<select className={input} value={invoice.invoice_layout} onChange={event=>setInvoice(current=>({...current,invoice_layout:event.target.value}))}><option value="CLASSIC">{dashboardText("Classique")}</option><option value="COMPACT">{dashboardText("Compacte")}</option></select></label>
+        <label className="grid gap-1.5 text-[13px]">{dashboardText("Titre de la facture")}<input required maxLength={80} className={input} value={invoice.invoice_title} onChange={event=>setInvoice(current=>({...current,invoice_title:event.target.value}))}/></label>
+        <label className="flex items-center justify-between text-[13px]">{dashboardText("Couleur du document")}<input type="color" aria-label={dashboardText("Couleur du document")} value={invoice.invoice_accent_color} onChange={event=>setInvoice(current=>({...current,invoice_accent_color:event.target.value}))}/></label>
+        <label className="grid gap-1.5 text-[13px]">{dashboardText("Pied de page")}<textarea rows={3} maxLength={2000} className="rounded-md border border-[#d8d9dc] p-3 text-sm" value={invoice.invoice_footer} onChange={event=>setInvoice(current=>({...current,invoice_footer:event.target.value}))}/></label>
+        <VisibilityToggle label={dashboardText("Afficher le téléphone du client")} checked={invoice.show_client_phone} onChange={value=>setInvoice(current=>({...current,show_client_phone:value}))}/>
+        <VisibilityToggle label={dashboardText("Afficher l’adresse e-mail du client")} checked={invoice.show_client_email} onChange={value=>setInvoice(current=>({...current,show_client_email:value}))}/>
+        <VisibilityToggle label={dashboardText("Afficher l’échéance")} checked={invoice.show_due_date} onChange={value=>setInvoice(current=>({...current,show_due_date:value}))}/>
+        <p className="border-b border-[#e7eaec] pb-4 text-[12px] leading-5 text-[#697178]">{dashboardText("Ces choix s’appliquent aux documents générés ensuite. Les copies numériques transmises après remise conservent leur version d’origine. La facture s’imprime et s’enregistre en PDF depuis le navigateur.")}</p>
+        <div className="flex justify-end border-t border-[#e7eaec] pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
       </form>
     </PermissionGuard>
   </section>;
@@ -1527,6 +1545,7 @@ function DataSettings({
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
 }) {
+  useDashboardMessages();
   async function exportData() {
     run(
       () =>
@@ -1567,36 +1586,32 @@ function DataSettings({
   return (
     <div className="grid gap-4">
       <Card
-        title="Export et conservation"
-        description="Les exports sont préparés en arrière-plan et restent auditables."
+        title={dashboardText("Export et conservation")}
+        description={dashboardText("Les exports sont préparés en arrière-plan et restent auditables.")}
       >
         <button className={primary} onClick={exportData}>
-          Demander un export complet
-        </button>
+          {dashboardText("Demander un export complet")}</button>
         <p className="mt-3 text-[12px] text-[#69707d]">
-          Demandes récentes : {data.data_requests.length}
+          {dashboardText("Demandes récentes : ")}{data.data_requests.length}
         </p>
       </Card>
       <section className="border border-red-200 bg-red-50 p-5">
-        <h3 className="font-semibold text-red-800">Zone sensible</h3>
+        <h3 className="font-semibold text-red-800">{dashboardText("Zone sensible")}</h3>
         <p className="my-3 text-[12px] text-red-700">
-          La suppression n’est jamais immédiate : confirmation forte, audit et
-          validation sont requis.
-        </p>
+          {dashboardText("La suppression n’est jamais immédiate : confirmation forte, audit et validation sont requis.")}</p>
         <button
           className="h-9 bg-red-700 px-4 text-[13px] font-semibold text-white"
           onClick={deleteOrg}
         >
-          Demander la suppression
-        </button>
+          {dashboardText("Demander la suppression")}</button>
       </section>
     </div>
   );
 }
 function ReadOnly() {
+  useDashboardMessages();
   return (
     <p className="rounded-[5px] bg-[#f2f2f1] p-3 text-[12px] text-[#69707d]">
-      Consultation seule : votre rôle ne permet pas cette modification.
-    </p>
+      {dashboardText("Consultation seule : votre rôle ne permet pas cette modification.")}</p>
   );
 }

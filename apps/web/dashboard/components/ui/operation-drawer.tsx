@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { Archive, RotateCcw, SquarePen, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -19,6 +21,7 @@ export function OperationDrawerTabs({
   value: string;
   onChange: (value: string) => void;
 }) {
+  useDashboardMessages();
   return (
     <>
       {items.map((item) => (
@@ -33,7 +36,7 @@ export function OperationDrawerTabs({
               : "text-[#68717d] hover:bg-[#f2f3f3] hover:text-[#17212b]"
           }`}
         >
-          {item.label}
+          {dashboardText(item.label)}
           {Boolean(item.count) && (
             <span className="min-w-5 rounded-full bg-[#e7ebed] px-1.5 py-0.5 text-center text-[12px] font-semibold text-[#59636c]">
               {item.count}
@@ -57,6 +60,7 @@ export function OperationDrawerAction({
   icon?: "edit" | "archive" | "restore" | "delete" | ReactNode;
   showLabel?: boolean;
 }) {
+  useDashboardMessages();
   const textLabel = typeof children === "string" ? children : undefined;
   const resolvedIcon = icon || (intent === "danger" && textLabel && ["Retirer", "Supprimer"].some(label=>textLabel.startsWith(label)) ? "delete" : undefined);
   const Icon = resolvedIcon === "edit" ? SquarePen : resolvedIcon === "archive" ? Archive : resolvedIcon === "restore" ? RotateCcw : resolvedIcon === "delete" ? Trash2 : null;
@@ -118,6 +122,7 @@ export function OperationDrawer({
   placement?: "center" | "right";
   variant?: "auto" | "detail" | "form";
 }) {
+  useDashboardMessages();
   const [visible, setVisible] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
@@ -169,7 +174,7 @@ export function OperationDrawer({
       }}
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-label={dashboardText(title)}
     >
       <section
         ref={panelRef}
@@ -184,11 +189,11 @@ export function OperationDrawer({
             {headerLeading && <div className="shrink-0">{headerLeading}</div>}
             <div className="min-w-0 flex-1">
               <h2 data-ui="operation-drawer-title" className="truncate text-[20px] font-[680] tracking-[-0.02em] text-[#20252b]">
-                {title}
+                {dashboardText(title)}
               </h2>
               {description && (
                 <p data-ui="operation-drawer-description" className="mt-1.5 max-w-2xl text-[13px] leading-5 text-[#66717c]">
-                  {description}
+                  {dashboardText(description)}
                 </p>
               )}
             </div>
@@ -201,7 +206,7 @@ export function OperationDrawer({
               type="button"
               onClick={close}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-[7px] text-[#59616a] transition-colors hover:bg-[#f0f2f3] hover:text-[#20252b]"
-              aria-label="Fermer"
+              aria-label={dashboardText("Fermer")}
             >
               <X size={18} />
             </button>

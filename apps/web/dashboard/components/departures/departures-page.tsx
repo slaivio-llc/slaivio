@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -73,6 +75,7 @@ type View =
   | "analytics"
   | "configuration";
 export function DeparturesPage() {
+  useDashboardMessages();
   const [items, setItems] = useState<Departure[]>([]),
     [stats, setStats] = useState<DepartureStats | null>(null),
     [services, setServices] = useState<Service[]>([]),
@@ -182,25 +185,23 @@ export function DeparturesPage() {
     [
       "weight",
       "Poids prévu",
-      `${Number(stats?.weight_kg || 0).toLocaleString("fr-FR")} kg`, "capacity",
+      `${Number(stats?.weight_kg || 0).toLocaleString(dashboardFormatLocale())} kg`, "capacity",
     ],
   ] as const;
   return (
     <div className="min-h-full bg-white">
       <OperationPageHeader
-        title="Calendrier des départs"
-        description="Planifiez, suivez et coordonnez tous les départs de votre agence cargo."
+        title={dashboardText("Calendrier des départs")}
+        description={dashboardText("Planifiez, suivez et coordonnez tous les départs de votre agence cargo.")}
         actions={
           <>
             <OperationButton onClick={() => exportPlanning(filtered)}>
               <Download size={14} />
-              Exporter
-            </OperationButton>
+              {dashboardText("Exporter")}</OperationButton>
             <PermissionGuard permission="departures.manage">
               <OperationButton variant="primary" onClick={() => setOpen(true)}>
                 <Plus size={15} />
-                Nouveau départ
-              </OperationButton>
+                {dashboardText("Nouveau départ")}</OperationButton>
             </PermissionGuard>
           </>
         }
@@ -209,7 +210,7 @@ export function DeparturesPage() {
         <OperationMetrics>
           <OperationMetricGrid>
             {cards.map(([id, label, value, target]) => (
-              <OperationMetric key={id} label={label} value={value} active={activeMetric === id} onClick={() => { setActiveMetric(id); setView(target); }} />
+              <OperationMetric key={id} label={dashboardText(label)} value={value} active={activeMetric === id} onClick={() => { setActiveMetric(id); setView(target); }} />
             ))}
           </OperationMetricGrid>
         </OperationMetrics>
@@ -218,15 +219,15 @@ export function DeparturesPage() {
             <OperationSearch
               value={query}
               onChange={setQuery}
-              placeholder="Rechercher un départ, une route..."
+              placeholder={dashboardText("Rechercher un départ, une route...")}
             />
           }
-          filters={<OperationFilterPopover activeCount={(mode ? 1 : 0) + (view !== "calendar" ? 1 : 0) + (activeMetric ? 1 : 0)} onReset={() => { setMode(""); setView("calendar"); setActiveMetric(null); }} title="Filtrer les départs"><OperationField label="Vue"><select className={`${input} w-full`} value={view} onChange={(event) => { setView(event.target.value as typeof view); setActiveMetric(null); }}><option value="calendar">Calendrier</option><option value="list">Liste</option><option value="routes">Routes</option><option value="capacity">Capacité</option><option value="delays">Retards</option><option value="history">Historique</option></select></OperationField><OperationField label="Mode proposé par l’agence"><select className={`${input} w-full`} value={mode} onChange={(e) => setMode(e.target.value)}><option value="">Tous les modes</option>{Array.from(new Set(services.map((service) => service.shipping_mode).filter(Boolean))).map((serviceMode) => <option key={serviceMode} value={serviceMode}>{({AIR:"Avion",SEA:"Bateau",EXPRESS:"Express",ROAD:"Route",RAIL:"Rail",MULTIMODAL:"Plusieurs modes"} as Record<string,string>)[serviceMode] || serviceMode}</option>)}</select></OperationField></OperationFilterPopover>}
-        ><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0"><RefreshCcw size={14} /></OperationButton></OperationToolbar>
-        {error && <ErrorState title="Calendrier indisponible" description={error} retry={load} />}
+          filters={<OperationFilterPopover activeCount={(mode ? 1 : 0) + (view !== "calendar" ? 1 : 0) + (activeMetric ? 1 : 0)} onReset={() => { setMode(""); setView("calendar"); setActiveMetric(null); }} title={dashboardText("Filtrer les départs")}><OperationField label={dashboardText("Vue")}><select className={`${input} w-full`} value={view} onChange={(event) => { setView(event.target.value as typeof view); setActiveMetric(null); }}><option value="calendar">{dashboardText("Calendrier")}</option><option value="list">{dashboardText("Liste")}</option><option value="routes">{dashboardText("Routes")}</option><option value="capacity">{dashboardText("Capacité")}</option><option value="delays">{dashboardText("Retards")}</option><option value="history">{dashboardText("Historique")}</option></select></OperationField><OperationField label={dashboardText("Mode proposé par l’agence")}><select className={`${input} w-full`} value={mode} onChange={(e) => setMode(e.target.value)}><option value="">{dashboardText("Tous les modes")}</option>{Array.from(new Set(services.map((service) => service.shipping_mode).filter(Boolean))).map((serviceMode) => <option key={serviceMode} value={serviceMode}>{dashboardText(({AIR:"Avion",SEA:"Bateau",EXPRESS:"Express",ROAD:"Route",RAIL:"Rail",MULTIMODAL:"Plusieurs modes"} as Record<string,string>)[serviceMode]) || serviceMode}</option>)}</select></OperationField></OperationFilterPopover>}
+        ><OperationButton onClick={load} aria-label={dashboardText("Actualiser")} title={dashboardText("Actualiser")} className="w-9 px-0"><RefreshCcw size={14} /></OperationButton></OperationToolbar>
+        {error && <ErrorState title={dashboardText("Calendrier indisponible")} description={dashboardText(error)} retry={load} />}
         <OperationContent className="bg-white">
         {loading ? (
-          <TableSkeleton rows={7} columns={6} label="Préparation du calendrier des départs…" />
+          <TableSkeleton rows={7} columns={6} label={dashboardText("Préparation du calendrier des départs…")} />
         ) : view === "calendar" ? (
           <Calendar
             items={filtered}
@@ -308,6 +309,7 @@ function Calendar({
   setCursor: (d: Date) => void;
   select: (x: Departure) => void;
 }) {
+  useDashboardMessages();
   const [period, setPeriod] = useState<"day" | "week" | "month">("month"),
     [direction, setDirection] = useState<"departures" | "arrivals">(
       "departures",
@@ -332,7 +334,7 @@ function Calendar({
     else d.setDate(d.getDate() + delta * (period === "week" ? 7 : 1));
     setCursor(d);
   }
-  const title = cursor.toLocaleDateString("fr-FR", {
+  const title = cursor.toLocaleDateString(dashboardFormatLocale(), {
     month: "long",
     year: "numeric",
     day: period === "day" ? "numeric" : undefined,
@@ -343,26 +345,26 @@ function Calendar({
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dfe3e7] px-4 py-3">
         <div className="flex items-center gap-2">
           <select className="h-9 w-[148px] rounded-[6px] border border-[#d2d7dc] bg-white px-2.5 text-[13px] outline-none" value={direction} onChange={(e) => setDirection(e.target.value as "departures" | "arrivals")}>
-            <option value="departures">Départs prévus</option>
-            <option value="arrivals">Arrivées prévues</option>
+            <option value="departures">{dashboardText("Départs prévus")}</option>
+            <option value="arrivals">{dashboardText("Arrivées prévues")}</option>
           </select>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <button className={btn} onClick={() => setCursor(new Date())}>Aujourd’hui</button>
+          <button className={btn} onClick={() => setCursor(new Date())}>{dashboardText("Aujourd’hui")}</button>
           <div className="flex h-9 items-center overflow-hidden rounded-[6px] border border-[#d4d9df] bg-white">
-            <button className="grid h-full w-9 place-items-center hover:bg-[#f4f6f7]" onClick={() => shift(-1)} aria-label="Période précédente"><ChevronLeft size={15} /></button>
+            <button className="grid h-full w-9 place-items-center hover:bg-[#f4f6f7]" onClick={() => shift(-1)} aria-label={dashboardText("Période précédente")}><ChevronLeft size={15} /></button>
             <b className="min-w-36 border-x border-[#e2e5e8] px-3 text-center text-[13px] font-semibold capitalize">{title}</b>
-            <button className="grid h-full w-9 place-items-center hover:bg-[#f4f6f7]" onClick={() => shift(1)} aria-label="Période suivante"><ChevronRight size={15} /></button>
+            <button className="grid h-full w-9 place-items-center hover:bg-[#f4f6f7]" onClick={() => shift(1)} aria-label={dashboardText("Période suivante")}><ChevronRight size={15} /></button>
           </div>
           <select className="h-9 w-[108px] rounded-[6px] border border-[#d2d7dc] bg-white px-2.5 text-[13px] outline-none" value={period} onChange={(event) => setPeriod(event.target.value as "day" | "week" | "month")}>
-            <option value="day">Jour</option><option value="week">Semaine</option><option value="month">Mois</option>
+            <option value="day">{dashboardText("Jour")}</option><option value="week">{dashboardText("Semaine")}</option><option value="month">{dashboardText("Mois")}</option>
           </select>
         </div>
       </header>
       <div className="max-w-full overflow-x-auto">
       <div className={count === 1 ? "min-w-[520px]" : "min-w-[840px]"}>
       {count !== 1 && <div className="grid grid-cols-7 border-b border-[#dfe3e7] bg-[#fafbfc]">
-        {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day) => <div key={day} className="border-r border-[#e2e6e9] px-3 py-2.5 text-center text-[11px] font-semibold text-[#56616d] last:border-r-0">{day}</div>)}
+        {[dashboardText("Lun"), dashboardText("Mar"), dashboardText("Mer"), dashboardText("Jeu"), dashboardText("Ven"), dashboardText("Sam"), dashboardText("Dim")].map((day) => <div key={day} className="border-r border-[#e2e6e9] px-3 py-2.5 text-center text-[11px] font-semibold text-[#56616d] last:border-r-0">{day}</div>)}
       </div>}
       <div className={`grid ${count === 1 ? "grid-cols-1" : "grid-cols-7"}`}>
         {days.map((d) => {
@@ -376,7 +378,7 @@ function Calendar({
               className={`min-h-32 border-b border-r border-[#e2e6e9] p-2.5 last:border-r-0 ${period === "month" && d.getMonth() !== cursor.getMonth() ? "bg-[#fafbfc] text-[#9aa3ad]" : "bg-white"}`}
             >
               <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-[5px] px-1 text-[11px] font-medium ${d.toDateString() === today ? "bg-[#dff8eb] text-[#087a46]" : ""}`}>
-                {period === "day" ? d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" }) : d.getDate()}
+                {period === "day" ? d.toLocaleDateString(dashboardFormatLocale(), { weekday: "long", day: "numeric" }) : d.getDate()}
               </span>
               {list.map((x) => (
                 <button
@@ -385,14 +387,14 @@ function Calendar({
                   className="mt-1.5 block w-full rounded-[5px] border-l-2 border-[#12c76f] bg-[#eef9f3] px-2 py-1.5 text-left text-[11px] text-[#26332d] hover:bg-[#e2f5eb]"
                 >
                   <b>
-                    {new Date(x[field]!).toLocaleTimeString("fr-FR", {
+                    {new Date(x[field]!).toLocaleTimeString(dashboardFormatLocale(), {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </b>{" "}
                   {x.route_name}
                   <small className="mt-0.5 block truncate text-[#64716a]">
-                    {x.service_name} · {labels[x.status] || x.status}
+                    {x.service_name} · {dashboardText(labels[x.status]) || x.status}
                   </small>
                 </button>
               ))}
@@ -412,21 +414,22 @@ function List({
   items: Departure[];
   select: (x: Departure) => void;
 }) {
+  useDashboardMessages();
   return (
     <div className="overflow-x-auto border-b bg-white">
       <table className="w-full min-w-[1100px] text-left text-[12px]">
         <thead className="bg-[#f6f7f7]">
           <tr>
             {[
-              "Départ",
-              "Route / Service",
-              "Date / Cut-off",
-              "ETA",
-              "Colis",
-              "Poids / CBM",
-              "Capacité",
-              "Statut",
-              "Responsable",
+              dashboardText("Départ"),
+              dashboardText("Route / Service"),
+              dashboardText("Date / Cut-off"),
+              dashboardText("ETA"),
+              dashboardText("Colis"),
+              dashboardText("Poids / CBM"),
+              dashboardText("Capacité"),
+              dashboardText("Statut"),
+              dashboardText("Responsable"),
               "",
             ].map((h) => (
               <th key={h} className="p-3">
@@ -450,14 +453,13 @@ function List({
               <td>
                 {date(x.scheduled_at)}
                 <small className="block text-[#737b84]">
-                  Cut-off {date(x.cutoff_at)}
+                  {dashboardText("Cut-off ")}{date(x.cutoff_at)}
                 </small>
               </td>
               <td>{date(x.estimated_arrival_at)}</td>
               <td>{x.reserved_packages || x.shipment_count}</td>
               <td>
-                {x.reserved_weight_kg} kg
-                <small className="block">{x.reserved_cbm} CBM</small>
+                {x.reserved_weight_kg} {dashboardText(" kg")}<small className="block">{x.reserved_cbm} {dashboardText(" CBM")}</small>
               </td>
               <td>
                 <Bar value={x.reserved_weight_kg} max={x.capacity_weight_kg} />
@@ -478,6 +480,7 @@ function List({
   );
 }
 function Routes({ items }: { items: Departure[] }) {
+  useDashboardMessages();
   const groups = Object.values(
     items.reduce<Record<string, { name: string; items: Departure[] }>>(
       (a, x) => {
@@ -493,9 +496,9 @@ function Routes({ items }: { items: Departure[] }) {
         <section key={g.name} className="border bg-white p-4">
           <b>{g.name}</b>
           <p className="mt-3 text-[13px]">
-            Prochain départ : {date(g.items[0]?.scheduled_at)}
+            {dashboardText("Prochain départ : ")}{date(g.items[0]?.scheduled_at)}
           </p>
-          <p className="text-[13px]">Départs planifiés : {g.items.length}</p>
+          <p className="text-[13px]">{dashboardText("Départs planifiés : ")}{g.items.length}</p>
           <Bar
             value={g.items.reduce((s, x) => s + x.reserved_weight_kg, 0)}
             max={g.items.reduce((s, x) => s + (x.capacity_weight_kg || 0), 0)}
@@ -512,6 +515,7 @@ function Capacity({
   items: Departure[];
   select: (x: Departure) => void;
 }) {
+  useDashboardMessages();
   return (
     <div className="grid gap-3 p-4 md:grid-cols-2">
       {items.map((x) => (
@@ -526,11 +530,11 @@ function Capacity({
             </b>
             <Badge value={x.status} />
           </div>
-          <p className="mt-4 text-[12px]">Poids</p>
+          <p className="mt-4 text-[12px]">{dashboardText("Poids")}</p>
           <Bar value={x.reserved_weight_kg} max={x.capacity_weight_kg} />
-          <p className="mt-3 text-[12px]">CBM</p>
+          <p className="mt-3 text-[12px]">{dashboardText("CBM")}</p>
           <Bar value={x.reserved_cbm} max={x.capacity_cbm} />
-          <p className="mt-3 text-[12px]">Colis</p>
+          <p className="mt-3 text-[12px]">{dashboardText("Colis")}</p>
           <Bar value={x.reserved_packages} max={x.capacity_packages} />
         </button>
       ))}
@@ -546,6 +550,7 @@ function Detail({
   close: () => void;
   move: (x: Departure, s: string) => void;
 }) {
+  useDashboardMessages();
   const [current, setCurrent] = useState(item);
   return (
     <OperationDrawer
@@ -559,26 +564,26 @@ function Detail({
       </div>
       <div className="grid gap-4 p-5">
         <section className="grid grid-cols-2 gap-3">
-          <Info label="Départ" value={date(current.scheduled_at)} />
-          <Info label="ETA" value={date(current.estimated_arrival_at)} />
-          <Info label="Cut-off" value={date(current.cutoff_at)} />
-          <Info label="Fuseau" value={current.timezone} />
-          <Info label="Transporteur" value={current.carrier_name || "—"} />
+          <Info label={dashboardText("Départ")} value={date(current.scheduled_at)} />
+          <Info label={dashboardText("ETA")} value={date(current.estimated_arrival_at)} />
+          <Info label={dashboardText("Cut-off")} value={date(current.cutoff_at)} />
+          <Info label={dashboardText("Fuseau")} value={current.timezone} />
+          <Info label={dashboardText("Transporteur")} value={current.carrier_name || "—"} />
           <Info
-            label="Référence transport"
+            label={dashboardText("Référence transport")}
             value={current.transport_reference || "—"}
           />
         </section>
         <section className="border p-4">
-          <h3 className="font-semibold">Capacité</h3>
-          <p className="mt-3 text-[12px]">Poids</p>
+          <h3 className="font-semibold">{dashboardText("Capacité")}</h3>
+          <p className="mt-3 text-[12px]">{dashboardText("Poids")}</p>
           <Bar
             value={current.reserved_weight_kg}
             max={current.capacity_weight_kg}
           />
-          <p className="mt-3 text-[12px]">CBM</p>
+          <p className="mt-3 text-[12px]">{dashboardText("CBM")}</p>
           <Bar value={current.reserved_cbm} max={current.capacity_cbm} />
-          <p className="mt-3 text-[12px]">Colis</p>
+          <p className="mt-3 text-[12px]">{dashboardText("Colis")}</p>
           <Bar
             value={current.reserved_packages}
             max={current.capacity_packages}
@@ -589,7 +594,7 @@ function Detail({
           refresh={async () => setCurrent(await departure(current.id))}
         />
         <section className="border p-4">
-          <h3 className="font-semibold">Audit</h3>
+          <h3 className="font-semibold">{dashboardText("Audit")}</h3>
           {current.events?.map((e, i) => (
             <p key={i} className="mt-2 border-t pt-2 text-[12px]">
               {businessLabel(e.event_type)} · {date(String(e.created_at))}
@@ -610,8 +615,7 @@ function Detail({
           </PermissionGuard>
           <PermissionGuard permission="departures.cancel">
             <button className={btn} onClick={() => move(current, "CANCELLED")}>
-              Annuler
-            </button>
+              {dashboardText("Annuler")}</button>
           </PermissionGuard>
         </div>
       </div>
@@ -625,6 +629,7 @@ function DepartureOperations({
   item: Departure;
   refresh: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const [candidates, setCandidates] = useState<Array<Record<string, unknown>>>(
       [],
     ),
@@ -693,7 +698,7 @@ function DepartureOperations({
   return (
     <>
       <section className="border p-4">
-        <h3 className="font-semibold">Checklist avant départ</h3>
+        <h3 className="font-semibold">{dashboardText("Checklist avant départ")}</h3>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {Object.entries(item.checklist || {}).map(([k, v]) => (
             <label key={k} className="flex items-center gap-2 text-[13px]">
@@ -711,15 +716,13 @@ function DepartureOperations({
       <section className="border p-4">
         <div className="flex justify-between">
           <h3 className="font-semibold">
-            Colis affectés · {item.packages?.length || 0}
+            {dashboardText("Colis affectés · ")}{item.packages?.length || 0}
           </h3>
           <div className="flex gap-2">
             <button className={btn} onClick={find} disabled={busy}>
-              Colis compatibles
-            </button>
+              {dashboardText("Colis compatibles")}</button>
             <button className={btn} onClick={manifest}>
-              Manifest CSV
-            </button>
+              {dashboardText("Manifest CSV")}</button>
           </div>
         </div>
         <div className="mt-3 space-y-2">
@@ -729,18 +732,16 @@ function DepartureOperations({
               className="flex items-center justify-between border-t pt-2 text-[12px]"
             >
               <span>
-                <b>{String(p.package_reference || "Colis")}</b> ·{" "}
-                {String(p.client_name || "Client")} · {String(p.weight_kg || 0)}{" "}
-                kg
-              </span>
+                <b>{String(p.package_reference || dashboardText("Colis"))}</b> ·{" "}
+                {String(p.client_name || dashboardText("Client"))} · {String(p.weight_kg || 0)}{" "}
+                {dashboardText("kg")}</span>
               <PermissionGuard permission="departures.allocate">
                 <button
                   disabled={busy}
                   onClick={() => remove(String(p.package_id))}
                   className="text-red-600"
                 >
-                  Retirer
-                </button>
+                  {dashboardText("Retirer")}</button>
               </PermissionGuard>
             </div>
           ))}
@@ -748,8 +749,8 @@ function DepartureOperations({
         {candidates.length > 0 && (
           <div className="mt-4 border-t pt-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <b className="text-[12px]">Colis évalués pour ce départ</b>
-              <span className="text-[11px] text-[#69727c]">{candidates.filter(candidate=>candidate.eligible).length} compatible(s) · {candidates.filter(candidate=>!candidate.eligible).length} bloqué(s)</span>
+              <b className="text-[12px]">{dashboardText("Colis évalués pour ce départ")}</b>
+              <span className="text-[11px] text-[#69727c]">{candidates.filter(candidate=>candidate.eligible).length} {dashboardText(" compatible(s) · ")}{candidates.filter(candidate=>!candidate.eligible).length} {dashboardText(" bloqué(s)")}</span>
             </div>
             {candidates.map((p) => (
               <div
@@ -757,7 +758,7 @@ function DepartureOperations({
                 className={`mt-2 flex items-start justify-between gap-4 rounded-[7px] border p-3 text-[12px] ${p.eligible?"border-[#dce7e1] bg-[#fbfdfc]":"border-[#eadfd8] bg-[#fffaf7]"}`}
               >
                 <div className="min-w-0">
-                  <p><b>{String(p.package_reference)}</b> · {String(p.client_name || "Client non associé")} · {String(p.weight_kg || 0)} kg{Number(p.volume_cbm||0)>0?` · ${String(p.volume_cbm)} CBM`:""}</p>
+                  <p><b>{String(p.package_reference)}</b> · {String(p.client_name || dashboardText("Client non associé"))} · {String(p.weight_kg || 0)} {dashboardText(" kg")}{Number(p.volume_cbm||0)>0?dashboardText(" · {0} CBM", String(p.volume_cbm)):""}</p>
                   {!p.eligible&&Array.isArray(p.blocking_reasons)&&<ul className="mt-1.5 grid gap-1 text-[11px] leading-4 text-[#9a4d32]">{(p.blocking_reasons as Array<{code:string;message:string}>).map(reason=><li key={reason.code}>• {reason.message}</li>)}</ul>}
                 </div>
                 <PermissionGuard permission="departures.allocate">
@@ -766,7 +767,7 @@ function DepartureOperations({
                     onClick={() => add(String(p.id))}
                     className={`shrink-0 font-medium ${p.eligible?"text-emerald-700":"cursor-not-allowed text-[#a2a8ad]"}`}
                   >
-                    {p.eligible?"Ajouter":"Non éligible"}
+                    {p.eligible?dashboardText("Ajouter"):dashboardText("Non éligible")}
                   </button>
                 </PermissionGuard>
               </div>
@@ -775,13 +776,12 @@ function DepartureOperations({
         )}
         {candidatesLoaded && candidates.length === 0 && (
           <p className="mt-4 rounded-[7px] border border-[#e2e6e9] bg-[#fafbfb] p-3 text-[12px] text-[#69727c]">
-            Aucun autre colis n’est disponible pour ce départ.
-          </p>
+            {dashboardText("Aucun autre colis n’est disponible pour ce départ.")}</p>
         )}
       </section>
       {error && (
         <p className="border border-red-200 bg-red-50 p-3 text-[12px] text-red-700">
-          {error}
+          {dashboardText(error)}
         </p>
       )}
     </>
@@ -796,6 +796,7 @@ function Create({
   close: () => void;
   done: () => void;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [routeId, setRouteId] = useState(""),
@@ -842,31 +843,29 @@ function Create({
   return (
     <OperationDrawer
       open
-      title="Nouveau départ"
-      description="Sélectionnez une route et un service déjà configurés par l’agence."
+      title={dashboardText("Nouveau départ")}
+      description={dashboardText("Sélectionnez une route et un service déjà configurés par l’agence.")}
       close={close}
     >
       <form onSubmit={submit} className="bg-white p-5">
         <div className="grid gap-4 md:grid-cols-2">
           <label>
-            Route existante
-            <select
+            {dashboardText("Route existante")}<select
               required
               value={routeId}
               onChange={(event) => {setRouteId(event.target.value);setServiceId("");}}
               className={input}
             >
-              <option value="">Choisir une route</option>
+              <option value="">{dashboardText("Choisir une route")}</option>
               {routes.map((route) => (
                 <option key={route.id} value={route.id}>
-                  {route.label}
+                  {dashboardText(route.label)}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Service disponible sur cette route
-            <select
+            {dashboardText("Service disponible sur cette route")}<select
               required
               name="shipping_service_id"
               value={serviceId}
@@ -874,7 +873,7 @@ function Create({
               disabled={!routeId}
               className={input}
             >
-              <option value="">Choisir un service</option>
+              <option value="">{dashboardText("Choisir un service")}</option>
               {services
                 .filter((service) => service.route_id === routeId)
                 .map((service) => (
@@ -886,37 +885,36 @@ function Create({
           </label>
           <Field
             name="scheduled_at"
-            label="Date et heure"
+            label={dashboardText("Date et heure")}
             type="datetime-local"
             required
           />
           <Field
             name="cutoff_at"
-            label="Date limite de réception des colis"
+            label={dashboardText("Date limite de réception des colis")}
             type="datetime-local"
           />
           <Field
             name="estimated_arrival_at"
-            label="Arrivée estimée"
+            label={dashboardText("Arrivée estimée")}
             type="datetime-local"
           />
           <input type="hidden" name="timezone" value="UTC" />
-          {selectedService?.shipping_mode==="SEA"?<Field name="capacity_cbm" label="Capacité maritime (CBM)" type="number" required/>:<Field name="capacity_weight_kg" label="Capacité transport (kg)" type="number" required/>}
+          {selectedService?.shipping_mode==="SEA"?<Field name="capacity_cbm" label={dashboardText("Capacité maritime (CBM)")} type="number" required/>:<Field name="capacity_weight_kg" label={dashboardText("Capacité transport (kg)")} type="number" required/>}
           <Field
             name="capacity_packages"
-            label="Nombre maximal de colis"
+            label={dashboardText("Nombre maximal de colis")}
             type="number"
           />
-          <Field name="carrier_name" label="Transporteur" />
-          <Field name="transport_reference" label="Vol / navire / véhicule" />
-          <Field name="responsible_name" label="Responsable" />
+          <Field name="carrier_name" label={dashboardText("Transporteur")} />
+          <Field name="transport_reference" label={dashboardText("Vol / navire / véhicule")} />
+          <Field name="responsible_name" label={dashboardText("Responsable")} />
           <label className="grid gap-1 text-[12px] font-medium text-[#555e58]">
-            Bureau chargé de l’arrivée
-            <select name="destination_office" className={input}>
-              <option value="">Aucun bureau sélectionné</option>
+            {dashboardText("Bureau chargé de l’arrivée")}<select name="destination_office" className={input}>
+              <option value="">{dashboardText("Aucun bureau sélectionné")}</option>
               {offices.map((office) => (
                 <option key={office.id} value={office.id}>
-                  {office.label}
+                  {dashboardText(office.label)}
                   {office.secondary ? ` · ${office.secondary}` : ""}
                 </option>
               ))}
@@ -924,16 +922,14 @@ function Create({
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="published" value="true" />
-            Publier aux clients
-          </label>
+            {dashboardText("Publier aux clients")}</label>
         </div>
-        {error && <p className="mt-3 text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-red-600">{dashboardText(error)}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" className={btn} onClick={close}>
-            Annuler
-          </button>
+            {dashboardText("Annuler")}</button>
           <button disabled={busy || !routeId} className={primary}>
-            {busy ? "Création…" : "Créer le départ"}
+            {busy ? dashboardText("Création…") : dashboardText("Créer le départ")}
           </button>
         </div>
       </form>
@@ -947,22 +943,25 @@ function Field(p: {
   required?: boolean;
   defaultValue?: string;
 }) {
+  useDashboardMessages();
   return (
     <label>
-      {p.label}
+      {dashboardText(p.label)}
       <input {...p} className={input} />
     </label>
   );
 }
 function Info({ label, value }: { label: string; value: string }) {
+  useDashboardMessages();
   return (
     <div className="border p-3">
-      <small className="text-[#6c747d]">{label}</small>
+      <small className="text-[#6c747d]">{dashboardText(label)}</small>
       <b className="mt-1 block text-[13px]">{value}</b>
     </div>
   );
 }
 function Bar({ value, max }: { value: number; max?: number }) {
+  useDashboardMessages();
   const pct = max ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
     <div>
@@ -982,27 +981,29 @@ function Bar({ value, max }: { value: number; max?: number }) {
   );
 }
 function Badge({ value }: { value: string }) {
+  useDashboardMessages();
   return (
     <span
       className={`rounded-full px-2 py-1 text-[10px] font-medium ${value === "DELAYED" || value === "CANCELLED" ? "bg-red-50 text-red-700" : value === "CONFIRMED" || value === "DEPARTED" || value === "COMPLETED" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"}`}
     >
-      {labels[value] || businessLabel(value)}
+      {dashboardText(labels[value]) || businessLabel(value)}
     </span>
   );
 }
 function Empty() {
+  useDashboardMessages();
   return (
     <div className="grid min-h-64 place-items-center text-center">
       <div>
         <Ship className="mx-auto text-[#9299a0]" />
-        <p className="mt-3 text-[13px] font-medium">Aucun départ</p>
+        <p className="mt-3 text-[13px] font-medium">{dashboardText("Aucun départ")}</p>
       </div>
     </div>
   );
 }
 function date(v?: string) {
   return v
-    ? new Date(v).toLocaleString("fr-FR", {
+    ? new Date(v).toLocaleString(dashboardFormatLocale(), {
         dateStyle: "short",
         timeStyle: "short",
       })

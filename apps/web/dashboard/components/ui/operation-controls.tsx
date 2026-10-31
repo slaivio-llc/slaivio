@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { ArrowLeft, Check, ChevronDown, ListFilter, Menu, RefreshCcw, X } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -29,28 +31,31 @@ export function OperationButton({
   children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+  useDashboardMessages();
   const childList = Children.toArray(children);
-  const refresh = childList.some((child) => typeof child === "string" && child.trim() === "Actualiser");
-  const visibleChildren = childList.filter((child) => typeof child !== "string" || child.trim() !== "Actualiser");
+  const isRefreshLabel = (child: ReactNode) => typeof child === "string" && ["Actualiser", "Refresh"].includes(child.trim());
+  const refresh = childList.some(isRefreshLabel);
+  const visibleChildren = childList.filter((child) => !isRefreshLabel(child));
   return (
     <button
       {...props}
       type={type || (props.onClick ? "button" : "submit")}
       data-ui="operation-button"
       data-variant={variant}
-      aria-label={refresh ? props["aria-label"] || "Actualiser" : props["aria-label"]}
-      title={refresh ? props.title || "Actualiser" : props.title}
+      aria-label={refresh ? props["aria-label"] || dashboardText("Actualiser") : props["aria-label"]}
+      title={refresh ? props.title || dashboardText("Actualiser") : props.title}
       className={`inline-flex h-9 max-sm:min-h-11 max-sm:min-w-11 items-center justify-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087a46] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${refresh ? "w-9 px-0" : ""} ${className}`}
     >{refresh ? (visibleChildren.length > 0 ? visibleChildren : <RefreshCcw size={14} aria-hidden="true" />) : children}</button>
   );
 }
 
 export function OperationBackLink({ href, label }: { href: string; label: string }) {
+  useDashboardMessages();
   return (
     <Link
       href={href}
-      aria-label={label}
-      title={label}
+      aria-label={dashboardText(label)}
+      title={dashboardText(label)}
       className="inline-grid h-9 w-9 shrink-0 place-items-center rounded-[6px] border border-[#d8dadd] bg-white text-[#30363d] shadow-[0_1px_1px_rgba(15,23,42,.03)] transition-colors hover:border-[#c7cbcf] hover:bg-[#f7f7f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ed8bc]"
     >
       <ArrowLeft size={15} aria-hidden="true" />
@@ -69,6 +74,7 @@ export function OperationTab({
   count?: number;
   children: ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <button
       type="button"
@@ -101,6 +107,7 @@ export function OperationTabMenu<T extends string>({
   label?: string;
   className?: string;
 }) {
+  useDashboardMessages();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -133,7 +140,7 @@ export function OperationTabMenu<T extends string>({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        aria-label={selected ? `Autres vues, vue active : ${selected[1]}` : label}
+        aria-label={selected ? dashboardText("Autres vues, vue active : {0}", selected[1]) : label}
         title={selected?.[1] || label}
         className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-[6px] border px-2.5 text-[12px] font-medium shadow-[0_1px_1px_rgba(15,23,42,.03)] transition-colors ${selected ? "border-[#b8ddca] bg-[#edf8f2] text-[#087a46]" : "border-[#d8dadd] bg-white text-[#626d77] hover:border-[#c7cbcf] hover:bg-[#f7f7f6] hover:text-[#2c333a]"}`}
       >
@@ -149,8 +156,7 @@ export function OperationTabMenu<T extends string>({
           style={{ top: anchor.bottom + 6, right: Math.max(8, window.innerWidth - anchor.right) }}
         >
           <p className="px-2.5 pb-1.5 pt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#8a939c]">
-            Autres vues
-          </p>
+            {dashboardText("Autres vues")}</p>
           {items.map(([key, itemLabel]) => {
             const active = key === value;
             return (
@@ -177,6 +183,7 @@ export function OperationTabMenu<T extends string>({
 }
 
 export function OperationActionMenu({ children, label = "Actions" }: { children: ReactNode; label?: string }) {
+  useDashboardMessages();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -199,7 +206,7 @@ export function OperationActionMenu({ children, label = "Actions" }: { children:
   }, [open]);
 
   return <div ref={root} className="relative order-first shrink-0">
-    <OperationButton onClick={() => setOpen((current) => !current)} aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} className="w-9 px-0">
+    <OperationButton onClick={() => setOpen((current) => !current)} aria-label={dashboardText(label)} title={dashboardText(label)} aria-haspopup="menu" aria-expanded={open} className="w-9 px-0">
       <Menu size={17} aria-hidden="true" />
     </OperationButton>
     {open && anchor && createPortal(
@@ -225,6 +232,7 @@ export function OperationFilterPopover({
   children: ReactNode;
   title?: string;
 }) {
+  useDashboardMessages();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = useCallback((next: boolean) => {
@@ -283,12 +291,12 @@ export function OperationFilterPopover({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label={activeCount > 0 ? `Filtres, ${activeCount} actifs` : "Filtres"}
-        title="Filtres"
+        aria-label={activeCount > 0 ? dashboardText("Filtres, {0} actifs", activeCount) : dashboardText("Filtres")}
+        title={dashboardText("Filtres")}
         className={`relative w-9 px-0 ${open ? "border-[#9ed8bc] bg-[#edf8f2] text-[#087a46]" : ""}`}
       >
         <ListFilter size={16} aria-hidden="true" />
-        <span className="sr-only">Filtres</span>
+        <span className="sr-only">{dashboardText("Filtres")}</span>
         {activeCount > 0 && (
           <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-[#087a46] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {activeCount}
@@ -299,14 +307,14 @@ export function OperationFilterPopover({
         <div
           ref={panel}
           role="dialog"
-          aria-label={title}
+          aria-label={dashboardText(title)}
           data-ui="operation-filter-panel"
           className="fixed z-[95] flex overflow-hidden rounded-xl border border-[#e4e7eb] bg-white shadow-[0_8px_28px_rgba(15,23,42,.10)]"
           style={{ ...(openAbove ? { bottom: window.innerHeight - anchor.top + 7 } : { top: anchor.bottom + 7 }), left, width: panelWidth, maxHeight: maxPanelHeight, flexDirection: "column" }}
         >
           <header className="flex min-h-10 items-center justify-between border-b border-[#eceeef] px-3">
-            <h3 className="truncate text-[13px] font-semibold text-[#293139]">{title}</h3>
-            <button type="button" onClick={() => setOpen(false)} className="grid h-7 w-7 place-items-center rounded-[5px] text-[#65707a] hover:bg-[#f1f3f4]" aria-label="Fermer les filtres">
+            <h3 className="truncate text-[13px] font-semibold text-[#293139]">{dashboardText(title)}</h3>
+            <button type="button" onClick={() => setOpen(false)} className="grid h-7 w-7 place-items-center rounded-[5px] text-[#65707a] hover:bg-[#f1f3f4]" aria-label={dashboardText("Fermer les filtres")}>
               <X size={14} />
             </button>
           </header>
@@ -314,7 +322,7 @@ export function OperationFilterPopover({
             {children}
           </div>
           {activeCount > 0 && <footer className="border-t border-[#eceeef] px-3 py-2">
-            <button type="button" onClick={onReset} className="text-[12px] font-medium text-[#59646e] hover:text-[#087a46]">Effacer les filtres</button>
+            <button type="button" onClick={onReset} className="text-[12px] font-medium text-[#59646e] hover:text-[#087a46]">{dashboardText("Effacer les filtres")}</button>
           </footer>}
         </div>,
         document.body,
@@ -330,6 +338,7 @@ export function OperationMetricGrid({
   children: ReactNode;
   className?: string;
 }) {
+  useDashboardMessages();
   return <div data-ui="metric-grid" className={`grid grid-cols-2 divide-x divide-y divide-[#eceff2] overflow-hidden rounded-[7px] border border-[#e2e6e9] bg-white md:grid-cols-4 md:divide-y-0 ${className}`}>{children}</div>;
 }
 
@@ -350,6 +359,7 @@ export function OperationMetric({
   active?: boolean;
   onClick?: () => void;
 }) {
+  useDashboardMessages();
   const colors = {
     default: "text-[#25292e]",
     success: "text-[#087a46]",
@@ -357,7 +367,7 @@ export function OperationMetric({
     danger: "text-[#b42318]",
   };
   const content = <>
-      <p data-ui="metric-label" className="truncate text-[11px] font-medium text-[#6a737d]">{label}</p>
+      <p data-ui="metric-label" className="truncate text-[11px] font-medium text-[#6a737d]">{dashboardText(label)}</p>
       <p data-ui="metric-value" className={`mt-0.5 truncate text-[21px] font-semibold tracking-[-0.035em] ${colors[tone]}`}>{value}</p>
       {detail && <p data-ui="metric-detail" className="mt-0.5 truncate text-[11px] text-[#7a838d]">{detail}</p>}
   </>;
@@ -372,6 +382,7 @@ export function OperationStatus({
   label: string;
   tone?: "neutral" | "success" | "warning" | "danger" | "info";
 }) {
+  useDashboardMessages();
   const colors = {
     neutral: "bg-[#f0f2f3] text-[#59636e]",
     success: "bg-[#e8f8ef] text-[#087a46]",
@@ -379,7 +390,7 @@ export function OperationStatus({
     danger: "bg-[#fff0f0] text-[#b42318]",
     info: "bg-[#edf4ff] text-[#285ea8]",
   };
-  return <span data-ui="operation-status" className={`inline-flex min-h-6 items-center rounded-full px-2 py-0.5 text-[12px] font-medium ${colors[tone]}`}>{label}</span>;
+  return <span data-ui="operation-status" className={`inline-flex min-h-6 items-center rounded-full px-2 py-0.5 text-[12px] font-medium ${colors[tone]}`}>{dashboardText(label)}</span>;
 }
 
 export function FormSection({
@@ -391,11 +402,12 @@ export function FormSection({
   description?: string;
   children: ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <section data-ui="form-section" className="grid gap-5 border-b border-[#e5e9ed] pb-6 last:border-b-0 last:pb-0">
       <div>
-        <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-[#242a30]">{title}</h3>
-        {description && <p className="mt-1 text-[13px] leading-5 text-[#69747f]">{description}</p>}
+        <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-[#242a30]">{dashboardText(title)}</h3>
+        {description && <p className="mt-1 text-[13px] leading-5 text-[#69747f]">{dashboardText(description)}</p>}
       </div>
       {children}
     </section>
@@ -413,11 +425,12 @@ export function OperationField({
   required?: boolean;
   children: ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <label data-ui="operation-field" className="grid min-w-0 gap-2">
-      <span data-ui="field-label">{label}{required && <span className="ml-1 text-[#b42318]">*</span>}</span>
+      <span data-ui="field-label">{dashboardText(label)}{required && <span className="ml-1 text-[#b42318]">*</span>}</span>
       {children}
-      {hint && <small className="text-[12px] font-normal leading-[18px] text-[#74808b]">{hint}</small>}
+      {hint && <small className="text-[12px] font-normal leading-[18px] text-[#74808b]">{dashboardText(hint)}</small>}
     </label>
   );
 }

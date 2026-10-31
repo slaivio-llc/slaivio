@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
@@ -7,6 +9,7 @@ import { operationMenuClass, operationMenuItemClass } from "@/components/ui/oper
 import { accountDisplayName } from "./account-identity";
 
 export function CargoAccountMenu({ locale, close, preferences }: { locale: "fr" | "en"; close: () => void; preferences: () => void }) {
+  useDashboardMessages();
   const { user } = useUser();
   const { openUserProfile, signOut } = useClerk();
   const [busy, setBusy] = useState(false);
@@ -19,11 +22,11 @@ export function CargoAccountMenu({ locale, close, preferences }: { locale: "fr" 
     return () => { previous?.focus(); };
   }, []);
   const itemClass = operationMenuItemClass;
-  return <div ref={root} aria-label={en ? "Account" : "Compte"} className={`w-64 max-w-[calc(100vw-24px)] ${operationMenuClass}`} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
+  return <div ref={root} aria-label={en ? dashboardText("Account") : dashboardText("Compte")} className={`w-64 max-w-[calc(100vw-24px)] ${operationMenuClass}`} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}>
     <div className="px-2.5 py-2.5"><p className="truncate text-[13px] font-medium">{accountDisplayName(user)==='Mon compte'&&en?'My account':accountDisplayName(user)}</p>{user?.primaryEmailAddress?.emailAddress && <p className="mt-0.5 truncate text-xs text-slate-500">{user.primaryEmailAddress.emailAddress}</p>}</div>
-    <button type="button" className={itemClass} onClick={() => { close(); openUserProfile(); }}><ShieldCheck size={16}/>{en ? "Profile and security" : "Profil et sécurité"}</button>
-    <button type="button" className={itemClass} onClick={preferences}><Languages size={16}/>{en ? "Language" : "Langue"}</button>
-    <button type="button" disabled={busy} className={itemClass} onClick={async () => { setBusy(true); setError(false); try { await signOut({ redirectUrl: "/sign-in" }); } catch { setError(true); setBusy(false); } }}><LogOut size={16}/>{busy ? (en ? "Signing out…" : "Déconnexion…") : (en ? "Sign out" : "Se déconnecter")}</button>
-    {error && <p role="alert" className="px-3 py-2 text-xs text-red-700">{en ? "Sign out failed. Try again." : "Déconnexion impossible. Réessayez."}</p>}
+    <button type="button" className={itemClass} onClick={() => { close(); openUserProfile(); }}><ShieldCheck size={16}/>{en ? "Profile and security" : dashboardText("Profil et sécurité")}</button>
+    <button type="button" className={itemClass} onClick={preferences}><Languages size={16}/>{en ? "Language" : dashboardText("Langue")}</button>
+    <button type="button" disabled={busy} className={itemClass} onClick={async () => { setBusy(true); setError(false); try { await signOut({ redirectUrl: "/sign-in" }); } catch { setError(true); setBusy(false); } }}><LogOut size={16}/>{busy ? (en ? "Signing out…" : dashboardText("Déconnexion…")) : (en ? dashboardText("Sign out") : dashboardText("Se déconnecter"))}</button>
+    {error && <p role="alert" className="px-3 py-2 text-xs text-red-700">{en ? "Sign out failed. Try again." : dashboardText("Déconnexion impossible. Réessayez.")}</p>}
   </div>;
 }

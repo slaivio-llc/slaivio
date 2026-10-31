@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { AlertTriangle, Ban, Inbox, RotateCw } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -7,19 +9,21 @@ import type { ReactNode } from "react";
 type StateProps = { title: string; description: string; action?: ReactNode };
 
 function PageState({ icon, title, description, action }: StateProps & { icon: ReactNode }) {
+  useDashboardMessages();
   return <div data-ui="page-state" className="flex min-h-[280px] items-center justify-center bg-white p-6">
     <section className="w-full max-w-md text-center" role="status">
       <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-[8px] bg-[#f0f2f2] text-[#65707b]">{icon}</div>
-      <h2 className="mt-4 text-[16px] font-semibold text-[#25292e]">{title}</h2>
-      <p className="mt-1.5 text-[13px] leading-5 text-[#6d7680]">{description}</p>
+      <h2 className="mt-4 text-[16px] font-semibold text-[#25292e]">{dashboardText(title)}</h2>
+      <p className="mt-1.5 text-[13px] leading-5 text-[#6d7680]">{dashboardText(description)}</p>
       {action && <div className="mt-5 flex justify-center">{action}</div>}
     </section>
   </div>;
 }
 
 export function LoadingState({ label = "Chargement des données…" }: { label?: string }) {
-  return <div data-ui="loading-state" className="min-h-[280px] bg-white p-6" role="status" aria-live="polite" aria-label={label}>
-    <span className="sr-only">{label}</span>
+  useDashboardMessages();
+  return <div data-ui="loading-state" className="min-h-[280px] bg-white p-6" role="status" aria-live="polite" aria-label={dashboardText(label)}>
+    <span className="sr-only">{dashboardText(label)}</span>
     <div className="motion-safe:animate-pulse space-y-5" aria-hidden>
       <div className="h-5 w-48 rounded-[5px] bg-[#e7ebed]"/>
       <div className="h-3 w-[min(420px,75%)] rounded-[5px] bg-[#edf0f1]"/>
@@ -30,13 +34,15 @@ export function LoadingState({ label = "Chargement des données…" }: { label?:
 }
 
 function SkeletonLine({ className = "" }: { className?: string }) {
+  useDashboardMessages();
   return <div className={`max-w-full min-w-0 motion-safe:animate-pulse rounded-[5px] bg-[#e9ecee] ${className}`} />;
 }
 
 export function TableSkeleton({ rows = 6, columns = 5, label = "Chargement du tableau" }: { rows?: number; columns?: number; label?: string }) {
+  useDashboardMessages();
   const count = Math.max(1, Math.min(12, Math.floor(columns) || 1));
   const cells = Array.from({ length: count });
-  return <div data-ui="table-skeleton" className="min-w-0 max-w-full overflow-hidden bg-white" role="status" aria-label={label}>
+  return <div data-ui="table-skeleton" className="min-w-0 max-w-full overflow-hidden bg-white" role="status" aria-label={dashboardText(label)}>
     <div className="grid h-11 items-center gap-2 border-b border-[#e4e7ea] bg-[#f7f8fa] px-3 sm:gap-5 sm:px-5" style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}>
       {cells.map((_, index) => <SkeletonLine key={index} className={`h-2.5 ${index % 3 === 0 ? "w-24" : index % 3 === 1 ? "w-16" : "w-20"}`} />)}
     </div>
@@ -47,20 +53,21 @@ export function TableSkeleton({ rows = 6, columns = 5, label = "Chargement du ta
 }
 
 export function ModulePageSkeleton() {
+  useDashboardMessages();
   const pathname = usePathname();
 
   if (pathname.startsWith("/app/inbox")) {
-    return <div className="grid min-h-full grid-cols-1 bg-white lg:grid-cols-[320px_minmax(0,1fr)]" role="status" aria-label="Ouverture de la boîte de réception">
+    return <div className="grid min-h-full grid-cols-1 bg-white lg:grid-cols-[320px_minmax(0,1fr)]" role="status" aria-label={dashboardText("Ouverture de la boîte de réception")}>
       <div className="border-r border-[#edf0f2] p-5"><SkeletonLine className="h-7 w-40"/><SkeletonLine className="mt-5 h-9 w-full"/><div className="mt-5 space-y-4">{Array.from({length:7},(_,index)=><div key={index} className="flex gap-3"><SkeletonLine className="h-10 w-10 shrink-0 rounded-full"/><div className="flex-1"><SkeletonLine className="h-3 w-2/3"/><SkeletonLine className="mt-2 h-3 w-full"/></div></div>)}</div></div>
       <div className="hidden p-8 lg:block"><div className="flex items-center gap-3"><SkeletonLine className="h-11 w-11 rounded-full"/><div><SkeletonLine className="h-4 w-40"/><SkeletonLine className="mt-2 h-3 w-24"/></div></div><div className="mx-auto mt-16 max-w-2xl space-y-5"><SkeletonLine className="ml-auto h-16 w-3/5"/><SkeletonLine className="h-20 w-2/3"/><SkeletonLine className="ml-auto h-14 w-1/2"/></div></div>
     </div>;
   }
 
   if (pathname.startsWith("/app/settings")) {
-    return <div className="min-h-full bg-white" role="status" aria-label="Ouverture des paramètres"><div className="px-7 py-5"><SkeletonLine className="h-6 w-36"/><SkeletonLine className="mt-2 h-3 w-[min(520px,75%)]"/></div><div className="flex gap-7 border-b border-[#edf0f2] px-7">{Array.from({length:7},(_,index)=><SkeletonLine key={index} className="mb-3 h-3 w-20"/>)}</div><div className="grid gap-8 px-7 py-9 lg:grid-cols-[220px_minmax(0,1fr)]"><div><SkeletonLine className="h-5 w-28"/><SkeletonLine className="mt-3 h-3 w-full"/><SkeletonLine className="mt-2 h-3 w-3/4"/></div><div className="grid gap-5 sm:grid-cols-2">{Array.from({length:6},(_,index)=><div key={index}><SkeletonLine className="h-3 w-28"/><SkeletonLine className="mt-2 h-10 w-full"/></div>)}</div></div></div>;
+    return <div className="min-h-full bg-white" role="status" aria-label={dashboardText("Ouverture des paramètres")}><div className="px-7 py-5"><SkeletonLine className="h-6 w-36"/><SkeletonLine className="mt-2 h-3 w-[min(520px,75%)]"/></div><div className="flex gap-7 border-b border-[#edf0f2] px-7">{Array.from({length:7},(_,index)=><SkeletonLine key={index} className="mb-3 h-3 w-20"/>)}</div><div className="grid gap-8 px-7 py-9 lg:grid-cols-[220px_minmax(0,1fr)]"><div><SkeletonLine className="h-5 w-28"/><SkeletonLine className="mt-3 h-3 w-full"/><SkeletonLine className="mt-2 h-3 w-3/4"/></div><div className="grid gap-5 sm:grid-cols-2">{Array.from({length:6},(_,index)=><div key={index}><SkeletonLine className="h-3 w-28"/><SkeletonLine className="mt-2 h-10 w-full"/></div>)}</div></div></div>;
   }
 
-  return <div className="min-h-full bg-white" role="status" aria-label="Ouverture du module">
+  return <div className="min-h-full bg-white" role="status" aria-label={dashboardText("Ouverture du module")}>
     <div className="border-b border-[#dfe3e7] bg-white px-5 py-4 sm:px-6"><SkeletonLine className="h-5 w-44" /><SkeletonLine className="mt-2 h-3 w-[min(440px,75%)]" /></div>
     <div className="flex h-11 items-end gap-5 border-b border-[#dfe3e7] bg-white px-5 sm:px-6">{["w-24", "w-20", "w-28", "w-20"].map((width, index) => <SkeletonLine key={index} className={`mb-3 h-3 ${width}`} />)}</div>
     <div className="border-b border-[#dfe3e7] bg-white px-5 py-4 sm:px-6"><div className="grid grid-cols-2 divide-x divide-y divide-[#eceff2] overflow-hidden rounded-[8px] border border-[#e2e6e9] md:grid-cols-4 md:divide-y-0">{Array.from({ length: 4 }, (_, index) => <div key={index} className="px-4 py-3.5"><SkeletonLine className="h-2.5 w-20" /><SkeletonLine className="mt-2 h-6 w-14" /></div>)}</div></div>
@@ -69,13 +76,16 @@ export function ModulePageSkeleton() {
   </div>;
 }
 
-export function EmptyState(props: StateProps) { return <PageState icon={<Inbox size={19} />} {...props} />; }
+export function EmptyState(props: StateProps) {
+  useDashboardMessages(); return <PageState icon={<Inbox size={19} />} {...props} />; }
 
 export function ErrorState({ retry, ...props }: StateProps & { retry?: () => void }) {
-  const action = retry ? <button onClick={retry} className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#25292e] px-3 text-[13px] font-medium text-white hover:bg-black"><RotateCw size={15} /> Réessayer</button> : props.action;
+  useDashboardMessages();
+  const action = retry ? <button onClick={retry} className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#25292e] px-3 text-[13px] font-medium text-white hover:bg-black"><RotateCw size={15} /> {dashboardText(" Réessayer")}</button> : props.action;
   return <PageState icon={<AlertTriangle size={19} />} {...props} action={action} />;
 }
 
 export function ForbiddenState({ description = "Votre rôle ne permet pas d’accéder à cette section." }: { description?: string }) {
-  return <PageState icon={<Ban size={19} />} title="Accès refusé" description={description} />;
+  useDashboardMessages();
+  return <PageState icon={<Ban size={19} />} title={dashboardText("Accès refusé")} description={dashboardText(description)} />;
 }

@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import {
@@ -63,6 +65,9 @@ export function GeographyFields({
   cityLabel?: string;
   showCity?: boolean;
 }) {
+  const locale=useDashboardMessages();
+  const displayNames=useMemo(()=>new Intl.DisplayNames([locale],{type:'region'}),[locale]);
+  const countryOptions=useMemo(()=>[...countries].sort((a,b)=>(displayNames.of(a.shortName)||a.name).localeCompare(displayNames.of(b.shortName)||b.name,locale)),[displayNames,locale]);
   const selectedCountry = useMemo(() => resolveCountry(country), [country]);
   const [availableCities, setAvailableCities] = useState<string[]>([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
@@ -123,27 +128,27 @@ export function GeographyFields({
   return (
     <>
       <label className={fieldClassName}>
-        <span>{countryLabel}{required ? " *" : ""}</span>
+        <span>{dashboardText(countryLabel)}{required ? " *" : ""}</span>
         <input type="hidden" name={countryName} value={country} />
         {countryCodeName && <input type="hidden" name={countryCodeName} value={selectedCountry?.shortName || ""} />}
         <select
           required={required}
-          aria-label={countryLabel}
+          aria-label={dashboardText(countryLabel)}
           className={className}
           value={countrySelectValue}
           onChange={(event) => chooseCountry(event.target.value)}
         >
-          <option value="">Choisir un pays</option>
+          <option value="">{dashboardText("Choisir un pays")}</option>
           {!selectedCountry && country && <option value="__LEGACY__">{country}</option>}
-          {countries.map((item) => (
+          {countryOptions.map((item) => (
             <option key={item.shortName} value={item.shortName}>
-              {item.emoji} {item.name}
+              {item.emoji} {displayNames.of(item.shortName)||item.name}
             </option>
           ))}
         </select>
       </label>
       {showCity && <label className={fieldClassName}>
-        <span>{cityLabel}{cityRequired ? " *" : ""}</span>
+        <span>{dashboardText(cityLabel)}{cityRequired ? " *" : ""}</span>
         <input type="hidden" name={cityName} value={city} />
         {customCity ? (
           <div className="flex gap-2">
@@ -152,7 +157,7 @@ export function GeographyFields({
               className={className}
               value={city}
               onChange={(event) => onCityChange?.(event.target.value)}
-              placeholder="Saisir une ville absente de la liste"
+              placeholder={dashboardText("Saisir une ville absente de la liste")}
               autoComplete="address-level2"
             />
             <button
@@ -160,13 +165,12 @@ export function GeographyFields({
               className="shrink-0 rounded-[7px] px-3 text-[12px] font-medium text-[#59656e] hover:bg-[#f3f5f6]"
               onClick={() => { setCustomCity(false); onCityChange?.(""); }}
             >
-              Liste
-            </button>
+              {dashboardText("Liste")}</button>
           </div>
         ) : (
           <select
             required={cityRequired}
-            aria-label={cityLabel}
+            aria-label={dashboardText(cityLabel)}
             className={className}
             value={knownCity ? city : ""}
             disabled={!selectedCountry || citiesLoading}
@@ -174,13 +178,13 @@ export function GeographyFields({
           >
             <option value="">
               {citiesLoading
-                ? "Chargement des villes…"
+                ? dashboardText("Chargement des villes…")
                 : selectedCountry
-                  ? "Choisir une ville"
-                  : "Choisissez d’abord un pays"}
+                  ? dashboardText("Choisir une ville")
+                  : dashboardText("Choisissez d’abord un pays")}
             </option>
             {availableCities.map((name) => <option key={name} value={name}>{name}</option>)}
-            {selectedCountry && !citiesLoading && <option value="__CUSTOM__">Autre ville…</option>}
+            {selectedCountry && !citiesLoading && <option value="__CUSTOM__">{dashboardText("Autre ville…")}</option>}
           </select>
         )}
       </label>}
@@ -196,12 +200,14 @@ export function FormGeographyFields({
   initialCountry?: string;
   initialCity?: string;
 }) {
+  useDashboardMessages();
   const [country, setCountry] = useState(initialCountry);
   const [city, setCity] = useState(initialCity);
   return <GeographyFields {...props} country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} />;
 }
 
 export function PhoneField({name="phone",defaultValue="",initialCountry="",className}:{name?:string;defaultValue?:string;initialCountry?:string;className:string}) {
+  useDashboardMessages();
   const initial=resolveCountry(initialCountry);
   const normalized=defaultValue.replace(/[^0-9+]/g,"");
   const matched=[...countries].filter(country=>normalized.startsWith(`+${country.phone||""}`)).sort((left,right)=>(right.phone?.length||0)-(left.phone?.length||0))[0];
@@ -210,5 +216,5 @@ export function PhoneField({name="phone",defaultValue="",initialCountry="",class
   const initialDial=matched?.phone||initial?.phone||"";
   const [national,setNational]=useState(normalized.replace(new RegExp(`^\\+?${initialDial}`),"").replace(/^0+/,""));
   const phone=current?.phone&&national?`+${current.phone}${national.replace(/\D/g,"")}`:"";
-  return <div className="grid grid-cols-[132px_1fr] gap-2"><input type="hidden" name={name} value={phone}/><select aria-label="Indicatif du pays" className={className} value={countryCode} onChange={event=>{setCountryCode(event.target.value);setNational("");}}><option value="">Indicatif</option>{countries.map(country=><option key={country.shortName} value={country.shortName}>{country.emoji} +{country.phone}</option>)}</select><input aria-label="Numéro de téléphone" inputMode="tel" autoComplete="tel-national" className={className} value={national} onChange={event=>setNational(event.target.value.replace(/\D/g,""))} placeholder="Numéro sans indicatif"/></div>;
+  return <div className="grid grid-cols-[132px_1fr] gap-2"><input type="hidden" name={name} value={phone}/><select aria-label={dashboardText("Indicatif du pays")} className={className} value={countryCode} onChange={event=>{setCountryCode(event.target.value);setNational("");}}><option value="">{dashboardText("Indicatif")}</option>{countries.map(country=><option key={country.shortName} value={country.shortName}>{country.emoji} +{country.phone}</option>)}</select><input aria-label={dashboardText("Numéro de téléphone")} inputMode="tel" autoComplete="tel-national" className={className} value={national} onChange={event=>setNational(event.target.value.replace(/\D/g,""))} placeholder={dashboardText("Numéro sans indicatif")}/></div>;
 }

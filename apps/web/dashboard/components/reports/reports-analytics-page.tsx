@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
@@ -32,6 +34,7 @@ const threeMonthsStart = localDate(new Date(new Date().getFullYear(), new Date()
 const selectClass = "mt-1 h-10 w-full rounded-full border border-[#cfd4d6] bg-white px-4 text-[13px] text-[#30363a] outline-none focus:border-[#aeb8be]";
 
 export function ReportsAnalyticsPage() {
+  useDashboardMessages();
   const [start, setStart] = useState(currentMonthStart);
   const [end, setEnd] = useState(today);
   const [data, setData] = useState<Analytics | null>(null);
@@ -109,43 +112,41 @@ export function ReportsAnalyticsPage() {
   return (
     <div data-ui="reports-workspace" className="flex h-full max-h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white [contain:inline-size] [&>header]:shrink-0">
       <OperationPageHeader
-        title="Rapports & analyses"
-        description="Suivez les performances de votre activité Cargo."
-        actions={<PermissionGuard permission="reports.export"><OperationButton variant="primary" className="!rounded-full !border-[#111111] !bg-[#111111] !text-white hover:!bg-[#303030]" onClick={exportCurrentView}><Download size={14} />Exporter un rapport</OperationButton></PermissionGuard>}
+        title={dashboardText("Rapports & analyses")}
+        description={dashboardText("Suivez les performances de votre activité Cargo.")}
+        actions={<PermissionGuard permission="reports.export"><OperationButton variant="primary" className="!rounded-full !border-[#111111] !bg-[#111111] !text-white hover:!bg-[#303030]" onClick={exportCurrentView}><Download size={14} />{dashboardText("Exporter un rapport")}</OperationButton></PermissionGuard>}
       />
 
       <main className="mx-auto flex min-h-0 w-full max-w-[1200px] min-w-0 flex-1 flex-col overflow-hidden px-6 sm:px-8">
-        <nav aria-label="Sections des rapports" className="operation-tabs mb-4 flex shrink-0 flex-nowrap items-center gap-0 overflow-x-auto pb-2">
+        <nav aria-label={dashboardText("Sections des rapports")} className="operation-tabs mb-4 flex shrink-0 flex-nowrap items-center gap-0 overflow-x-auto pb-2">
           {tabs.map(({ id, label }) => (
-            <OperationTab key={id} active={tab === id} className="!text-[14px]" onClick={() => selectTab(id)}>{label}</OperationTab>
+            <OperationTab key={id} active={tab === id} className="!text-[14px]" onClick={() => selectTab(id)}>{dashboardText(label)}</OperationTab>
           ))}
         </nav>
 
         <div className="mb-5 grid min-w-0 shrink-0 gap-3 sm:grid-cols-2">
-          <label className="min-w-0 text-[12px] text-[#697178]">Période
-            <select aria-label="Période" className={selectClass} value={`${start}|${end}`} onChange={(event) => {
+          <label className="min-w-0 text-[12px] text-[#697178]">{dashboardText("Période")}<select aria-label={dashboardText("Période")} className={selectClass} value={`${start}|${end}`} onChange={(event) => {
               const [nextStart, nextEnd] = event.target.value.split("|");
               setStart(nextStart);
               setEnd(nextEnd);
             }}>
-              <option value={`${currentMonthStart}|${today}`}>Ce mois</option>
-              <option value={`${thirtyDaysAgo}|${today}`}>30 derniers jours</option>
-              <option value={`${threeMonthsStart}|${today}`}>3 derniers mois</option>
-              <option value={`${yearStart}|${today}`}>Cette année</option>
+              <option value={`${currentMonthStart}|${today}`}>{dashboardText("Ce mois")}</option>
+              <option value={`${thirtyDaysAgo}|${today}`}>{dashboardText("30 derniers jours")}</option>
+              <option value={`${threeMonthsStart}|${today}`}>{dashboardText("3 derniers mois")}</option>
+              <option value={`${yearStart}|${today}`}>{dashboardText("Cette année")}</option>
             </select>
           </label>
-          <label className="min-w-0 text-[12px] text-[#697178]">Bureau
-            <select aria-label="Bureau" className={selectClass} value={officeId} onChange={(event) => {setOfficeId(event.target.value);}}>
-              <option value="">Tous les bureaux autorisés</option>
+          <label className="min-w-0 text-[12px] text-[#697178]">{dashboardText("Bureau")}<select aria-label={dashboardText("Bureau")} className={selectClass} value={officeId} onChange={(event) => {setOfficeId(event.target.value);}}>
+              <option value="">{dashboardText("Tous les bureaux autorisés")}</option>
               {(officeContext?.offices || []).map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}
             </select>
           </label>
         </div>
 
-        <div ref={contentRef} data-ui="report-content" role="region" aria-label={`Contenu du rapport — ${tabs.find(({ id }) => id === tab)?.label}`} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pb-10 outline-none [overflow-anchor:none] [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#aeb8be]">
-        {loading && !data ? <LoadingState label="Calcul des indicateurs…" /> : data ? (
+        <div ref={contentRef} data-ui="report-content" role="region" aria-label={dashboardText("Contenu du rapport — {0}", tabs.find(({ id }) => id === tab)?.label)} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain pb-10 outline-none [overflow-anchor:none] [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#aeb8be]">
+        {loading && !data ? <LoadingState label={dashboardText("Calcul des indicateurs…")} /> : data ? (
           <div className="min-w-0 space-y-5">
-            {!hasPeriodActivity && <div role="status" className="border border-[#dfe3e4] bg-white px-4 py-3 text-[13px] text-[#697178]">Aucune opération n’a été enregistrée sur la période sélectionnée. Les vues d’état courant peuvent toutefois afficher le stock existant.</div>}
+            {!hasPeriodActivity && <div role="status" className="border border-[#dfe3e4] bg-white px-4 py-3 text-[13px] text-[#697178]">{dashboardText("Aucune opération n’a été enregistrée sur la période sélectionnée. Les vues d’état courant peuvent toutefois afficher le stock existant.")}</div>}
             {tab === "overview" && <Overview data={data} />}
             {tab === "packages" && <PackagesView data={data} />}
             {tab === "shipments" && <ShipmentsView data={data} />}
@@ -154,7 +155,7 @@ export function ReportsAnalyticsPage() {
             {tab === "offices" && <OfficesView offices={data.offices} />}
           </div>
         ) : (
-          <ErrorState title="Analytics indisponibles" description={error || "Aucune donnée analytique n’a pu être chargée."} retry={load} />
+          <ErrorState title={dashboardText("Analytics indisponibles")} description={error || dashboardText("Aucune donnée analytique n’a pu être chargée.")} retry={load} />
         )}
         </div>
       </main>
@@ -176,20 +177,21 @@ function analyticsErrorMessage(error: unknown) {
 }
 
 function Overview({ data }: { data: Analytics }) {
+  useDashboardMessages();
   const financeValue = data.finance.length
     ? data.finance.map((row) => `${money(row.collected, row.currency)}`).join(" · ")
     : "0";
   return <>
     <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Kpi title="Colis enregistrés" value={number(data.kpis.packages)} change={change(data.kpis.packages, data.kpis.previous_packages)} />
-      <Kpi title="Expéditions" value={number(data.kpis.shipments)} change={change(data.kpis.shipments, data.kpis.previous_shipments)} />
-      <Kpi title="Clients actifs" value={number(data.kpis.active_clients)} change={change(data.kpis.active_clients, data.kpis.previous_active_clients)} />
-      <Kpi title="Paiements reçus" value={financeValue} change={data.finance.length > 1 ? null : change(Number(data.finance[0]?.collected || 0), Number(data.finance[0]?.previous_collected || 0))} />
+      <Kpi title={dashboardText("Colis enregistrés")} value={number(data.kpis.packages)} change={change(data.kpis.packages, data.kpis.previous_packages)} />
+      <Kpi title={dashboardText("Expéditions")} value={number(data.kpis.shipments)} change={change(data.kpis.shipments, data.kpis.previous_shipments)} />
+      <Kpi title={dashboardText("Clients actifs")} value={number(data.kpis.active_clients)} change={change(data.kpis.active_clients, data.kpis.previous_active_clients)} />
+      <Kpi title={dashboardText("Paiements reçus")} value={financeValue} change={data.finance.length > 1 ? null : change(Number(data.finance[0]?.collected || 0), Number(data.finance[0]?.previous_collected || 0))} />
     </div>
     <section className="min-w-0" aria-labelledby="activity-chart-title">
       <div className="mb-3">
-        <h2 id="activity-chart-title" className="text-[16px] font-semibold text-[#25292e]">Évolution de l’activité</h2>
-        <p className="mt-1 text-[13px] text-[#697178]">Colis et expéditions — 6 derniers mois</p>
+        <h2 id="activity-chart-title" className="text-[16px] font-semibold text-[#25292e]">{dashboardText("Évolution de l’activité")}</h2>
+        <p className="mt-1 text-[13px] text-[#697178]">{dashboardText("Colis et expéditions — 6 derniers mois")}</p>
       </div>
       <ActivityChart data={data.monthly_trend || []} />
     </section>
@@ -197,6 +199,7 @@ function Overview({ data }: { data: Analytics }) {
 }
 
 function Kpi({ title, value, change: delta }: { title: string; value: React.ReactNode; change: number | "new" | "empty" | null }) {
+  useDashboardMessages();
   const detail = delta === "empty" ? "Aucune activité à comparer" : delta === "new" ? "Nouveau sur la période" : delta === null ? "Plusieurs devises" : `${delta > 0 ? "+" : ""}${delta}% vs période précédente`;
   return <section className="min-w-0 border border-[#dfe3e4] bg-white px-4 py-4">
     <p className="text-[13px] text-[#697178]">{title}</p>
@@ -213,6 +216,7 @@ function change(current: number | undefined, previous: number | undefined): numb
 }
 
 function ActivityChart({ data }: { data: Analytics["monthly_trend"] }) {
+  useDashboardMessages();
   const chart = useMemo(() => {
     const maxValue = Math.max(0, ...data.flatMap((item) => [item.packages, item.shipments]));
     const step = maxValue > 100 ? 50 : maxValue > 20 ? 10 : maxValue > 8 ? 5 : 1;
@@ -225,7 +229,7 @@ function ActivityChart({ data }: { data: Analytics["monthly_trend"] }) {
   const packagePoints = data.map((item, index) => `${chart.x(index)},${chart.y(item.packages)}`).join(" ");
   const shipmentPoints = data.map((item, index) => `${chart.x(index)},${chart.y(item.shipments)}`).join(" ");
   return <div className="min-w-0">
-    <svg className="block h-[300px] w-full" viewBox="0 0 760 320" role="img" aria-label="Évolution mensuelle des colis et des expéditions sur les six derniers mois" preserveAspectRatio="xMidYMid meet">
+    <svg className="block h-[300px] w-full" viewBox="0 0 760 320" role="img" aria-label={dashboardText("Évolution mensuelle des colis et des expéditions sur les six derniers mois")} preserveAspectRatio="xMidYMid meet">
       {Array.from({ length: 5 }, (_, index) => {
         const value = (chart.max / 4) * (4 - index), y = chart.top + index * ((chart.bottom - chart.top) / 4);
         return <g key={index}><line x1={chart.left} y1={y} x2={chart.right} y2={y} stroke="#e8ebec" strokeDasharray="2 5" /><text x={chart.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#687178">{Math.round(value)}</text></g>;
@@ -234,42 +238,46 @@ function ActivityChart({ data }: { data: Analytics["monthly_trend"] }) {
         <polyline fill="none" stroke="#f27d4b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={packagePoints} />
         <polyline fill="none" stroke="#f3c746" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={shipmentPoints} />
         {data.map((item, index) => <g key={item.month}>
-          <circle cx={chart.x(index)} cy={chart.y(item.packages)} r="3.5" fill="#f27d4b"><title>{`${item.month} · ${item.packages} colis`}</title></circle>
-          <circle cx={chart.x(index)} cy={chart.y(item.shipments)} r="3.5" fill="#f3c746"><title>{`${item.month} · ${item.shipments} expéditions`}</title></circle>
-          <text x={chart.x(index)} y="278" textAnchor="middle" fontSize="11" fill="#687178">{new Date(`${item.month}T12:00:00`).toLocaleDateString("fr-FR", { month: "short" })}</text>
+          <circle cx={chart.x(index)} cy={chart.y(item.packages)} r="3.5" fill="#f27d4b"><title>{dashboardText("{0} · {1} colis", item.month, item.packages)}</title></circle>
+          <circle cx={chart.x(index)} cy={chart.y(item.shipments)} r="3.5" fill="#f3c746"><title>{dashboardText("{0} · {1} expéditions", item.month, item.shipments)}</title></circle>
+          <text x={chart.x(index)} y="278" textAnchor="middle" fontSize="11" fill="#687178">{new Date(dashboardText("{0}T12:00:00", item.month)).toLocaleDateString(dashboardFormatLocale(), { month: "short" })}</text>
         </g>)}
       </>}
     </svg>
-    {data.length ? <div className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[12px] text-[#59636b]"><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f27d4b]" />Colis</span><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f3c746]" />Expéditions</span></div> : <p className="py-10 text-center text-[13px] text-[#697178]">Aucune activité à afficher sur les six derniers mois.</p>}
+    {data.length ? <div className="mt-2 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[12px] text-[#59636b]"><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f27d4b]" />{dashboardText("Colis")}</span><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f3c746]" />{dashboardText("Expéditions")}</span></div> : <p className="py-10 text-center text-[13px] text-[#697178]">{dashboardText("Aucune activité à afficher sur les six derniers mois.")}</p>}
   </div>;
 }
 
 type DetailedViewProps = { data: Analytics };
 function PackagesView({ data }: DetailedViewProps) {
+  useDashboardMessages();
   const statuses = statusValues(data, "packages", ["Enregistrés", "Expédiés", "Arrivés", "Livrés"], Number(data.kpis.packages || 0));
-  return <ReportView title="Rapport des colis" description="Réception, expédition, arrivée et livraison">
+  return <ReportView title={dashboardText("Rapport des colis")} description={dashboardText("Réception, expédition, arrivée et livraison")}>
     <SummaryStats items={statuses} columns={2} />
     <StatusChart items={statuses} />
   </ReportView>;
 }
 
 function ShipmentsView({ data }: DetailedViewProps) {
+  useDashboardMessages();
   const statuses = statusValues(data, "shipments", ["Prévues", "En transit", "Arrivées"]);
-  return <ReportView title="Rapport des expéditions" description="Départs, arrivées et expéditions en transit">
+  return <ReportView title={dashboardText("Rapport des expéditions")} description={dashboardText("Départs, arrivées et expéditions en transit")}>
     <SummaryStats items={statuses} columns={3} />
     <StatusChart items={statuses} />
   </ReportView>;
 }
 
 function ClientsView({ data }: DetailedViewProps) {
+  useDashboardMessages();
   const stats = [{ label: "Clients actifs", value: Number(data.kpis.active_clients || 0) }, { label: "Nouveaux clients", value: Number(data.kpis.clients || 0) }];
-  return <ReportView title="Rapport des clients" description="Nouveaux clients et activité">
+  return <ReportView title={dashboardText("Rapport des clients")} description={dashboardText("Nouveaux clients et activité")}>
     <SummaryStats items={stats} columns={2} />
-    <section className="min-w-0" aria-label="Évolution des nouveaux clients"><ClientChart data={data.monthly_trend || []} /></section>
+    <section className="min-w-0" aria-label={dashboardText("Évolution des nouveaux clients")}><ClientChart data={data.monthly_trend || []} /></section>
   </ReportView>;
 }
 
 function FinanceView({ data }: DetailedViewProps) {
+  useDashboardMessages();
   const invoices = data.finance;
   const metrics = [
     { label: "Facturé", value: invoices.length ? invoices.map((row) => money(row.invoiced, row.currency)).join(" · ") : money(0, "USD") },
@@ -278,71 +286,77 @@ function FinanceView({ data }: DetailedViewProps) {
     { label: "Factures en attente", value: number(invoices.reduce((sum, row) => sum + Number(row.pending_invoices || 0), 0)) },
   ];
   const currencies = [...new Set([...data.monthly_finance.map(row=>row.currency),...data.finance.map(row=>row.currency)])];
-  return <ReportView title="Rapport financier" description="Facturation, encaissements et soldes">
+  return <ReportView title={dashboardText("Rapport financier")} description={dashboardText("Facturation, encaissements et soldes")}>
     <SummaryStats items={metrics} columns={2} />
-    <section className="min-w-0" aria-label="Facturation et encaissements par mois">{(currencies.length?currencies:['USD']).map(currency=><FinanceChart key={currency} data={data.monthly_finance.filter(row=>row.currency===currency)} currency={currency}/>)}</section>
+    <section className="min-w-0" aria-label={dashboardText("Facturation et encaissements par mois")}>{(currencies.length?currencies:[dashboardText("USD")]).map(currency=><FinanceChart key={currency} data={data.monthly_finance.filter(row=>row.currency===currency)} currency={currency}/>)}</section>
   </ReportView>;
 }
 
 function OfficesView({ offices }: { offices: Analytics["offices"] }) {
+  useDashboardMessages();
   return <div className="min-w-0 space-y-4">
-    <div><h2 className="text-[16px] font-semibold text-[#25292e]">Performances bureaux</h2><p className="mt-1 text-[13px] text-[#697178]">Activité et résultats par bureau</p></div>
+    <div><h2 className="text-[16px] font-semibold text-[#25292e]">{dashboardText("Performances bureaux")}</h2><p className="mt-1 text-[13px] text-[#697178]">{dashboardText("Activité et résultats par bureau")}</p></div>
     {offices.length>0&&<StatusChart items={offices.map(office=>({label:office.name||office.city,value:office.packages}))}/>}
-    {!offices.length && <EmptyState>Aucun bureau accessible pour cette sélection.</EmptyState>}
+    {!offices.length && <EmptyState>{dashboardText("Aucun bureau accessible pour cette sélection.")}</EmptyState>}
   </div>;
 }
 
 function ReportView({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  useDashboardMessages();
   return <div className="min-w-0 space-y-5"><div className="min-h-[48px]"><h2 className="text-[16px] font-semibold text-[#25292e]">{title}</h2><p className="mt-1 text-[13px] text-[#697178]">{description}</p></div>{children}</div>;
 }
 
 function SummaryStats({ items, columns }: { items: Array<{ label: string; value: string | number }>; columns: 2 | 3 }) {
+  useDashboardMessages();
   return <div className={`grid min-h-[136px] min-w-0 grid-cols-2 content-start gap-x-6 gap-y-4 ${columns === 3 ? "md:grid-cols-3" : ""}`}>
-    {items.map((item) => <section key={item.label} className="min-w-0 px-2 py-2"><p className="text-[12px] text-[#697178]">{item.label}</p><p className="mt-2 break-words text-[20px] font-semibold text-[#25292e]">{item.value}</p></section>)}
+    {items.map((item) => <section key={item.label} className="min-w-0 px-2 py-2"><p className="text-[12px] text-[#697178]">{dashboardText(item.label)}</p><p className="mt-2 break-words text-[20px] font-semibold text-[#25292e]">{item.value}</p></section>)}
   </div>;
 }
 
 function StatusChart({ items }: { items: Array<{ label: string; value: number }> }) {
+  useDashboardMessages();
   const max = Math.max(4, Math.ceil(Math.max(0, ...items.map((item) => item.value))/4)*4);
   const left = 60, right = 740, top = 18, bottom = 292;
   const slot = (right - left) / items.length, barWidth = Math.min(112, slot * 0.62);
   return <svg className="block h-[300px] w-full" viewBox="0 0 760 350" role="img" aria-label={items.map(({ label, value }) => `${label}: ${value}`).join(", ")} preserveAspectRatio="xMidYMid meet">
     {Array.from({ length: 5 }, (_, index) => { const value = Math.round(max * (4 - index) / 4), y = top + index * ((bottom - top) / 4); return <g key={index}><line x1={left} x2={right} y1={y} y2={y} stroke="#e8ebec" strokeDasharray="2 5" /><text x={left - 12} y={y + 4} textAnchor="end" fontSize="11" fill="#687178">{value}</text></g>; })}
-    {items.map((item, index) => { const height = item.value / max * (bottom - top), x = left + slot * index + (slot - barWidth) / 2; return <g key={item.label}><rect x={x} y={bottom - height} width={barWidth} height={height} rx="7" fill="#f28b55"><title>{`${item.label} : ${item.value}`}</title></rect><text x={x + barWidth / 2} y="320" textAnchor="middle" fontSize="11" fill="#687178">{item.label}</text></g>; })}
+    {items.map((item, index) => { const height = item.value / max * (bottom - top), x = left + slot * index + (slot - barWidth) / 2; return <g key={item.label}><rect x={x} y={bottom - height} width={barWidth} height={height} rx="7" fill="#f28b55"><title>{`${item.label} : ${item.value}`}</title></rect><text x={x + barWidth / 2} y="320" textAnchor="middle" fontSize="11" fill="#687178">{dashboardText(item.label)}</text></g>; })}
   </svg>;
 }
 
 function ClientChart({ data }: { data: Analytics["monthly_trend"] }) {
+  useDashboardMessages();
   const maxValue = Math.max(6, Math.ceil(Math.max(0, ...data.map((row) => row.clients)) / 6) * 6);
   const left = 58, right = 740, top = 22, bottom = 272;
   const x = (index: number) => data.length <= 1 ? (left + right) / 2 : left + index * (right - left) / (data.length - 1);
   const y = (value: number) => bottom - value / maxValue * (bottom - top);
   const points = data.map((row, index) => `${x(index)},${y(row.clients)}`).join(" ");
   return <div className="min-w-0">
-    <h3 className="mb-3 text-[14px] font-semibold text-[#25292e]">Nouveaux clients par mois</h3>
-    <svg className="block h-[300px] w-full" viewBox="0 0 760 320" role="img" aria-label="Évolution mensuelle des nouveaux clients" preserveAspectRatio="xMidYMid meet">
+    <h3 className="mb-3 text-[14px] font-semibold text-[#25292e]">{dashboardText("Nouveaux clients par mois")}</h3>
+    <svg className="block h-[300px] w-full" viewBox="0 0 760 320" role="img" aria-label={dashboardText("Évolution mensuelle des nouveaux clients")} preserveAspectRatio="xMidYMid meet">
       {Array.from({ length: 5 }, (_, index) => { const value = Math.round(maxValue * (4 - index) / 4), lineY = top + index * ((bottom - top) / 4); return <g key={index}><line x1={left} x2={right} y1={lineY} y2={lineY} stroke="#e8ebec" strokeDasharray="2 5"/><text x={left - 12} y={lineY + 4} textAnchor="end" fontSize="11" fill="#687178">{value}</text></g>; })}
       {points && <polyline points={points} fill="none" stroke="#f27d4b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
-      {data.map((row, index) => <g key={row.month}><circle cx={x(index)} cy={y(row.clients)} r="3.5" fill="#f27d4b" /><text x={x(index)} y="302" textAnchor="middle" fontSize="11" fill="#687178">{new Date(`${row.month}T12:00:00`).toLocaleDateString("fr-FR", { month: "short" })}</text></g>)}
+      {data.map((row, index) => <g key={row.month}><circle cx={x(index)} cy={y(row.clients)} r="3.5" fill="#f27d4b" /><text x={x(index)} y="302" textAnchor="middle" fontSize="11" fill="#687178">{new Date(dashboardText("{0}T12:00:00", row.month)).toLocaleDateString(dashboardFormatLocale(), { month: "short" })}</text></g>)}
     </svg>
-    {!data.length && <p className="text-center text-[13px] text-[#697178]">Aucune activité à afficher sur cette période.</p>}
+    {!data.length && <p className="text-center text-[13px] text-[#697178]">{dashboardText("Aucune activité à afficher sur cette période.")}</p>}
   </div>;
 }
 
 function FinanceChart({ data, currency }: { data: Analytics["monthly_finance"]; currency: string }) {
+  useDashboardMessages();
   const max = Math.max(1, ...data.flatMap((row) => [Number(row.invoiced), Number(row.collected)]));
   return <div className="min-w-0">
-    <h3 className="mb-3 text-[14px] font-semibold text-[#25292e]">Facturé et encaissé par mois · {currency}</h3>
-    <svg className="block h-[300px] w-full" viewBox="0 0 760 350" role="img" aria-label={`Montants facturés et encaissés en ${currency}`} preserveAspectRatio="xMidYMid meet">
-      {Array.from({ length: 5 }, (_, index) => { const amount = max * (4 - index) / 4, y = 18 + index * 68; return <g key={index}><line x1="72" x2="740" y1={y} y2={y} stroke="#e8ebec" strokeDasharray="2 5"/><text x="62" y={y + 4} textAnchor="end" fontSize="10" fill="#687178">{new Intl.NumberFormat("fr-FR", { notation: amount >= 1000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(amount)}</text></g>; })}
+    <h3 className="mb-3 text-[14px] font-semibold text-[#25292e]">{dashboardText("Facturé et encaissé par mois · ")}{currency}</h3>
+    <svg className="block h-[300px] w-full" viewBox="0 0 760 350" role="img" aria-label={dashboardText("Montants facturés et encaissés en {0}", currency)} preserveAspectRatio="xMidYMid meet">
+      {Array.from({ length: 5 }, (_, index) => { const amount = max * (4 - index) / 4, y = 18 + index * 68; return <g key={index}><line x1="72" x2="740" y1={y} y2={y} stroke="#e8ebec" strokeDasharray="2 5"/><text x="62" y={y + 4} textAnchor="end" fontSize="10" fill="#687178">{new Intl.NumberFormat(dashboardFormatLocale(), { notation: amount >= 1000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(amount)}</text></g>; })}
       {data.map((row, index) => { const slot = data.length ? 668 / data.length : 0, center = 72 + slot * (index + 0.5), width = Math.min(52, slot * 0.3), billed = Number(row.invoiced), collected = Number(row.collected), chartHeight = 272; return <g key={`${row.month}-${row.currency}`}>
-        <rect x={center - width - 2} y={290 - billed / max * chartHeight} width={width} height={billed / max * chartHeight} rx="6" fill="#f28b55"><title>{`Facturé : ${money(billed, currency)}`}</title></rect>
-        <rect x={center + 2} y={290 - collected / max * chartHeight} width={width} height={collected / max * chartHeight} rx="6" fill="#f5cf4b"><title>{`Encaissé : ${money(collected, currency)}`}</title></rect>
-        <text x={center} y="320" textAnchor="middle" fontSize="11" fill="#687178">{new Date(`${row.month}T12:00:00`).toLocaleDateString("fr-FR", { month: "short" })}</text>
+        <rect x={center - width - 2} y={290 - billed / max * chartHeight} width={width} height={billed / max * chartHeight} rx="6" fill="#f28b55"><title>{dashboardText("Facturé : {0}", money(billed, currency))}</title></rect>
+        <rect x={center + 2} y={290 - collected / max * chartHeight} width={width} height={collected / max * chartHeight} rx="6" fill="#f5cf4b"><title>{dashboardText("Encaissé : {0}", money(collected, currency))}</title></rect>
+        <text x={center} y="320" textAnchor="middle" fontSize="11" fill="#687178">{new Date(dashboardText("{0}T12:00:00", row.month)).toLocaleDateString(dashboardFormatLocale(), { month: "short" })}</text>
       </g>; })}
     </svg>
-    <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[12px] text-[#59636b]"><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f28b55]" />Facturé</span><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f5cf4b]" />Encaissé</span></div>
-    {!data.length && <p className="mt-4 text-center text-[13px] text-[#697178]">Aucune activité financière sur les six derniers mois.</p>}
+    <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[12px] text-[#59636b]"><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f28b55]" />{dashboardText("Facturé")}</span><span><i className="mr-2 inline-block h-2.5 w-2.5 rounded-full bg-[#f5cf4b]" />{dashboardText("Encaissé")}</span></div>
+    {!data.length && <p className="mt-4 text-center text-[13px] text-[#697178]">{dashboardText("Aucune activité financière sur les six derniers mois.")}</p>}
   </div>;
 }
 
@@ -367,12 +381,13 @@ function statusValues(data: Analytics, key: string, labels: string[], registered
 }
 
 function normalize(value: string) { return value.toUpperCase().replaceAll(/[^A-Z]/g, ""); }
-function number(value: number | string | undefined) { return Number(value || 0).toLocaleString("fr-FR"); }
+function number(value: number | string | undefined) { return Number(value || 0).toLocaleString(dashboardFormatLocale()); }
 function money(value: string | number, currency: string) {
-  try { return new Intl.NumberFormat("fr-FR", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 2 }).format(Number(value || 0)); }
+  try { return new Intl.NumberFormat(dashboardFormatLocale(), { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: 2 }).format(Number(value || 0)); }
   catch { return `${number(Number(value || 0))} ${currency}`; }
 }
 function EmptyState({ children }: { children: React.ReactNode }) {
+  useDashboardMessages();
   return <p className="border border-[#dfe3e4] bg-white px-4 py-5 text-[13px] text-[#697178]">{children}</p>;
 }
 function exportOffices(offices: Analytics["offices"], start: string, end: string) {

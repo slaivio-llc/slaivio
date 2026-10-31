@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 
 import axios from "axios";
 import { AlertCircle, ChevronLeft, ChevronRight, Download, Trash2 } from "lucide-react";
@@ -30,6 +32,7 @@ const PAGE_SIZE = 30;
 const fieldClass = "h-10 w-full rounded-[7px] border border-[#d4d9df] bg-white px-3 text-[13px] text-[#30373e] outline-none transition focus:border-[#12a865] focus:ring-2 focus:ring-[#12c76f]/10";
 
 export function DossiersPage() {
+  useDashboardMessages();
   const offline = usePilotOffline();
   const { cache, cached, enqueue, online, scopeKey } = offline;
   const router = useRouter();
@@ -202,62 +205,62 @@ export function DossiersPage() {
 
   return <div className="min-h-full bg-white text-[#25292e]">
     <OperationPageHeader
-      title="Dossiers"
-      description="Regroupez les clients concernés, suivez leur situation et retrouvez les dossiers qui demandent votre attention."
+      title={dashboardText("Dossiers")}
+      description={dashboardText("Regroupez les clients concernés, suivez leur situation et retrouvez les dossiers qui demandent votre attention.")}
       actions={<>
-        <PermissionGuard permission="dossiers.export"><OperationButton onClick={handleExport}><Download size={15} /> Exporter</OperationButton></PermissionGuard>
-        <PermissionGuard permission="dossiers.create"><OperationButton variant="primary" onClick={openCreate}>Nouveau dossier</OperationButton></PermissionGuard>
+        <PermissionGuard permission="dossiers.export"><OperationButton onClick={handleExport}><Download size={15} /> {dashboardText(" Exporter")}</OperationButton></PermissionGuard>
+        <PermissionGuard permission="dossiers.create"><OperationButton variant="primary" onClick={openCreate}>{dashboardText("Nouveau dossier")}</OperationButton></PermissionGuard>
       </>}
       divider={false}
     />
     <OperationContent className="grid gap-5">
       <OperationMetricGrid>
-        <OperationMetric label="Dossiers actifs" value={stats.active.toLocaleString("fr-FR")} active={view === "active"} onClick={() => setView("active")} />
-        <OperationMetric label="Clients rattachés" value={stats.client_memberships.toLocaleString("fr-FR")} />
-        <OperationMetric label="Dossiers à traiter" value={stats.dossiers_requiring_attention.toLocaleString("fr-FR")} tone={stats.dossiers_requiring_attention ? "warning" : "default"} />
-        <OperationMetric label="Clients à suivre" value={stats.clients_requiring_attention.toLocaleString("fr-FR")} tone={stats.clients_requiring_attention ? "warning" : "default"} />
+        <OperationMetric label={dashboardText("Dossiers actifs")} value={stats.active.toLocaleString(dashboardFormatLocale())} active={view === "active"} onClick={() => setView("active")} />
+        <OperationMetric label={dashboardText("Clients rattachés")} value={stats.client_memberships.toLocaleString(dashboardFormatLocale())} />
+        <OperationMetric label={dashboardText("Dossiers à traiter")} value={stats.dossiers_requiring_attention.toLocaleString(dashboardFormatLocale())} tone={stats.dossiers_requiring_attention ? "warning" : "default"} />
+        <OperationMetric label={dashboardText("Clients à suivre")} value={stats.clients_requiring_attention.toLocaleString(dashboardFormatLocale())} tone={stats.clients_requiring_attention ? "warning" : "default"} />
       </OperationMetricGrid>
 
-      <nav aria-label="Vues des dossiers" className="flex min-h-10 gap-1 overflow-x-auto">
-        {tabs.map((item) => <OperationTab key={item.key} active={view === item.key} count={item.count} onClick={() => setView(item.key)} className="h-10">{item.label}</OperationTab>)}
+      <nav aria-label={dashboardText("Vues des dossiers")} className="flex min-h-10 gap-1 overflow-x-auto">
+        {tabs.map((item) => <OperationTab key={item.key} active={view === item.key} count={item.count} onClick={() => setView(item.key)} className="h-10">{dashboardText(item.label)}</OperationTab>)}
       </nav>
 
       {error && <div className="flex items-start gap-3 rounded-[8px] border border-[#efcaca] bg-[#fff5f5] p-4 text-[13px] text-[#a62b25]">
-        <AlertCircle size={17} className="mt-0.5 shrink-0" /><div><p className="font-semibold">Impossible d’afficher les dossiers</p><p className="mt-0.5">{error}</p></div>
+        <AlertCircle size={17} className="mt-0.5 shrink-0" /><div><p className="font-semibold">{dashboardText("Impossible d’afficher les dossiers")}</p><p className="mt-0.5">{dashboardText(error)}</p></div>
       </div>}
 
       <OperationTable>
         {loading ? <TableSkeleton rows={7} columns={6} /> : items.length === 0 ? <EmptyState
-          title="Aucun dossier dans cette vue"
-          description="Créez un dossier lorsque vous commencez à suivre une nouvelle situation."
-          action={view === "active" ? <OperationButton variant="primary" onClick={openCreate}>Nouveau dossier</OperationButton> : undefined}
+          title={dashboardText("Aucun dossier dans cette vue")}
+          description={dashboardText("Créez un dossier lorsque vous commencez à suivre une nouvelle situation.")}
+          action={view === "active" ? <OperationButton variant="primary" onClick={openCreate}>{dashboardText("Nouveau dossier")}</OperationButton> : undefined}
         /> : <DossiersTable items={items} openDetail={openDetail} />}
       </OperationTable>
       {!loading && total > 0 && <div className="flex items-center justify-between text-[12px] text-[#6f7983]">
         <span>{plural(total, "dossier")}</span><div className="flex items-center gap-2">
-          <OperationButton className="h-8 w-8 px-0" disabled={page <= 1} onClick={() => load(page - 1)} aria-label="Page précédente"><ChevronLeft size={15} /></OperationButton>
+          <OperationButton className="h-8 w-8 px-0" disabled={page <= 1} onClick={() => load(page - 1)} aria-label={dashboardText("Page précédente")}><ChevronLeft size={15} /></OperationButton>
           <span className="min-w-16 text-center font-medium text-[#404951]">{page} / {Math.max(totalPages, 1)}</span>
-          <OperationButton className="h-8 w-8 px-0" disabled={page >= totalPages} onClick={() => load(page + 1)} aria-label="Page suivante"><ChevronRight size={15} /></OperationButton>
+          <OperationButton className="h-8 w-8 px-0" disabled={page >= totalPages} onClick={() => load(page + 1)} aria-label={dashboardText("Page suivante")}><ChevronRight size={15} /></OperationButton>
         </div>
       </div>}
     </OperationContent>
 
     <OperationDrawer
-      open={createOpen} close={() => !creating && setCreateOpen(false)} title="Nouveau dossier"
-      description="Créez le dossier avec les informations déjà connues. Vous pourrez le compléter ensuite." width="max-w-[600px]"
-      footer={<><OperationButton disabled={creating} onClick={() => setCreateOpen(false)}>Annuler</OperationButton><OperationButton variant="primary" type="submit" form="pilot-dossier-create" disabled={creating}>{creating ? "Création…" : "Créer le dossier"}</OperationButton></>}
+      open={createOpen} close={() => !creating && setCreateOpen(false)} title={dashboardText("Nouveau dossier")}
+      description={dashboardText("Créez le dossier avec les informations déjà connues. Vous pourrez le compléter ensuite.")} width="max-w-[600px]"
+      footer={<><OperationButton disabled={creating} onClick={() => setCreateOpen(false)}>{dashboardText("Annuler")}</OperationButton><OperationButton variant="primary" type="submit" form="pilot-dossier-create" disabled={creating}>{creating ? dashboardText("Création…") : dashboardText("Créer le dossier")}</OperationButton></>}
     >
       <form id="pilot-dossier-create" onSubmit={submitCreate} className="grid gap-6">
-        <section className="grid gap-4"><div><h3 className="text-[15px] font-semibold text-[#25292e]">Informations du dossier</h3><p className="mt-1 text-[13px] leading-5 text-[#68737d]">Renseignez uniquement ce que vous connaissez maintenant.</p></div>
-          <label className="grid gap-2"><span className="text-[13px] font-semibold text-[#414950]">Nom ou objet du dossier</span><input name="title" maxLength={180} placeholder="Ex. Suivi des commandes boutique Mardoche" className={fieldClass} /></label>
-          <label className="grid gap-2"><span className="text-[13px] font-semibold text-[#414950]">Contexte <span className="font-normal text-[#7a848d]">— facultatif</span></span><textarea name="description" maxLength={3000} rows={4} placeholder="Expliquez brièvement ce qui doit être suivi dans ce dossier." className={`${fieldClass} h-auto py-2.5`} /></label>
+        <section className="grid gap-4"><div><h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Informations du dossier")}</h3><p className="mt-1 text-[13px] leading-5 text-[#68737d]">{dashboardText("Renseignez uniquement ce que vous connaissez maintenant.")}</p></div>
+          <label className="grid gap-2"><span className="text-[13px] font-semibold text-[#414950]">{dashboardText("Nom ou objet du dossier")}</span><input name="title" maxLength={180} placeholder={dashboardText("Ex. Suivi des commandes boutique Mardoche")} className={fieldClass} /></label>
+          <label className="grid gap-2"><span className="text-[13px] font-semibold text-[#414950]">{dashboardText("Contexte ")}<span className="font-normal text-[#7a848d]">{dashboardText("— facultatif")}</span></span><textarea name="description" maxLength={3000} rows={4} placeholder={dashboardText("Expliquez brièvement ce qui doit être suivi dans ce dossier.")} className={`${fieldClass} h-auto py-2.5`} /></label>
         </section>
-        <section><h3 className="text-[15px] font-semibold text-[#25292e]">Clients concernés <span className="font-normal text-[#7a848d]">— facultatif</span></h3>
-          <p className="mt-1 text-[13px] leading-5 text-[#68737d]">Ajoutez un ou plusieurs clients existants. Vous pourrez aussi le faire plus tard.</p>
+        <section><h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Clients concernés ")}<span className="font-normal text-[#7a848d]">{dashboardText("— facultatif")}</span></h3>
+          <p className="mt-1 text-[13px] leading-5 text-[#68737d]">{dashboardText("Ajoutez un ou plusieurs clients existants. Vous pourrez aussi le faire plus tard.")}</p>
           <SelectedClients clients={selectedClients} remove={(id) => setSelectedClients((current) => current.filter((client) => client.id !== id))} />
           <ClientSearch query={clientQuery} setQuery={setClientQuery} searching={clientSearching} matches={clientMatches} select={(client) => { setSelectedClients((current) => [...current, client]); setClientQuery(""); }} />
         </section>
-        <div className="rounded-[8px] border border-[#dfe4e7] bg-[#f8faf9] p-4 text-[13px] leading-5 text-[#59656f]">Le dossier recevra automatiquement une référence unique. Aucune information technique ne vous sera demandée.</div>
+        <div className="rounded-[8px] border border-[#dfe4e7] bg-[#f8faf9] p-4 text-[13px] leading-5 text-[#59656f]">{dashboardText("Le dossier recevra automatiquement une référence unique. Aucune information technique ne vous sera demandée.")}</div>
         {createError && <p className="rounded-[7px] bg-[#fff2f2] px-3 py-2.5 text-[13px] text-[#a62b25]">{createError}</p>}
       </form>
     </OperationDrawer>
@@ -265,34 +268,37 @@ export function DossiersPage() {
 }
 
 function DossiersTable({ items, openDetail }: { items: DossierRecord[]; openDetail: (dossier: DossierRecord) => void }) {
+  useDashboardMessages();
   return <table className="w-full min-w-[780px] border-collapse text-left"><thead className="bg-[#f7f8f9] text-[12px] font-semibold text-[#606b75]"><tr className="border-b border-[#e2e6e9]">
-    <th className="px-5 py-3">Dossier</th><th className="px-5 py-3">Objet</th><th className="px-5 py-3">Clients</th><th className="px-5 py-3">Situation</th><th className="px-5 py-3">Dernière activité</th><th className="w-14 px-4 py-3"><span className="sr-only">Ouvrir</span></th>
+    <th className="px-5 py-3">{dashboardText("Dossier")}</th><th className="px-5 py-3">{dashboardText("Objet")}</th><th className="px-5 py-3">{dashboardText("Clients")}</th><th className="px-5 py-3">{dashboardText("Situation")}</th><th className="px-5 py-3">{dashboardText("Dernière activité")}</th><th className="w-14 px-4 py-3"><span className="sr-only">{dashboardText("Ouvrir")}</span></th>
   </tr></thead><tbody className="divide-y divide-[#edf0f2] bg-white text-[13px]">{items.map((dossier) => <tr key={dossier.id} className="transition-colors hover:bg-[#fafbfb]">
-    <td className="px-5 py-4"><button type="button" disabled={dossier.id.startsWith("local:")} onClick={() => openDetail(dossier)} className="text-left disabled:cursor-default"><span className="block font-semibold text-[#25292e]">{dossier.title || "Dossier sans intitulé"}</span><span className="mt-1 flex items-center gap-2 text-[12px] text-[#78828c]">{dossier.dossier_reference}{dossier.offline_state === "PENDING" && <OperationStatus label="À synchroniser" tone="info" />}</span></button></td>
-    <td className="max-w-[300px] px-5 py-4"><p className="line-clamp-2 leading-5 text-[#4c5660]">{dossier.description || "Aucun contexte renseigné"}</p></td>
-    <td className="px-5 py-4"><span className="font-semibold text-[#343b42]">{(dossier.client_count || 0).toLocaleString("fr-FR")}</span><span className="ml-1 text-[#68737d]">{(dossier.client_count || 0) > 1 ? "clients" : "client"}</span></td>
-    <td className="px-5 py-4">{dossier.attention_count > 0 ? <OperationStatus label={`${plural(dossier.attention_count, "client")} à traiter`} tone="warning" /> : <OperationStatus label="Suivi normal" tone="success" />}</td>
+    <td className="px-5 py-4"><button type="button" disabled={dossier.id.startsWith("local:")} onClick={() => openDetail(dossier)} className="text-left disabled:cursor-default"><span className="block font-semibold text-[#25292e]">{dossier.title || dashboardText("Dossier sans intitulé")}</span><span className="mt-1 flex items-center gap-2 text-[12px] text-[#78828c]">{dossier.dossier_reference}{dossier.offline_state === "PENDING" && <OperationStatus label={dashboardText("À synchroniser")} tone="info" />}</span></button></td>
+    <td className="max-w-[300px] px-5 py-4"><p className="line-clamp-2 leading-5 text-[#4c5660]">{dossier.description || dashboardText("Aucun contexte renseigné")}</p></td>
+    <td className="px-5 py-4"><span className="font-semibold text-[#343b42]">{(dossier.client_count || 0).toLocaleString(dashboardFormatLocale())}</span><span className="ml-1 text-[#68737d]">{(dossier.client_count || 0) > 1 ? dashboardText("clients") : dashboardText("client")}</span></td>
+    <td className="px-5 py-4">{dossier.attention_count > 0 ? <OperationStatus label={dashboardText("{0} à traiter", plural(dossier.attention_count, "client"))} tone="warning" /> : <OperationStatus label={dashboardText("Suivi normal")} tone="success" />}</td>
     <td className="px-5 py-4 text-[#4c5660]">{formatRelative(dossier.updated_at || dossier.created_at)}</td>
-    <td className="px-4 py-3.5 text-right">{!dossier.id.startsWith("local:") && <button type="button" onClick={() => openDetail(dossier)} className="grid h-8 w-8 place-items-center rounded-[6px] text-[#68737d] hover:bg-[#eef1f2] hover:text-[#25292e]" aria-label={`Ouvrir ${dossier.dossier_reference}`}><ChevronRight size={17} /></button>}</td>
+    <td className="px-4 py-3.5 text-right">{!dossier.id.startsWith("local:") && <button type="button" onClick={() => openDetail(dossier)} className="grid h-8 w-8 place-items-center rounded-[6px] text-[#68737d] hover:bg-[#eef1f2] hover:text-[#25292e]" aria-label={dashboardText("Ouvrir {0}", dossier.dossier_reference)}><ChevronRight size={17} /></button>}</td>
   </tr>)}</tbody></table>;
 }
 
 function SelectedClients({ clients, remove }: { clients: DossierClientSearchResult[]; remove: (id: string) => void }) {
+  useDashboardMessages();
   if (!clients.length) return null;
-  return <div className="mt-4 grid gap-2">{clients.map((client) => <div key={client.id} className="flex items-center justify-between rounded-[8px] border border-[#b8ddca] bg-[#f2fbf6] p-3.5"><div className="min-w-0"><p className="truncate text-[13px] font-semibold text-[#26312b]">{client.display_name}</p><p className="mt-0.5 text-[12px] text-[#617169]">{client.phone || client.whatsapp_phone || client.email || client.client_reference}</p></div><button type="button" className="grid h-8 w-8 shrink-0 place-items-center rounded-[6px] text-[#a62b25] hover:bg-[#fde8e7]" onClick={() => remove(client.id)} aria-label={`Retirer ${client.display_name}`} title="Retirer"><Trash2 size={15}/></button></div>)}</div>;
+  return <div className="mt-4 grid gap-2">{clients.map((client) => <div key={client.id} className="flex items-center justify-between rounded-[8px] border border-[#b8ddca] bg-[#f2fbf6] p-3.5"><div className="min-w-0"><p className="truncate text-[13px] font-semibold text-[#26312b]">{client.display_name}</p><p className="mt-0.5 text-[12px] text-[#617169]">{client.phone || client.whatsapp_phone || client.email || client.client_reference}</p></div><button type="button" className="grid h-8 w-8 shrink-0 place-items-center rounded-[6px] text-[#a62b25] hover:bg-[#fde8e7]" onClick={() => remove(client.id)} aria-label={dashboardText("Retirer {0}", client.display_name)} title={dashboardText("Retirer")}><Trash2 size={15}/></button></div>)}</div>;
 }
 
 function ClientSearch({ query, setQuery, searching, matches, select }: { query: string; setQuery: (value: string) => void; searching: boolean; matches: DossierClientSearchResult[]; select: (client: DossierClientSearchResult) => void }) {
-  return <div className="relative mt-4"><OperationSearch value={query} onChange={setQuery} placeholder="Nom, téléphone ou email" />{(searching || matches.length > 0) && <div className="mt-2 overflow-hidden rounded-[8px] border border-[#dfe3e7] bg-white">{searching ? <p className="px-4 py-3 text-[13px] text-[#6f7983]">Recherche…</p> : matches.map((client) => <button key={client.id} type="button" onClick={() => select(client)} className="flex w-full items-center justify-between border-b border-[#edf0f2] px-4 py-3 text-left last:border-0 hover:bg-[#f7f9f8]"><span><span className="block text-[13px] font-semibold text-[#30373e]">{client.display_name}</span><span className="mt-0.5 block text-[12px] text-[#77818b]">{client.phone || client.whatsapp_phone || client.email || "Coordonnée non renseignée"}</span></span><ChevronRight size={16} className="text-[#77818b]" /></button>)}</div>}</div>;
+  useDashboardMessages();
+  return <div className="relative mt-4"><OperationSearch value={query} onChange={setQuery} placeholder={dashboardText("Nom, téléphone ou email")} />{(searching || matches.length > 0) && <div className="mt-2 overflow-hidden rounded-[8px] border border-[#dfe3e7] bg-white">{searching ? <p className="px-4 py-3 text-[13px] text-[#6f7983]">{dashboardText("Recherche…")}</p> : matches.map((client) => <button key={client.id} type="button" onClick={() => select(client)} className="flex w-full items-center justify-between border-b border-[#edf0f2] px-4 py-3 text-left last:border-0 hover:bg-[#f7f9f8]"><span><span className="block text-[13px] font-semibold text-[#30373e]">{client.display_name}</span><span className="mt-0.5 block text-[12px] text-[#77818b]">{client.phone || client.whatsapp_phone || client.email || dashboardText("Coordonnée non renseignée")}</span></span><ChevronRight size={16} className="text-[#77818b]" /></button>)}</div>}</div>;
 }
 
-function plural(value: number, label: string) { return `${value.toLocaleString("fr-FR")} ${label}${value > 1 ? "s" : ""}`; }
-function formatDateTime(value: string) { return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
+function plural(value: number, label: string) { return `${value.toLocaleString(dashboardFormatLocale())} ${label}${value > 1 ? "s" : ""}`; }
+function formatDateTime(value: string) { return new Intl.DateTimeFormat(dashboardFormatLocale(), { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
 function formatRelative(value: string) { const diff = Date.now() - new Date(value).getTime(); const hours = Math.floor(diff / 3_600_000); if (hours < 1) return "Il y a moins d’une heure"; if (hours < 24) return `Il y a ${hours} h`; const days = Math.floor(hours / 24); if (days < 8) return `Il y a ${days} jour${days > 1 ? "s" : ""}`; return formatDateTime(value); }
-function apiError(cause: unknown) { if (!axios.isAxiosError(cause)) return "Une erreur inattendue est survenue."; if (!cause.response) return "Le serveur ne répond pas. Réessayez dans un instant."; const detail = cause.response.data?.detail; if (detail === "stale_dossier_version") return "Ce dossier a été modifié ailleurs. Actualisez la page."; if (detail === "client_not_found") return "Le client sélectionné n’existe plus."; return typeof detail === "string" ? detail : "L’opération n’a pas pu être terminée."; }
+function apiError(cause: unknown) { if (!axios.isAxiosError(cause)) return dashboardText("Une erreur inattendue est survenue."); if (!cause.response) return dashboardText("Le serveur ne répond pas. Réessayez dans un instant."); const detail = cause.response.data?.detail; if (detail === "stale_dossier_version") return dashboardText("Ce dossier a été modifié ailleurs. Actualisez la page."); if (detail === "client_not_found") return dashboardText("Le client sélectionné n’existe plus."); return dashboardText(typeof detail === "string" ? detail : "L’opération n’a pas pu être terminée."); }
 function clean(value: FormDataEntryValue | null) { const text = String(value || "").trim(); return text || null; }
 class OfflineCreationRequested extends Error {}
-function isNetworkError(cause: unknown) { return axios.isAxiosError(cause) && !cause.response; }
+function isNetworkError(cause: unknown) { return dashboardText(axios.isAxiosError(cause) && !cause.response); }
 async function localDossiers(scope: string) {
   const operations = await listPilotOperations(scope);
   return operations

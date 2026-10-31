@@ -1,19 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import english from '@/messages/dashboard.en.json';
 
 export type DashboardLocale = "fr" | "en";
 
 const EVENT = "slaivio:language-changed";
+let presentationReady=false;
+
+/** The first client render matches the French server snapshot. */
+export function readDashboardPresentationLocale():DashboardLocale {
+  return presentationReady?readDashboardLocale():'fr';
+}
 
 export function readDashboardLocale(): DashboardLocale {
   if (typeof window === "undefined") return "fr";
-  return (window.localStorage.getItem("slaivio-locale") || window.sessionStorage.getItem('slaivio-agency-locale')) === "en" ? "en" : "fr";
+  try {
+    const stored=window.localStorage.getItem('slaivio-locale')||window.sessionStorage.getItem('slaivio-agency-locale');
+    if(stored)return stored==='en'?'en':'fr';
+  }catch{/* Storage may be blocked; the locale cookie remains usable. */}
+  return document.cookie.split(';').some(value=>value.trim()==='NEXT_LOCALE=en')?'en':'fr';
 }
 
 export function setAgencyDashboardLocale(locale:DashboardLocale){
-  window.sessionStorage.setItem('slaivio-agency-locale',locale);
-  if(!window.localStorage.getItem('slaivio-locale')){
+  presentationReady=true;
+  let personal:string|null=null;
+  try{window.sessionStorage.setItem('slaivio-agency-locale',locale);personal=window.localStorage.getItem('slaivio-locale');}catch{/* Storage can be disabled by the browser. */}
+  if(!personal){
     document.documentElement.lang=locale;
     document.cookie=`NEXT_LOCALE=${locale}; path=/; max-age=31536000; SameSite=Lax`;
     window.dispatchEvent(new CustomEvent(EVENT,{detail:locale}));
@@ -21,27 +34,25 @@ export function setAgencyDashboardLocale(locale:DashboardLocale){
 }
 
 export function setDashboardLocale(locale: DashboardLocale) {
-  window.localStorage.setItem("slaivio-locale", locale);
+  presentationReady=true;
+  try{window.localStorage.setItem("slaivio-locale", locale);}catch{/* Keep the cookie and live UI usable. */}
   document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=31536000; SameSite=Lax`;
   document.documentElement.lang = locale;
   window.dispatchEvent(new CustomEvent(EVENT, { detail: locale }));
 }
 
 export function useDashboardLocale() {
-  const [locale, setLocale] = useState<DashboardLocale>("fr");
-
-  useEffect(() => {
-    const sync = () => setLocale(readDashboardLocale());
-    sync();
-    window.addEventListener(EVENT, sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener(EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-
+  const locale=useSyncExternalStore(subscribe,readDashboardPresentationLocale,serverLocale);
+  useEffect(()=>{
+    document.documentElement.lang=readDashboardLocale();
+    if(!presentationReady){presentationReady=true;window.dispatchEvent(new CustomEvent(EVENT));}
+  },[locale]);
   return locale;
+}
+function serverLocale():DashboardLocale{return 'fr';}
+function subscribe(listener:()=>void){
+  window.addEventListener(EVENT,listener);window.addEventListener('storage',listener);
+  return()=>{window.removeEventListener(EVENT,listener);window.removeEventListener('storage',listener);};
 }
 
 const EN_BY_HREF: Record<string, string> = {
@@ -97,7 +108,7 @@ const EN_LABELS: Record<string, string> = {
   "Assistant": "Assistant",
   "Aide": "Help",
   "Entreprise": "Company",
-  "Responsable": "Owner",
+  "Responsable": "Manager",
   "Identifiants": "Identifiers",
   "Canaux": "Channels",
   "IA": "AI",
@@ -155,5 +166,5 @@ const EN_LABELS: Record<string, string> = {
 
 export function dashboardLabel(locale: DashboardLocale, french: string, href?: string) {
   if (locale === "fr") return french;
-  return (href && EN_BY_HREF[href]) || EN_LABELS[french] || french;
+  return (href && EN_BY_HREF[href]) || (english as Record<string,string>)[french] || EN_LABELS[french] || french;
 }

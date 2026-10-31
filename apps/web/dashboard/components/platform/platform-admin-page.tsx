@@ -1,4 +1,6 @@
 'use client';
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, Building2, CreditCard, Headphones, History, LayoutDashboard, RefreshCcw, ShieldCheck, Users, Video } from 'lucide-react';
@@ -18,6 +20,7 @@ import { PlatformOperations } from './platform-operations';
 import { Alert } from './platform-console-ui';
 
 export function PlatformAdminPage(){
+  useDashboardMessages();
  const [allowed,setAllowed]=useState<boolean|null>(null),[granted,setGranted]=useState<string[]>([]),[currentUser,setCurrentUser]=useState(''),[tab,setTab]=useState('overview');
  const [metrics,setMetrics]=useState<PlatformMetrics|null>(null),[error,setError]=useState(''),[checking,setChecking]=useState(true),[refreshing,setRefreshing]=useState(false),[revision,setRevision]=useState(0);
  const [agency,setAgency]=useState<string|null>(null),[ticket,setTicket]=useState<string|null>(null);
@@ -36,9 +39,9 @@ export function PlatformAdminPage(){
  useEffect(()=>{void load();const request=generation.current;return()=>{generation.current=request+1;pending.current=false;};},[load]);
  const refreshMetrics=()=>{setRevision(value=>value+1);platformOverview().then(setMetrics).catch(()=>setError('L’action est enregistrée, mais les indicateurs n’ont pas pu être actualisés.'));};
  const can=(permission:string)=>granted.includes(permission);
- if(checking)return <LoadingState label="Ouverture de la console Super Admin…"/>;
- if(allowed===false)return <ForbiddenState description="Cette console est réservée aux opérateurs internes SLAIVIO explicitement autorisés."/>;
- if(!metrics)return <ErrorState title="Console temporairement indisponible" description={error||'Les indicateurs ne sont pas disponibles.'} retry={()=>void load()}/>;
+ if(checking)return <LoadingState label={dashboardText("Ouverture de la console Super Admin…")}/>;
+ if(allowed===false)return <ForbiddenState description={dashboardText("Cette console est réservée aux opérateurs internes SLAIVIO explicitement autorisés.")}/>;
+ if(!metrics)return <ErrorState title={dashboardText("Console temporairement indisponible")} description={error||dashboardText("Les indicateurs ne sont pas disponibles.")} retry={()=>void load()}/>;
  const tabs=[
   {id:'overview',title:'Vue d’ensemble',icon:LayoutDashboard},
   {id:'demos',title:'Demandes de démo',icon:Video},
@@ -53,12 +56,12 @@ export function PlatformAdminPage(){
  const openAgency=(row:ConsoleRow)=>setAgency(String(row.org_id||row.id));
  const cards:Array<[string,number,string]>=[['Agences actives',metrics.active_agencies,'agencies'],['Agences inscrites',metrics.agencies,'agencies'],['Essais en cours',metrics.trials,'billing'],['Abonnements payants en cours',metrics.paid_subscriptions,'billing'],['Demandes de démo',metrics.demo_requests,'demos'],['Nouvelles demandes',metrics.new_demo_requests,'demos'],['Tickets ouverts',metrics.open_tickets,'tickets'],['Événements à vérifier',metrics.quarantined_events,'operations']];
  return <div className="min-h-full min-w-0 bg-white">
-  <OperationPageHeader title="Super Admin" description="Pilotage interne de SLAIVIO : acquisition, agences, abonnements et qualité de service." actions={<OperationButton disabled={refreshing} onClick={()=>void load()} aria-label="Actualiser la console"><RefreshCcw size={15}/>{refreshing?'Actualisation…':'Actualiser la console'}</OperationButton>}/>
-  <div className="flex items-center gap-2 border-b border-[#e5e9ed] bg-[#f5fbf7] px-6 py-2 text-xs text-[#087a46] sm:px-8"><ShieldCheck size={14}/><span>Espace interne SLAIVIO · Accès protégé et actions historisées</span></div>
+  <OperationPageHeader title={dashboardText("Super Admin")} description={dashboardText("Pilotage interne de SLAIVIO : acquisition, agences, abonnements et qualité de service.")} actions={<OperationButton disabled={refreshing} onClick={()=>void load()} aria-label={dashboardText("Actualiser la console")}><RefreshCcw size={15}/>{refreshing?dashboardText("Actualisation…"):dashboardText("Actualiser la console")}</OperationButton>}/>
+  <div className="flex items-center gap-2 border-b border-[#e5e9ed] bg-[#f5fbf7] px-6 py-2 text-xs text-[#087a46] sm:px-8"><ShieldCheck size={14}/><span>{dashboardText("Espace interne SLAIVIO · Accès protégé et actions historisées")}</span></div>
   <OperationMetrics><div className="grid grid-cols-2 gap-4 py-4 lg:grid-cols-4">{cards.map(([title,value,target])=><div key={title} className="min-w-0">{tabs.some(item=>item.id===target)?<button className="group w-full text-left" onClick={()=>setTab(target)}><span className="text-xs text-[#69747f] group-hover:text-[#087a46]">{title}</span><strong className="mt-2 block text-2xl font-semibold text-[#242a30] group-hover:text-[#087a46]">{value}</strong></button>:<><span className="text-xs text-[#69747f]">{title}</span><strong className="mt-2 block text-2xl font-semibold text-[#242a30]">{value}</strong></>}</div>)}</div></OperationMetrics>
-  <OperationTabs><nav aria-label="Sections Super Admin" className="flex min-w-0 gap-1 overflow-x-auto">{tabs.map(({id,title,icon:Icon})=><button key={id} type="button" aria-current={active===id?'page':undefined} onClick={()=>setTab(id)} className={`flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm ${active===id?'border-[#087a46] font-semibold text-[#087a46]':'border-transparent text-[#69747f] hover:bg-[#f7faf8] hover:text-[#087a46]'}`}><Icon size={15}/>{title}{id==='demos'&&metrics.new_demo_requests>0&&<span className="rounded-full bg-[#e8f8ef] px-2 py-0.5 text-xs text-[#087a46]">{metrics.new_demo_requests}</span>}</button>)}</nav></OperationTabs>
+  <OperationTabs><nav aria-label={dashboardText("Sections Super Admin")} className="flex min-w-0 gap-1 overflow-x-auto">{tabs.map(({id,title,icon:Icon})=><button key={id} type="button" aria-current={active===id?'page':undefined} onClick={()=>setTab(id)} className={`flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm ${active===id?'border-[#087a46] font-semibold text-[#087a46]':'border-transparent text-[#69747f] hover:bg-[#f7faf8] hover:text-[#087a46]'}`}><Icon size={15}/>{title}{id==='demos'&&metrics.new_demo_requests>0&&<span className="rounded-full bg-[#e8f8ef] px-2 py-0.5 text-xs text-[#087a46]">{metrics.new_demo_requests}</span>}</button>)}</nav></OperationTabs>
   <main className="mx-auto grid w-full min-w-0 max-w-[1400px] gap-5 px-4 py-6 sm:px-8">
-   {error&&<Alert>{error}</Alert>}
+   {error&&<Alert>{dashboardText(error)}</Alert>}
    {active==='overview'&&<PlatformBusinessOverview metrics={metrics} openDemos={()=>setTab('demos')}/>}
    {active==='demos'&&<PlatformDemoRequests canManage={can('platform.agencies.manage')} onSaved={refreshMetrics} refreshToken={revision}/>}
    {active==='agencies'&&<PlatformRegister kind="agencies" revision={revision} onOpen={openAgency}/>}

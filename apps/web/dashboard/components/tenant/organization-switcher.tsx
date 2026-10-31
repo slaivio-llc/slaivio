@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { Building2, Check, ChevronsUpDown, Plus, Warehouse, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -16,13 +18,14 @@ import { operationInputClass, operationMenuClass, operationMenuItemClass } from 
 type Tenant = { org_id:string; organization_name?:string|null; organization_type?:string|null; workspace_kind?:string|null; role_code?:string|null; group_id?:string|null; network_name?:string|null; country?:string|null; city?:string|null };
 const inputClass=operationInputClass;
 
-function workspaceLabel(tenant:Tenant){return tenant.workspace_kind==="WAREHOUSE" ? formatWarehouseDisplayName(tenant.organization_name) : formatOfficeDisplayName(tenant.organization_name);}
+function workspaceLabel(tenant:Tenant){return dashboardText(tenant.workspace_kind==="WAREHOUSE" ? formatWarehouseDisplayName(tenant.organization_name) : formatOfficeDisplayName(tenant.organization_name));}
 function normalizedWorkspaceName(value?:string|null){return value?.trim().replace(/\s+/g," ").replace(/'s (org|office|warehouse)$/i,"")||"";}
 export function formatOrganizationDisplayName(value?:string|null){return normalizedWorkspaceName(value)||"Agence";}
 export function formatWarehouseDisplayName(value?:string|null){return normalizedWorkspaceName(value)||"Entrepôt";}
 export function formatOfficeDisplayName(value?:string|null){return normalizedWorkspaceName(value)||"Bureau";}
 
 export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=false}:{collapsed?:boolean;menuPlacement?:"up"|"down";header?:boolean}){
+  useDashboardMessages();
   const rootRef=useRef<HTMLDivElement>(null);
   const triggerRef=useRef<HTMLButtonElement>(null);
   const menuId=useId();
@@ -53,100 +56,100 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
     const Icon=tenant.workspace_kind==="WAREHOUSE"?Warehouse:Building2;
     const label=office?(tenant.city||tenant.organization_name||"Bureau"):["PARCEL_FREIGHT","CARGO"].includes(tenant.organization_type||"")?workspaceLabel(tenant):formatOrganizationDisplayName(tenant.organization_name);
     return <button key={tenant.org_id} type="button" disabled={switching} onClick={()=>handleSwitch(tenant)} aria-current={tenant.org_id===activeTenant?.org_id?"true":undefined} title={tenant.organization_name||label} className={`${operationMenuItemClass} min-h-10 gap-2 rounded-md text-[#30363a]`}>
-      <Icon size={15} aria-hidden="true" className="shrink-0 text-slate-400"/><span className="min-w-0 flex-1 py-1"><span className="block truncate font-medium">{label}</span></span>{tenant.org_id===activeTenant?.org_id&&<Check size={15} aria-label="Actif" className="shrink-0 text-emerald-700"/>}
+      <Icon size={15} aria-hidden="true" className="shrink-0 text-slate-400"/><span className="min-w-0 flex-1 py-1"><span className="block truncate font-medium">{dashboardText(label)}</span></span>{tenant.org_id===activeTenant?.org_id&&<Check size={15} aria-label={dashboardText("Actif")} className="shrink-0 text-emerald-700"/>}
     </button>;
   }
 
   return <div ref={rootRef} onKeyDown={event=>{if(event.key==="Escape"&&open){event.stopPropagation();closeMenu();}if(open&&["ArrowDown","ArrowUp"].includes(event.key)&&event.target instanceof HTMLButtonElement){const choices=Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-workspace-menu] button:not(:disabled),[data-workspace-menu] a")||[]);const index=choices.indexOf(event.target);event.preventDefault();choices[(index+(event.key==="ArrowDown"?1:-1)+choices.length)%choices.length]?.focus();}}} className={`relative ${collapsed?"lg:p-0":""} ${header?"w-[min(190px,44vw)]":""}`}>
-    <button ref={triggerRef} type="button" aria-controls={open?menuId:undefined} aria-label={parcelFreight?`Changer de bureau : ${agencyName}`:activeLabel} onClick={()=>setOpen(value=>!value)} disabled={loading||switching} aria-expanded={open} title={collapsed?agencyName:undefined} className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-[#d8ddda] bg-white px-2.5 text-left transition-colors hover:border-[#bdc7c0] hover:bg-[#f4f5f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/25 disabled:opacity-60 ${collapsed?"lg:justify-center lg:px-1":""}`}>
+    <button ref={triggerRef} type="button" aria-controls={open?menuId:undefined} aria-label={parcelFreight?dashboardText("Changer de bureau : {0}", agencyName):activeLabel} onClick={()=>setOpen(value=>!value)} disabled={loading||switching} aria-expanded={open} title={collapsed?agencyName:undefined} className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-[#d8ddda] bg-white px-2.5 text-left transition-colors hover:border-[#bdc7c0] hover:bg-[#f4f5f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/25 disabled:opacity-60 ${collapsed?"lg:justify-center lg:px-1":""}`}>
       <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[14px] font-medium text-[#30363a]">{agencyName.charAt(0).toLocaleUpperCase("fr")}</span>
-      <span className={`min-w-0 flex-1 ${collapsed?"lg:hidden":""}`}><span className="block truncate text-[13px] font-medium text-[#25292e]">{loading?"Chargement…":switching?"Changement…":activeTenant?agencyName:"Choisir un espace"}</span><span className="mt-0.5 block truncate text-[11px] text-[#737b82]">{activeTenant?currentPlace:"Bureaux et entrepôts"}</span></span>
+      <span className={`min-w-0 flex-1 ${collapsed?"lg:hidden":""}`}><span className="block truncate text-[13px] font-medium text-[#25292e]">{loading?dashboardText("Chargement…"):switching?dashboardText("Changement…"):activeTenant?agencyName:dashboardText("Choisir un espace")}</span><span className="mt-0.5 block truncate text-[11px] text-[#737b82]">{activeTenant?currentPlace:dashboardText("Bureaux et entrepôts")}</span></span>
       <ChevronsUpDown size={13} aria-hidden="true" className={`shrink-0 text-[#73777c] ${collapsed?"lg:hidden":""}`}/>
     </button>
     {open&&<div id={menuId} data-workspace-menu className={`absolute z-50 w-[320px] max-w-[calc(100vw-24px)] ${operationMenuClass} ${collapsed?"bottom-0 left-[48px]":menuPlacement==="down"?header?"right-0 top-[48px]":"left-0 top-[48px]":"bottom-[48px] left-0"}`}>
       {parcelFreight ? <>
         <div className="flex items-center gap-3 px-2.5 pb-3 pt-2"><span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center text-[14px] font-medium">{agencyName.charAt(0).toLocaleUpperCase("fr")}</span><div className="min-w-0"><p className="truncate text-[13px] font-medium text-[#25292e]">{agencyName}</p><p className="mt-0.5 truncate text-[11px] text-[#737b82]">{currentPlace}</p></div></div>
         <div className="rounded-lg border border-[#e0e2e3] p-1.5">
-          {tenants.length>6&&<input type="search" aria-label="Rechercher un bureau ou entrepôt" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
+          {tenants.length>6&&<input type="search" aria-label={dashboardText("Rechercher un bureau ou entrepôt")} placeholder={dashboardText("Rechercher…")} value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
           <div className="max-h-[min(320px,45dvh)] overflow-y-auto">
             {(["OFFICE","WAREHOUSE"] as const).map(kind=>{
               const items=visibleTenants.filter(tenant=>(tenant.workspace_kind||"OFFICE")===kind);
               if(!items.length)return null;
-              return <section key={kind} aria-label={kind==="OFFICE"?"Bureaux":"Entrepôts"} className={`py-1 ${kind==="WAREHOUSE"&&visibleTenants.some(tenant=>(tenant.workspace_kind||"OFFICE")==="OFFICE")?"mt-1 border-t border-[#eceeee] pt-2":""}`}><p className="px-2 pb-1 text-[9px] font-medium uppercase tracking-wide text-[#858b90]">{kind==="OFFICE"?"Bureaux":"Entrepôts"}</p>{items.map(tenant=>tenantRow(tenant,true))}</section>;
+              return <section key={kind} aria-label={kind==="OFFICE"?dashboardText("Bureaux"):dashboardText("Entrepôts")} className={`py-1 ${kind==="WAREHOUSE"&&visibleTenants.some(tenant=>(tenant.workspace_kind||"OFFICE")==="OFFICE")?"mt-1 border-t border-[#eceeee] pt-2":""}`}><p className="px-2 pb-1 text-[9px] font-medium uppercase tracking-wide text-[#858b90]">{kind==="OFFICE"?dashboardText("Bureaux"):dashboardText("Entrepôts")}</p>{items.map(tenant=>tenantRow(tenant,true))}</section>;
             })}
-            {!visibleTenants.length&&<p className="px-2 py-3 text-xs text-slate-500">Aucun bureau ou entrepôt disponible.</p>}
+            {!visibleTenants.length&&<p className="px-2 py-3 text-xs text-slate-500">{dashboardText("Aucun bureau ou entrepôt disponible.")}</p>}
           </div>
           {canCreateOffice&&<div className="mt-1 grid border-t border-[#eceeee] pt-1.5">
-            <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("OFFICE");setCreateOpen(true);}}><Plus size={13} aria-hidden="true"/>Créer un bureau</button>
-            <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("WAREHOUSE");setCreateOpen(true);}}><Plus size={13} aria-hidden="true"/>Créer un entrepôt</button>
+            <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("OFFICE");setCreateOpen(true);}}><Plus size={13} aria-hidden="true"/>{dashboardText("Créer un bureau")}</button>
+            <button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setWorkspaceKind("WAREHOUSE");setCreateOpen(true);}}><Plus size={13} aria-hidden="true"/>{dashboardText("Créer un entrepôt")}</button>
           </div>}
         </div>
       </> : <>
-        <div className="flex items-center justify-between px-2.5 py-1.5"><span className="text-xs font-medium text-slate-500">Changer d’organisation</span><button type="button" onClick={closeMenu} className="rounded-md p-1 text-slate-400 hover:bg-slate-50" aria-label="Fermer"><X size={14}/></button></div>
-        {tenants.length>6&&<input type="search" aria-label="Rechercher une organisation" placeholder="Rechercher…" value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
-        <div className="max-h-64 overflow-y-auto py-1">{tenants.filter(matching).map(tenant=>tenantRow(tenant,false))}{!tenants.some(matching)&&<p className="px-2.5 py-3 text-xs text-slate-500">Aucun espace trouvé.</p>}</div>
-        <div className="mt-1 border-t border-slate-100 pt-1"><button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setCreateOpen(true);}}><Plus size={15}/>Créer une organisation</button></div>
+        <div className="flex items-center justify-between px-2.5 py-1.5"><span className="text-xs font-medium text-slate-500">{dashboardText("Changer d’organisation")}</span><button type="button" onClick={closeMenu} className="rounded-md p-1 text-slate-400 hover:bg-slate-50" aria-label={dashboardText("Fermer")}><X size={14}/></button></div>
+        {tenants.length>6&&<input type="search" aria-label={dashboardText("Rechercher une organisation")} placeholder={dashboardText("Rechercher…")} value={search} onChange={event=>setSearch(event.target.value)} className={inputClass}/>}
+        <div className="max-h-64 overflow-y-auto py-1">{tenants.filter(matching).map(tenant=>tenantRow(tenant,false))}{!tenants.some(matching)&&<p className="px-2.5 py-3 text-xs text-slate-500">{dashboardText("Aucun espace trouvé.")}</p>}</div>
+        <div className="mt-1 border-t border-slate-100 pt-1"><button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setCreateOpen(true);}}><Plus size={15}/>{dashboardText("Créer une organisation")}</button></div>
       </>}
     </div>}
-    {error&&<p className="mt-1 px-1 text-[11px] text-red-600">{error}</p>}
+    {error&&<p className="mt-1 px-1 text-[11px] text-red-600">{dashboardText(error)}</p>}
     <OperationDrawer
       open={createOpen}
       close={()=>{if(!creating)setCreateOpen(false);}}
-      title={parcelFreight?"Créer un bureau ou entrepôt":"Créer une organisation"}
-      description={parcelFreight?"Ajoutez une implantation à votre réseau, avec ses coordonnées et son contexte opérationnel.":"Un espace indépendant pour votre entreprise."}
+      title={parcelFreight?dashboardText("Créer un bureau ou entrepôt"):dashboardText("Créer une organisation")}
+      description={parcelFreight?dashboardText("Ajoutez une implantation à votre réseau, avec ses coordonnées et son contexte opérationnel."):dashboardText("Un espace indépendant pour votre entreprise.")}
       width={parcelFreight?"max-w-4xl":"max-w-xl"}
       placement="center"
       bodyClassName={parcelFreight?"bg-[#f5f7f8] p-4 sm:p-8":""}
       headerLeading={parcelFreight&&<div className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700">{workspaceKind==="WAREHOUSE"?<Warehouse size={21}/>:<Building2 size={21}/>}</div>}
-      footer={<><OperationButton type="button" onClick={()=>setCreateOpen(false)} disabled={creating}>Annuler</OperationButton><OperationButton type="submit" form="create-workspace-form" variant="primary" disabled={creating||(!parcelFreight&&organizationName.trim().length<2)}>{creating?"Création…":parcelFreight?`Créer ${workspaceKind==="WAREHOUSE"?"l’entrepôt":"le bureau"}`:"Créer"}</OperationButton></>}
+      footer={<><OperationButton type="button" onClick={()=>setCreateOpen(false)} disabled={creating}>{dashboardText("Annuler")}</OperationButton><OperationButton type="submit" form="create-workspace-form" variant="primary" disabled={creating||(!parcelFreight&&organizationName.trim().length<2)}>{creating?dashboardText("Création…"):parcelFreight?dashboardText("Créer {0}", workspaceKind==="WAREHOUSE"?"l’entrepôt":"le bureau"):dashboardText("Créer")}</OperationButton></>}
     >
       <form id="create-workspace-form" onSubmit={handleCreate} className={parcelFreight?"mx-auto grid w-full max-w-3xl gap-5":"grid gap-4"}>
         {parcelFreight?<>
           <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
             <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">01 · Type d’implantation</p>
-              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Que souhaitez-vous ajouter ?</h3>
-              <p className="mt-1 text-[13px] text-[#69747c]">Vous pourrez créer d’autres implantations plus tard.</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">{dashboardText("01 · Type d’implantation")}</p>
+              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">{dashboardText("Que souhaitez-vous ajouter ?")}</h3>
+              <p className="mt-1 text-[13px] text-[#69747c]">{dashboardText("Vous pourrez créer d’autres implantations plus tard.")}</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {([
-                {kind:"OFFICE" as const,label:"Bureau",hint:"Accueil, dépôt ou retrait",Icon:Building2},
-                {kind:"WAREHOUSE" as const,label:"Entrepôt",hint:"Stockage et opérations physiques",Icon:Warehouse},
+                {kind:"OFFICE" as const,label:dashboardText("Bureau"),hint:"Accueil, dépôt ou retrait",Icon:Building2},
+                {kind:"WAREHOUSE" as const,label:dashboardText("Entrepôt"),hint:"Stockage et opérations physiques",Icon:Warehouse},
               ]).map(({kind,label,hint,Icon})=><label key={kind} className={`flex min-h-[82px] cursor-pointer items-center gap-3 rounded-xl border p-4 transition focus-within:ring-2 focus-within:ring-emerald-600/20 ${workspaceKind===kind?"border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/10":"border-[#e4e8eb] hover:border-[#b8c5c0] hover:bg-[#fafcfb]"}`}>
                 <input className="sr-only" type="radio" name="workspace_kind" value={kind} checked={workspaceKind===kind} onChange={()=>setWorkspaceKind(kind)}/>
                 <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${workspaceKind===kind?"bg-white text-emerald-700":"bg-[#f3f5f5] text-[#68747b]"}`}><Icon size={19}/></span>
-                <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-[#283138]">{label}</span><span className="mt-0.5 block text-[12px] text-[#6b757d]">{hint}</span></span>
+                <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold text-[#283138]">{dashboardText(label)}</span><span className="mt-0.5 block text-[12px] text-[#6b757d]">{hint}</span></span>
                 <span aria-hidden="true" className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${workspaceKind===kind?"border-emerald-600 bg-emerald-600 text-white":"border-[#c9d0d4] bg-white"}`}>{workspaceKind===kind&&<Check size={13}/>}</span>
               </label>)}
             </div>
           </section>
           <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
             <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">02 · Identification</p>
-              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Les informations de l’espace</h3>
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">{dashboardText("02 · Identification")}</p>
+              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">{dashboardText("Les informations de l’espace")}</h3>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Nom de l’espace<input required name="organization_name" maxLength={120} autoFocus placeholder={workspaceKind==="WAREHOUSE"?"Ex. Entrepôt Guangzhou":"Ex. Bureau de Kinshasa"} className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Code de l’espace<input required name="office_code" pattern="[A-Za-z0-9_-]{2,30}" placeholder="Ex. KIN-01" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/><span className="-mt-1 text-[11px] font-normal text-[#7a858c]">Identifiant court utilisé par votre équipe.</span></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Nom de l’espace")}<input required name="organization_name" maxLength={120} autoFocus placeholder={workspaceKind==="WAREHOUSE"?dashboardText("Ex. Entrepôt Guangzhou"):dashboardText("Ex. Bureau de Kinshasa")} className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Code de l’espace")}<input required name="office_code" pattern="[A-Za-z0-9_-]{2,30}" placeholder={dashboardText("Ex. KIN-01")} className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/><span className="-mt-1 text-[11px] font-normal text-[#7a858c]">{dashboardText("Identifiant court utilisé par votre équipe.")}</span></label>
             </div>
           </section>
           <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">
             <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">03 · Localisation et contact</p>
-              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">Où se trouve cet espace ?</h3>
-              <p className="mt-1 text-[13px] text-[#69747c]">Ces informations aideront votre équipe à identifier la bonne implantation.</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-emerald-700">{dashboardText("03 · Localisation et contact")}</p>
+              <h3 className="mt-1 text-[16px] font-semibold text-[#222a30]">{dashboardText("Où se trouve cet espace ?")}</h3>
+              <p className="mt-1 text-[13px] text-[#69747c]">{dashboardText("Ces informations aideront votre équipe à identifier la bonne implantation.")}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <FormGeographyFields required countryCodeName="country_code" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]"/>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Devise<select name="currency_code" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`} defaultValue="USD"><option>USD</option><option>EUR</option><option>CDF</option><option>AOA</option><option>CNY</option><option>XOF</option></select></label>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Téléphone <span className="font-normal text-[#849097]">· facultatif</span><PhoneField name="phone" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">Email <span className="font-normal text-[#849097]">· facultatif</span><input name="email" type="email" placeholder="contact@entreprise.com" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">Adresse · ligne 1 <span className="font-normal text-[#849097]">· facultative</span><input name="address_line_1" placeholder="Rue, numéro et repère utile" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
-              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">Complément d’adresse <span className="font-normal text-[#849097]">· facultatif</span><input name="address_line_2" placeholder="Bâtiment, étage, quartier…" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Devise")}<select name="currency_code" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`} defaultValue="USD"><option>{dashboardText("USD")}</option><option>{dashboardText("EUR")}</option><option>{dashboardText("CDF")}</option><option>{dashboardText("AOA")}</option><option>{dashboardText("CNY")}</option><option>{dashboardText("XOF")}</option></select></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Téléphone ")}<span className="font-normal text-[#849097]">{dashboardText("· facultatif")}</span><PhoneField name="phone" className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Email ")}<span className="font-normal text-[#849097]">{dashboardText("· facultatif")}</span><input name="email" type="email" placeholder={dashboardText("contact@entreprise.com")} className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">{dashboardText("Adresse · ligne 1 ")}<span className="font-normal text-[#849097]">{dashboardText("· facultative")}</span><input name="address_line_1" placeholder={dashboardText("Rue, numéro et repère utile")} className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
+              <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">{dashboardText("Complément d’adresse ")}<span className="font-normal text-[#849097]">{dashboardText("· facultatif")}</span><input name="address_line_2" placeholder={dashboardText("Bâtiment, étage, quartier…")} className={`${inputClass} h-11 rounded-lg px-3.5 text-[14px]`}/></label>
             </div>
           </section>
-        </>:<label htmlFor="organization-name" className="grid gap-2 text-[13px] font-semibold text-[#414950]">Nom de l’organisation<input id="organization-name" value={organizationName} onChange={event=>setOrganizationName(event.target.value)} maxLength={120} autoFocus placeholder="Ex. Slaivio France" className={inputClass}/></label>}
-        {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</p>}
+        </>:<label htmlFor="organization-name" className="grid gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Nom de l’organisation")}<input id="organization-name" value={organizationName} onChange={event=>setOrganizationName(event.target.value)} maxLength={120} autoFocus placeholder={dashboardText("Ex. Slaivio France")} className={inputClass}/></label>}
+        {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{dashboardText(error)}</p>}
       </form>
     </OperationDrawer>
   </div>;

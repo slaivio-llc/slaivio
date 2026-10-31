@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, Plus, RefreshCcw, ScanLine, Trash2 } from "lucide-react";
 import { getReferenceCatalog, ReferenceCatalog } from "@/services/references";
@@ -75,7 +77,7 @@ const checks: Record<string, string> = {
   manager_approved: "Validation responsable",
 };
 const n = (v: unknown) =>
-  Number(v || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+  Number(v || 0).toLocaleString(dashboardFormatLocale(), { maximumFractionDigits: 1 });
 const errorText = (e: unknown) => {
   const requestError = e as {
     response?: { data?: { detail?: unknown }; status?: number };
@@ -93,6 +95,7 @@ const errorText = (e: unknown) => {
 };
 
 export function BatchCenterPage() {
+  useDashboardMessages();
   const [data, setData] = useState<{
       items: Batch[];
       stats: Record<string, number>;
@@ -168,18 +171,16 @@ export function BatchCenterPage() {
   return (
     <div className="min-h-full bg-[#f6f7f6] text-[#17201c]">
       <OperationPageHeader
-        title="Batchs & Groupages"
-        description="Regroupez les colis compatibles, contrôlez la capacité et préparez les expéditions."
+        title={dashboardText("Batchs & Groupages")}
+        description={dashboardText("Regroupez les colis compatibles, contrôlez la capacité et préparez les expéditions.")}
         actions={
           <>
             <OperationButton onClick={download}>
               <Download size={14} />
-              Exporter
-            </OperationButton>
+              {dashboardText("Exporter")}</OperationButton>
             <OperationButton variant="primary" onClick={showCreate}>
               <Plus size={15} />
-              Nouveau batch
-            </OperationButton>
+              {dashboardText("Nouveau batch")}</OperationButton>
           </>
         }
       />
@@ -187,12 +188,12 @@ export function BatchCenterPage() {
         <OperationMetrics>
           <OperationMetricGrid className="xl:grid-cols-6">
             {[
-              ["Batchs ouverts", stats.open_batches],
-              ["Prêts au départ", stats.ready],
-              ["En préparation", stats.preparing],
-              ["Complets", stats.full],
-              ["Bloqués", stats.blocked],
-              ["Colis non groupés", stats.unassigned_packages],
+              [dashboardText("Batchs ouverts"), stats.open_batches],
+              [dashboardText("Prêts au départ"), stats.ready],
+              [dashboardText("En préparation"), stats.preparing],
+              [dashboardText("Complets"), stats.full],
+              [dashboardText("Bloqués"), stats.blocked],
+              [dashboardText("Colis non groupés"), stats.unassigned_packages],
             ].map(([l, v]) => (
               <OperationMetric key={String(l)} label={String(l)} value={n(v)} />
               ))}
@@ -204,31 +205,31 @@ export function BatchCenterPage() {
               <OperationSearch
                 value={q}
                 onChange={setQ}
-                placeholder="Rechercher un batch, une route…"
+                placeholder={dashboardText("Rechercher un batch, une route…")}
               />
             }
-            filters={<OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer les groupages"><OperationField label="Étape du groupage"><select className={`${input} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Toutes les étapes</option>{Object.entries(labels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></OperationField></OperationFilterPopover>}
-          ><OperationButton onClick={load} aria-label="Actualiser" title="Actualiser" className="w-9 px-0"><RefreshCcw size={14} /></OperationButton></OperationToolbar>
+            filters={<OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title={dashboardText("Filtrer les groupages")}><OperationField label={dashboardText("Étape du groupage")}><select className={`${input} w-full`} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">{dashboardText("Toutes les étapes")}</option>{Object.entries(labels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></OperationField></OperationFilterPopover>}
+          ><OperationButton onClick={load} aria-label={dashboardText("Actualiser")} title={dashboardText("Actualiser")} className="w-9 px-0"><RefreshCcw size={14} /></OperationButton></OperationToolbar>
           <OperationContent className="pt-4">
           {error ? (
-            <ErrorState title="Groupages indisponibles" description={error} retry={load} />
+            <ErrorState title={dashboardText("Groupages indisponibles")} description={dashboardText(error)} retry={load} />
           ) : loading ? (
-            <TableSkeleton rows={7} columns={9} label="Chargement des groupages…" />
+            <TableSkeleton rows={7} columns={9} label={dashboardText("Chargement des groupages…")} />
           ) : (
             <OperationTable>
               <table className="w-full min-w-[1100px] text-left text-[13px]">
                 <thead className="bg-[#f7f8f7] text-[#68716c]">
                   <tr>
                     {[
-                      "Batch",
-                      "Route / service",
-                      "Entrepôt",
-                      "Colis / clients",
-                      "Poids / CBM",
-                      "Capacité",
-                      "Cut-off",
-                      "Statut",
-                      "Responsable",
+                      dashboardText("Batch"),
+                      dashboardText("Route / service"),
+                      dashboardText("Entrepôt"),
+                      dashboardText("Colis / clients"),
+                      dashboardText("Poids / CBM"),
+                      dashboardText("Capacité"),
+                      dashboardText("Cut-off"),
+                      dashboardText("Statut"),
+                      dashboardText("Responsable"),
                       "",
                     ].map((h) => (
                       <th className="px-4 py-3 font-medium" key={h}>
@@ -259,8 +260,7 @@ export function BatchCenterPage() {
                         {b.package_count} / {b.client_count}
                       </td>
                       <td>
-                        {n(b.total_weight_kg)} kg
-                        <p className="text-[#7b837e]">{n(b.total_cbm)} m³</p>
+                        {n(b.total_weight_kg)} {dashboardText(" kg")}<p className="text-[#7b837e]">{n(b.total_cbm)} {dashboardText(" m³")}</p>
                       </td>
                       <td className="w-36">
                         <div className="h-1.5 overflow-hidden rounded bg-[#e7ebe8]">
@@ -275,12 +275,12 @@ export function BatchCenterPage() {
                       </td>
                       <td>
                         {b.cutoff_at
-                          ? new Date(b.cutoff_at).toLocaleString("fr-FR")
+                          ? new Date(b.cutoff_at).toLocaleString(dashboardFormatLocale())
                           : "—"}
                       </td>
                       <td>
                         <span className="rounded-full bg-[#edf5f0] px-2 py-1 text-[#176345]">
-                          {labels[b.status] || b.status}
+                          {dashboardText(labels[b.status]) || b.status}
                         </span>
                       </td>
                       <td>{b.responsible_name || "—"}</td>
@@ -291,9 +291,7 @@ export function BatchCenterPage() {
               </table>
               {!data?.items.length && (
                 <p className="p-10 text-center text-sm text-[#707872]">
-                  Aucun batch. Créez le premier à partir des routes et services
-                  existants.
-                </p>
+                  {dashboardText("Aucun batch. Créez le premier à partir des routes et services existants.")}</p>
               )}
             </OperationTable>
           )}
@@ -334,6 +332,7 @@ function CreatePanel({
   close: () => void;
   done: () => void;
 }) {
+  useDashboardMessages();
   const [p, setP] = useState<Record<string, string>>({
       batch_type: "AIR_GROUPAGE",
       route_id: "",
@@ -373,31 +372,30 @@ function CreatePanel({
   return (
     <OperationDrawer
       open
-      title="Nouveau batch"
-      description="Les routes, services et entrepôts viennent des référentiels existants."
+      title={dashboardText("Nouveau batch")}
+      description={dashboardText("Les routes, services et entrepôts viennent des référentiels existants.")}
       close={close}
       footer={
         <>
           <button className={button} onClick={close}>
-            Annuler
-          </button>
+            {dashboardText("Annuler")}</button>
           <button
             className={primary}
             disabled={busy || !p.route_id || !p.shipping_service_id}
             onClick={submit}
           >
-            {busy ? "Création…" : "Créer le batch"}
+            {busy ? dashboardText("Création…") : dashboardText("Créer le batch")}
           </button>
         </>
       }
     >
       <div className="grid gap-6">
         <FormSection
-          title="Trajet et groupage"
-          description="Choisissez uniquement parmi les routes, services et entrepôts déjà configurés par l’agence."
+          title={dashboardText("Trajet et groupage")}
+          description={dashboardText("Choisissez uniquement parmi les routes, services et entrepôts déjà configurés par l’agence.")}
         >
           <div className="grid gap-5 sm:grid-cols-2">
-        <OperationField label="Mode de groupage" required>
+        <OperationField label={dashboardText("Mode de groupage")} required>
           <select
             className={input}
             value={p.batch_type}
@@ -405,53 +403,53 @@ function CreatePanel({
           >
             {Object.entries(batchTypeLabels).map(([value, label]) => (
               <option key={value} value={value}>
-                {label}
+                {dashboardText(label)}
               </option>
             ))}
           </select>
         </OperationField>
-        <OperationField label="Route" hint="La destination et les compatibilités seront reprises automatiquement." required>
+        <OperationField label={dashboardText("Route")} hint="La destination et les compatibilités seront reprises automatiquement." required>
           <select
             className={input}
             value={p.route_id}
             onChange={(e) => set("route_id", e.target.value)}
           >
-            <option value="">Sélectionner</option>
+            <option value="">{dashboardText("Sélectionner")}</option>
             {refs.routes.map((x) => (
               <option key={x.id} value={x.id}>
-                {x.label}
+                {dashboardText(x.label)}
               </option>
             ))}
           </select>
         </OperationField>
-        <OperationField label="Service" hint="Seuls les services compatibles avec la route sont proposés." required>
+        <OperationField label={dashboardText("Service")} hint="Seuls les services compatibles avec la route sont proposés." required>
           <select
             className={input}
             value={p.shipping_service_id}
             onChange={(e) => set("shipping_service_id", e.target.value)}
           >
-            <option value="">Sélectionner</option>
+            <option value="">{dashboardText("Sélectionner")}</option>
             {refs.services
               .filter(
                 (x) => !p.route_id || !x.route_id || x.route_id === p.route_id,
               )
               .map((x) => (
                 <option key={x.id} value={x.id}>
-                  {x.label}
+                  {dashboardText(x.label)}
                 </option>
               ))}
           </select>
         </OperationField>
-        <OperationField label="Entrepôt d’origine">
+        <OperationField label={dashboardText("Entrepôt d’origine")}>
           <select
             className={input}
             value={p.origin_warehouse_id}
             onChange={(e) => set("origin_warehouse_id", e.target.value)}
           >
-            <option value="">Non défini</option>
+            <option value="">{dashboardText("Non défini")}</option>
             {refs.warehouses.map((x) => (
               <option key={x.id} value={x.id}>
-                {x.label}
+                {dashboardText(x.label)}
               </option>
             ))}
           </select>
@@ -459,11 +457,11 @@ function CreatePanel({
           </div>
         </FormSection>
         <FormSection
-          title="Capacité et échéance"
-          description="Définissez les limites utiles au contrôle du chargement. Les valeurs non connues peuvent rester vides."
+          title={dashboardText("Capacité et échéance")}
+          description={dashboardText("Définissez les limites utiles au contrôle du chargement. Les valeurs non connues peuvent rester vides.")}
         >
           <div className="grid gap-5 sm:grid-cols-2">
-        <OperationField label="Poids maximum" hint="En kilogrammes.">
+        <OperationField label={dashboardText("Poids maximum")} hint="En kilogrammes.">
           <input
             className={input}
             type="number"
@@ -471,7 +469,7 @@ function CreatePanel({
             onChange={(e) => set("capacity_weight_kg", e.target.value)}
           />
         </OperationField>
-        <OperationField label="Volume maximum" hint="En mètres cubes (CBM).">
+        <OperationField label={dashboardText("Volume maximum")} hint="En mètres cubes (CBM).">
           <input
             className={input}
             type="number"
@@ -479,7 +477,7 @@ function CreatePanel({
             onChange={(e) => set("capacity_cbm", e.target.value)}
           />
         </OperationField>
-        <OperationField label="Nombre maximum de colis">
+        <OperationField label={dashboardText("Nombre maximum de colis")}>
           <input
             className={input}
             type="number"
@@ -487,7 +485,7 @@ function CreatePanel({
             onChange={(e) => set("capacity_packages", e.target.value)}
           />
         </OperationField>
-        <OperationField label="Date limite d’ajout" hint="Après cette date, les nouveaux colis seront orientés vers le prochain batch.">
+        <OperationField label={dashboardText("Date limite d’ajout")} hint="Après cette date, les nouveaux colis seront orientés vers le prochain batch.">
           <input
             className={input}
             type="datetime-local"
@@ -498,7 +496,7 @@ function CreatePanel({
           </div>
         </FormSection>
       </div>
-      {error && <p role="alert" className="mt-5 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{error}</p>}
+      {error && <p role="alert" className="mt-5 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{dashboardText(error)}</p>}
     </OperationDrawer>
   );
 }
@@ -514,6 +512,7 @@ function DetailPanel({
   close: () => void;
   reload: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const [scan, setScan] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -535,7 +534,7 @@ function DetailPanel({
     <OperationDrawer
       open
       title={b.batch_code}
-      description={`${b.route_name} · ${b.service_name} · ${labels[b.status]}`}
+      description={`${b.route_name} · ${b.service_name} · ${dashboardText(labels[b.status])}`}
       close={close}
       width="max-w-3xl"
       bodyClassName="bg-[#f7f8f7]"
@@ -563,8 +562,7 @@ function DetailPanel({
                 act(() => transitionBatch(b.id, "OPEN", b.row_version))
               }
             >
-              Ouvrir
-            </button>
+              {dashboardText("Ouvrir")}</button>
           )}
           {["OPEN", "PREPARING", "NEAR_CAPACITY", "FULL"].includes(
             b.status,
@@ -578,8 +576,7 @@ function DetailPanel({
                 )
               }
             >
-              Soumettre à validation
-            </button>
+              {dashboardText("Soumettre à validation")}</button>
           )}
           {b.status === "PENDING_VALIDATION" && (
             <button
@@ -591,8 +588,7 @@ function DetailPanel({
                 )
               }
             >
-              Valider le batch
-            </button>
+              {dashboardText("Valider le batch")}</button>
           )}
           {b.status === "READY_FOR_SHIPMENT" && (
             <button
@@ -600,23 +596,22 @@ function DetailPanel({
               disabled={busy}
               onClick={() => act(() => convertBatch(b.id))}
             >
-              Créer l’expédition
-            </button>
+              {dashboardText("Créer l’expédition")}</button>
           )}
         </div>
         {error && (
           <p className="mt-3 rounded-[6px] bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
+            {dashboardText(error)}
           </p>
         )}
       </div>
       <div className="space-y-4">
         {tab === "overview" && <section className="grid gap-3 sm:grid-cols-4">
           {[
-            ["Colis", b.package_count],
-            ["Clients", b.client_count],
-            ["Poids", `${n(b.total_weight_kg)} kg`],
-            ["Occupation", `${n(b.occupancy_percent)}%`],
+            [dashboardText("Colis"), b.package_count],
+            [dashboardText("Clients"), b.client_count],
+            [dashboardText("Poids"), dashboardText("{0} kg", n(b.total_weight_kg))],
+            [dashboardText("Occupation"), `${n(b.occupancy_percent)}%`],
           ].map(([l, v]) => (
             <div className="rounded bg-white p-3" key={String(l)}>
               <p className="text-[11px] text-[#707872]">{l}</p>
@@ -625,13 +620,13 @@ function DetailPanel({
           ))}
         </section>}
         {tab === "loading" && <><section className="rounded bg-white p-4">
-          <h3 className="font-semibold">Scan de chargement</h3>
+          <h3 className="font-semibold">{dashboardText("Scan de chargement")}</h3>
           <div className="mt-3 flex gap-2">
             <input
               className={input}
               value={scan}
               onChange={(e) => setScan(e.target.value)}
-              placeholder="Tracking ou code colis"
+              placeholder={dashboardText("Tracking ou code colis")}
             />
             <button
               className={button}
@@ -644,16 +639,14 @@ function DetailPanel({
               }
             >
               <ScanLine size={14} />
-              Scanner
-            </button>
+              {dashboardText("Scanner")}</button>
           </div>
         </section>
         <section className="rounded bg-white p-4">
           <div className="flex justify-between">
-            <h3 className="font-semibold">Colis compatibles</h3>
+            <h3 className="font-semibold">{dashboardText("Colis compatibles")}</h3>
             <span className="text-xs text-[#707872]">
-              {compatible.length} disponible(s)
-            </span>
+              {compatible.length} {dashboardText(" disponible(s)")}</span>
           </div>
           {compatible.length > 0 && (
             <button
@@ -668,8 +661,7 @@ function DetailPanel({
                 )
               }
             >
-              Ajouter tous les colis compatibles
-            </button>
+              {dashboardText("Ajouter tous les colis compatibles")}</button>
           )}
           <div className="mt-3 divide-y">
             {compatible.slice(0, 12).map((x) => (
@@ -679,7 +671,7 @@ function DetailPanel({
               >
                 <span>
                   {String(x.package_reference)} ·{" "}
-                  {String(x.client_name || "Client")}
+                  {String(x.client_name || dashboardText("Client"))}
                 </span>
                 <button
                   className="text-[#176345]"
@@ -688,14 +680,13 @@ function DetailPanel({
                     act(() => addBatchPackages(b.id, [String(x.id)]))
                   }
                 >
-                  Ajouter
-                </button>
+                  {dashboardText("Ajouter")}</button>
               </div>
             ))}
           </div>
         </section></>}
         {tab === "controls" && <section className="rounded bg-white p-4">
-          <h3 className="font-semibold">Checklist avant départ</h3>
+          <h3 className="font-semibold">{dashboardText("Checklist avant départ")}</h3>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {Object.entries(checks).map(([k, l]) => (
               <label className="flex gap-2 text-xs" key={k}>
@@ -715,7 +706,7 @@ function DetailPanel({
           </div>
         </section>}
         {tab === "packages" && <section className="rounded bg-white p-4">
-          <h3 className="font-semibold">Colis affectés</h3>
+          <h3 className="font-semibold">{dashboardText("Colis affectés")}</h3>
           <div className="mt-2 divide-y">
             {data.packages.map((x) => (
               <div
@@ -724,12 +715,12 @@ function DetailPanel({
               >
                 <span>
                   {String(x.package_reference)} ·{" "}
-                  {String(x.client_name || "Client")}
+                  {String(x.client_name || dashboardText("Client"))}
                 </span>
-                <span>{n(x.weight_kg)} kg</span>
+                <span>{n(x.weight_kg)} {dashboardText(" kg")}</span>
                 <span>{businessLabel(x.scan_status)}</span>
                 <button
-                  title="Retirer du batch"
+                  title={dashboardText("Retirer du batch")}
                   className="rounded p-1.5 text-[#68716c] hover:bg-red-50 hover:text-red-700"
                   disabled={busy}
                   onClick={() =>
@@ -748,13 +739,12 @@ function DetailPanel({
             ))}
             {!data.packages.length && (
               <p className="py-4 text-xs text-[#707872]">
-                Aucun colis affecté.
-              </p>
+                {dashboardText("Aucun colis affecté.")}</p>
             )}
           </div>
         </section>}
         {tab === "history" && <section className="rounded bg-white p-4">
-          <h3 className="font-semibold">Timeline & audit</h3>
+          <h3 className="font-semibold">{dashboardText("Timeline & audit")}</h3>
           {data.events.slice(0, 20).map((x) => (
             <div
               className="border-l border-[#b8d5c8] py-2 pl-3 text-xs"
@@ -762,8 +752,8 @@ function DetailPanel({
             >
               <b>{businessLabel(x.event_type)}</b>
               <p className="text-[#707872]">
-                {new Date(String(x.created_at)).toLocaleString("fr-FR")} ·{" "}
-                {String(x.actor_name || "Système")}
+                {new Date(String(x.created_at)).toLocaleString(dashboardFormatLocale())} ·{" "}
+                {String(x.actor_name || dashboardText("Système"))}
               </p>
             </div>
           ))}

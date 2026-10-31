@@ -1,3 +1,5 @@
+"use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -41,14 +43,15 @@ export function OperationSearch({
   onChange: (value: string) => void;
   placeholder?: string;
 }) {
+  useDashboardMessages();
   return (
     <label data-ui="operation-search" className="flex h-10 w-full items-center gap-2 rounded-full border border-[#d8dde0] bg-white px-4 focus-within:border-[#aeb8be]">
       <Search size={15} className="shrink-0 text-[#69727c]" />
       <input
-        aria-label={placeholder}
+        aria-label={dashboardText(placeholder)}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
+        placeholder={dashboardText(placeholder)}
         className="min-w-0 flex-1 bg-transparent text-[12px] outline-none placeholder:text-[#8b949a]"
       />
     </label>

@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 
 import { ArrowLeft } from "lucide-react";
@@ -26,6 +28,7 @@ export function OperationPageHeader({
   backHref?: string;
   backLabel?: string;
 }) {
+  useDashboardMessages();
   const pathname=usePathname();
   const [parcel,setParcel]=useState(false);
   useEffect(()=>{let active=true;getTenantContext().then(context=>{if(active)setParcel(getOrganizationProductProfile(context.active_tenant?.organization_type)===PRODUCT_PROFILES.PARCEL_FREIGHT);}).catch(()=>undefined);return()=>{active=false;};},[]);
@@ -47,9 +50,9 @@ export function OperationPageHeader({
               </Link>
             )}
             <div className="min-w-0">
-              <h1 className="text-[22px] font-semibold text-[#25292e]">{title}</h1>
+              <h1 className="text-[22px] font-semibold text-[#25292e]">{dashboardText(title)}</h1>
               <p className="mt-1.5 max-w-4xl text-[13px] leading-5 text-[#69717a]">
-                {description}
+                {dashboardText(description)}
               </p>
             </div>
           </div>
@@ -66,10 +69,11 @@ export function OperationPageHeader({
 }
 
 export function OperationTabs({ children, className = "" }: { children: ReactNode; className?: string }) {
+  useDashboardMessages();
   return (
     <nav
       data-ui="operation-tabs"
-      aria-label="Vues du module"
+      aria-label={dashboardText("Vues du module")}
       className={`operation-tabs mx-auto flex w-full max-w-[1200px] items-center gap-2 overflow-x-auto bg-white px-6 py-2 sm:px-8 ${className}`}
     >
       {children}

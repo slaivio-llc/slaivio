@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 import { PackageFinance } from "@/components/finance/package-finance";
 
@@ -300,6 +302,7 @@ type DetailTab =
   | "settings";
 
 export function PackagesPage({ embedded = false, createRequest = 0 }: { embedded?: boolean; createRequest?: number }) {
+  useDashboardMessages();
   const [parcel, setParcel] = useState<boolean | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -310,12 +313,13 @@ export function PackagesPage({ embedded = false, createRequest = 0 }: { embedded
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [retry]);
-  if (error) return <div role="alert" className="p-8 text-sm">Impossible de charger les colis. <button type="button" className="underline" onClick={() => setRetry(value => value+1)}>Réessayer</button></div>;
-  if (parcel === null) return <TableSkeleton rows={6} columns={4} label="Chargement des colis" />;
+  if (error) return <div role="alert" className="p-8 text-sm">{dashboardText("Impossible de charger les colis. ")}<button type="button" className="underline" onClick={() => setRetry(value => value+1)}>{dashboardText("Réessayer")}</button></div>;
+  if (parcel === null) return <TableSkeleton rows={6} columns={4} label={dashboardText("Chargement des colis")} />;
   return parcel ? <ParcelRegisterPage embedded={embedded} createRequest={createRequest} /> : <LegacyPackagesPage />;
 }
 
 function LegacyPackagesPage() {
+  useDashboardMessages();
   const [packages, setPackages] = useState<PackageRecord[]>([]);
   const [stats, setStats] = useState<PackageStats>(emptyStats);
   const [pagination, setPagination] = useState<Pagination>({
@@ -729,7 +733,7 @@ function LegacyPackagesPage() {
       { label: "Livrés", value: stats.delivered, tone: "blue", view: "delivered" },
       {
         label: "Poids total",
-        value: `${Number(stats.total_weight_kg || 0).toLocaleString("fr-FR")} kg`,
+        value: `${Number(stats.total_weight_kg || 0).toLocaleString(dashboardFormatLocale())} kg`,
         tone: "neutral", view: "all",
       },
     ],
@@ -741,22 +745,19 @@ function LegacyPackagesPage() {
       {photoWarning&&<p role="status" className="mx-4 my-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900">{photoWarning}</p>}
       <div className="overflow-hidden bg-white">
         <OperationPageHeader
-          title="Colis"
-          description="Réceptionnez, mesurez, stockez et suivez chaque colis réel. Chaque ligne reste liée à un dossier client pour garder une traçabilité complète."
+          title={dashboardText("Colis")}
+          description={dashboardText("Réceptionnez, mesurez, stockez et suivez chaque colis réel. Chaque ligne reste liée à un dossier client pour garder une traçabilité complète.")}
           actions={
             <>
               <OperationButton onClick={() => setImportOpen(true)}>
                 <Upload size={14} />
-                Importer
-              </OperationButton>
+                {dashboardText("Importer")}</OperationButton>
               <OperationButton onClick={handleExport}>
                 <Download size={14} />
-                Exporter
-              </OperationButton>
+                {dashboardText("Exporter")}</OperationButton>
               <OperationButton variant="primary" onClick={openCreate}>
                 <span className="text-lg leading-none">+</span>
-                Nouveau colis
-              </OperationButton>
+                {dashboardText("Nouveau colis")}</OperationButton>
             </>
           }
         />
@@ -766,8 +767,8 @@ function LegacyPackagesPage() {
             {statCards.map((card) => (
               <OperationMetric
                 key={card.label}
-                label={card.label}
-                value={typeof card.value === "number" ? card.value.toLocaleString("fr-FR") : card.value}
+                label={dashboardText(card.label)}
+                value={typeof card.value === "number" ? card.value.toLocaleString(dashboardFormatLocale()) : card.value}
                 tone={activeView === card.view ? "success" : card.tone === "amber" ? "warning" : "default"}
                 active={activeView === card.view}
                 onClick={() => setActiveView(card.view)}
@@ -778,7 +779,7 @@ function LegacyPackagesPage() {
 
         <section className={selected ? "xl:pr-[380px]" : ""}>
           <OperationToolbar
-            search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher un colis…" />}
+            search={<OperationSearch value={query} onChange={setQuery} placeholder={dashboardText("Rechercher un colis…")} />}
             filters={
               <>
               <OperationFilterPopover
@@ -786,64 +787,61 @@ function LegacyPackagesPage() {
                 onOpenChange={setFiltersOpen}
                 activeCount={activeFilterCount}
                 onReset={resetFilters}
-                title="Filtrer les colis"
+                title={dashboardText("Filtrer les colis")}
               >
-                <OperationField label="Vue">
+                <OperationField label={dashboardText("Vue")}>
                   <select value={activeView} onChange={(event) => setActiveView(event.target.value)} className={inputClass}>
-                    {views.map((view) => <option key={view.key} value={view.key}>{view.label}</option>)}
+                    {views.map((view) => <option key={view.key} value={view.key}>{dashboardText(view.label)}</option>)}
                   </select>
                 </OperationField>
-                <OperationField label="Étape du colis">
+                <OperationField label={dashboardText("Étape du colis")}>
                   <select value={status} onChange={(event) => setStatus(event.target.value as PackageStatus | "")} className={inputClass}>
-                    <option value="">Toutes les étapes</option>
-                    {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    <option value="">{dashboardText("Toutes les étapes")}</option>
+                    {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{dashboardText(label)}</option>)}
                   </select>
                 </OperationField>
-                <OperationField label="Entrepôt">
+                <OperationField label={dashboardText("Entrepôt")}>
                   <select value={warehouseFilter} onChange={(event) => setWarehouseFilter(event.target.value)} className={inputClass}>
-                    <option value="">Tous les entrepôts</option>
-                    {filterWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.label}>{warehouse.label}</option>)}
+                    <option value="">{dashboardText("Tous les entrepôts")}</option>
+                    {filterWarehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.label}>{dashboardText(warehouse.label)}</option>)}
                   </select>
                 </OperationField>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <OperationField label="Paiement">
+                  <OperationField label={dashboardText("Paiement")}>
                     <select value={payment} onChange={(event) => setPayment(event.target.value as PaymentClearanceStatus | "")} className={inputClass}>
-                      <option value="">Toutes les situations</option>
-                      {Object.entries(paymentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      <option value="">{dashboardText("Toutes les situations")}</option>
+                      {Object.entries(paymentLabels).map(([value, label]) => <option key={value} value={value}>{dashboardText(label)}</option>)}
                     </select>
                   </OperationField>
-                  <OperationField label="Priorité">
+                  <OperationField label={dashboardText("Priorité")}>
                     <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className={inputClass}>
-                      <option value="">Toutes</option>
-                      <option value="LOW">Basse</option>
-                      <option value="NORMAL">Normale</option>
-                      <option value="HIGH">Haute</option>
-                      <option value="URGENT">Urgente</option>
+                      <option value="">{dashboardText("Toutes")}</option>
+                      <option value="LOW">{dashboardText("Basse")}</option>
+                      <option value="NORMAL">{dashboardText("Normale")}</option>
+                      <option value="HIGH">{dashboardText("Haute")}</option>
+                      <option value="URGENT">{dashboardText("Urgente")}</option>
                     </select>
                   </OperationField>
                 </div>
-                <OperationField label="Ordre d’affichage">
+                <OperationField label={dashboardText("Ordre d’affichage")}>
                   <select value={sort} onChange={(event) => setSort(event.target.value)} className={inputClass}>
-                    <option value="updated_desc">Activité récente</option>
-                    <option value="created_desc">Créés récemment</option>
-                    <option value="created_asc">Créés anciennement</option>
-                    <option value="reference_asc">Référence A-Z</option>
-                    <option value="client_asc">Client A-Z</option>
-                    <option value="weight_desc">Poids le plus élevé</option>
+                    <option value="updated_desc">{dashboardText("Activité récente")}</option>
+                    <option value="created_desc">{dashboardText("Créés récemment")}</option>
+                    <option value="created_asc">{dashboardText("Créés anciennement")}</option>
+                    <option value="reference_asc">{dashboardText("Référence A-Z")}</option>
+                    <option value="client_asc">{dashboardText("Client A-Z")}</option>
+                    <option value="weight_desc">{dashboardText("Poids le plus élevé")}</option>
                   </select>
                 </OperationField>
                 <label className="flex min-h-10 items-center gap-3 rounded-[7px] bg-[#f6f8f7] px-3 text-[13px] font-medium text-[#3d474f]">
                   <input type="checkbox" checked={fragileOnly} onChange={(event) => setFragileOnly(event.target.checked)} className="h-4 w-4 rounded border-[#c9d0d8]" />
-                  Afficher uniquement les colis fragiles
-                </label>
+                  {dashboardText("Afficher uniquement les colis fragiles")}</label>
               </OperationFilterPopover>
               <OperationActionMenu>
                 <button onClick={() => setLayoutMode(layoutMode === "kanban" ? "table" : "kanban")}>
-                  Vue Kanban
-                </button>
+                  {dashboardText("Vue Kanban")}</button>
                 <button onClick={() => layoutMode === "analytics" ? setLayoutMode("table") : showAnalytics()}>
-                  Analytics
-                </button>
+                  {dashboardText("Analytics")}</button>
               </OperationActionMenu>
               </>
             }
@@ -854,7 +852,7 @@ function LegacyPackagesPage() {
           {error && (
             <div className="mb-4 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
               <AlertCircle size={17} className="mt-0.5" />
-              <p>{error}</p>
+              <p>{dashboardText(error)}</p>
             </div>
           )}
 
@@ -881,8 +879,8 @@ function LegacyPackagesPage() {
           <div className="flex flex-col gap-3 px-1 py-3 text-[13px] text-[#5f6b76] sm:flex-row sm:items-center sm:justify-between">
             <span>
               {pagination.total === 0
-                ? "0 colis"
-                : `${(page - 1) * pagination.page_size + 1} - ${Math.min(page * pagination.page_size, pagination.total)} sur ${pagination.total} colis`}
+                ? dashboardText("0 colis")
+                : dashboardText("{0} - {1} sur {2} colis", (page - 1) * pagination.page_size + 1, Math.min(page * pagination.page_size, pagination.total), pagination.total)}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -911,9 +909,9 @@ function LegacyPackagesPage() {
                   key={card.label}
                   className={`min-h-[90px] rounded-md border p-4 ${metricCardClass(card.tone)}`}
                 >
-                  <p className="text-[13px] font-medium">{card.label}</p>
+                  <p className="text-[13px] font-medium">{dashboardText(card.label)}</p>
                   <p className="mt-3 text-[27px] font-normal leading-none tracking-[-0.04em]">
-                    {card.value.toLocaleString("fr-FR")}
+                    {card.value.toLocaleString(dashboardFormatLocale())}
                   </p>
                 </div>
               ))}
@@ -990,6 +988,7 @@ function PackagesKanban({
   onSelect: (item: PackageRecord) => void;
   onMove: (id: string, status: PackageStatus) => void;
 }) {
+  useDashboardMessages();
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overStatus, setOverStatus] = useState<PackageStatus | null>(null);
   const columns = [
@@ -1033,7 +1032,7 @@ function PackagesKanban({
           return (
             <section
               key={status}
-              aria-label={`${statusLabels[status]} : ${items.length} colis`}
+              aria-label={dashboardText("{0} : {1} colis", statusLabels[status], items.length)}
               onDragEnter={(event) => {
                 event.preventDefault();
                 setOverStatus(status);
@@ -1061,7 +1060,7 @@ function PackagesKanban({
                     className={`h-3.5 w-3.5 shrink-0 rounded-[4px] ${appearances[status].dot}`}
                   />
                   <h3 className="truncate text-[12px] font-semibold uppercase tracking-[0.02em] text-[#34383e]">
-                    {statusLabels[status]}
+                    {dashboardText(statusLabels[status])}
                   </h3>
                 </div>
                 <span className="ml-2 min-w-6 rounded bg-white/80 px-1.5 py-0.5 text-center text-[11px] font-semibold text-[#5e6670]">
@@ -1076,7 +1075,7 @@ function PackagesKanban({
                     draggable
                     type="button"
                     key={item.id}
-                    aria-label={`Ouvrir le colis ${item.package_reference || item.id}`}
+                    aria-label={dashboardText("Ouvrir le colis {0}", item.package_reference || item.id)}
                     onDragStart={(event) => {
                       setDraggedId(item.id);
                       event.dataTransfer.effectAllowed = "move";
@@ -1091,26 +1090,25 @@ function PackagesKanban({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <b className="truncate text-[13px] font-semibold text-[#20242a]">
-                        {item.package_reference || "Colis sans référence"}
+                        {item.package_reference || dashboardText("Colis sans référence")}
                       </b>
                       {item.open_anomaly_count > 0 && (
                         <span className="shrink-0 rounded bg-[#fff0ed] px-1.5 py-0.5 text-[10px] font-semibold text-[#c63d2f]">
-                          {item.open_anomaly_count} alerte
-                          {item.open_anomaly_count > 1 ? "s" : ""}
+                          {item.open_anomaly_count} {dashboardText(" alerte")}{item.open_anomaly_count > 1 ? dashboardText("s") : ""}
                         </span>
                       )}
                     </div>
                     <p className="mt-1 truncate text-[12px] text-[#4f5965]">
-                      {item.client_name || "Client non renseigné"}
+                      {item.client_name || dashboardText("Client non renseigné")}
                     </p>
                     <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#edf0f2] pt-2 text-[11px] text-[#687481]">
                       <span className="truncate">
                         {item.warehouse_zone ||
                           item.warehouse_name ||
-                          "Sans emplacement"}
+                          dashboardText("Sans emplacement")}
                       </span>
                       <span className="shrink-0 font-medium text-[#404851]">
-                        {item.weight_kg ? `${item.weight_kg} kg` : "Poids —"}
+                        {item.weight_kg ? dashboardText("{0} kg", item.weight_kg) : dashboardText("Poids —")}
                       </span>
                     </div>
                     {(item.is_fragile ||
@@ -1119,14 +1117,12 @@ function PackagesKanban({
                       <div className="mt-2 flex gap-1.5">
                         {item.is_fragile && (
                           <span className="rounded bg-[#fff7df] px-1.5 py-0.5 text-[10px] font-medium text-[#9a6500]">
-                            Fragile
-                          </span>
+                            {dashboardText("Fragile")}</span>
                         )}
                         {(item.priority === "URGENT" ||
                           item.priority === "HIGH") && (
                           <span className="rounded bg-[#fff0ed] px-1.5 py-0.5 text-[10px] font-medium text-[#b43d31]">
-                            Prioritaire
-                          </span>
+                            {dashboardText("Prioritaire")}</span>
                         )}
                       </div>
                     )}
@@ -1136,7 +1132,7 @@ function PackagesKanban({
                   <div
                     className={`flex h-24 items-center justify-center rounded-md border border-dashed text-[12px] ${isDropTarget ? "border-[#8d86ee] bg-white text-[#5149bd]" : "border-[#cfd4da] text-[#87919c]"}`}
                   >
-                    {isDropTarget ? "Déposer le colis ici" : "Aucun colis"}
+                    {isDropTarget ? dashboardText("Déposer le colis ici") : dashboardText("Aucun colis")}
                   </div>
                 )}
               </div>
@@ -1155,6 +1151,7 @@ function PackagesAnalytics({
   stats: PackageStats;
   analytics: PackageAnalytics | null;
 }) {
+  useDashboardMessages();
   const max = Math.max(stats.total, 1);
   const rows = [
     ["En attente", stats.waiting],
@@ -1167,12 +1164,12 @@ function PackagesAnalytics({
   ] as const;
   return (
     <div className="grid gap-4 bg-[#f7f7f6] p-5 lg:grid-cols-2">
-      <Section title="Flux des colis">
+      <Section title={dashboardText("Flux des colis")}>
         <div className="space-y-4">
           {rows.map(([label, value]) => (
             <div key={label}>
               <div className="mb-1 flex justify-between text-[13px]">
-                <span>{label}</span>
+                <span>{dashboardText(label)}</span>
                 <b>{value}</b>
               </div>
               <div className="h-2 rounded bg-slate-100">
@@ -1187,32 +1184,32 @@ function PackagesAnalytics({
           ))}
         </div>
       </Section>
-      <Section title="Performance">
+      <Section title={dashboardText("Performance")}>
         <div className="grid grid-cols-2 gap-3">
           <SmallMetric
-            label="Stockage moyen"
+            label={dashboardText("Stockage moyen")}
             value={`${analytics?.summary.average_storage_days ?? 0} jours`}
           />
           <SmallMetric
-            label="Avant expédition"
+            label={dashboardText("Avant expédition")}
             value={`${analytics?.summary.average_before_dispatch_days ?? 0} jours`}
           />
           <SmallMetric
-            label="Taux anomalies"
+            label={dashboardText("Taux anomalies")}
             value={`${analytics?.summary.anomaly_rate ?? 0} %`}
           />
-          <SmallMetric label="Reçus aujourd’hui" value={stats.received_today} />
+          <SmallMetric label={dashboardText("Reçus aujourd’hui")} value={stats.received_today} />
         </div>
       </Section>
-      <Section title="Par entrepôt">
+      <Section title={dashboardText("Par entrepôt")}>
         <AnalyticsRows rows={analytics?.warehouses || []} />
       </Section>
-      <Section title="Capacité">
+      <Section title={dashboardText("Capacité")}>
         <div className="space-y-3">
           {(analytics?.capacity || []).map((row) => (
             <div key={row.label} className="text-[13px]">
               <div className="flex justify-between">
-                <span>{row.label}</span>
+                <span>{dashboardText(row.label)}</span>
                 <b>
                   {row.occupied}/{row.capacity || "—"}
                 </b>
@@ -1229,10 +1226,10 @@ function PackagesAnalytics({
           ))}
         </div>
       </Section>
-      <Section title="Fournisseurs">
+      <Section title={dashboardText("Fournisseurs")}>
         <AnalyticsRows rows={analytics?.suppliers || []} />
       </Section>
-      <Section title="Destinations">
+      <Section title={dashboardText("Destinations")}>
         <AnalyticsRows rows={analytics?.destinations || []} />
       </Section>
     </div>
@@ -1244,6 +1241,7 @@ function AnalyticsRows({
 }: {
   rows: Array<{ label: string; count: number }>;
 }) {
+  useDashboardMessages();
   return rows.length ? (
     <div className="space-y-2">
       {rows.map((row) => (
@@ -1251,13 +1249,13 @@ function AnalyticsRows({
           key={row.label}
           className="flex justify-between border-b py-2 text-[13px]"
         >
-          <span>{row.label || "Non renseigné"}</span>
+          <span>{row.label || dashboardText("Non renseigné")}</span>
           <b>{row.count}</b>
         </div>
       ))}
     </div>
   ) : (
-    <p className="text-[13px] text-slate-500">Aucune donnée.</p>
+    <p className="text-[13px] text-slate-500">{dashboardText("Aucune donnée.")}</p>
   );
 }
 
@@ -1272,11 +1270,12 @@ function PackagesTable({
   selectedId?: string;
   onSelect: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   if (loading) {
     return <TableSkeleton />;
   }
   if (packages.length === 0) {
-    return <SharedEmptyState title="Aucun colis trouvé" description="Créez un colis depuis un dossier réel ou ajustez les filtres de cette vue." />;
+    return <SharedEmptyState title={dashboardText("Aucun colis trouvé")} description={dashboardText("Créez un colis depuis un dossier réel ou ajustez les filtres de cette vue.")} />;
   }
 
   return (
@@ -1284,12 +1283,12 @@ function PackagesTable({
       <table className="min-w-[900px] w-full border-collapse text-left text-[13px]">
         <thead className="border-b border-[#d8dce2] bg-[#f7f8fa] font-medium text-[#5f6b76]">
           <tr>
-            <th className="px-3 py-2">Colis</th>
-            <th className="px-3 py-2">Dossier / Client</th>
-            <th className="px-3 py-2 text-right">Poids</th>
-            <th className="px-3 py-2">Origine → destination</th>
-            <th className="px-3 py-2">Statut</th>
-            <th className="px-3 py-2">Dernière mise à jour</th>
+            <th className="px-3 py-2">{dashboardText("Colis")}</th>
+            <th className="px-3 py-2">{dashboardText("Dossier / Client")}</th>
+            <th className="px-3 py-2 text-right">{dashboardText("Poids")}</th>
+            <th className="px-3 py-2">{dashboardText("Origine → destination")}</th>
+            <th className="px-3 py-2">{dashboardText("Statut")}</th>
+            <th className="px-3 py-2">{dashboardText("Dernière mise à jour")}</th>
             <th className="w-10 px-3 py-2" />
           </tr>
         </thead>
@@ -1311,7 +1310,7 @@ function PackagesTable({
                     </p>
                     <p className="text-[12px] text-[#687584]">
                       {item.tracking_id ||
-                        sourceLabels[item.source] ||
+                        dashboardText(sourceLabels[item.source]) ||
                         item.source}
                     </p>
                   </div>
@@ -1319,23 +1318,23 @@ function PackagesTable({
               </td>
               <td className="px-3 py-2">
                 <p className="text-[12px] text-[#687584]">
-                  {item.dossier_reference || "-"}
+                  {item.dossier_reference || dashboardText("-")}
                 </p>
                 <p className="font-medium text-[#1f2328]">
-                  {item.client_name || "Client"}
+                  {item.client_name || dashboardText("Client")}
                 </p>
               </td>
               <td className="px-3 py-2 text-right text-[#334155]">
-                {item.weight_kg ? `${item.weight_kg} kg` : "-"}
+                {item.weight_kg ? dashboardText("{0} kg", item.weight_kg) : dashboardText("-")}
               </td>
               <td className="px-3 py-2 text-[#334155]">
                 <p>
-                  {item.origin_city || item.origin_country || "-"} →{" "}
-                  {item.destination_city || item.destination_country || "-"}
+                  {item.origin_city || item.origin_country || dashboardText("-")} →{" "}
+                  {item.destination_city || item.destination_country || dashboardText("-")}
                 </p>
                 <p className="text-[12px] text-[#687584]">
-                  {item.origin_country || "-"} →{" "}
-                  {item.destination_country || "-"}
+                  {item.origin_country || dashboardText("-")} →{" "}
+                  {item.destination_country || dashboardText("-")}
                 </p>
               </td>
               <td className="px-3 py-2">
@@ -1356,6 +1355,7 @@ function PackagesTable({
 }
 
 function PackageThumbnail({ item }: { item: PackageRecord }) {
+  useDashboardMessages();
   const media = item.media?.find((file) =>
     file.media_type?.startsWith("image"),
   );
@@ -1363,7 +1363,7 @@ function PackageThumbnail({ item }: { item: PackageRecord }) {
     return (
       <Image
         src={media.media_url}
-        alt=""
+        alt={dashboardText("")}
         width={56}
         height={48}
         unoptimized
@@ -1373,7 +1373,7 @@ function PackageThumbnail({ item }: { item: PackageRecord }) {
   return (
     <span className="flex h-12 w-14 shrink-0 flex-col items-center justify-center rounded-md border border-dashed border-[#cfd5dd] bg-[#f7f8f8] text-[#7b8794]">
       <ImageIcon size={17} />
-      <small className="mt-0.5 text-[9px]">Photo manquante</small>
+      <small className="mt-0.5 text-[9px]">{dashboardText("Photo manquante")}</small>
     </span>
   );
 }
@@ -1399,6 +1399,7 @@ function PackageDetails({
   onEdit: () => void;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const tabs: Array<{ key: DetailTab; label: string }> = [
     { key: "summary", label: "Vue d’ensemble" },
     { key: "dossier", label: "Dossier" },
@@ -1423,22 +1424,21 @@ function PackageDetails({
     <OperationDrawer
       open
       close={onClose}
-      title={item.package_reference || item.tracking_id || "Colis"}
-      description={`${item.client_name || "Client"} · ${item.destination_city || item.destination_country || "Destination à préciser"}`}
+      title={item.package_reference || item.tracking_id || dashboardText("Colis")}
+      description={`${item.client_name || dashboardText("Client")} · ${item.destination_city || item.destination_country || dashboardText("Destination à préciser")}`}
       width="max-w-[650px]"
       tabsVariant="segmented"
       headerActions={
-        <OperationDrawerAction onClick={onEdit} icon="edit" aria-label="Modifier le colis">
-          Modifier
-        </OperationDrawerAction>
+        <OperationDrawerAction onClick={onEdit} icon="edit" aria-label={dashboardText("Modifier le colis")}>
+          {dashboardText("Modifier")}</OperationDrawerAction>
       }
       headerMeta={
         <div className="flex flex-wrap items-center gap-2.5">
           <StatusBadge status={item.status} />
-          <HeaderFact label="Stock" value={inventoryLabels[item.inventory_status] || item.inventory_status} />
-          <HeaderFact label="Validation" value={validationLabels[item.validation_status] || item.validation_status} />
-          <HeaderFact label="Paiement" value={paymentLabels[item.payment_clearance_status] || item.payment_clearance_status} />
-          {loading && <span className="text-[12px] text-[#687584]">Actualisation…</span>}
+          <HeaderFact label={dashboardText("Stock")} value={inventoryLabels[item.inventory_status] || item.inventory_status} />
+          <HeaderFact label={dashboardText("Validation")} value={validationLabels[item.validation_status] || item.validation_status} />
+          <HeaderFact label={dashboardText("Paiement")} value={paymentLabels[item.payment_clearance_status] || item.payment_clearance_status} />
+          {loading && <span className="text-[12px] text-[#687584]">{dashboardText("Actualisation…")}</span>}
         </div>
       }
       tabs={
@@ -1494,40 +1494,41 @@ function SummaryTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   return (
     <div className="space-y-6">
       <section className="rounded-[10px] border border-[#dfe5e9] bg-[#f8faf9] p-4">
         <div className="grid grid-cols-3 divide-x divide-[#e1e6e9]">
-          <SmallMetric label="Réceptions" value={item.receipt_count} />
-          <SmallMetric label="Photos" value={item.media_count} />
-          <SmallMetric label="Événements" value={item.event_count} />
+          <SmallMetric label={dashboardText("Réceptions")} value={item.receipt_count} />
+          <SmallMetric label={dashboardText("Photos")} value={item.media_count} />
+          <SmallMetric label={dashboardText("Événements")} value={item.event_count} />
         </div>
       </section>
       <div className="grid gap-5 md:grid-cols-2">
-      <Section title="Identité du colis">
+      <Section title={dashboardText("Identité du colis")}>
         <InfoRow
           icon={Barcode}
-          label="Référence"
+          label={dashboardText("Référence")}
           value={item.package_reference || "-"}
         />
         <InfoRow
           icon={PackageSearch}
-          label="Tracking ID"
+          label={dashboardText("Tracking ID")}
           value={item.tracking_id || "-"}
         />
         <InfoRow
           icon={Box}
-          label="Marchandise"
+          label={dashboardText("Marchandise")}
           value={item.description || item.category || "-"}
         />
-        <InfoRow icon={Ruler} label="Mesures" value={formatMeasure(item)} />
+        <InfoRow icon={Ruler} label={dashboardText("Mesures")} value={formatMeasure(item)} />
       </Section>
-      <Section title="Parcours logistique">
-        <InfoRow icon={MapPin} label="Route" value={routeLabel(item)} />
-        <InfoRow icon={Truck} label="Mode" value={item.shipping_mode || "-"} />
-        <Field label="ETA" value={formatDate(item.eta_at)} />
+      <Section title={dashboardText("Parcours logistique")}>
+        <InfoRow icon={MapPin} label={dashboardText("Route")} value={routeLabel(item)} />
+        <InfoRow icon={Truck} label={dashboardText("Mode")} value={item.shipping_mode || "-"} />
+        <Field label={dashboardText("ETA")} value={formatDate(item.eta_at)} />
         <Field
-          label="Dernier scan"
+          label={dashboardText("Dernier scan")}
           value={
             item.last_scan_location
               ? `${item.last_scan_location} · ${formatDate(item.last_scan_at)}`
@@ -1535,23 +1536,23 @@ function SummaryTab({
           }
         />
       </Section>
-      <Section title="Mesures et traitement">
-        <Field label="Dimensions" value={dimensionsLabel(item)} />
-        <Field label="Nombre de pièces" value={item.pieces_count || 1} />
-        <Field label="État" value={conditionLabels[item.package_condition] || item.package_condition} />
-        <Field label="Fragile" value={item.is_fragile ? "Oui" : "Non"} />
+      <Section title={dashboardText("Mesures et traitement")}>
+        <Field label={dashboardText("Dimensions")} value={dimensionsLabel(item)} />
+        <Field label={dashboardText("Nombre de pièces")} value={item.pieces_count || 1} />
+        <Field label={dashboardText("État")} value={conditionLabels[item.package_condition] || item.package_condition} />
+        <Field label={dashboardText("Fragile")} value={item.is_fragile ? "Oui" : "Non"} />
       </Section>
-      <Section title="Situation financière">
+      <Section title={dashboardText("Situation financière")}>
         <Field
-          label="Montant facturé"
+          label={dashboardText("Montant facturé")}
           value={formatMoney(item.fees_total, item.currency)}
         />
         <Field
-          label="Montant payé"
+          label={dashboardText("Montant payé")}
           value={formatMoney(item.fees_paid, item.currency)}
         />
         <Field
-          label="Statut paiement"
+          label={dashboardText("Statut paiement")}
           value={
             paymentLabels[item.payment_clearance_status] ||
             item.payment_clearance_status
@@ -1610,6 +1611,7 @@ function PhysicalLifecycle({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [departures, setDepartures] = useState<Array<Record<string, unknown>>>([]);
@@ -1679,7 +1681,7 @@ function PhysicalLifecycle({
     }
   }
   return (
-    <Section title="Cycle de vie physique">
+    <Section title={dashboardText("Cycle de vie physique")}>
       <div className="flex flex-wrap gap-2">
         {(lifecycle[item.status] || []).map(([s, l]) => (
           <button
@@ -1696,55 +1698,52 @@ function PhysicalLifecycle({
           onClick={() => quality("COMPLIANT")}
           className={buttonClass}
         >
-          Contrôle conforme
-        </button>
+          {dashboardText("Contrôle conforme")}</button>
         <button
           disabled={busy}
           onClick={() => quality("NON_COMPLIANT")}
           className={buttonClass}
         >
-          Signaler non-conformité
-        </button>
+          {dashboardText("Signaler non-conformité")}</button>
         <button disabled={busy} onClick={find} className={buttonClass}>
-          Départs compatibles
-        </button>
+          {dashboardText("Départs compatibles")}</button>
         {item.status === "READY_FOR_PICKUP" && (
           <button
             disabled={busy}
             onClick={proof}
             className={primaryButtonClass}
           >
-            Preuve de retrait
-          </button>
+            {dashboardText("Preuve de retrait")}</button>
         )}
       </div>
       {departures.length > 0 && (
         <div className="mt-3 space-y-2">
           {departures.map((d, i) => (
             <div key={String(d.id || i)} className="border-t pt-2 text-[12px]">
-              <b>{String(d.departure_code || "Départ")}</b> ·{" "}
+              <b>{String(d.departure_code || dashboardText("Départ"))}</b> ·{" "}
               {String(d.route_name || "")} ·{" "}
               {formatDate(String(d.scheduled_at || ""))}
             </div>
           ))}
         </div>
       )}
-      {error && <p className="mt-2 text-[12px] text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-[12px] text-red-600">{dashboardText(error)}</p>}
     </Section>
   );
 }
 
 function MeasuresTab({ item }: { item: PackageRecord }) {
+  useDashboardMessages();
   return (
     <div className="space-y-5">
-      <Section title="Mesures physiques">
+      <Section title={dashboardText("Mesures physiques")}>
         <div className="grid grid-cols-2 gap-3">
           <SmallMetric
-            label="Poids réel"
+            label={dashboardText("Poids réel")}
             value={item.weight_kg ? `${item.weight_kg} kg` : "-"}
           />
           <SmallMetric
-            label="Poids volumétrique"
+            label={dashboardText("Poids volumétrique")}
             value={
               item.volumetric_weight_kg
                 ? `${item.volumetric_weight_kg} kg`
@@ -1752,63 +1751,64 @@ function MeasuresTab({ item }: { item: PackageRecord }) {
             }
           />
           <SmallMetric
-            label="Volume"
+            label={dashboardText("Volume")}
             value={item.volume_cbm ? `${item.volume_cbm} m³` : "-"}
           />
-          <SmallMetric label="Pièces" value={item.pieces_count || 1} />
+          <SmallMetric label={dashboardText("Pièces")} value={item.pieces_count || 1} />
         </div>
       </Section>
-      <Section title="Dimensions & valeur">
-        <Field label="Dimensions" value={dimensionsLabel(item)} />
+      <Section title={dashboardText("Dimensions & valeur")}>
+        <Field label={dashboardText("Dimensions")} value={dimensionsLabel(item)} />
         <Field
-          label="Type colis"
+          label={dashboardText("Type colis")}
           value={item.package_type==="other" && item.category ? item.category.charAt(0).toLocaleUpperCase("fr")+item.category.slice(1).toLocaleLowerCase("fr") : packageTypeLabels[item.package_type] || item.package_type}
         />
-        <Field label="Catégorie" value={item.category || "-"} />
+        <Field label={dashboardText("Catégorie")} value={item.category || "-"} />
         <Field
-          label="Valeur déclarée"
+          label={dashboardText("Valeur déclarée")}
           value={formatMoney(
             item.declared_value,
             item.declared_currency || item.currency,
           )}
         />
-        <Field label="Fragile" value={item.is_fragile ? "Oui" : "Non"} />
+        <Field label={dashboardText("Fragile")} value={item.is_fragile ? "Oui" : "Non"} />
       </Section>
-      <Section title="Contrôle">
+      <Section title={dashboardText("Contrôle")}>
         <Field
-          label="Validation"
+          label={dashboardText("Validation")}
           value={
             validationLabels[item.validation_status] || item.validation_status
           }
         />
         <Field
-          label="État colis"
+          label={dashboardText("État colis")}
           value={
             conditionLabels[item.package_condition] || item.package_condition
           }
         />
-        <Field label="Notes internes" value={item.notes || "-"} />
+        <Field label={dashboardText("Notes internes")} value={item.notes || "-"} />
       </Section>
     </div>
   );
 }
 
 function DossierTab({ item }: { item: PackageRecord }) {
+  useDashboardMessages();
   return (
     <div className="space-y-5">
-      <Section title="Dossier lié">
+      <Section title={dashboardText("Dossier lié")}>
         <InfoRow
           icon={FileText}
-          label="Référence dossier"
+          label={dashboardText("Référence dossier")}
           value={item.dossier_reference || "-"}
         />
-        <Field label="Type" value={item.dossier_case_type || "-"} />
-        <Field label="Statut dossier" value={item.dossier_status || "-"} />
+        <Field label={dashboardText("Type")} value={item.dossier_case_type || "-"} />
+        <Field label={dashboardText("Statut dossier")} value={item.dossier_status || "-"} />
       </Section>
-      <Section title="Client">
-        <Field label="Nom" value={item.client_name || "-"} />
-        <Field label="Téléphone" value={item.client_phone || "-"} />
-        <Field label="Email" value={item.client_email || "-"} />
+      <Section title={dashboardText("Client")}>
+        <Field label={dashboardText("Nom")} value={item.client_name || "-"} />
+        <Field label={dashboardText("Téléphone")} value={item.client_phone || "-"} />
+        <Field label={dashboardText("Email")} value={item.client_email || "-"} />
       </Section>
     </div>
   );
@@ -1821,6 +1821,7 @@ function WarehouseTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function move(event: FormEvent<HTMLFormElement>) {
@@ -1879,29 +1880,29 @@ function WarehouseTab({
   }
   return (
     <div className="space-y-5">
-      <Section title="Emplacement actuel">
+      <Section title={dashboardText("Emplacement actuel")}>
         <InfoRow
           icon={Warehouse}
-          label="Entrepôt"
+          label={dashboardText("Entrepôt")}
           value={item.warehouse_name || "-"}
         />
-        <Field label="Zone" value={item.warehouse_zone || "-"} />
-        <Field label="Rack" value={item.warehouse_rack || "-"} />
-        <Field label="Emplacement" value={item.warehouse_location || "-"} />
+        <Field label={dashboardText("Zone")} value={item.warehouse_zone || "-"} />
+        <Field label={dashboardText("Rack")} value={item.warehouse_rack || "-"} />
+        <Field label={dashboardText("Emplacement")} value={item.warehouse_location || "-"} />
         <Field
-          label="Statut stock"
+          label={dashboardText("Statut stock")}
           value={
             inventoryLabels[item.inventory_status] || item.inventory_status
           }
         />
       </Section>
-      <Section title="Réception">
+      <Section title={dashboardText("Réception")}>
         <Field
-          label="Date réception"
+          label={dashboardText("Date réception")}
           value={formatDate(item.received_at || item.received_at_origin_at)}
         />
         <Field
-          label="Dernier scan"
+          label={dashboardText("Dernier scan")}
           value={
             item.last_scan_location
               ? `${item.last_scan_location} · ${formatDate(item.last_scan_at)}`
@@ -1909,33 +1910,32 @@ function WarehouseTab({
           }
         />
         <Field
-          label="Source"
+          label={dashboardText("Source")}
           value={sourceLabels[item.source] || item.source}
         />
       </Section>
-      <Section title="Déplacer le colis">
+      <Section title={dashboardText("Déplacer le colis")}>
         <form onSubmit={move} className="grid grid-cols-2 gap-2">
           <input
             required
             name="warehouse"
             className={inputClass}
-            placeholder="Entrepôt"
+            placeholder={dashboardText("Entrepôt")}
           />
-          <input name="zone" className={inputClass} placeholder="Zone" />
-          <input name="aisle" className={inputClass} placeholder="Allée" />
-          <input name="shelf" className={inputClass} placeholder="Étagère" />
+          <input name="zone" className={inputClass} placeholder={dashboardText("Zone")} />
+          <input name="aisle" className={inputClass} placeholder={dashboardText("Allée")} />
+          <input name="shelf" className={inputClass} placeholder={dashboardText("Étagère")} />
           <input
             name="position"
             className={inputClass}
-            placeholder="Position"
+            placeholder={dashboardText("Position")}
           />
-          <input name="reason" className={inputClass} placeholder="Motif" />
+          <input name="reason" className={inputClass} placeholder={dashboardText("Motif")} />
           <button disabled={busy} className={primaryButtonClass}>
-            Déplacer
-          </button>
+            {dashboardText("Déplacer")}</button>
         </form>
       </Section>
-      <Section title="Peser">
+      <Section title={dashboardText("Peser")}>
         <form onSubmit={weigh} className="grid grid-cols-2 gap-2">
           <input
             required
@@ -1944,24 +1944,23 @@ function WarehouseTab({
             type="number"
             name="weight"
             className={inputClass}
-            placeholder="Poids kg"
+            placeholder={dashboardText("Poids kg")}
           />
           <input
             name="device"
             className={inputClass}
-            placeholder="Balance / appareil"
+            placeholder={dashboardText("Balance / appareil")}
           />
           <input
             name="notes"
             className={`${inputClass} col-span-2`}
-            placeholder="Observation"
+            placeholder={dashboardText("Observation")}
           />
           <button disabled={busy} className={primaryButtonClass}>
-            Enregistrer la pesée
-          </button>
+            {dashboardText("Enregistrer la pesée")}</button>
         </form>
       </Section>
-      <Section title="Checklist opérationnelle">
+      <Section title={dashboardText("Checklist opérationnelle")}>
         <div className="space-y-2">
           {(item.checklist || []).map((c) => (
             <label
@@ -1976,12 +1975,12 @@ function WarehouseTab({
                   checklist(c.id, e.target.checked ? "COMPLETED" : "PENDING")
                 }
               />
-              <span>{c.label}</span>
+              <span>{dashboardText(c.label)}</span>
             </label>
           ))}
         </div>
       </Section>
-      <Section title="Historique des déplacements">
+      <Section title={dashboardText("Historique des déplacements")}>
         {(item.movements || []).length ? (
           <div className="space-y-2">
             {item.movements!.map((m) => (
@@ -1998,7 +1997,7 @@ function WarehouseTab({
                     .join(" / ")}
                 </b>
                 <p className="text-slate-500">
-                  {m.reason || "Déplacement entrepôt"} ·{" "}
+                  {m.reason || dashboardText("Déplacement entrepôt")} ·{" "}
                   {formatDate(m.created_at)}
                 </p>
               </div>
@@ -2006,11 +2005,10 @@ function WarehouseTab({
           </div>
         ) : (
           <p className="text-[13px] text-slate-500">
-            Aucun déplacement enregistré.
-          </p>
+            {dashboardText("Aucun déplacement enregistré.")}</p>
         )}
       </Section>
-      {error && <p className="text-[13px] text-red-600">{error}</p>}
+      {error && <p className="text-[13px] text-red-600">{dashboardText(error)}</p>}
     </div>
   );
 }
@@ -2022,6 +2020,7 @@ function ShipmentTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [shipments, setShipments] = useState<ExpeditionRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -2066,31 +2065,31 @@ function ShipmentTab({
   }
   return (
     <div className="space-y-5">
-      <Section title="Expédition liée">
+      <Section title={dashboardText("Expédition liée")}>
         <InfoRow
           icon={Truck}
-          label="Référence expédition"
+          label={dashboardText("Référence expédition")}
           value={item.shipment_reference || "-"}
         />
         <Field
-          label="Service"
+          label={dashboardText("Service")}
           value={item.service_type || item.shipping_mode || "-"}
         />
-        <Field label="Route" value={routeLabel(item)} />
-        <Field label="ETA" value={formatDate(item.eta_at)} />
+        <Field label={dashboardText("Route")} value={routeLabel(item)} />
+        <Field label={dashboardText("ETA")} value={formatDate(item.eta_at)} />
       </Section>
-      <Section title="Dates opérationnelles">
-        <Field label="Départ" value={formatDate(item.dispatched_at)} />
+      <Section title={dashboardText("Dates opérationnelles")}>
+        <Field label={dashboardText("Départ")} value={formatDate(item.dispatched_at)} />
         <Field
-          label="Arrivée / livraison"
+          label={dashboardText("Arrivée / livraison")}
           value={formatDate(item.delivered_at)}
         />
         <Field
-          label="Tracking public"
+          label={dashboardText("Tracking public")}
           value={item.public_tracking_enabled ? "Activé" : "Désactivé"}
         />
       </Section>
-      <Section title="Affectation">
+      <Section title={dashboardText("Affectation")}>
         <form onSubmit={attach} className="space-y-2">
           <select
             required
@@ -2098,7 +2097,7 @@ function ShipmentTab({
             className={inputClass}
             defaultValue={item.shipment_id || ""}
           >
-            <option value="">Sélectionner une expédition</option>
+            <option value="">{dashboardText("Sélectionner une expédition")}</option>
             {shipments.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.expedition_reference} · {s.origin_city || "?"} →{" "}
@@ -2108,8 +2107,7 @@ function ShipmentTab({
           </select>
           <div className="flex gap-2">
             <button disabled={busy} className={primaryButtonClass}>
-              Associer
-            </button>
+              {dashboardText("Associer")}</button>
             {item.shipment_id && (
               <button
                 type="button"
@@ -2117,19 +2115,19 @@ function ShipmentTab({
                 onClick={detach}
                 className={buttonClass}
               >
-                Dissocier
-              </button>
+                {dashboardText("Dissocier")}</button>
             )}
           </div>
         </form>
-        {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
+        {error && <p className="mt-2 text-[13px] text-red-600">{dashboardText(error)}</p>}
       </Section>
     </div>
   );
 }
 
 function PaymentTab({ item, onUpdated }: { item: PackageRecord; onUpdated: (item: PackageRecord) => void }) {
-  return <PermissionGuard permission="finance.read" fallback={<p role="status" className="text-sm text-slate-600">Vous n’avez pas l’autorisation de consulter Finance pour ce colis. Demandez au responsable de l’agence l’accès « finance.read ».</p>}><PackageFinance key={item.id} item={item} onUpdated={onUpdated} /></PermissionGuard>;
+  useDashboardMessages();
+  return <PermissionGuard permission="finance.read" fallback={<p role="status" className="text-sm text-slate-600">{dashboardText("Vous n’avez pas l’autorisation de consulter Finance pour ce colis. Demandez au responsable de l’agence l’accès « finance.read ».")}</p>}><PackageFinance key={item.id} item={item} onUpdated={onUpdated} /></PermissionGuard>;
 }
 function AnomaliesTab({
   item,
@@ -2138,6 +2136,7 @@ function AnomaliesTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const anomalies = item.anomalies || [];
@@ -2182,51 +2181,51 @@ function AnomaliesTab({
 
   return (
     <div className="space-y-5">
-      <Section title="Signaler une anomalie">
+      <Section title={dashboardText("Signaler une anomalie")}>
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <TextInput
               name="title"
-              label="Titre"
-              placeholder="Poids incohérent, colis abîmé..."
+              label={dashboardText("Titre")}
+              placeholder={dashboardText("Poids incohérent, colis abîmé...")}
             />
             <label className="block">
-              <FormLabel>Sévérité</FormLabel>
+              <FormLabel>{dashboardText("Sévérité")}</FormLabel>
               <select
                 name="severity"
                 defaultValue="MEDIUM"
                 className={inputClass}
               >
-                <option value="LOW">Faible</option>
-                <option value="MEDIUM">Moyenne</option>
-                <option value="HIGH">Haute</option>
-                <option value="CRITICAL">Critique</option>
+                <option value="LOW">{dashboardText("Faible")}</option>
+                <option value="MEDIUM">{dashboardText("Moyenne")}</option>
+                <option value="HIGH">{dashboardText("Haute")}</option>
+                <option value="CRITICAL">{dashboardText("Critique")}</option>
               </select>
             </label>
           </div>
           <TextInput
             name="anomaly_type"
-            label="Type"
-            placeholder="WEIGHT, DAMAGE, MISSING_INFO..."
+            label={dashboardText("Type")}
+            placeholder={dashboardText("WEIGHT, DAMAGE, MISSING_INFO...")}
           />
           <label className="block">
-            <FormLabel>Description</FormLabel>
+            <FormLabel>{dashboardText("Description")}</FormLabel>
             <textarea
               name="description"
               className={`${inputClass} h-24 py-2`}
             />
           </label>
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
+          {error && <p className="text-[13px] text-red-600">{dashboardText(error)}</p>}
           <button disabled={saving} className={buttonClass}>
             <AlertTriangle size={15} />
-            {saving ? "Enregistrement..." : "Créer l’anomalie"}
+            {saving ? dashboardText("Enregistrement...") : dashboardText("Créer l’anomalie")}
           </button>
         </form>
       </Section>
-      <Section title="Anomalies">
+      <Section title={dashboardText("Anomalies")}>
         {anomalies.length === 0 ? (
           <EmptyState
-            title="Aucune anomalie"
+            title={dashboardText("Aucune anomalie")}
             text="Ce colis ne présente aucun blocage ou incident ouvert."
           />
         ) : (
@@ -2251,8 +2250,7 @@ function AnomaliesTab({
                       className={buttonClass}
                     >
                       <CheckCircle2 size={15} />
-                      Résoudre
-                    </button>
+                      {dashboardText("Résoudre")}</button>
                   )}
                 </div>
                 {anomaly.description && (
@@ -2281,6 +2279,7 @@ function MediaTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const media = item.media || [];
   const [error, setError] = useState("");
   async function view(id: string, url: string) {
@@ -2303,7 +2302,7 @@ function MediaTab({
       <AddMediaForm item={item} onUpdated={onUpdated} />
       {media.length === 0 ? (
         <EmptyState
-          title="Aucune photo"
+          title={dashboardText("Aucune photo")}
           text="Les photos de réception, étiquettes et preuves liées à ce colis seront visibles ici."
         />
       ) : (
@@ -2321,10 +2320,10 @@ function MediaTab({
                 {file.caption ||
                   file.file_name ||
                   file.media_type ||
-                  "Média colis"}
+                  dashboardText("Média colis")}
               </p>
               <p className="text-[11px] uppercase text-slate-500">
-                {file.category || "Réception"}
+                {file.category || dashboardText("Réception")}
               </p>
               <p className="mt-1 text-[12px] text-[#687584]">
                 {formatDate(file.created_at)}
@@ -2333,7 +2332,7 @@ function MediaTab({
           ))}
         </div>
       )}
-      {error && <p className="text-[13px] text-red-600">{error}</p>}
+      {error && <p className="text-[13px] text-red-600">{dashboardText(error)}</p>}
     </div>
   );
 }
@@ -2345,6 +2344,7 @@ function AddMediaForm({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -2372,7 +2372,7 @@ function AddMediaForm({
     }
   }
   return (
-    <Section title="Ajouter un média">
+    <Section title={dashboardText("Ajouter un média")}>
       <form onSubmit={submit} className="space-y-3">
         <input
           required
@@ -2384,21 +2384,21 @@ function AddMediaForm({
         />
         <div className="grid grid-cols-2 gap-3">
           <label>
-            <FormLabel>Catégorie</FormLabel>
+            <FormLabel>{dashboardText("Catégorie")}</FormLabel>
             <select name="category" className={inputClass}>
-              <option value="BEFORE_RECEPTION">Avant réception</option>
-              <option value="RECEPTION">Réception</option>
-              <option value="QUALITY_CONTROL">Contrôle qualité</option>
-              <option value="LOADING">Chargement</option>
-              <option value="UNLOADING">Déchargement</option>
+              <option value="BEFORE_RECEPTION">{dashboardText("Avant réception")}</option>
+              <option value="RECEPTION">{dashboardText("Réception")}</option>
+              <option value="QUALITY_CONTROL">{dashboardText("Contrôle qualité")}</option>
+              <option value="LOADING">{dashboardText("Chargement")}</option>
+              <option value="UNLOADING">{dashboardText("Déchargement")}</option>
             </select>
           </label>
-          <TextInput name="caption" label="Légende" />
+          <TextInput name="caption" label={dashboardText("Légende")} />
         </div>
-        {error && <p className="text-[13px] text-red-600">{error}</p>}
+        {error && <p className="text-[13px] text-red-600">{dashboardText(error)}</p>}
         <button disabled={saving} className={buttonClass}>
           <Upload size={15} />
-          {saving ? "Ajout..." : "Ajouter le média"}
+          {saving ? dashboardText("Ajout...") : dashboardText("Ajouter le média")}
         </button>
       </form>
     </Section>
@@ -2412,6 +2412,7 @@ function DocumentsTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -2453,7 +2454,7 @@ function DocumentsTab({
   }
   return (
     <div className="space-y-5">
-      <Section title="Téléverser un document">
+      <Section title={dashboardText("Téléverser un document")}>
         <form onSubmit={submit} className="space-y-2">
           <input
             required
@@ -2463,24 +2464,24 @@ function DocumentsTab({
             className={inputClass}
           />
           <select name="type" className={inputClass}>
-            <option value="SUPPLIER_INVOICE">Facture fournisseur</option>
-            <option value="RECEIPT">Bon de réception</option>
-            <option value="CUSTOMS">Déclaration douanière</option>
-            <option value="INSURANCE">Assurance</option>
-            <option value="LABEL">Étiquette</option>
-            <option value="OTHER">Autre</option>
+            <option value="SUPPLIER_INVOICE">{dashboardText("Facture fournisseur")}</option>
+            <option value="RECEIPT">{dashboardText("Bon de réception")}</option>
+            <option value="CUSTOMS">{dashboardText("Déclaration douanière")}</option>
+            <option value="INSURANCE">{dashboardText("Assurance")}</option>
+            <option value="LABEL">{dashboardText("Étiquette")}</option>
+            <option value="OTHER">{dashboardText("Autre")}</option>
           </select>
           <input
             name="notes"
             className={inputClass}
-            placeholder="Observation"
+            placeholder={dashboardText("Observation")}
           />
           <button disabled={busy} className={primaryButtonClass}>
-            {busy ? "Téléversement…" : "Téléverser"}
+            {busy ? dashboardText("Téléversement…") : dashboardText("Téléverser")}
           </button>
         </form>
       </Section>
-      <Section title="Documents">
+      <Section title={dashboardText("Documents")}>
         {(item.documents || []).length ? (
           <div className="space-y-2">
             {item.documents!.map((d) => (
@@ -2492,8 +2493,7 @@ function DocumentsTab({
                 <span>
                   <b>{d.file_name}</b>
                   <small className="block text-slate-500">
-                    {d.document_type} · {Math.ceil(d.size_bytes / 1024)} Ko
-                  </small>
+                    {d.document_type} · {Math.ceil(d.size_bytes / 1024)} {dashboardText(" Ko")}</small>
                 </span>
                 <Download size={16} />
               </button>
@@ -2501,12 +2501,12 @@ function DocumentsTab({
           </div>
         ) : (
           <EmptyState
-            title="Aucun document"
+            title={dashboardText("Aucun document")}
             text="Ajoutez les pièces liées à ce colis."
           />
         )}
       </Section>
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p className="text-red-600">{dashboardText(error)}</p>}
     </div>
   );
 }
@@ -2518,6 +2518,7 @@ function NotesTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -2535,7 +2536,7 @@ function NotesTab({
   }
   return (
     <div className="space-y-5">
-      <Section title="Nouvelle note">
+      <Section title={dashboardText("Nouvelle note")}>
         <form onSubmit={submit} className="space-y-2">
           <textarea
             required
@@ -2543,14 +2544,13 @@ function NotesTab({
             maxLength={4000}
             name="body"
             className="min-h-24 w-full rounded-md border p-3 text-[13px]"
-            placeholder="Note privée pour l’équipe…"
+            placeholder={dashboardText("Note privée pour l’équipe…")}
           />
           <button disabled={busy} className={primaryButtonClass}>
-            Ajouter la note
-          </button>
+            {dashboardText("Ajouter la note")}</button>
         </form>
       </Section>
-      <Section title="Notes internes">
+      <Section title={dashboardText("Notes internes")}>
         {(item.notes_items || []).length ? (
           <div className="space-y-2">
             {item.notes_items!.map((n) => (
@@ -2564,12 +2564,12 @@ function NotesTab({
           </div>
         ) : (
           <EmptyState
-            title="Aucune note"
+            title={dashboardText("Aucune note")}
             text="Les notes privées apparaîtront ici."
           />
         )}
       </Section>
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p className="text-red-600">{dashboardText(error)}</p>}
     </div>
   );
 }
@@ -2581,6 +2581,7 @@ function SettingsTab({
   item: PackageRecord;
   onArchived: () => void;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function archive() {
@@ -2605,30 +2606,26 @@ function SettingsTab({
   }
   return (
     <div className="space-y-5">
-      <Section title="Identité">
-        <Field label="Parcel ID" value={item.package_reference || "-"} />
-        <Field label="Tracking fournisseur" value={item.tracking_id || "-"} />
-        <Field label="Code-barres" value={item.barcode || "-"} />
-        <Field label="QR" value={item.qr_code_value || "-"} />
+      <Section title={dashboardText("Identité")}>
+        <Field label={dashboardText("Parcel ID")} value={item.package_reference || "-"} />
+        <Field label={dashboardText("Tracking fournisseur")} value={item.tracking_id || "-"} />
+        <Field label={dashboardText("Code-barres")} value={item.barcode || "-"} />
+        <Field label={dashboardText("QR")} value={item.qr_code_value || "-"} />
         <button onClick={printLabel} className={buttonClass}>
-          Imprimer l’étiquette
-        </button>
+          {dashboardText("Imprimer l’étiquette")}</button>
       </Section>
       <section className="rounded-lg border border-red-200 bg-red-50 p-4">
-        <h3 className="font-semibold text-red-800">Zone sensible</h3>
+        <h3 className="font-semibold text-red-800">{dashboardText("Zone sensible")}</h3>
         <p className="my-2 text-[13px] text-red-700">
-          L’archivage retire le colis des opérations courantes sans effacer son
-          historique.
-        </p>
+          {dashboardText("L’archivage retire le colis des opérations courantes sans effacer son historique.")}</p>
         <OperationDrawerAction
           disabled={busy}
           onClick={archive}
           intent="danger"
           icon="archive"
         >
-          Archiver le colis
-        </OperationDrawerAction>
-        {error && <p className="mt-2 text-red-700">{error}</p>}
+          {dashboardText("Archiver le colis")}</OperationDrawerAction>
+        {error && <p className="mt-2 text-red-700">{dashboardText(error)}</p>}
       </section>
     </div>
   );
@@ -2641,6 +2638,7 @@ function NotificationsTab({
   item: PackageRecord;
   onUpdated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const notifications = item.notifications || [];
@@ -2670,52 +2668,52 @@ function NotificationsTab({
 
   return (
     <div className="space-y-5">
-      <Section title="Préparer une notification">
+      <Section title={dashboardText("Préparer une notification")}>
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <FormLabel>Canal</FormLabel>
+              <FormLabel>{dashboardText("Canal")}</FormLabel>
               <select
                 name="channel"
                 defaultValue="whatsapp"
                 className={inputClass}
               >
-                <option value="whatsapp">WhatsApp</option>
-                <option value="email">Email</option>
-                <option value="sms">SMS</option>
-                <option value="internal">Interne</option>
+                <option value="whatsapp">{dashboardText("WhatsApp")}</option>
+                <option value="email">{dashboardText("Email")}</option>
+                <option value="sms">{dashboardText("SMS")}</option>
+                <option value="internal">{dashboardText("Interne")}</option>
               </select>
             </label>
             <TextInput
               name="notification_type"
-              label="Type"
+              label={dashboardText("Type")}
               defaultValue="PACKAGE_UPDATE"
             />
           </div>
           <TextInput
             name="recipient"
-            label="Destinataire"
+            label={dashboardText("Destinataire")}
             defaultValue={item.client_phone || item.client_email || ""}
           />
           <label className="block">
-            <FormLabel>Message</FormLabel>
+            <FormLabel>{dashboardText("Message")}</FormLabel>
             <textarea
               name="message"
               className={`${inputClass} h-28 py-2`}
               defaultValue={`Bonjour, votre colis ${item.package_reference || ""} est actuellement : ${statusLabels[item.status] || item.status}.`}
             />
           </label>
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
+          {error && <p className="text-[13px] text-red-600">{dashboardText(error)}</p>}
           <button disabled={saving} className={buttonClass}>
             <Bell size={15} />
-            {saving ? "Préparation..." : "Enregistrer la notification"}
+            {saving ? dashboardText("Préparation...") : dashboardText("Enregistrer la notification")}
           </button>
         </form>
       </Section>
-      <Section title="Notifications">
+      <Section title={dashboardText("Notifications")}>
         {notifications.length === 0 ? (
           <EmptyState
-            title="Aucune notification"
+            title={dashboardText("Aucune notification")}
             text="Les messages préparés ou envoyés pour ce colis apparaîtront ici."
           />
         ) : (
@@ -2755,11 +2753,12 @@ function HistoryTab({
   events: PackageTimelineEvent[];
   loading: boolean;
 }) {
+  useDashboardMessages();
   if (loading) return <LoadingLines />;
   if (events.length === 0)
     return (
       <EmptyState
-        title="Aucun historique"
+        title={dashboardText("Aucun historique")}
         text="Les scans, réceptions, changements de statut et événements opérationnels du colis apparaîtront ici."
       />
     );
@@ -2805,6 +2804,7 @@ function PackageFormModal({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  useDashboardMessages();
   const [dossiers, setDossiers] = useState<DossierRecord[]>([]);
   const [warehouses, setWarehouses] = useState<ReferenceItem[]>([]);
   const [loadingDossiers, setLoadingDossiers] = useState(true);
@@ -2862,8 +2862,8 @@ function PackageFormModal({
   return (
     <OperationDrawer
       open
-      title={mode === "edit" ? "Modifier le colis" : "Nouveau colis"}
-      description="Un colis doit être attaché à un dossier existant pour conserver la traçabilité client."
+      title={mode === "edit" ? dashboardText("Modifier le colis") : dashboardText("Nouveau colis")}
+      description={dashboardText("Un colis doit être attaché à un dossier existant pour conserver la traçabilité client.")}
       close={onClose}
       width="max-w-[760px]"
     >
@@ -2873,11 +2873,11 @@ function PackageFormModal({
         >
           <div className={mode === "create" ? "grid gap-6" : "grid gap-5 md:grid-cols-2"}>
             <FormSection
-              title="Dossier et identification"
-              description="Le client, le trajet, le service et la destination seront repris automatiquement depuis le dossier."
+              title={dashboardText("Dossier et identification")}
+              description={dashboardText("Le client, le trajet, le service et la destination seront repris automatiquement depuis le dossier.")}
             >
               <label className="block">
-                <FormLabel>Dossier réel</FormLabel>
+                <FormLabel>{dashboardText("Dossier réel")}</FormLabel>
                 <select
                   name="dossier_id"
                   value={selectedDossierId}
@@ -2888,8 +2888,8 @@ function PackageFormModal({
                 >
                   <option value="">
                     {loadingDossiers
-                      ? "Chargement des dossiers..."
-                      : "Sélectionner un dossier"}
+                      ? dashboardText("Chargement des dossiers...")
+                      : dashboardText("Sélectionner un dossier")}
                   </option>
                   {selectedDossierMissing && (
                     <option value={item.dossier_id || ""}>
@@ -2901,7 +2901,7 @@ function PackageFormModal({
                       {dossier.dossier_reference} ·{" "}
                       {dossier.client_name ||
                         dossier.client_full_name ||
-                        "Client"}{" "}
+                        dashboardText("Client")}{" "}
                       · {routeLabelFromDossier(dossier)}
                     </option>
                   ))}
@@ -2910,7 +2910,7 @@ function PackageFormModal({
               {mode === "create" && selectedDossier && (
                 <div className="rounded-[8px] border border-[#dce5e1] bg-[#f5faf7] px-4 py-3">
                   <p className="text-[13px] font-[620] text-[#29483b]">
-                    {selectedDossier.client_name || selectedDossier.client_full_name || "Client"}
+                    {selectedDossier.client_name || selectedDossier.client_full_name || dashboardText("Client")}
                   </p>
                   <p className="mt-1 text-[12px] leading-5 text-[#607068]">
                     {routeLabelFromDossier(selectedDossier)}
@@ -2920,20 +2920,20 @@ function PackageFormModal({
               )}
               <TextInput
                 name="tracking_id"
-                label="Tracking du fournisseur (facultatif)"
+                label={dashboardText("Tracking du fournisseur (facultatif)")}
                 defaultValue={item?.tracking_id || ""}
-                placeholder="Ex. numéro Alibaba, DHL ou fournisseur"
+                placeholder={dashboardText("Ex. numéro Alibaba, DHL ou fournisseur")}
               />
               {mode === "edit" && (
                 <>
                   <TextInput
                     name="barcode"
-                    label="Code-barres interne"
+                    label={dashboardText("Code-barres interne")}
                     defaultValue={item?.barcode || ""}
                   />
                   <TextInput
                     name="qr_code_value"
-                    label="QR code interne"
+                    label={dashboardText("QR code interne")}
                     defaultValue={item?.qr_code_value || ""}
                   />
                 </>
@@ -2941,46 +2941,46 @@ function PackageFormModal({
             </FormSection>
 
             {mode === "edit" && (
-              <FormSection title="Suivi opérationnel">
+              <FormSection title={dashboardText("Suivi opérationnel")}>
                 <SelectInput
                   name="source"
-                  label="Source"
+                  label={dashboardText("Source")}
                   defaultValue={item?.source || "manual"}
                   options={sourceLabels}
                 />
                 <SelectInput
                   name="package_type"
-                  label="Type colis"
+                  label={dashboardText("Type colis")}
                   defaultValue={item?.package_type || "carton"}
                   options={packageTypeLabels}
                 />
                 <SelectInput
                   name="status"
-                  label="Statut"
+                  label={dashboardText("Statut")}
                   defaultValue={item?.status || "RECEIVED_AT_ORIGIN"}
                   options={statusLabels}
                 />
                 <SelectInput
                   name="validation_status"
-                  label="Validation"
+                  label={dashboardText("Validation")}
                   defaultValue={item?.validation_status || "PENDING"}
                   options={validationLabels}
                 />
                 <SelectInput
                   name="package_condition"
-                  label="État colis"
+                  label={dashboardText("État colis")}
                   defaultValue={item?.package_condition || "UNKNOWN"}
                   options={conditionLabels}
                 />
                 <SelectInput
                   name="inventory_status"
-                  label="Stock"
+                  label={dashboardText("Stock")}
                   defaultValue={item?.inventory_status || "NOT_STORED"}
                   options={inventoryLabels}
                 />
                 <SelectInput
                   name="payment_clearance_status"
-                  label="Paiement"
+                  label={dashboardText("Paiement")}
                   defaultValue={item?.payment_clearance_status || "UNKNOWN"}
                   options={paymentLabels}
                 />
@@ -2988,7 +2988,7 @@ function PackageFormModal({
             )}
 
             {mode === "edit" && (
-              <FormSection title="Informations héritées du dossier">
+              <FormSection title={dashboardText("Informations héritées du dossier")}>
                 <FormGeographyFields
                   initialCountry={item?.origin_country || ""}
                   initialCity={item?.origin_city || ""}
@@ -3009,19 +3009,19 @@ function PackageFormModal({
                 />
                 <SelectInput
                   name="shipping_mode"
-                  label="Mode d’expédition"
+                  label={dashboardText("Mode d’expédition")}
                   defaultValue={item?.shipping_mode || "AIR"}
                   options={shippingModeLabels}
                 />
                 <TextInput
                   name="shipment_reference"
-                  label="Expédition liée"
+                  label={dashboardText("Expédition liée")}
                   defaultValue={item?.shipment_reference || ""}
-                  placeholder="EXP-2026-00324"
+                  placeholder={dashboardText("EXP-2026-00324")}
                 />
                 <TextInput
                   name="eta_at"
-                  label="ETA"
+                  label={dashboardText("ETA")}
                   defaultValue={toDatetimeLocal(item?.eta_at)}
                   type="datetime-local"
                 />
@@ -3029,27 +3029,27 @@ function PackageFormModal({
             )}
 
             <FormSection
-              title="Marchandise et poids"
-              description={mode === "create" ? "Ajoutez seulement ce qui est connu au moment de la réception." : undefined}
+              title={dashboardText("Marchandise et poids")}
+              description={mode === "create" ? dashboardText("Ajoutez seulement ce qui est connu au moment de la réception.") : undefined}
             >
               <TextInput
                 name="description"
-                label="Contenu du colis"
+                label={dashboardText("Contenu du colis")}
                 defaultValue={item?.description || ""}
-                placeholder="Ex. vêtements, téléphones, pièces automobiles"
+                placeholder={dashboardText("Ex. vêtements, téléphones, pièces automobiles")}
               />
               {mode === "edit" && (
                 <>
               <TextInput
                 name="category"
-                label="Catégorie"
+                label={dashboardText("Catégorie")}
                 defaultValue={item?.category || ""}
               />
                 </>
               )}
               <TextInput
                 name="weight_kg"
-                label="Poids mesuré (kg)"
+                label={dashboardText("Poids mesuré (kg)")}
                 defaultValue={valueOrEmpty(item?.weight_kg)}
                 type="number"
                 step="0.01"
@@ -3058,62 +3058,62 @@ function PackageFormModal({
                 <>
               <TextInput
                 name="volumetric_weight_kg"
-                label="Poids volumétrique kg"
+                label={dashboardText("Poids volumétrique kg")}
                 defaultValue={valueOrEmpty(item?.volumetric_weight_kg)}
                 type="number"
                 step="0.01"
               />
               <TextInput
                 name="length_cm"
-                label="Longueur cm"
+                label={dashboardText("Longueur cm")}
                 defaultValue={valueOrEmpty(item?.length_cm)}
                 type="number"
                 step="0.01"
               />
               <TextInput
                 name="width_cm"
-                label="Largeur cm"
+                label={dashboardText("Largeur cm")}
                 defaultValue={valueOrEmpty(item?.width_cm)}
                 type="number"
                 step="0.01"
               />
               <TextInput
                 name="height_cm"
-                label="Hauteur cm"
+                label={dashboardText("Hauteur cm")}
                 defaultValue={valueOrEmpty(item?.height_cm)}
                 type="number"
                 step="0.01"
               />
               <TextInput
                 name="volume_cbm"
-                label="Volume m³"
+                label={dashboardText("Volume m³")}
                 defaultValue={valueOrEmpty(item?.volume_cbm)}
                 type="number"
                 step="0.001"
               />
               <TextInput
                 name="pieces_count"
-                label="Nombre de pièces"
+                label={dashboardText("Nombre de pièces")}
                 defaultValue={valueOrEmpty(item?.pieces_count || 1)}
                 type="number"
                 step="1"
               />
               <TextInput
                 name="declared_value"
-                label="Valeur déclarée"
+                label={dashboardText("Valeur déclarée")}
                 defaultValue={valueOrEmpty(item?.declared_value)}
                 type="number"
                 step="0.01"
               />
               <SelectInput
                 name="declared_currency"
-                label="Devise valeur"
+                label={dashboardText("Devise valeur")}
                 defaultValue={item?.declared_currency || item?.currency || "USD"}
                 options={currencyLabels}
               />
               <TextInput
                 name="last_scan_location"
-                label="Dernière localisation scan"
+                label={dashboardText("Dernière localisation scan")}
                 defaultValue={item?.last_scan_location || ""}
               />
               <label className="mt-2 flex items-center gap-2 text-[13px] text-[#334155]">
@@ -3123,54 +3123,53 @@ function PackageFormModal({
                   defaultChecked={item?.is_fragile ?? false}
                   className="rounded border-[#c9d0d8]"
                 />
-                Colis fragile
-              </label>
+                {dashboardText("Colis fragile")}</label>
                 </>
               )}
             </FormSection>
 
             <FormSection
-              title="Réception"
-              description={mode === "create" ? "Choisissez le site qui reçoit physiquement le colis." : undefined}
+              title={dashboardText("Réception")}
+              description={mode === "create" ? dashboardText("Choisissez le site qui reçoit physiquement le colis.") : undefined}
             >
               {mode === "edit" && (
                 <>
               <label>
-                <FormLabel>Priorité</FormLabel>
+                <FormLabel>{dashboardText("Priorité")}</FormLabel>
                 <select
                   name="priority"
                   defaultValue={item?.priority || "NORMAL"}
                   className={inputClass}
                 >
-                  <option value="LOW">Basse</option>
-                  <option value="NORMAL">Normale</option>
-                  <option value="HIGH">Haute</option>
-                  <option value="URGENT">Urgente</option>
+                  <option value="LOW">{dashboardText("Basse")}</option>
+                  <option value="NORMAL">{dashboardText("Normale")}</option>
+                  <option value="HIGH">{dashboardText("Haute")}</option>
+                  <option value="URGENT">{dashboardText("Urgente")}</option>
                 </select>
               </label>
               <TextInput
                 name="assigned_to"
-                label="Responsable"
+                label={dashboardText("Responsable")}
                 defaultValue={item?.assigned_to || ""}
               />
               <TextInput
                 name="supplier_name"
-                label="Fournisseur"
+                label={dashboardText("Fournisseur")}
                 defaultValue={item?.supplier_name || ""}
               />
                 </>
               )}
               <label>
-                <FormLabel>Entrepôt de réception</FormLabel>
+                <FormLabel>{dashboardText("Entrepôt de réception")}</FormLabel>
                 <select
                   name="warehouse_name"
                   defaultValue={item?.warehouse_name || ""}
                   className={inputClass}
                 >
-                  <option value="">Choisir un entrepôt configuré</option>
+                  <option value="">{dashboardText("Choisir un entrepôt configuré")}</option>
                   {warehouses.map((warehouse) => (
                     <option key={warehouse.id} value={warehouse.label}>
-                      {warehouse.label}
+                      {dashboardText(warehouse.label)}
                     </option>
                   ))}
                 </select>
@@ -3179,17 +3178,17 @@ function PackageFormModal({
                 <>
               <TextInput
                 name="warehouse_zone"
-                label="Zone"
+                label={dashboardText("Zone")}
                 defaultValue={item?.warehouse_zone || ""}
               />
               <TextInput
                 name="warehouse_rack"
-                label="Rack"
+                label={dashboardText("Rack")}
                 defaultValue={item?.warehouse_rack || ""}
               />
               <TextInput
                 name="warehouse_location"
-                label="Emplacement"
+                label={dashboardText("Emplacement")}
                 defaultValue={item?.warehouse_location || ""}
               />
                 </>
@@ -3199,56 +3198,54 @@ function PackageFormModal({
             {mode === "create" && (
               <details className="group rounded-[9px] border border-[#dfe4e8] bg-[#fbfcfc]">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[13px] font-[620] text-[#3b4650] marker:content-none">
-                  Ajouter des détails facultatifs
-                  <ChevronRight size={16} className="text-[#7a858f] transition-transform group-open:rotate-90" />
+                  {dashboardText("Ajouter des détails facultatifs")}<ChevronRight size={16} className="text-[#7a858f] transition-transform group-open:rotate-90" />
                 </summary>
                 <div className="grid gap-5 border-t border-[#e5e9ec] p-4 sm:grid-cols-2">
-                  <SelectInput name="package_type" label="Type d’emballage" defaultValue="carton" options={packageTypeLabels} />
-                  <TextInput name="pieces_count" label="Nombre de pièces" defaultValue="1" type="number" step="1" />
-                  <TextInput name="length_cm" label="Longueur (cm)" type="number" step="0.01" />
-                  <TextInput name="width_cm" label="Largeur (cm)" type="number" step="0.01" />
-                  <TextInput name="height_cm" label="Hauteur (cm)" type="number" step="0.01" />
-                  <TextInput name="supplier_name" label="Fournisseur" />
-                  <TextInput name="declared_value" label="Valeur déclarée" type="number" step="0.01" />
-                  <SelectInput name="declared_currency" label="Devise" defaultValue="USD" options={currencyLabels} />
+                  <SelectInput name="package_type" label={dashboardText("Type d’emballage")} defaultValue="carton" options={packageTypeLabels} />
+                  <TextInput name="pieces_count" label={dashboardText("Nombre de pièces")} defaultValue="1" type="number" step="1" />
+                  <TextInput name="length_cm" label={dashboardText("Longueur (cm)")} type="number" step="0.01" />
+                  <TextInput name="width_cm" label={dashboardText("Largeur (cm)")} type="number" step="0.01" />
+                  <TextInput name="height_cm" label={dashboardText("Hauteur (cm)")} type="number" step="0.01" />
+                  <TextInput name="supplier_name" label={dashboardText("Fournisseur")} />
+                  <TextInput name="declared_value" label={dashboardText("Valeur déclarée")} type="number" step="0.01" />
+                  <SelectInput name="declared_currency" label={dashboardText("Devise")} defaultValue="USD" options={currencyLabels} />
                   <label>
-                    <FormLabel>Priorité</FormLabel>
+                    <FormLabel>{dashboardText("Priorité")}</FormLabel>
                     <select name="priority" defaultValue="NORMAL" className={inputClass}>
-                      <option value="LOW">Basse</option>
-                      <option value="NORMAL">Normale</option>
-                      <option value="HIGH">Haute</option>
-                      <option value="URGENT">Urgente</option>
+                      <option value="LOW">{dashboardText("Basse")}</option>
+                      <option value="NORMAL">{dashboardText("Normale")}</option>
+                      <option value="HIGH">{dashboardText("Haute")}</option>
+                      <option value="URGENT">{dashboardText("Urgente")}</option>
                     </select>
                   </label>
                   <label className="flex items-center gap-2 self-end pb-3 text-[13px] text-[#334155]">
                     <input name="is_fragile" type="checkbox" className="rounded border-[#c9d0d8]" />
-                    Colis fragile
-                  </label>
+                    {dashboardText("Colis fragile")}</label>
                 </div>
               </details>
             )}
 
             {mode === "edit" && (
-              <FormSection title="Informations financières">
+              <FormSection title={dashboardText("Informations financières")}>
                 <TextInput
                   name="fees_total"
-                  label="Montant total"
+                  label={dashboardText("Montant total")}
                   defaultValue={valueOrEmpty(item?.fees_total)}
                   type="number"
                   step="0.01"
                 />
                 <TextInput
                   name="fees_paid"
-                  label="Montant payé"
+                  label={dashboardText("Montant payé")}
                   defaultValue={valueOrEmpty(item?.fees_paid)}
                   type="number"
                   step="0.01"
                 />
                 <TextInput
                   name="currency"
-                  label="Devise"
+                  label={dashboardText("Devise")}
                   defaultValue={item?.currency || ""}
-                  placeholder="USD, CDF..."
+                  placeholder={dashboardText("USD, CDF...")}
                 />
                 <label className="mt-2 flex items-center gap-2 text-[13px] text-[#334155]">
                   <input
@@ -3257,10 +3254,9 @@ function PackageFormModal({
                     defaultChecked={item?.public_tracking_enabled ?? true}
                     className="rounded border-[#c9d0d8]"
                   />
-                  Tracking public activé
-                </label>
+                  {dashboardText("Tracking public activé")}</label>
                 <label className="block">
-                  <FormLabel>Notes internes</FormLabel>
+                  <FormLabel>{dashboardText("Notes internes")}</FormLabel>
                   <textarea
                     name="notes"
                     defaultValue={item?.notes || ""}
@@ -3273,24 +3269,23 @@ function PackageFormModal({
 
           {error && (
             <div role="alert" className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
-              {error}
+              {dashboardText(error)}
             </div>
           )}
 
           <div className="flex items-center justify-end gap-2 border-t border-[#d8dce2] px-5 py-4">
             <OperationButton type="button" onClick={onClose}>
-              Annuler
-            </OperationButton>
+              {dashboardText("Annuler")}</OperationButton>
             <OperationButton
               type="submit"
               variant="primary"
               disabled={saving}
             >
               {saving
-                ? "Enregistrement..."
+                ? dashboardText("Enregistrement...")
                 : mode === "edit"
-                  ? "Enregistrer"
-                  : "Créer le colis"}
+                  ? dashboardText("Enregistrer")
+                  : dashboardText("Créer le colis")}
             </OperationButton>
           </div>
         </form>
@@ -3314,30 +3309,30 @@ function PackageEditDrawer({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  useDashboardMessages();
   const formId = `package-edit-${item.id}`;
 
   return (
     <OperationDrawer
       open
       close={onClose}
-      title="Modifier le colis"
-      description={`${item.package_reference || item.tracking_id || "Colis"} · ${item.client_name || "Client"}`}
+      title={dashboardText("Modifier le colis")}
+      description={`${item.package_reference || item.tracking_id || dashboardText("Colis")} · ${item.client_name || dashboardText("Client")}`}
       width="max-w-[800px]"
       headerLeading={<PackageThumbnail item={item} />}
       headerMeta={
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={item.status} />
-          <HeaderFact label="Dossier" value={item.dossier_reference || "Non renseigné"} />
-          <HeaderFact label="Route" value={routeLabel(item)} />
+          <HeaderFact label={dashboardText("Dossier")} value={item.dossier_reference || "Non renseigné"} />
+          <HeaderFact label={dashboardText("Route")} value={routeLabel(item)} />
         </div>
       }
       footer={
         <>
           <OperationButton type="button" onClick={onClose}>
-            Annuler
-          </OperationButton>
+            {dashboardText("Annuler")}</OperationButton>
           <OperationButton type="submit" form={formId} variant="primary" disabled={saving}>
-            {saving ? "Enregistrement…" : "Enregistrer les modifications"}
+            {saving ? dashboardText("Enregistrement…") : dashboardText("Enregistrer les modifications")}
           </OperationButton>
         </>
       }
@@ -3352,131 +3347,127 @@ function PackageEditDrawer({
 
         <div className="rounded-[10px] border border-[#dce5e1] bg-[#f6faf8] px-5 py-4">
           <p className="text-[13px] font-[650] text-[#273d34]">
-            Informations liées au dossier
-          </p>
+            {dashboardText("Informations liées au dossier")}</p>
           <div className="mt-3 grid gap-3 text-[13px] sm:grid-cols-3">
-            <Field label="Client" value={item.client_name || "Non renseigné"} />
-            <Field label="Dossier" value={item.dossier_reference || "Non renseigné"} />
-            <Field label="Trajet" value={routeLabel(item)} />
+            <Field label={dashboardText("Client")} value={item.client_name || "Non renseigné"} />
+            <Field label={dashboardText("Dossier")} value={item.dossier_reference || "Non renseigné"} />
+            <Field label={dashboardText("Trajet")} value={routeLabel(item)} />
           </div>
           <p className="mt-3 text-[12px] leading-5 text-[#68766f]">
-            Le client et le trajet proviennent du dossier. Modifiez le dossier si ces informations doivent changer.
-          </p>
+            {dashboardText("Le client et le trajet proviennent du dossier. Modifiez le dossier si ces informations doivent changer.")}</p>
         </div>
 
         <FormSection
-          title="Informations essentielles"
-          description="Les informations utilisées quotidiennement pour identifier et traiter ce colis."
+          title={dashboardText("Informations essentielles")}
+          description={dashboardText("Les informations utilisées quotidiennement pour identifier et traiter ce colis.")}
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <TextInput
               name="tracking_id"
-              label="Tracking du fournisseur"
+              label={dashboardText("Tracking du fournisseur")}
               defaultValue={item.tracking_id || ""}
-              placeholder="Numéro indiqué par le fournisseur"
+              placeholder={dashboardText("Numéro indiqué par le fournisseur")}
             />
             <SelectInput
               name="package_type"
-              label="Type d’emballage"
+              label={dashboardText("Type d’emballage")}
               defaultValue={item.package_type || "carton"}
               options={packageTypeLabels}
             />
             <div className="sm:col-span-2">
               <TextInput
                 name="description"
-                label="Contenu du colis"
+                label={dashboardText("Contenu du colis")}
                 defaultValue={item.description || ""}
-                placeholder="Ex. vêtements, téléphones, pièces automobiles"
+                placeholder={dashboardText("Ex. vêtements, téléphones, pièces automobiles")}
               />
             </div>
-            <TextInput name="category" label="Catégorie" defaultValue={item.category || ""} />
+            <TextInput name="category" label={dashboardText("Catégorie")} defaultValue={item.category || ""} />
             <TextInput
               name="weight_kg"
-              label="Poids mesuré (kg)"
+              label={dashboardText("Poids mesuré (kg)")}
               defaultValue={valueOrEmpty(item.weight_kg)}
               type="number"
               step="0.01"
             />
             <label className="sm:col-span-2">
-              <FormLabel>Entrepôt actuel</FormLabel>
+              <FormLabel>{dashboardText("Entrepôt actuel")}</FormLabel>
               <select name="warehouse_name" defaultValue={item.warehouse_name || ""} className={inputClass}>
-                <option value="">Aucun entrepôt sélectionné</option>
+                <option value="">{dashboardText("Aucun entrepôt sélectionné")}</option>
                 {item.warehouse_name && !warehouses.some((warehouse) => warehouse.label === item.warehouse_name) && (
                   <option value={item.warehouse_name}>{item.warehouse_name}</option>
                 )}
                 {warehouses.map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.label}>{warehouse.label}</option>
+                  <option key={warehouse.id} value={warehouse.label}>{dashboardText(warehouse.label)}</option>
                 ))}
               </select>
             </label>
           </div>
         </FormSection>
 
-        <EditDetails title="Traitement opérationnel" description="Statut, validation, stock et responsabilité.">
+        <EditDetails title={dashboardText("Traitement opérationnel")} description={dashboardText("Statut, validation, stock et responsabilité.")}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <SelectInput name="status" label="Étape actuelle" defaultValue={item.status} options={statusLabels} />
-            <SelectInput name="validation_status" label="Validation" defaultValue={item.validation_status} options={validationLabels} />
-            <SelectInput name="package_condition" label="État du colis" defaultValue={item.package_condition} options={conditionLabels} />
-            <SelectInput name="inventory_status" label="Situation en stock" defaultValue={item.inventory_status} options={inventoryLabels} />
-            <SelectInput name="payment_clearance_status" label="Situation du paiement" defaultValue={item.payment_clearance_status} options={paymentLabels} />
+            <SelectInput name="status" label={dashboardText("Étape actuelle")} defaultValue={item.status} options={statusLabels} />
+            <SelectInput name="validation_status" label={dashboardText("Validation")} defaultValue={item.validation_status} options={validationLabels} />
+            <SelectInput name="package_condition" label={dashboardText("État du colis")} defaultValue={item.package_condition} options={conditionLabels} />
+            <SelectInput name="inventory_status" label={dashboardText("Situation en stock")} defaultValue={item.inventory_status} options={inventoryLabels} />
+            <SelectInput name="payment_clearance_status" label={dashboardText("Situation du paiement")} defaultValue={item.payment_clearance_status} options={paymentLabels} />
             <label>
-              <FormLabel>Priorité</FormLabel>
+              <FormLabel>{dashboardText("Priorité")}</FormLabel>
               <select name="priority" defaultValue={item.priority || "NORMAL"} className={inputClass}>
-                <option value="LOW">Basse</option>
-                <option value="NORMAL">Normale</option>
-                <option value="HIGH">Haute</option>
-                <option value="URGENT">Urgente</option>
+                <option value="LOW">{dashboardText("Basse")}</option>
+                <option value="NORMAL">{dashboardText("Normale")}</option>
+                <option value="HIGH">{dashboardText("Haute")}</option>
+                <option value="URGENT">{dashboardText("Urgente")}</option>
               </select>
             </label>
-            <SelectInput name="source" label="Mode d’enregistrement" defaultValue={item.source || "manual"} options={sourceLabels} />
-            <TextInput name="assigned_to" label="Responsable" defaultValue={item.assigned_to || ""} />
+            <SelectInput name="source" label={dashboardText("Mode d’enregistrement")} defaultValue={item.source || "manual"} options={sourceLabels} />
+            <TextInput name="assigned_to" label={dashboardText("Responsable")} defaultValue={item.assigned_to || ""} />
           </div>
         </EditDetails>
 
-        <EditDetails title="Mesures et valeur" description="Dimensions, volume, poids facturable et valeur déclarée.">
+        <EditDetails title={dashboardText("Mesures et valeur")} description={dashboardText("Dimensions, volume, poids facturable et valeur déclarée.")}>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <TextInput name="volumetric_weight_kg" label="Poids volumétrique (kg)" defaultValue={valueOrEmpty(item.volumetric_weight_kg)} type="number" step="0.01" />
-            <TextInput name="length_cm" label="Longueur (cm)" defaultValue={valueOrEmpty(item.length_cm)} type="number" step="0.01" />
-            <TextInput name="width_cm" label="Largeur (cm)" defaultValue={valueOrEmpty(item.width_cm)} type="number" step="0.01" />
-            <TextInput name="height_cm" label="Hauteur (cm)" defaultValue={valueOrEmpty(item.height_cm)} type="number" step="0.01" />
-            <TextInput name="volume_cbm" label="Volume (m³)" defaultValue={valueOrEmpty(item.volume_cbm)} type="number" step="0.001" />
-            <TextInput name="pieces_count" label="Nombre de pièces" defaultValue={valueOrEmpty(item.pieces_count || 1)} type="number" step="1" />
-            <TextInput name="declared_value" label="Valeur déclarée" defaultValue={valueOrEmpty(item.declared_value)} type="number" step="0.01" />
-            <SelectInput name="declared_currency" label="Devise déclarée" defaultValue={item.declared_currency || item.currency || "USD"} options={currencyLabels} />
+            <TextInput name="volumetric_weight_kg" label={dashboardText("Poids volumétrique (kg)")} defaultValue={valueOrEmpty(item.volumetric_weight_kg)} type="number" step="0.01" />
+            <TextInput name="length_cm" label={dashboardText("Longueur (cm)")} defaultValue={valueOrEmpty(item.length_cm)} type="number" step="0.01" />
+            <TextInput name="width_cm" label={dashboardText("Largeur (cm)")} defaultValue={valueOrEmpty(item.width_cm)} type="number" step="0.01" />
+            <TextInput name="height_cm" label={dashboardText("Hauteur (cm)")} defaultValue={valueOrEmpty(item.height_cm)} type="number" step="0.01" />
+            <TextInput name="volume_cbm" label={dashboardText("Volume (m³)")} defaultValue={valueOrEmpty(item.volume_cbm)} type="number" step="0.001" />
+            <TextInput name="pieces_count" label={dashboardText("Nombre de pièces")} defaultValue={valueOrEmpty(item.pieces_count || 1)} type="number" step="1" />
+            <TextInput name="declared_value" label={dashboardText("Valeur déclarée")} defaultValue={valueOrEmpty(item.declared_value)} type="number" step="0.01" />
+            <SelectInput name="declared_currency" label={dashboardText("Devise déclarée")} defaultValue={item.declared_currency || item.currency || "USD"} options={currencyLabels} />
             <label className="flex min-h-10 items-center gap-2 self-end pb-2 text-[13px] font-[540] text-[#3f4953]">
               <input name="is_fragile" type="checkbox" defaultChecked={item.is_fragile} className="h-4 w-4 rounded border-[#c9d0d8]" />
-              Colis fragile
-            </label>
+              {dashboardText("Colis fragile")}</label>
           </div>
         </EditDetails>
 
-        <EditDetails title="Entrepôt et expédition" description="Emplacement physique et rattachement au transport.">
+        <EditDetails title={dashboardText("Entrepôt et expédition")} description={dashboardText("Emplacement physique et rattachement au transport.")}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextInput name="warehouse_zone" label="Zone" defaultValue={item.warehouse_zone || ""} />
-            <TextInput name="warehouse_rack" label="Rack" defaultValue={item.warehouse_rack || ""} />
-            <TextInput name="warehouse_location" label="Emplacement" defaultValue={item.warehouse_location || ""} />
-            <TextInput name="supplier_name" label="Fournisseur" defaultValue={item.supplier_name || ""} />
-            <TextInput name="shipment_reference" label="Expédition liée" defaultValue={item.shipment_reference || ""} />
-            <TextInput name="eta_at" label="Arrivée estimée" defaultValue={toDatetimeLocal(item.eta_at)} type="datetime-local" />
+            <TextInput name="warehouse_zone" label={dashboardText("Zone")} defaultValue={item.warehouse_zone || ""} />
+            <TextInput name="warehouse_rack" label={dashboardText("Rack")} defaultValue={item.warehouse_rack || ""} />
+            <TextInput name="warehouse_location" label={dashboardText("Emplacement")} defaultValue={item.warehouse_location || ""} />
+            <TextInput name="supplier_name" label={dashboardText("Fournisseur")} defaultValue={item.supplier_name || ""} />
+            <TextInput name="shipment_reference" label={dashboardText("Expédition liée")} defaultValue={item.shipment_reference || ""} />
+            <TextInput name="eta_at" label={dashboardText("Arrivée estimée")} defaultValue={toDatetimeLocal(item.eta_at)} type="datetime-local" />
             <div className="sm:col-span-2">
-              <TextInput name="last_scan_location" label="Dernière localisation scannée" defaultValue={item.last_scan_location || ""} />
+              <TextInput name="last_scan_location" label={dashboardText("Dernière localisation scannée")} defaultValue={item.last_scan_location || ""} />
             </div>
           </div>
         </EditDetails>
 
-        <EditDetails title="Facturation et informations internes" description="Montants, tracking public et références techniques rarement modifiées.">
+        <EditDetails title={dashboardText("Facturation et informations internes")} description={dashboardText("Montants, tracking public et références techniques rarement modifiées.")}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextInput name="fees_total" label="Montant facturé" defaultValue={valueOrEmpty(item.fees_total)} type="number" step="0.01" />
-            <TextInput name="fees_paid" label="Montant payé" defaultValue={valueOrEmpty(item.fees_paid)} type="number" step="0.01" />
-            <SelectInput name="currency" label="Devise" defaultValue={item.currency || "USD"} options={currencyLabels} />
-            <TextInput name="barcode" label="Code-barres interne" defaultValue={item.barcode || ""} />
-            <TextInput name="qr_code_value" label="QR code interne" defaultValue={item.qr_code_value || ""} />
+            <TextInput name="fees_total" label={dashboardText("Montant facturé")} defaultValue={valueOrEmpty(item.fees_total)} type="number" step="0.01" />
+            <TextInput name="fees_paid" label={dashboardText("Montant payé")} defaultValue={valueOrEmpty(item.fees_paid)} type="number" step="0.01" />
+            <SelectInput name="currency" label={dashboardText("Devise")} defaultValue={item.currency || "USD"} options={currencyLabels} />
+            <TextInput name="barcode" label={dashboardText("Code-barres interne")} defaultValue={item.barcode || ""} />
+            <TextInput name="qr_code_value" label={dashboardText("QR code interne")} defaultValue={item.qr_code_value || ""} />
             <label className="flex min-h-10 items-center gap-2 self-end pb-2 text-[13px] font-[540] text-[#3f4953]">
               <input name="public_tracking_enabled" type="checkbox" defaultChecked={item.public_tracking_enabled ?? true} className="h-4 w-4 rounded border-[#c9d0d8]" />
-              Suivi public activé
-            </label>
+              {dashboardText("Suivi public activé")}</label>
             <label className="sm:col-span-2">
-              <FormLabel>Notes internes</FormLabel>
+              <FormLabel>{dashboardText("Notes internes")}</FormLabel>
               <textarea name="notes" defaultValue={item.notes || ""} className={`${inputClass} min-h-24 resize-y py-2.5`} />
             </label>
           </div>
@@ -3484,7 +3475,7 @@ function PackageEditDrawer({
 
         {error && (
           <div role="alert" className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
-            {error}
+            {dashboardText(error)}
           </div>
         )}
       </form>
@@ -3501,6 +3492,7 @@ function EditDetails({
   description: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <details className="group rounded-[10px] border border-[#dfe4e8] bg-white">
       <summary className="flex min-h-[62px] cursor-pointer list-none items-center justify-between gap-4 px-5 marker:content-none">
@@ -3522,6 +3514,7 @@ function PackageScannerModal({
   onClose: () => void;
   onCreated: (item: PackageRecord) => void;
 }) {
+  useDashboardMessages();
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<Awaited<
     ReturnType<typeof scanPackageLabel>
@@ -3606,8 +3599,8 @@ function PackageScannerModal({
   return (
     <OperationDrawer
       open
-      title="Lire une étiquette fournisseur"
-      description="Slaivio traduit l’étiquette, retrouve le client et prépare le colis pour validation."
+      title={dashboardText("Lire une étiquette fournisseur")}
+      description={dashboardText("Slaivio traduit l’étiquette, retrouve le client et prépare le colis pour validation.")}
       close={onClose}
       width="max-w-2xl"
     >
@@ -3615,45 +3608,45 @@ function PackageScannerModal({
           <div className="space-y-5">
             <label className="block cursor-pointer rounded-xl border border-dashed border-[#c8d0d8] bg-[#fbfcfd] p-6 text-center hover:border-[#0b875b] hover:bg-[#f7fbf9]">
               <ImageIcon className="mx-auto mb-3 text-[#66717c]" size={24}/>
-              <span className="block text-[14px] font-semibold text-[#25313b]">Prendre une photo ou choisir une image</span>
-              <span className="mt-1 block text-[12px] text-[#6b7680]">JPG, PNG ou WebP · 8 Mo maximum</span>
+              <span className="block text-[14px] font-semibold text-[#25313b]">{dashboardText("Prendre une photo ou choisir une image")}</span>
+              <span className="mt-1 block text-[12px] text-[#6b7680]">{dashboardText("JPG, PNG ou WebP · 8 Mo maximum")}</span>
               <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setFile(event.target.files?.[0] || null)} className="sr-only" />
             </label>
             {file && <div className="flex items-center gap-3 rounded-lg border border-[#e1e5e9] p-3">
-              <div className="relative h-16 w-16 overflow-hidden rounded-md bg-[#f1f3f5]">{previewUrl && <Image src={previewUrl} alt="Étiquette à analyser" fill unoptimized className="object-cover" />}</div>
-              <div className="min-w-0"><p className="truncate text-[13px] font-semibold text-[#2d3740]">{file.name}</p><p className="text-[12px] text-[#75808a]">{Math.ceil(file.size / 1024)} Ko</p></div>
+              <div className="relative h-16 w-16 overflow-hidden rounded-md bg-[#f1f3f5]">{previewUrl && <Image src={previewUrl} alt={dashboardText("Étiquette à analyser")} fill unoptimized className="object-cover" />}</div>
+              <div className="min-w-0"><p className="truncate text-[13px] font-semibold text-[#2d3740]">{file.name}</p><p className="text-[12px] text-[#75808a]">{Math.ceil(file.size / 1024)} {dashboardText(" Ko")}</p></div>
             </div>}
-            <button onClick={analyse} disabled={busy || !file} className={primaryButtonClass}>{busy ? "Lecture et traduction…" : "Analyser l’étiquette"}</button>
+            <button onClick={analyse} disabled={busy || !file} className={primaryButtonClass}>{busy ? dashboardText("Lecture et traduction…") : dashboardText("Analyser l’étiquette")}</button>
           </div>
         ) : (
           <form onSubmit={create} className="space-y-5">
             <div className="grid gap-4 md:grid-cols-[150px_1fr]">
-              <div className="relative min-h-36 overflow-hidden rounded-lg border border-[#dfe4e8] bg-[#f4f6f7]">{previewUrl && <Image src={previewUrl} alt="Étiquette fournisseur" fill unoptimized className="object-cover" />}</div>
-              <div className="rounded-lg border border-[#dfe4e8] bg-white p-4"><p className="text-[13px] font-semibold text-[#28323b]">Étiquette comprise et traduite</p><p className="mt-1 text-[12px] text-[#69747e]">Langue détectée : {result.detected_language.toUpperCase()} · Affichage : {result.target_language.toUpperCase()}</p><p className="mt-3 line-clamp-4 whitespace-pre-line text-[13px] leading-5 text-[#3e4952]">{result.translated_text}</p></div>
+              <div className="relative min-h-36 overflow-hidden rounded-lg border border-[#dfe4e8] bg-[#f4f6f7]">{previewUrl && <Image src={previewUrl} alt={dashboardText("Étiquette fournisseur")} fill unoptimized className="object-cover" />}</div>
+              <div className="rounded-lg border border-[#dfe4e8] bg-white p-4"><p className="text-[13px] font-semibold text-[#28323b]">{dashboardText("Étiquette comprise et traduite")}</p><p className="mt-1 text-[12px] text-[#69747e]">{dashboardText("Langue détectée : ")}{result.detected_language.toUpperCase()} {dashboardText(" · Affichage : ")}{result.target_language.toUpperCase()}</p><p className="mt-3 line-clamp-4 whitespace-pre-line text-[13px] leading-5 text-[#3e4952]">{result.translated_text}</p></div>
             </div>
-            {result.matching.duplicate_package && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-[13px] text-red-800"><p className="font-semibold">Ce colis semble déjà enregistré</p><p className="mt-1">Référence {result.matching.duplicate_package.package_reference || result.matching.duplicate_package.tracking_id}. La création est bloquée pour éviter un doublon.</p></div>}
-            <section className="space-y-3"><div><h3 className="text-[14px] font-semibold text-[#26313a]">1. À quel client appartient ce colis ?</h3><p className="mt-0.5 text-[12px] text-[#6f7a84]">Suggestions basées sur le téléphone, le nom, le shipping mark et les colis attendus.</p></div>
-              {(result.fields.recipient_name || result.fields.recipient_phone) && <div className="rounded-lg border border-[#dfe4e8] bg-[#f8fafb] px-3 py-2 text-[12px] text-[#53606a]"><span className="font-semibold text-[#2e3942]">Lu sur l’étiquette :</span> {result.fields.recipient_name || "Nom non lisible"}{result.fields.recipient_phone ? ` · ${result.fields.recipient_phone}` : ""}</div>}
-              {result.matching.matches.length ? <div className="grid gap-2">{result.matching.matches.map((match) => <button type="button" key={match.client.id} onClick={()=>setSelectedClientId(match.client.id)} className={`flex items-center justify-between gap-4 rounded-lg border p-3 text-left ${selectedClientId===match.client.id?"border-[#0b875b] bg-[#f2faf6]":"border-[#dfe4e8] bg-white hover:bg-[#fafbfc]"}`}><span><span className="block text-[13px] font-semibold text-[#26313a]">{match.client.name || "Client sans nom"}</span><span className="mt-0.5 block text-[12px] text-[#6d7882]">{match.client.phone || match.client.email || "Coordonnée indisponible"} · {match.reasons.join(" · ")}</span></span><span className="shrink-0 rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-[#39745d]">{match.score}%</span></button>)}</div> : <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">Aucun client fiable retrouvé. Créez d’abord la fiche client ou sélectionnez manuellement un client existant.</div>}
+            {result.matching.duplicate_package && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-[13px] text-red-800"><p className="font-semibold">{dashboardText("Ce colis semble déjà enregistré")}</p><p className="mt-1">{dashboardText("Référence ")}{result.matching.duplicate_package.package_reference || result.matching.duplicate_package.tracking_id}{dashboardText(". La création est bloquée pour éviter un doublon.")}</p></div>}
+            <section className="space-y-3"><div><h3 className="text-[14px] font-semibold text-[#26313a]">{dashboardText("1. À quel client appartient ce colis ?")}</h3><p className="mt-0.5 text-[12px] text-[#6f7a84]">{dashboardText("Suggestions basées sur le téléphone, le nom, le shipping mark et les colis attendus.")}</p></div>
+              {(result.fields.recipient_name || result.fields.recipient_phone) && <div className="rounded-lg border border-[#dfe4e8] bg-[#f8fafb] px-3 py-2 text-[12px] text-[#53606a]"><span className="font-semibold text-[#2e3942]">{dashboardText("Lu sur l’étiquette :")}</span> {result.fields.recipient_name || dashboardText("Nom non lisible")}{result.fields.recipient_phone ? ` · ${result.fields.recipient_phone}` : ""}</div>}
+              {result.matching.matches.length ? <div className="grid gap-2">{result.matching.matches.map((match) => <button type="button" key={match.client.id} onClick={()=>setSelectedClientId(match.client.id)} className={`flex items-center justify-between gap-4 rounded-lg border p-3 text-left ${selectedClientId===match.client.id?"border-[#0b875b] bg-[#f2faf6]":"border-[#dfe4e8] bg-white hover:bg-[#fafbfc]"}`}><span><span className="block text-[13px] font-semibold text-[#26313a]">{match.client.name || dashboardText("Client sans nom")}</span><span className="mt-0.5 block text-[12px] text-[#6d7882]">{match.client.phone || match.client.email || dashboardText("Coordonnée indisponible")} · {match.reasons.join(" · ")}</span></span><span className="shrink-0 rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-[#39745d]">{match.score}%</span></button>)}</div> : <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900">{dashboardText("Aucun client fiable retrouvé. Créez d’abord la fiche client ou sélectionnez manuellement un client existant.")}</div>}
             </section>
-            <section className="space-y-3"><div><h3 className="text-[14px] font-semibold text-[#26313a]">3. Informations lues sur l’étiquette</h3><p className="mt-0.5 text-[12px] text-[#6f7a84]">Vérifiez puis corrigez seulement les informations utiles.</p></div><div className="grid gap-3 md:grid-cols-2">
-              <TextInput name="supplier_tracking" label="Tracking fournisseur" defaultValue={result.fields.supplier_tracking || ""}/><TextInput name="shipping_mark" label="Shipping mark / code client" defaultValue={result.fields.shipping_mark || ""}/>
-              <TextInput name="order_number" label="Numéro de commande" defaultValue={result.fields.order_number || ""}/><TextInput name="supplier_name" label="Transporteur ou fournisseur" defaultValue={result.fields.carrier || result.fields.supplier_name || ""}/>
-              <TextInput name="warehouse_reference" label="Référence de tri entrepôt" defaultValue={result.fields.warehouse_reference || ""}/><TextInput name="description" label="Marchandise" defaultValue={result.fields.description || result.fields.product_lines.map((line)=>line.description).filter(Boolean).join(", ")}/>
-              <TextInput name="category" label="Catégorie" defaultValue={result.fields.category || ""}/><TextInput name="subcategory" label="Sous-catégorie" defaultValue={result.fields.subcategory || ""}/>
-              <label><FormLabel>Classification</FormLabel><select name="goods_classification" defaultValue={result.fields.goods_classification || "ORDINARY_GOODS"} className={inputClass}><option value="ORDINARY_GOODS">Marchandise ordinaire</option><option value="SENSITIVE_GOODS">Marchandise sensible</option><option value="FRAGILE">Fragile</option><option value="ELECTRONICS">Électronique</option><option value="BATTERY">Batterie</option><option value="LIQUID">Liquide</option><option value="FOOD">Alimentaire</option><option value="PHARMACEUTICAL">Pharmaceutique</option><option value="HIGH_VALUE">Haute valeur</option><option value="DANGEROUS_GOODS">Marchandise dangereuse</option></select></label>
-              <TextInput name="pieces_count" label="Nombre d’articles ou colis" type="number" step="1" defaultValue={valueOrEmpty(result.fields.pieces_count || 1)}/>
-              <TextInput name="destination_country" label="Destination lue (information)" defaultValue={[result.fields.destination_city,result.fields.destination_country].filter(Boolean).join(", ")}/><TextInput name="service_type" label="Service lu (information)" defaultValue={result.fields.service_type || ""}/>
-              <p className="md:col-span-2 -mt-1 text-[11px] text-[#75808a]">La route, le service et l’entrepôt réellement utilisés proviennent du dossier sélectionné et de la configuration de l’agence.</p><TextInput name="declared_weight_kg" label="Poids indiqué (kg)" type="number" step="0.001" defaultValue={valueOrEmpty(result.fields.weight_kg)}/>
-              <TextInput name="weight_kg" label="Poids mesuré par l’agence (kg)" type="number" step="0.001"/><TextInput name="length_cm" label="Longueur cm" type="number" step="0.1" defaultValue={valueOrEmpty(result.fields.length_cm)}/>
-              <TextInput name="width_cm" label="Largeur cm" type="number" step="0.1" defaultValue={valueOrEmpty(result.fields.width_cm)}/><TextInput name="height_cm" label="Hauteur cm" type="number" step="0.1" defaultValue={valueOrEmpty(result.fields.height_cm)}/>
+            <section className="space-y-3"><div><h3 className="text-[14px] font-semibold text-[#26313a]">{dashboardText("3. Informations lues sur l’étiquette")}</h3><p className="mt-0.5 text-[12px] text-[#6f7a84]">{dashboardText("Vérifiez puis corrigez seulement les informations utiles.")}</p></div><div className="grid gap-3 md:grid-cols-2">
+              <TextInput name="supplier_tracking" label={dashboardText("Tracking fournisseur")} defaultValue={result.fields.supplier_tracking || ""}/><TextInput name="shipping_mark" label={dashboardText("Shipping mark / code client")} defaultValue={result.fields.shipping_mark || ""}/>
+              <TextInput name="order_number" label={dashboardText("Numéro de commande")} defaultValue={result.fields.order_number || ""}/><TextInput name="supplier_name" label={dashboardText("Transporteur ou fournisseur")} defaultValue={result.fields.carrier || result.fields.supplier_name || ""}/>
+              <TextInput name="warehouse_reference" label={dashboardText("Référence de tri entrepôt")} defaultValue={result.fields.warehouse_reference || ""}/><TextInput name="description" label={dashboardText("Marchandise")} defaultValue={result.fields.description || result.fields.product_lines.map((line)=>line.description).filter(Boolean).join(", ")}/>
+              <TextInput name="category" label={dashboardText("Catégorie")} defaultValue={result.fields.category || ""}/><TextInput name="subcategory" label={dashboardText("Sous-catégorie")} defaultValue={result.fields.subcategory || ""}/>
+              <label><FormLabel>{dashboardText("Classification")}</FormLabel><select name="goods_classification" defaultValue={result.fields.goods_classification || "ORDINARY_GOODS"} className={inputClass}><option value="ORDINARY_GOODS">{dashboardText("Marchandise ordinaire")}</option><option value="SENSITIVE_GOODS">{dashboardText("Marchandise sensible")}</option><option value="FRAGILE">{dashboardText("Fragile")}</option><option value="ELECTRONICS">{dashboardText("Électronique")}</option><option value="BATTERY">{dashboardText("Batterie")}</option><option value="LIQUID">{dashboardText("Liquide")}</option><option value="FOOD">{dashboardText("Alimentaire")}</option><option value="PHARMACEUTICAL">{dashboardText("Pharmaceutique")}</option><option value="HIGH_VALUE">{dashboardText("Haute valeur")}</option><option value="DANGEROUS_GOODS">{dashboardText("Marchandise dangereuse")}</option></select></label>
+              <TextInput name="pieces_count" label={dashboardText("Nombre d’articles ou colis")} type="number" step="1" defaultValue={valueOrEmpty(result.fields.pieces_count || 1)}/>
+              <TextInput name="destination_country" label={dashboardText("Destination lue (information)")} defaultValue={[result.fields.destination_city,result.fields.destination_country].filter(Boolean).join(", ")}/><TextInput name="service_type" label={dashboardText("Service lu (information)")} defaultValue={result.fields.service_type || ""}/>
+              <p className="md:col-span-2 -mt-1 text-[11px] text-[#75808a]">{dashboardText("La route, le service et l’entrepôt réellement utilisés proviennent du dossier sélectionné et de la configuration de l’agence.")}</p><TextInput name="declared_weight_kg" label={dashboardText("Poids indiqué (kg)")} type="number" step="0.001" defaultValue={valueOrEmpty(result.fields.weight_kg)}/>
+              <TextInput name="weight_kg" label={dashboardText("Poids mesuré par l’agence (kg)")} type="number" step="0.001"/><TextInput name="length_cm" label={dashboardText("Longueur cm")} type="number" step="0.1" defaultValue={valueOrEmpty(result.fields.length_cm)}/>
+              <TextInput name="width_cm" label={dashboardText("Largeur cm")} type="number" step="0.1" defaultValue={valueOrEmpty(result.fields.width_cm)}/><TextInput name="height_cm" label={dashboardText("Hauteur cm")} type="number" step="0.1" defaultValue={valueOrEmpty(result.fields.height_cm)}/>
             </div></section>
-            {(result.ambiguities.length>0 || result.fields.handwritten_annotations.length>0) && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[12px] leading-5 text-amber-900"><p className="font-semibold">Points à vérifier manuellement</p><ul className="mt-1 list-disc pl-4">{result.ambiguities.map((item,index)=><li key={`a-${index}`}>{item}</li>)}{result.fields.handwritten_annotations.map((item,index)=><li key={`h-${index}`}>Annotation « {item.value || "illisible"} » : signification non confirmée.</li>)}</ul></div>}
-            <details className="rounded-lg border border-[#dfe4e8] text-[12px]"><summary className="cursor-pointer px-4 py-3 font-semibold text-[#3f4a53]">Comparer avec le texte original</summary><div className="grid gap-3 border-t border-[#e6eaed] p-4 md:grid-cols-2"><div><p className="mb-2 font-semibold">Original</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-[#f6f7f8] p-3">{result.raw_text}</pre></div><div><p className="mb-2 font-semibold">Traduction</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-[#f6f7f8] p-3">{result.translated_text}</pre></div></div></details>
-            <div className="flex justify-end gap-2 border-t border-[#e3e7ea] pt-4"><button type="button" onClick={()=>{setResult(null);setSelectedClientId("");}} className={buttonClass}>Reprendre la photo</button><button disabled={busy || Boolean(result.matching.duplicate_package) || !selectedClientId} className={primaryButtonClass}>{busy ? "Création…" : "Confirmer et créer le colis"}</button></div>
+            {(result.ambiguities.length>0 || result.fields.handwritten_annotations.length>0) && <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[12px] leading-5 text-amber-900"><p className="font-semibold">{dashboardText("Points à vérifier manuellement")}</p><ul className="mt-1 list-disc pl-4">{result.ambiguities.map((item,index)=><li key={`a-${index}`}>{item}</li>)}{result.fields.handwritten_annotations.map((item,index)=><li key={`h-${index}`}>{dashboardText("Annotation « ")}{item.value || "illisible"} {dashboardText(" » : signification non confirmée.")}</li>)}</ul></div>}
+            <details className="rounded-lg border border-[#dfe4e8] text-[12px]"><summary className="cursor-pointer px-4 py-3 font-semibold text-[#3f4a53]">{dashboardText("Comparer avec le texte original")}</summary><div className="grid gap-3 border-t border-[#e6eaed] p-4 md:grid-cols-2"><div><p className="mb-2 font-semibold">{dashboardText("Original")}</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-[#f6f7f8] p-3">{result.raw_text}</pre></div><div><p className="mb-2 font-semibold">{dashboardText("Traduction")}</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-[#f6f7f8] p-3">{result.translated_text}</pre></div></div></details>
+            <div className="flex justify-end gap-2 border-t border-[#e3e7ea] pt-4"><button type="button" onClick={()=>{setResult(null);setSelectedClientId("");}} className={buttonClass}>{dashboardText("Reprendre la photo")}</button><button disabled={busy || Boolean(result.matching.duplicate_package) || !selectedClientId} className={primaryButtonClass}>{busy ? dashboardText("Création…") : dashboardText("Confirmer et créer le colis")}</button></div>
           </form>
         )}
-        {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-red-600">{dashboardText(error)}</p>}
     </OperationDrawer>
   );
 }
@@ -3671,17 +3664,18 @@ function ImportPackagesModal({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  useDashboardMessages();
   return (
     <OperationDrawer
       open
-      title="Importer des colis"
-      description="CSV accepté : dossier, référence, type, description, mesures et entrepôt."
+      title={dashboardText("Importer des colis")}
+      description={dashboardText("CSV accepté : dossier, référence, type, description, mesures et entrepôt.")}
       close={onClose}
       width="max-w-[620px]"
     >
         <form onSubmit={onSubmit} className="grid gap-4">
           <label className="block rounded-md border border-dashed border-[#cfd5dd] bg-[#fbfcfd] p-5">
-            <FormLabel>Fichier CSV</FormLabel>
+            <FormLabel>{dashboardText("Fichier CSV")}</FormLabel>
             <input
               name="file"
               type="file"
@@ -3691,25 +3685,23 @@ function ImportPackagesModal({
           </label>
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
-              {error}
+              {dashboardText(error)}
             </div>
           )}
           {result && (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-[13px] text-emerald-800">
-              Import terminé : {result.created} colis créés, {result.skipped}{" "}
-              lignes ignorées.
-            </div>
+              {dashboardText("Import terminé : ")}{result.created} {dashboardText(" colis créés, ")}{result.skipped}{" "}
+              {dashboardText("lignes ignorées.")}</div>
           )}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onClose} className={buttonClass}>
-              Fermer
-            </button>
+              {dashboardText("Fermer")}</button>
             <button
               type="submit"
               disabled={importing}
               className={primaryButtonClass}
             >
-              {importing ? "Import..." : "Importer le CSV"}
+              {importing ? dashboardText("Import...") : dashboardText("Importer le CSV")}
             </button>
           </div>
         </form>
@@ -3724,6 +3716,7 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <section className="rounded-[10px] border border-[#dfe4e8] bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.025)]">
       <h3 className="text-[14px] font-[650] tracking-[-0.01em] text-[#252b31]">
@@ -3743,6 +3736,7 @@ function FormSection({
   description?: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <section data-ui="form-section" className="space-y-4 rounded-[9px] border border-[#dfe4e8] bg-white p-5">
       <div>
@@ -3755,11 +3749,12 @@ function FormSection({
 }
 
 function FormLabel({ children }: { children: React.ReactNode }) {
-  return (
+  useDashboardMessages();
+  return dashboardText((
     <span className="mb-2 block text-[13px] font-[620] text-[#3f4953]">
       {children}
     </span>
-  );
+  ));
 }
 
 function TextInput({
@@ -3779,9 +3774,10 @@ function TextInput({
   step?: string;
   required?: boolean;
 }) {
+  useDashboardMessages();
   return (
     <label className="block">
-      <FormLabel>{label}</FormLabel>
+      <FormLabel>{dashboardText(label)}</FormLabel>
       <input
         name={name}
         defaultValue={defaultValue}
@@ -3806,9 +3802,10 @@ function SelectInput({
   defaultValue: string;
   options: Record<string, string>;
 }) {
+  useDashboardMessages();
   return (
     <label className="block">
-      <FormLabel>{label}</FormLabel>
+      <FormLabel>{dashboardText(label)}</FormLabel>
       <select name={name} defaultValue={defaultValue} className={inputClass}>
         {defaultValue && !Object.hasOwn(options, defaultValue) && (
           <option value={defaultValue}>{defaultValue}</option>
@@ -3832,19 +3829,21 @@ function InfoRow({
   label: string;
   value: string;
 }) {
+  useDashboardMessages();
   return (
     <div className="flex items-start gap-3">
       <Icon size={16} className="mt-0.5 text-[#556171]" />
-      <Field label={label} value={value} />
+      <Field label={dashboardText(label)} value={value} />
     </div>
   );
 }
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  useDashboardMessages();
   return (
     <div className="min-w-0">
       <p className="text-[11px] font-[580] uppercase tracking-[0.035em] text-[#77828c]">
-        {label}
+        {dashboardText(label)}
       </p>
       <p className="mt-1 break-words text-[14px] font-[520] leading-5 text-[#252b31]">
         {value}
@@ -3860,9 +3859,10 @@ function SmallMetric({
   label: string;
   value: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <div className="min-w-0 px-4 py-1 text-center first:pl-1 last:pr-1">
-      <p className="truncate text-[11px] font-[540] text-[#6c7781]">{label}</p>
+      <p className="truncate text-[11px] font-[540] text-[#6c7781]">{dashboardText(label)}</p>
       <p className="mt-1 truncate text-[20px] font-[680] tracking-[-0.035em] text-[#242a30]">
         {value}
       </p>
@@ -3871,6 +3871,7 @@ function SmallMetric({
 }
 
 function EmptyState({ title, text }: { title: string; text: string }) {
+  useDashboardMessages();
   return (
     <div className="flex min-h-[260px] flex-col items-center justify-center rounded-md border border-dashed border-[#d8dce2] px-6 text-center">
       <h3 className="text-[16px] font-semibold">{title}</h3>
@@ -3882,6 +3883,7 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 }
 
 function LoadingLines() {
+  useDashboardMessages();
   return (
     <div className="space-y-2">
       {[0, 1, 2, 3].map((item) => (
@@ -3895,19 +3897,21 @@ function LoadingLines() {
 }
 
 function StatusBadge({ status }: { status: PackageStatus }) {
+  useDashboardMessages();
   return (
     <span
       className={`inline-flex rounded-full px-2 py-1 text-[12px] font-medium ring-1 ${statusStyles[status] || statusStyles.CREATED}`}
     >
-      {statusLabels[status] || status}
+      {dashboardText(statusLabels[status]) || status}
     </span>
   );
 }
 
 function HeaderFact({ label, value }: { label: string; value: string }) {
+  useDashboardMessages();
   return (
     <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-[#f1f3f4] px-2.5 text-[11px] text-[#6b7580]">
-      <span>{label}</span>
+      <span>{dashboardText(label)}</span>
       <strong className="max-w-[180px] truncate font-[650] text-[#343c44]">
         {value}
       </strong>
@@ -3916,6 +3920,7 @@ function HeaderFact({ label, value }: { label: string; value: string }) {
 }
 
 function TimelineIcon({ type }: { type: string }) {
+  useDashboardMessages();
   if (type === "receipt") return <Warehouse size={15} />;
   if (type === "event") return <History size={15} />;
   return <PackageCheck size={15} />;
@@ -3934,13 +3939,13 @@ function routeLabel(item: PackageRecord) {
   const destination = [item.destination_city, item.destination_country]
     .filter(Boolean)
     .join(", ");
-  if (!origin && !destination) return "-";
-  return `${origin || "Origine"} → ${destination || "Destination"}`;
+  if (!origin && !destination) return dashboardText("-");
+  return dashboardText(`${origin || "Origine"} → ${destination || "Destination"}`);
 }
 
 function dimensionsLabel(item: PackageRecord) {
-  if (!item.length_cm && !item.width_cm && !item.height_cm) return "-";
-  return `${item.length_cm || "-"} x ${item.width_cm || "-"} x ${item.height_cm || "-"} cm`;
+  if (!item.length_cm && !item.width_cm && !item.height_cm) return dashboardText("-");
+  return dashboardText(`${item.length_cm || "-"} x ${item.width_cm || "-"} x ${item.height_cm || "-"} cm`);
 }
 
 function routeLabelFromDossier(item: DossierRecord) {
@@ -3962,14 +3967,14 @@ function formatMeasure(item: PackageRecord) {
 
 function formatMoney(value?: number | null, currency?: string | null) {
   if (value === null || value === undefined) return "-";
-  return `${Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${currency || "$"}`;
+  return `${Number(value).toLocaleString(dashboardFormatLocale(), { maximumFractionDigits: 2 })} ${currency || "$"}`;
 }
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat(dashboardFormatLocale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",

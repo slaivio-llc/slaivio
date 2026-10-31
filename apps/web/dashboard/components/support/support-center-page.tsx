@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ChevronRight, Download, MessageSquare, Paperclip, Plus, RefreshCcw } from "lucide-react";
@@ -26,6 +28,7 @@ import {
 const input = "h-9 w-full rounded-[5px] border border-[#d3d8dd] bg-white px-3 text-[13px] outline-none focus:border-[#167d57] focus:ring-2 focus:ring-[#12c76f]/10";
 
 export function SupportCenterPage() {
+  useDashboardMessages();
   const [tab, setTab] = useState<"help" | "tickets">("help");
   const [articles, setArticles] = useState<Article[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -68,35 +71,34 @@ export function SupportCenterPage() {
   return (
     <div className="min-h-full bg-[#f7f8f8]">
       <OperationPageHeader
-        title="Support et Centre d’aide"
-        description="Consultez les ressources utiles et suivez les demandes adressées à l’équipe Slaivio."
+        title={dashboardText("Support et Centre d’aide")}
+        description={dashboardText("Consultez les ressources utiles et suivez les demandes adressées à l’équipe Slaivio.")}
         actions={
           <PermissionGuard permission="support.create">
             <OperationButton variant="primary" onClick={() => setCreating(true)}>
               <Plus size={15} />
-              Nouveau ticket
-            </OperationButton>
+              {dashboardText("Nouveau ticket")}</OperationButton>
           </PermissionGuard>
         }
       />
       <OperationToolbar
-        search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher un article ou un ticket" />}
+        search={<OperationSearch value={q} onChange={setQ} placeholder={dashboardText("Rechercher un article ou un ticket")} />}
         filters={
-          <OperationFilterPopover activeCount={(tab === "help" ? 0 : 1) + (status ? 1 : 0)} onReset={() => { setTab("help"); setStatus(""); }} title="Filtrer le support"><OperationField label="Vue"><select className={input} value={tab} onChange={(event) => setTab(event.target.value as "help" | "tickets")}><option value="help">Centre d’aide</option><option value="tickets">Tickets ({tickets.length})</option></select></OperationField>{tab === "tickets" && <OperationField label="État du ticket"><select className={input} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Tous les états</option>{["OPEN", "IN_PROGRESS", "WAITING_CUSTOMER", "RESOLVED", "CLOSED", "REOPENED"].map((item) => <option key={item} value={item}>{ticketStatusLabel(item)}</option>)}</select></OperationField>}</OperationFilterPopover>
+          <OperationFilterPopover activeCount={(tab === "help" ? 0 : 1) + (status ? 1 : 0)} onReset={() => { setTab("help"); setStatus(""); }} title={dashboardText("Filtrer le support")}><OperationField label={dashboardText("Vue")}><select className={input} value={tab} onChange={(event) => setTab(event.target.value as "help" | "tickets")}><option value="help">{dashboardText("Centre d’aide")}</option><option value="tickets">{dashboardText("Tickets (")}{tickets.length})</option></select></OperationField>{tab === "tickets" && <OperationField label={dashboardText("État du ticket")}><select className={input} value={status} onChange={(event) => setStatus(event.target.value)}><option value="">{dashboardText("Tous les états")}</option>{["OPEN", "IN_PROGRESS", "WAITING_CUSTOMER", "RESOLVED", "CLOSED", "REOPENED"].map((item) => <option key={item} value={item}>{ticketStatusLabel(item)}</option>)}</select></OperationField>}</OperationFilterPopover>
         }
       >
-        <OperationButton onClick={load}><RefreshCcw size={15} />Actualiser</OperationButton>
+        <OperationButton onClick={load}><RefreshCcw size={15} />{dashboardText("Actualiser")}</OperationButton>
       </OperationToolbar>
 
       <OperationContent>
-        {error && <ErrorState title="Support indisponible" description={error} retry={load} />}
+        {error && <ErrorState title={dashboardText("Support indisponible")} description={dashboardText(error)} retry={load} />}
         {tab === "help" ? <ArticleGrid articles={articles} open={setArticle} /> : <TicketTable tickets={tickets} open={open} />}
       </OperationContent>
 
       {creating && <Create close={() => setCreating(false)} done={async (id) => { setCreating(false); setTab("tickets"); await load(); await open(id); }} />}
       {selected && <Detail detail={selected} close={() => setSelected(null)} reload={() => open(selected.ticket.id)} />}
       {article && (
-        <Panel close={() => setArticle(null)} title={article.title} description={article.category}>
+        <Panel close={() => setArticle(null)} title={dashboardText(article.title)} description={article.category}>
           <p className="whitespace-pre-wrap text-[13px] leading-6 text-[#2f3437]">{article.content}</p>
         </Panel>
       )}
@@ -105,19 +107,20 @@ export function SupportCenterPage() {
 }
 
 function ArticleGrid({ articles, open }: { articles: Article[]; open: (article: Article) => void }) {
+  useDashboardMessages();
   if (!articles.length) {
-    return <EmptyState title="Aucun article d’aide" description="Les ressources disponibles pour votre recherche apparaîtront ici." />;
+    return <EmptyState title={dashboardText("Aucun article d’aide")} description={dashboardText("Les ressources disponibles pour votre recherche apparaîtront ici.")} />;
   }
   return (
     <OperationTable className="overflow-hidden rounded-[6px] border border-[#d3d8dd]">
       <div className="grid min-w-[640px] grid-cols-[220px_1fr_80px] border-b border-[#d9d9d6] bg-[#f7f7f5] px-4 py-2 text-[12px] font-medium text-[#5f6368]">
-        <span>Catégorie</span><span>Article</span><span />
+        <span>{dashboardText("Catégorie")}</span><span>{dashboardText("Article")}</span><span />
       </div>
       {articles.map((article) => (
         <button key={article.id} onClick={() => open(article)} className="grid min-h-11 min-w-[640px] w-full grid-cols-[220px_1fr_80px] items-center border-b border-[#eeeeeb] px-4 py-2 text-left text-[13px] last:border-0 hover:bg-[#f8f8f7]">
           <span className="font-medium text-[#167d57]">{article.category}</span>
           <span>
-            <span className="block font-medium text-[#202124]">{article.title}</span>
+            <span className="block font-medium text-[#202124]">{dashboardText(article.title)}</span>
             <span className="mt-1 line-clamp-1 text-[#6b7075]">{article.summary}</span>
           </span>
           <ChevronRight size={16} className="justify-self-end text-[#6b7075]" />
@@ -128,14 +131,15 @@ function ArticleGrid({ articles, open }: { articles: Article[]; open: (article: 
 }
 
 function TicketTable({ tickets, open }: { tickets: Ticket[]; open: (id: string) => void }) {
+  useDashboardMessages();
   if (!tickets.length) {
-    return <EmptyState title="Aucun ticket" description="Les demandes adressées au support apparaîtront ici." />;
+    return <EmptyState title={dashboardText("Aucun ticket")} description={dashboardText("Les demandes adressées au support apparaîtront ici.")} />;
   }
   return (
     <OperationTable className="rounded-[6px] border border-[#d3d8dd]">
       <table className="w-full min-w-[860px] whitespace-nowrap text-left text-[13px]">
         <thead className="border-b border-[#d9d9d6] bg-[#f7f7f5] text-[#5f6368]">
-          <tr>{["Référence", "Sujet", "Priorité", "Statut", "SLA", "Messages", "Mise à jour", ""].map((item, index) => <th className="px-4 py-2 font-medium" key={`${item}-${index}`}>{item}</th>)}</tr>
+          <tr>{[dashboardText("Référence"), dashboardText("Sujet"), dashboardText("Priorité"), dashboardText("Statut"), "SLA", dashboardText("Messages"), dashboardText("Mise à jour"), ""].map((item, index) => <th className="px-4 py-2 font-medium" key={`${item}-${index}`}>{item}</th>)}</tr>
         </thead>
         <tbody>
           {tickets.map((ticket) => (
@@ -144,10 +148,10 @@ function TicketTable({ tickets, open }: { tickets: Ticket[]; open: (id: string) 
               <td className="px-4 py-2">{ticket.subject}</td>
               <td className="px-4 py-2">{priorityLabel(ticket.priority)}</td>
               <td className="px-4 py-2"><OperationStatus label={ticketStatusLabel(ticket.status)} tone={ticketStatusTone(ticket.status)} /></td>
-              <td className={`px-4 py-2 ${ticket.first_response_overdue || ticket.resolution_overdue ? "text-red-700" : "text-emerald-700"}`}>{ticket.first_response_overdue || ticket.resolution_overdue ? "Dépassé" : "Dans le délai"}</td>
+              <td className={`px-4 py-2 ${ticket.first_response_overdue || ticket.resolution_overdue ? "text-red-700" : "text-emerald-700"}`}>{ticket.first_response_overdue || ticket.resolution_overdue ? dashboardText("Dépassé") : dashboardText("Dans le délai")}</td>
               <td className="px-4 py-2">{ticket.message_count}</td>
-              <td className="px-4 py-2">{new Date(ticket.updated_at).toLocaleDateString("fr-FR")}</td>
-              <td className="px-3 py-2 text-right"><button type="button" onClick={() => open(ticket.id)} aria-label={`Voir ${ticket.ticket_reference}`} className="inline-grid h-8 w-8 place-items-center rounded-[6px] text-[#66717e] hover:bg-[#eef1f3] hover:text-[#087a46]"><ChevronRight size={16} /></button></td>
+              <td className="px-4 py-2">{new Date(ticket.updated_at).toLocaleDateString(dashboardFormatLocale())}</td>
+              <td className="px-3 py-2 text-right"><button type="button" onClick={() => open(ticket.id)} aria-label={dashboardText("Voir {0}", ticket.ticket_reference)} className="inline-grid h-8 w-8 place-items-center rounded-[6px] text-[#66717e] hover:bg-[#eef1f3] hover:text-[#087a46]"><ChevronRight size={16} /></button></td>
             </tr>
           ))}
         </tbody>
@@ -157,6 +161,7 @@ function TicketTable({ tickets, open }: { tickets: Ticket[]; open: (id: string) 
 }
 
 function Create({ close, done }: { close: () => void; done: (id: string) => void }) {
+  useDashboardMessages();
   const [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -174,24 +179,25 @@ function Create({ close, done }: { close: () => void; done: (id: string) => void
     }
   }
   return (
-    <OperationDrawer open title="Nouveau ticket" description="Décrivez la demande afin de la transmettre au support Slaivio." close={close} width="max-w-[620px]">
+    <OperationDrawer open title={dashboardText("Nouveau ticket")} description={dashboardText("Décrivez la demande afin de la transmettre au support Slaivio.")} close={close} width="max-w-[620px]">
       <form onSubmit={submit} className="grid gap-5">
-        <FormSection title="Votre demande" description="Décrivez le résultat attendu et son impact sur le travail de l’agence.">
-          <OperationField label="Objet" required><input required minLength={5} name="subject" className={input} placeholder="Ex. Impossible de valider une expédition" /></OperationField>
+        <FormSection title={dashboardText("Votre demande")} description={dashboardText("Décrivez le résultat attendu et son impact sur le travail de l’agence.")}>
+          <OperationField label={dashboardText("Objet")} required><input required minLength={5} name="subject" className={input} placeholder={dashboardText("Ex. Impossible de valider une expédition")} /></OperationField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <OperationField label="Sujet" required><select name="category" className={input}><option value="TECHNIQUE">Problème technique</option><option value="FACTURATION">Abonnement ou facturation</option><option value="COMPTE">Compte et accès</option><option value="DONNÉES">Données</option><option value="FONCTIONNALITÉ">Utilisation d’une fonctionnalité</option><option value="AUTRE">Autre demande</option></select></OperationField>
-            <OperationField label="Impact" hint="Urgent uniquement si les opérations sont bloquées." required><select name="priority" className={input}><option value="LOW">Faible</option><option value="NORMAL">Normal</option><option value="HIGH">Important</option><option value="URGENT">Opérations bloquées</option></select></OperationField>
+            <OperationField label={dashboardText("Sujet")} required><select name="category" className={input}><option value="TECHNIQUE">{dashboardText("Problème technique")}</option><option value="FACTURATION">{dashboardText("Abonnement ou facturation")}</option><option value="COMPTE">{dashboardText("Compte et accès")}</option><option value="DONNÉES">{dashboardText("Données")}</option><option value="FONCTIONNALITÉ">{dashboardText("Utilisation d’une fonctionnalité")}</option><option value="AUTRE">{dashboardText("Autre demande")}</option></select></OperationField>
+            <OperationField label={dashboardText("Impact")} hint="Urgent uniquement si les opérations sont bloquées." required><select name="priority" className={input}><option value="LOW">{dashboardText("Faible")}</option><option value="NORMAL">{dashboardText("Normal")}</option><option value="HIGH">{dashboardText("Important")}</option><option value="URGENT">{dashboardText("Opérations bloquées")}</option></select></OperationField>
           </div>
-          <OperationField label="Description détaillée" required><textarea required minLength={10} name="description" rows={7} className="rounded-[6px] border border-[#d3d3d0] p-3 text-[13px] outline-none focus:border-[#12c76f]" placeholder="Expliquez ce que vous faisiez, ce qui s’est passé et le résultat attendu." /></OperationField>
+          <OperationField label={dashboardText("Description détaillée")} required><textarea required minLength={10} name="description" rows={7} className="rounded-[6px] border border-[#d3d3d0] p-3 text-[13px] outline-none focus:border-[#12c76f]" placeholder={dashboardText("Expliquez ce que vous faisiez, ce qui s’est passé et le résultat attendu.")} /></OperationField>
         </FormSection>
-        {error && <p className="text-[13px] text-red-700">{error}</p>}
-        <div className="flex justify-end gap-2"><OperationButton onClick={close}>Annuler</OperationButton><OperationButton type="submit" variant="primary">Créer le ticket</OperationButton></div>
+        {error && <p className="text-[13px] text-red-700">{dashboardText(error)}</p>}
+        <div className="flex justify-end gap-2"><OperationButton onClick={close}>{dashboardText("Annuler")}</OperationButton><OperationButton type="submit" variant="primary">{dashboardText("Créer le ticket")}</OperationButton></div>
       </form>
     </OperationDrawer>
   );
 }
 
 function Detail({ detail, close, reload }: { detail: TicketDetail; close: () => void; reload: () => void }) {
+  useDashboardMessages();
   const ticket = detail.ticket;
   const [error, setError] = useState("");
   async function send(event: FormEvent<HTMLFormElement>) {
@@ -222,12 +228,12 @@ function Detail({ detail, close, reload }: { detail: TicketDetail; close: () => 
   }
   return (
     <Panel close={close} title={ticket.subject} description={`${ticket.ticket_reference} · ${ticketStatusLabel(ticket.status)}`}>
-      <p className="mt-1 text-[12px] text-[#6b7075]">Priorité {priorityLabel(ticket.priority).toLocaleLowerCase("fr")} · réponse avant {ticket.first_response_due_at ? new Date(ticket.first_response_due_at).toLocaleString("fr-FR") : "—"}</p>
-      {error && <p className="mt-3 rounded-[5px] bg-red-50 p-3 text-[13px] text-red-700">{error}</p>}
+      <p className="mt-1 text-[12px] text-[#6b7075]">{dashboardText("Priorité ")}{priorityLabel(ticket.priority).toLocaleLowerCase("fr")} {dashboardText(" · réponse avant ")}{ticket.first_response_due_at ? new Date(ticket.first_response_due_at).toLocaleString(dashboardFormatLocale()) : "—"}</p>
+      {error && <p className="mt-3 rounded-[5px] bg-red-50 p-3 text-[13px] text-red-700">{dashboardText(error)}</p>}
       <div className="mt-5 overflow-hidden rounded-[6px] border border-[#d3d3d0] bg-white">
         {detail.messages.map((message) => (
           <div key={message.id} className="border-b border-[#eeeeeb] p-4 last:border-0">
-            <div className="flex justify-between text-[11px] text-[#6b7075]"><b>{message.author_name || (message.author_type === "PLATFORM" ? "Support SLAIVIO" : "Votre équipe")}</b><span>{new Date(message.created_at).toLocaleString("fr-FR")}</span></div>
+            <div className="flex justify-between text-[11px] text-[#6b7075]"><b>{message.author_name || (message.author_type === "PLATFORM" ? dashboardText("Support SLAIVIO") : dashboardText("Votre équipe"))}</b><span>{new Date(message.created_at).toLocaleString(dashboardFormatLocale())}</span></div>
             <p className="mt-2 whitespace-pre-wrap text-[13px]">{message.message}</p>
           </div>
         ))}
@@ -240,22 +246,23 @@ function Detail({ detail, close, reload }: { detail: TicketDetail; close: () => 
       {!["CLOSED", "RESOLVED"].includes(ticket.status) && (
         <PermissionGuard permission="support.create">
           <form onSubmit={send} className="mt-4 grid gap-2 rounded-[6px] border border-[#d3d3d0] bg-white p-4">
-            <textarea required name="message" rows={4} className="rounded-[4px] border border-[#d3d3d0] p-3 text-[13px]" placeholder="Ajouter une réponse..." />
+            <textarea required name="message" rows={4} className="rounded-[4px] border border-[#d3d3d0] p-3 text-[13px]" placeholder={dashboardText("Ajouter une réponse...")} />
             <div className="flex justify-between">
-              <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[6px] border border-[#d4d9df] bg-white px-3 text-[13px] font-medium hover:bg-[#f6f7f7]"><Paperclip size={14} />Joindre<input hidden type="file" onChange={upload} /></label>
-              <OperationButton type="submit" variant="primary"><MessageSquare size={14} />Envoyer</OperationButton>
+              <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-[6px] border border-[#d4d9df] bg-white px-3 text-[13px] font-medium hover:bg-[#f6f7f7]"><Paperclip size={14} />{dashboardText("Joindre")}<input hidden type="file" onChange={upload} /></label>
+              <OperationButton type="submit" variant="primary"><MessageSquare size={14} />{dashboardText("Envoyer")}</OperationButton>
             </div>
           </form>
         </PermissionGuard>
       )}
       <PermissionGuard permission="support.close">
-        <OperationButton className="mt-4" onClick={async () => { await transitionTicket(ticket.id, ticket.status === "CLOSED" ? "reopen" : "close", ticket.row_version); reload(); }}>{ticket.status === "CLOSED" ? "Rouvrir" : "Fermer le ticket"}</OperationButton>
+        <OperationButton className="mt-4" onClick={async () => { await transitionTicket(ticket.id, ticket.status === "CLOSED" ? "reopen" : "close", ticket.row_version); reload(); }}>{ticket.status === "CLOSED" ? dashboardText("Rouvrir") : dashboardText("Fermer le ticket")}</OperationButton>
       </PermissionGuard>
     </Panel>
   );
 }
 
 function Panel({ close, children, title = "Support Slaivio", description = "Article, ticket et historique de la demande." }: { close: () => void; children: React.ReactNode; title?: string; description?: string }) {
+  useDashboardMessages();
   return (
     <OperationDrawer open close={close} title={title} description={description} width="max-w-2xl">
       {children}
@@ -264,11 +271,11 @@ function Panel({ close, children, title = "Support Slaivio", description = "Arti
 }
 
 function priorityLabel(value: string) {
-  return ({ LOW: "Faible", NORMAL: "Normale", HIGH: "Haute", URGENT: "Urgente" } as Record<string, string>)[value] || "Non précisée";
+  return dashboardText(({ LOW: "Faible", NORMAL: "Normale", HIGH: "Haute", URGENT: "Urgente" } as Record<string, string>)[value] || "Non précisée");
 }
 
 function ticketStatusLabel(value: string) {
-  return ({ OPEN: "Ouvert", IN_PROGRESS: "En cours", WAITING_CUSTOMER: "Votre réponse est attendue", RESOLVED: "Résolu", CLOSED: "Fermé", REOPENED: "Rouvert" } as Record<string, string>)[value] || "État non renseigné";
+  return dashboardText(({ OPEN: "Ouvert", IN_PROGRESS: "En cours", WAITING_CUSTOMER: "Votre réponse est attendue", RESOLVED: "Résolu", CLOSED: "Fermé", REOPENED: "Rouvert" } as Record<string, string>)[value] || "État non renseigné");
 }
 
 function ticketStatusTone(value: string): "neutral" | "success" | "warning" | "danger" | "info" {

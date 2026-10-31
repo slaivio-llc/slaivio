@@ -1,3 +1,6 @@
+
+"use client";
+import {useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
 import axios from 'axios';
 import type { ReactNode } from 'react';
 import { OperationStatus } from '@/components/ui/operation-controls';
@@ -15,11 +18,14 @@ export const labels:Record<string,string>={
 };
 export const label=(value:unknown)=>value==null||value===''?'—':labels[String(value)]||'Autre état';
 export const text=(value:unknown)=>value==null||value===''?'—':String(value);
-export function date(value:unknown){if(!value)return '—';const parsed=new Date(String(value));return Number.isNaN(parsed.valueOf())?'—':new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium',timeStyle:'short'}).format(parsed);}
-export function money(value:unknown,currency:unknown){try{return new Intl.NumberFormat('fr-FR',{style:'currency',currency:String(currency)}).format(Number(value||0)/100);}catch{return 'Montant à vérifier';}}
-export function Status({value}:{value:unknown}){const key=String(value);return <OperationStatus label={label(value)} tone={['ACTIVE','PAID','SUCCESS','RESOLVED','DONE','SENT','DELIVERED'].includes(key)?'success':['FAILED','SUSPENDED','PAST_DUE','REPLAY_FAILED','OVERDUE'].includes(key)?'danger':['PENDING','TRIAL','QUARANTINED','UNKNOWN'].includes(key)?'warning':'neutral'}/>;}
-export function Panel({title,description,children}:{title:string;description?:string;children:ReactNode}){return <section className="min-w-0 rounded-xl border border-[#dfe3e4] bg-white p-4 sm:p-5"><h2 className="text-sm font-semibold text-[#242a30]">{title}</h2>{description&&<p className="mt-1 text-xs leading-5 text-[#69747f]">{description}</p>}<div className="mt-4">{children}</div></section>;}
-export function Alert({children}:{children:ReactNode}){return <p role="alert" className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">{children}</p>;}
+export function date(value:unknown){if(!value)return '—';const parsed=new Date(String(value));return Number.isNaN(parsed.valueOf())?'—':new Intl.DateTimeFormat(dashboardFormatLocale(),{dateStyle:'medium',timeStyle:'short'}).format(parsed);}
+export function money(value:unknown,currency:unknown){try{return new Intl.NumberFormat(dashboardFormatLocale(),{style:'currency',currency:String(currency)}).format(Number(value||0)/100);}catch{return 'Montant à vérifier';}}
+export function Status({value}:{value:unknown}){
+  useDashboardMessages();const key=String(value);return <OperationStatus label={label(value)} tone={['ACTIVE','PAID','SUCCESS','RESOLVED','DONE','SENT','DELIVERED'].includes(key)?'success':['FAILED','SUSPENDED','PAST_DUE','REPLAY_FAILED','OVERDUE'].includes(key)?'danger':['PENDING','TRIAL','QUARANTINED','UNKNOWN'].includes(key)?'warning':'neutral'}/>;}
+export function Panel({title,description,children}:{title:string;description?:string;children:ReactNode}){
+  useDashboardMessages();return <section className="min-w-0 rounded-xl border border-[#dfe3e4] bg-white p-4 sm:p-5"><h2 className="text-sm font-semibold text-[#242a30]">{title}</h2>{description&&<p className="mt-1 text-xs leading-5 text-[#69747f]">{description}</p>}<div className="mt-4">{children}</div></section>;}
+export function Alert({children}:{children:ReactNode}){
+  useDashboardMessages();return <p role="alert" className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">{children}</p>;}
 export function message(error:unknown){
   const code=axios.isAxiosError(error)?error.response?.data?.detail:undefined;
   const known:Record<string,string>={platform_self_permissions_protected:'Vous ne pouvez pas modifier vos propres accès. Demandez à un autre administrateur autorisé.',platform_last_admin_protected:'Le dernier accès administrateur ne peut pas être retiré.',platform_permissions_were_modified:'Les accès ont changé. Rechargez la fiche avant de réessayer.',subscription_future_expiry_required:'Renseignez une échéance future pour activer cet abonnement ou cet essai.'};

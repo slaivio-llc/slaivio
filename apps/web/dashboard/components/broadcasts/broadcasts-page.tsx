@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { FormEvent, useCallback, useEffect, useState, type ReactNode } from "react";
 import { ChevronRight, Download, Plus } from "lucide-react";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
@@ -53,6 +55,7 @@ const channelLabels: Record<string, string> = {
   PUSH: "Notification mobile",
 };
 export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?: boolean; onHeaderAction?: (action: ReactNode) => void }) {
+  useDashboardMessages();
   const [items, setItems] = useState<Campaign[]>([]),
     [stats, setStats] = useState<Record<string, number>>({}),
     [status, setStatus] = useState(""),
@@ -84,7 +87,7 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
   }, [load]);
   useEffect(() => {
     if (!embedded || !onHeaderAction) return;
-    onHeaderAction(<OperationButton variant="primary" onClick={() => setModal("campaign")}><Plus size={14}/>Nouvelle annonce</OperationButton>);
+    onHeaderAction(<OperationButton variant="primary" onClick={() => setModal("campaign")}><Plus size={14}/>{dashboardText("Nouvelle annonce")}</OperationButton>);
     return () => onHeaderAction(null);
   }, [embedded, onHeaderAction]);
   async function open(x: Campaign) {
@@ -116,16 +119,14 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
     <div className={`min-h-full ${embedded ? "bg-white" : "bg-[#f7f7f6]"}`}>
       {embedded ? <EmbeddedCampaignList items={items} loading={loading} error={error} q={q} setQ={setQ} stats={stats} open={open} retry={load}/> : <>
       <OperationPageHeader
-        title="Broadcasts"
-        description="Créez, programmez et analysez vos campagnes WhatsApp et email auprès de vos clients et prospects."
+        title={dashboardText("Broadcasts")}
+        description={dashboardText("Créez, programmez et analysez vos campagnes WhatsApp et email auprès de vos clients et prospects.")}
         actions={
           <>
             <OperationButton onClick={() => exportCampaigns(items)}>
-              <Download size={14} className="inline" /> Exporter
-            </OperationButton>
+              <Download size={14} className="inline" /> {dashboardText(" Exporter")}</OperationButton>
             <OperationButton variant="primary" onClick={() => setModal("campaign")}>
-              <Plus size={14} className="inline" /> Nouvelle campagne
-            </OperationButton>
+              <Plus size={14} className="inline" /> {dashboardText(" Nouvelle campagne")}</OperationButton>
           </>
         }
       />
@@ -137,19 +138,19 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
           })}
         </OperationMetricGrid>
       </OperationMetrics>
-      <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Rechercher une campagne…" />} filters={<><OperationFilterPopover activeCount={(channel ? 1 : 0) + (status ? 1 : 0)} onReset={() => { setStatus(""); setChannel(""); }} title="Filtrer les campagnes"><OperationField label="Vue"><select className={`${field} w-full`} value={status} onChange={(event) => setStatus(event.target.value)}>{tabs.map(([value,label])=><option key={value||'all'} value={value}>{label}</option>)}</select></OperationField><OperationField label="Canal d’envoi"><select className={`${field} w-full`} value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">Tous les canaux</option>{Array.from(new Set(items.flatMap((item) => item.channels || []))).map((value) => <option key={value} value={value}>{channelLabels[value] || value}</option>)}</select></OperationField></OperationFilterPopover><OperationActionMenu><button onClick={() => setModal("audience")}>Créer un groupe de destinataires</button></OperationActionMenu></>}><OperationButton onClick={load}>Actualiser</OperationButton></OperationToolbar>
-      {error && <ErrorState title="Campagnes indisponibles" description={error} retry={load} />}
-      {loading ? <TableSkeleton rows={7} columns={7} label="Chargement des campagnes…" /> : items.length ? <OperationTable className="min-h-[460px]">
+      <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder={dashboardText("Rechercher une campagne…")} />} filters={<><OperationFilterPopover activeCount={(channel ? 1 : 0) + (status ? 1 : 0)} onReset={() => { setStatus(""); setChannel(""); }} title={dashboardText("Filtrer les campagnes")}><OperationField label={dashboardText("Vue")}><select className={`${field} w-full`} value={status} onChange={(event) => setStatus(event.target.value)}>{tabs.map(([value,label])=><option key={value||'all'} value={value}>{dashboardText(label)}</option>)}</select></OperationField><OperationField label={dashboardText("Canal d’envoi")}><select className={`${field} w-full`} value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">{dashboardText("Tous les canaux")}</option>{Array.from(new Set(items.flatMap((item) => item.channels || []))).map((value) => <option key={value} value={value}>{dashboardText(channelLabels[value]) || value}</option>)}</select></OperationField></OperationFilterPopover><OperationActionMenu><button onClick={() => setModal("audience")}>{dashboardText("Créer un groupe de destinataires")}</button></OperationActionMenu></>}><OperationButton onClick={load}>{dashboardText("Actualiser")}</OperationButton></OperationToolbar>
+      {error && <ErrorState title={dashboardText("Campagnes indisponibles")} description={dashboardText(error)} retry={load} />}
+      {loading ? <TableSkeleton rows={7} columns={7} label={dashboardText("Chargement des campagnes…")} /> : items.length ? <OperationTable className="min-h-[460px]">
         <table className="w-full min-w-[980px] border-collapse bg-white text-left text-[13px]">
           <thead className="bg-[#fbfcfd] text-[#5f6b7a]">
             <tr className="border-b border-[#e6e9ee]">
               {[
-                "Campagne",
-                "Canaux",
-                "Audience",
-                "Statut",
-                "Programmation",
-                "Performance",
+                dashboardText("Campagne"),
+                dashboardText("Canaux"),
+                dashboardText("Audience"),
+                dashboardText("Statut"),
+                dashboardText("Programmation"),
+                dashboardText("Performance"),
                 "",
               ].map((x) => (
                 <th className="px-4 py-3 font-medium" key={x}>
@@ -177,17 +178,16 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
                 <td>{x.recipients || 0}</td>
                 <td>
                   <span className="rounded-full bg-[#eef2f1] px-2 py-1 text-[11px] font-medium">
-                    {campaignStatusLabels[x.status] || x.status}
+                    {dashboardText(campaignStatusLabels[x.status]) || x.status}
                   </span>
                 </td>
                 <td>
                   {x.scheduled_at
-                    ? new Date(x.scheduled_at).toLocaleString("fr-FR")
+                    ? new Date(x.scheduled_at).toLocaleString(dashboardFormatLocale())
                     : "—"}
                 </td>
                 <td>
-                  {x.reads || 0} lus · {x.replies || 0} réponses
-                </td>
+                  {x.reads || 0} {dashboardText(" lus · ")}{x.replies || 0} {dashboardText(" réponses")}</td>
                 <td className="pr-4 text-right text-[#7b848d]">
                   <ChevronRight size={17} />
                 </td>
@@ -195,13 +195,13 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
             ))}
           </tbody>
         </table>
-      </OperationTable> : <EmptyState title="Aucune campagne dans cette vue" description="Créez une campagne ou modifiez vos filtres pour afficher les communications de l’agence." />}
+      </OperationTable> : <EmptyState title={dashboardText("Aucune campagne dans cette vue")} description={dashboardText("Créez une campagne ou modifiez vos filtres pour afficher les communications de l’agence.")} />}
       </>}
       {selected && (
         <OperationDrawer
           open
           title={selected.title}
-          description={`${selected.reference} · ${campaignStatusLabels[selected.status] || selected.status}`}
+          description={`${selected.reference} · ${dashboardText(campaignStatusLabels[selected.status]) || selected.status}`}
           close={() => setSelected(null)}
         >
           <div className="rounded-md bg-white p-4 whitespace-pre-wrap">
@@ -215,23 +215,17 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
                 setSelected((await getCampaign(selected.id)).campaign);
               }}
             >
-              Calculer & figer audience
-            </button>
+              {dashboardText("Calculer & figer audience")}</button>
             <button className={btn} onClick={() => act("APPROVE")}>
-              Approuver
-            </button>
+              {dashboardText("Approuver")}</button>
             <button className={primary} onClick={() => act("START")}>
-              Lancer
-            </button>
+              {dashboardText("Lancer")}</button>
             <button className={btn} onClick={() => act("PAUSE")}>
-              Pause
-            </button>
+              {dashboardText("Pause")}</button>
             <button className={btn} onClick={() => act("RESUME")}>
-              Reprendre
-            </button>
+              {dashboardText("Reprendre")}</button>
             <button className={btn} onClick={() => act("CANCEL")}>
-              Annuler
-            </button>
+              {dashboardText("Annuler")}</button>
           </div>
         </OperationDrawer>
       )}
@@ -259,17 +253,18 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
 }
 
 function EmbeddedCampaignList({items,loading,error,q,setQ,stats,open,retry}:{items:Campaign[];loading:boolean;error:string;q:string;setQ:(value:string)=>void;stats:Record<string,number>;open:(item:Campaign)=>void;retry:()=>void}) {
+  useDashboardMessages();
   return <div className="pb-7 pt-4">
     <div className="grid grid-cols-3 gap-4 pb-1">
-      {[['Annonces envoyées',stats.sent_month||0],['Programmées',stats.scheduled||0],['Destinataires',stats.recipients||0]].map(([label,value])=><div key={String(label)}><p className="text-[11px] text-[#737d86]">{label}</p><p className="mt-1 text-[18px] font-semibold tabular-nums text-[#25292e]">{Number(value).toLocaleString('fr-FR')}</p></div>)}
+      {[[dashboardText("Annonces envoyées"),stats.sent_month||0],[dashboardText("Programmées"),stats.scheduled||0],[dashboardText("Destinataires"),stats.recipients||0]].map(([label,value])=><div key={String(label)}><p className="text-[11px] text-[#737d86]">{dashboardText(label)}</p><p className="mt-1 text-[18px] font-semibold tabular-nums text-[#25292e]">{Number(value).toLocaleString(dashboardFormatLocale())}</p></div>)}
     </div>
-    <div className="my-3 [&_[data-ui=operation-search]]:h-10 [&_[data-ui=operation-search]]:max-w-none"><OperationSearch value={q} onChange={setQ} placeholder="Rechercher une annonce…"/></div>
-    {error ? <ErrorState title="Annonces indisponibles" description={error} retry={retry}/> : loading ? <TableSkeleton rows={4} columns={3} label="Chargement des annonces…"/> : items.length ? <div className="divide-y divide-[#eceeef] border-y border-[#eceeef]">{items.map(item=>{
+    <div className="my-3 [&_[data-ui=operation-search]]:h-10 [&_[data-ui=operation-search]]:max-w-none"><OperationSearch value={q} onChange={setQ} placeholder={dashboardText("Rechercher une annonce…")}/></div>
+    {error ? <ErrorState title={dashboardText("Annonces indisponibles")} description={dashboardText(error)} retry={retry}/> : loading ? <TableSkeleton rows={4} columns={3} label={dashboardText("Chargement des annonces…")}/> : items.length ? <div className="divide-y divide-[#eceeef] border-y border-[#eceeef]">{items.map(item=>{
       const rawDate=String(item.scheduled_at||item.created_at||item.updated_at||'');
-      const dateLabel=rawDate?new Intl.DateTimeFormat('fr-FR',{dateStyle:'medium'}).format(new Date(rawDate)):'Date non renseignée';
+      const dateLabel=rawDate?new Intl.DateTimeFormat(dashboardFormatLocale(),{dateStyle:'medium'}).format(new Date(rawDate)):'Date non renseignée';
       const tone=item.status==='COMPLETED'?'bg-[#e5f6ed] text-[#16834a]':item.status==='SCHEDULED'?'bg-[#eaf3fc] text-[#3074b8]':item.status==='FAILED'||item.status==='PARTIALLY_FAILED'?'bg-[#fff0ed] text-[#bd4839]':'bg-[#f0f1f1] text-[#58616a]';
-      return <button type="button" key={item.id} onClick={()=>void open(item)} className="flex min-h-[64px] w-full items-center gap-3 py-3 text-left hover:bg-[#fafbfb]"><span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold text-[#25292e]">{item.title}</span><span className="mt-1 block truncate text-[11px] text-[#737d86]">{dateLabel} · {(item.recipients||0).toLocaleString('fr-FR')} destinataires</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${tone}`}>{campaignStatusLabels[item.status]||item.status}</span><ChevronRight size={15} className="shrink-0 text-[#7b848d]"/></button>;
-    })}</div> : <EmptyState title="Aucune annonce pour le moment" description="Créez une annonce pour informer un ou plusieurs clients de l’agence."/>}
+      return <button type="button" key={item.id} onClick={()=>void open(item)} className="flex min-h-[64px] w-full items-center gap-3 py-3 text-left hover:bg-[#fafbfb]"><span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-semibold text-[#25292e]">{item.title}</span><span className="mt-1 block truncate text-[11px] text-[#737d86]">{dateLabel} · {(item.recipients||0).toLocaleString(dashboardFormatLocale())} {dashboardText(" destinataires")}</span></span><span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${tone}`}>{dashboardText(campaignStatusLabels[item.status])||item.status}</span><ChevronRight size={15} className="shrink-0 text-[#7b848d]"/></button>;
+    })}</div> : <EmptyState title={dashboardText("Aucune annonce pour le moment")} description={dashboardText("Créez une annonce pour informer un ou plusieurs clients de l’agence.")}/>}
   </div>;
 }
 
@@ -282,6 +277,7 @@ function CampaignModal({
   close: () => void;
   done: () => void;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [clientSearch, setClientSearch] = useState(""),
@@ -374,66 +370,59 @@ function CampaignModal({
     }
   }
   return (
-    <Modal title="Nouvelle annonce" description="Communication / Annonces & Relances" width="max-w-4xl" close={close}>
+    <Modal title={dashboardText("Nouvelle annonce")} description={dashboardText("Communication / Annonces & Relances")} width="max-w-4xl" close={close}>
       <form className="grid gap-3" onSubmit={submit}>
-        <ol aria-label="Étapes de création" className="mb-2 grid grid-cols-3 gap-2 py-3">
-          {(["Destinataires", "Message", "Vérification"] as const).map((label, index) => { const number = index + 1; return <li key={label} className={`flex flex-col items-center gap-1.5 text-[12px] ${step === number ? "font-semibold text-[#25292e]" : step > number ? "text-[#52615a]" : "text-[#7b8389]"}`}><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] ${step >= number ? "bg-[#078956] text-white" : "bg-[#f0f1f1] text-[#788087]"}`}>{step > number ? "✓" : number}</span>{label}</li>; })}
+        <ol aria-label={dashboardText("Étapes de création")} className="mb-2 grid grid-cols-3 gap-2 py-3">
+          {([dashboardText("Destinataires"), dashboardText("Message"), dashboardText("Vérification")] as const).map((label, index) => { const number = index + 1; return <li key={label} className={`flex flex-col items-center gap-1.5 text-[12px] ${step === number ? "font-semibold text-[#25292e]" : step > number ? "text-[#52615a]" : "text-[#7b8389]"}`}><span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] ${step >= number ? "bg-[#078956] text-white" : "bg-[#f0f1f1] text-[#788087]"}`}>{step > number ? "✓" : number}</span>{dashboardText(label)}</li>; })}
         </ol>
-        {step === 1 && <div className="grid gap-1 text-[12px] font-medium"><label className="text-[#30373d]">Bureau concerné</label><OfficeContextSelector compact /></div>}
+        {step === 1 && <div className="grid gap-1 text-[12px] font-medium"><label className="text-[#30373d]">{dashboardText("Bureau concerné")}</label><OfficeContextSelector compact /></div>}
         <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
-          Titre de l’annonce *
-          <input
+          {dashboardText("Titre de l’annonce *")}<input
             required={step === 2}
             name="title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             className={field}
-            placeholder="Ex. Annonce du départ de vendredi"
+            placeholder={dashboardText("Ex. Annonce du départ de vendredi")}
           />
         </label>
-        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>Modèle de message<select name="template" className={field} defaultValue="" onChange={(event) => { const templates = (resources.templates || []) as Array<Record<string, unknown>>; const template = templates.find((item) => String(item.id) === event.target.value); if (template) setMessage(String(template.body || "")); }}><option value="">Message personnalisé</option>{((resources.templates || []) as Array<Record<string, unknown>>).map((template) => <option key={String(template.id)} value={String(template.id)}>{String(template.name)}</option>)}</select></label>
+        <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>{dashboardText("Modèle de message")}<select name="template" className={field} defaultValue="" onChange={(event) => { const templates = (resources.templates || []) as Array<Record<string, unknown>>; const template = templates.find((item) => String(item.id) === event.target.value); if (template) setMessage(String(template.body || "")); }}><option value="">{dashboardText("Message personnalisé")}</option>{((resources.templates || []) as Array<Record<string, unknown>>).map((template) => <option key={String(template.id)} value={String(template.id)}>{String(template.name)}</option>)}</select></label>
         <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
-          Que souhaitez-vous faire ?
-          <select name="objective" className={field}>
-            <option value="INFORM">Informer les clients</option>
-            <option value="PROMOTE">Présenter une offre</option>
-            <option value="REACTIVATE">Recontacter des clients inactifs</option>
-            <option value="ANNOUNCE">Faire une annonce importante</option>
+          {dashboardText("Que souhaitez-vous faire ?")}<select name="objective" className={field}>
+            <option value="INFORM">{dashboardText("Informer les clients")}</option>
+            <option value="PROMOTE">{dashboardText("Présenter une offre")}</option>
+            <option value="REACTIVATE">{dashboardText("Recontacter des clients inactifs")}</option>
+            <option value="ANNOUNCE">{dashboardText("Faire une annonce importante")}</option>
           </select>
         </label>
         <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
-          Nature du message
-          <select name="type" className={field}>
-            <option value="INFORMATIONAL">Information opérationnelle</option>
+          {dashboardText("Nature du message")}<select name="type" className={field}>
+            <option value="INFORMATIONAL">{dashboardText("Information opérationnelle")}</option>
             <option value="COMMERCIAL">
-              Commerciale — consentement obligatoire
-            </option>
-            <option value="ENGAGEMENT">Engagement</option>
+              {dashboardText("Commerciale — consentement obligatoire")}</option>
+            <option value="ENGAGEMENT">{dashboardText("Engagement")}</option>
           </select>
           <small className="font-normal text-[#727b84]">
-            Les offres commerciales sont envoyées uniquement aux clients ayant
-            donné leur accord.
-          </small>
+            {dashboardText("Les offres commerciales sont envoyées uniquement aux clients ayant donné leur accord.")}</small>
         </label>
         <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
-          Canal d’envoi
-          <select name="channel" className={field}>
-            <option value="WHATSAPP">WhatsApp Business connecté</option>
+          {dashboardText("Canal d’envoi")}<select name="channel" className={field}>
+            <option value="WHATSAPP">{dashboardText("WhatsApp Business connecté")}</option>
           </select>
         </label>
         <fieldset className={`grid gap-1 ${step === 1 ? "" : "hidden"}`}>
-          <legend className="mb-1 text-[13px] font-semibold text-[#30373d]">À qui envoyer l’annonce ?</legend>
-          <select name="audience" className="hidden" value={audienceSelection} onChange={(event) => setAudienceSelection(event.target.value)}><option value="__all__">Tous les clients éligibles</option><option value="__manual__">Sélection personnalisée</option>{audiences.map((audience) => <option key={String(audience.id)} value={String(audience.id)}>{String(audience.name)}</option>)}</select>
-          <AudienceChoice value="__all__" selected={audienceSelection} onSelect={(value) => { setAudienceSelection(value); setSelectedClientIds([]); }} title="Tous les clients éligibles" description="Les consentements et exclusions seront contrôlés avant envoi." />
-          {audiences.map((audience) => <AudienceChoice key={String(audience.id)} value={String(audience.id)} selected={audienceSelection} onSelect={(value) => { setAudienceSelection(value); setSelectedClientIds([]); }} title={String(audience.name)} description="Groupe enregistré · ses filtres seront appliqués." />)}
-          <AudienceChoice value="__manual__" selected={audienceSelection} onSelect={setAudienceSelection} title="Sélection personnalisée" description="Choisir les clients individuellement." />
+          <legend className="mb-1 text-[13px] font-semibold text-[#30373d]">{dashboardText("À qui envoyer l’annonce ?")}</legend>
+          <select name="audience" className="hidden" value={audienceSelection} onChange={(event) => setAudienceSelection(event.target.value)}><option value="__all__">{dashboardText("Tous les clients éligibles")}</option><option value="__manual__">{dashboardText("Sélection personnalisée")}</option>{audiences.map((audience) => <option key={String(audience.id)} value={String(audience.id)}>{String(audience.name)}</option>)}</select>
+          <AudienceChoice value="__all__" selected={audienceSelection} onSelect={(value) => { setAudienceSelection(value); setSelectedClientIds([]); }} title={dashboardText("Tous les clients éligibles")} description={dashboardText("Les consentements et exclusions seront contrôlés avant envoi.")} />
+          {audiences.map((audience) => <AudienceChoice key={String(audience.id)} value={String(audience.id)} selected={audienceSelection} onSelect={(value) => { setAudienceSelection(value); setSelectedClientIds([]); }} title={String(audience.name)} description={dashboardText("Groupe enregistré · ses filtres seront appliqués.")} />)}
+          <AudienceChoice value="__manual__" selected={audienceSelection} onSelect={setAudienceSelection} title={dashboardText("Sélection personnalisée")} description={dashboardText("Choisir les clients individuellement.")} />
         </fieldset>
         <section className={`grid gap-2 rounded-md border border-[#e1e5e8] p-3 ${step === 1 && audienceSelection === "__manual__" ? "" : "hidden"}`}>
           <div>
-            <p className="text-[12px] font-medium text-[#273038]">Ajouter des clients précis (facultatif)</p>
-            <p className="mt-1 text-[11px] text-[#727b84]">Les clients cochés s’ajoutent au groupe choisi. Avec « Tous les clients éligibles », la sélection manuelle ne réduit pas l’audience.</p>
+            <p className="text-[12px] font-medium text-[#273038]">{dashboardText("Ajouter des clients précis (facultatif)")}</p>
+            <p className="mt-1 text-[11px] text-[#727b84]">{dashboardText("Les clients cochés s’ajoutent au groupe choisi. Avec « Tous les clients éligibles », la sélection manuelle ne réduit pas l’audience.")}</p>
           </div>
-          <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder="Rechercher un client par nom, téléphone…" aria-label="Rechercher un client destinataire" />
+          <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder={dashboardText("Rechercher un client par nom, téléphone…")} aria-label={dashboardText("Rechercher un client destinataire")} />
           <div className="max-h-44 overflow-y-auto rounded border border-[#edf0f2]">
             <label className="sticky top-0 z-[1] flex cursor-pointer items-center gap-2 bg-[#fafbfb] px-3 py-2 text-[11px] font-medium text-[#45515b]">
               <input
@@ -447,45 +436,44 @@ function CampaignModal({
                     : current.filter((id) => !visibleIds.includes(id)));
                 }}
               />
-              Sélectionner les {clientOptions.length} clients affichés
-            </label>
+              {dashboardText("Sélectionner les ")}{clientOptions.length} {dashboardText(" clients affichés")}</label>
             {clientOptions.length ? clientOptions.map((client) => {
               const id = String(client.id);
               const selected = selectedClientIds.includes(id);
               return <label key={id} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[12px] hover:bg-[#f8faf9]">
                 <input type="checkbox" checked={selected} disabled={!selected && selectedClientIds.length >= 500} onChange={() => setSelectedClientIds((current) => selected ? current.filter((value) => value !== id) : [...current, id])} />
-                <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || "Client"}</span>
-                <span className="shrink-0 text-[#77818a]">{client.phone || client.email || "Contact manquant"}</span>
+                <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || dashboardText("Client")}</span>
+                <span className="shrink-0 text-[#77818a]">{client.phone || client.email || dashboardText("Contact manquant")}</span>
               </label>;
-            }) : <p className="px-3 py-3 text-[12px] text-[#77818a]">Aucun client trouvé. Vérifiez qu’il appartient à cette agence.</p>}
+            }) : <p className="px-3 py-3 text-[12px] text-[#77818a]">{dashboardText("Aucun client trouvé. Vérifiez qu’il appartient à cette agence.")}</p>}
           </div>
-          <p className="text-[11px] text-[#5f6873]">{selectedClientIds.length} client{selectedClientIds.length === 1 ? " sélectionné" : "s sélectionnés"}</p>
+          <p className="text-[11px] text-[#5f6873]">{selectedClientIds.length} {dashboardText(" client")}{selectedClientIds.length === 1 ? dashboardText(" sélectionné") : dashboardText("s sélectionnés")}</p>
         </section>
         <label className={`grid gap-1 text-[12px] font-medium ${step === 2 ? "" : "hidden"}`}>
-          Message envoyé au nom de l’agence
-          <textarea
+          {dashboardText("Message envoyé au nom de l’agence")}<textarea
             required={step === 2}
             name="message"
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             className="min-h-36 rounded-md border border-[#d2d7dc] bg-white p-3 text-[13px] outline-none focus:border-[#16855f] focus:ring-1 focus:ring-[#b9e5d2]"
-            placeholder="Écrivez le message au nom de votre agence. Le prénom du client sera ajouté automatiquement lorsqu’il est disponible."
+            placeholder={dashboardText("Écrivez le message au nom de votre agence. Le prénom du client sera ajouté automatiquement lorsqu’il est disponible.")}
           />
         </label>
-        <section className={`rounded-md border border-[#e1e5e8] p-3 ${step === 2 ? "" : "hidden"}`}><div className="mb-2 flex items-center justify-between"><h3 className="text-[12px] font-semibold">Aperçu WhatsApp</h3><button type="button" className="text-[11px] text-[#667078]" onClick={() => setPreviewVisible((value) => !value)}>{previewVisible ? "Masquer" : "Afficher"}</button></div>{previewVisible && <div className="ml-auto max-w-[520px] whitespace-pre-wrap rounded-lg bg-[#e4f2ec] p-4 text-[13px] leading-5 text-[#25352e]">{message || "L’aperçu du message apparaîtra ici."}<p className="mt-2 text-right text-[10px] text-[#738078]">Aperçu uniquement</p></div>}</section>
-        <fieldset className={`grid gap-2 ${step === 2 ? "" : "hidden"}`}><legend className="mb-1 text-[12px] font-semibold">Quand envoyer l’annonce ?</legend><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={!sendLater} onChange={() => setSendLater(false)} />Dès validation (la campagne sera créée comme brouillon)</label><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={sendLater} onChange={() => setSendLater(true)} />Programmer pour plus tard</label><input name="date" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} disabled={!sendLater} className={`${field} max-w-sm ${sendLater ? "" : "hidden"}`} /></fieldset>
-        {step === 3 && <section className="grid gap-4"><div><h3 className="text-[13px] font-semibold">Destinataires</h3><p className="mt-2 flex items-center justify-between py-2 text-[12px]"><span className="text-[#68717d]">Audience</span><span className="font-medium">{review.audience}</span></p><p className="mt-2 text-[11px] text-[#737d86]">{review.recipients}. Les règles de consentement et exclusions seront revérifiées côté serveur.</p></div><div><h3 className="text-[13px] font-semibold">Message</h3><div className="mt-2 rounded-md bg-[#f8faf9] p-3"><p className="text-[12px] font-semibold">{review.title}</p><p className="mt-2 whitespace-pre-wrap pt-2 text-[12px] leading-5">{review.message}</p></div></div><label className="flex items-start gap-2 pt-2 text-[12px] leading-5"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1" />Je confirme avoir vérifié les destinataires et le contenu de cette annonce.</label></section>}
+        <section className={`rounded-md border border-[#e1e5e8] p-3 ${step === 2 ? "" : "hidden"}`}><div className="mb-2 flex items-center justify-between"><h3 className="text-[12px] font-semibold">{dashboardText("Aperçu WhatsApp")}</h3><button type="button" className="text-[11px] text-[#667078]" onClick={() => setPreviewVisible((value) => !value)}>{previewVisible ? dashboardText("Masquer") : dashboardText("Afficher")}</button></div>{previewVisible && <div className="ml-auto max-w-[520px] whitespace-pre-wrap rounded-lg bg-[#e4f2ec] p-4 text-[13px] leading-5 text-[#25352e]">{message || dashboardText("L’aperçu du message apparaîtra ici.")}<p className="mt-2 text-right text-[10px] text-[#738078]">{dashboardText("Aperçu uniquement")}</p></div>}</section>
+        <fieldset className={`grid gap-2 ${step === 2 ? "" : "hidden"}`}><legend className="mb-1 text-[12px] font-semibold">{dashboardText("Quand envoyer l’annonce ?")}</legend><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={!sendLater} onChange={() => setSendLater(false)} />{dashboardText("Dès validation (la campagne sera créée comme brouillon)")}</label><label className="flex items-center gap-2 text-[12px]"><input type="radio" checked={sendLater} onChange={() => setSendLater(true)} />{dashboardText("Programmer pour plus tard")}</label><input name="date" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} disabled={!sendLater} className={`${field} max-w-sm ${sendLater ? "" : "hidden"}`} /></fieldset>
+        {step === 3 && <section className="grid gap-4"><div><h3 className="text-[13px] font-semibold">{dashboardText("Destinataires")}</h3><p className="mt-2 flex items-center justify-between py-2 text-[12px]"><span className="text-[#68717d]">{dashboardText("Audience")}</span><span className="font-medium">{review.audience}</span></p><p className="mt-2 text-[11px] text-[#737d86]">{review.recipients}{dashboardText(". Les règles de consentement et exclusions seront revérifiées côté serveur.")}</p></div><div><h3 className="text-[13px] font-semibold">{dashboardText("Message")}</h3><div className="mt-2 rounded-md bg-[#f8faf9] p-3"><p className="text-[12px] font-semibold">{review.title}</p><p className="mt-2 whitespace-pre-wrap pt-2 text-[12px] leading-5">{review.message}</p></div></div><label className="flex items-start gap-2 pt-2 text-[12px] leading-5"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1" />{dashboardText("Je confirme avoir vérifié les destinataires et le contenu de cette annonce.")}</label></section>}
         {error && (
           <p className="rounded-md bg-red-50 p-3 text-[12px] text-red-700">
-            {error}
+            {dashboardText(error)}
           </p>
         )}
-        <footer className="flex items-center justify-between pt-3"><button type="button" className={btn} onClick={() => { setError(""); if (step === 1) close(); else setStep((value) => (value - 1) as 1 | 2 | 3); }}>{step === 1 ? "Annuler" : "← Retour"}</button>{step < 3 ? <button type="button" className={primary} onClick={continueWizard}>Continuer →</button> : <button type="submit" disabled={busy || !confirmed} className={`${primary} disabled:cursor-not-allowed disabled:opacity-50`}>{busy ? "Enregistrement…" : "Créer l’annonce"}</button>}</footer>
+        <footer className="flex items-center justify-between pt-3"><button type="button" className={btn} onClick={() => { setError(""); if (step === 1) close(); else setStep((value) => (value - 1) as 1 | 2 | 3); }}>{step === 1 ? dashboardText("Annuler") : dashboardText("← Retour")}</button>{step < 3 ? <button type="button" className={primary} onClick={continueWizard}>{dashboardText("Continuer →")}</button> : <button type="submit" disabled={busy || !confirmed} className={`${primary} disabled:cursor-not-allowed disabled:opacity-50`}>{busy ? dashboardText("Enregistrement…") : dashboardText("Créer l’annonce")}</button>}</footer>
       </form>
     </Modal>
   );
 }
 function AudienceChoice({ value, selected, onSelect, title, description }: { value: string; selected: string; onSelect: (value: string) => void; title: string; description: string }) {
+  useDashboardMessages();
   return <label className={`flex cursor-pointer items-start gap-3 rounded-md px-2.5 py-2 transition-colors hover:bg-[#f8faf9] ${selected === value ? "bg-[#f5f8f6]" : ""}`}><input type="radio" name="campaign-audience-choice" checked={selected === value} onChange={() => onSelect(value)} className="mt-0.5 accent-[#111111]"/><span className="min-w-0"><span className="block text-[12px] font-medium text-[#25292e]">{title}</span><span className="mt-0.5 block text-[11px] text-[#747d85]">{description}</span></span></label>;
 }
 
@@ -496,6 +484,7 @@ function AudienceModal({
   close: () => void;
   done: () => void;
 }) {
+  useDashboardMessages();
   const [countries, setCountries] = useState<string[]>([]),
     [clientSearch, setClientSearch] = useState(""),
     [clientOptions, setClientOptions] = useState<ClientRecord[]>([]),
@@ -552,13 +541,12 @@ function AudienceModal({
     }
   }
   return (
-    <Modal title="Créer un groupe de destinataires" close={close}>
+    <Modal title={dashboardText("Créer un groupe de destinataires")} close={close}>
       <form className="grid gap-3" onSubmit={submit}>
-        <label className="text-[12px] text-[#5f6873]">Nom du groupe de destinataires<input required name="name" className={`${field} mt-1 w-full`} placeholder="Ex. Clients Air Cargo récents" /></label>
+        <label className="text-[12px] text-[#5f6873]">{dashboardText("Nom du groupe de destinataires")}<input required name="name" className={`${field} mt-1 w-full`} placeholder={dashboardText("Ex. Clients Air Cargo récents")} /></label>
         <label className="text-[12px] text-[#5f6873]">
-          Pays des clients
-          <select name="country" className={`${field} mt-1 w-full`}>
-            <option value="">Tous les pays configurés</option>
+          {dashboardText("Pays des clients")}<select name="country" className={`${field} mt-1 w-full`}>
+            <option value="">{dashboardText("Tous les pays configurés")}</option>
             {countries.map((country) => (
               <option key={country} value={country}>
                 {country}
@@ -566,34 +554,34 @@ function AudienceModal({
             ))}
           </select>
         </label>
-        <label className="text-[12px] text-[#5f6873]">Langue préférée des clients<select name="language" className={`${field} mt-1 w-full`}><option value="">Toutes les langues</option><option value="FR">Français</option><option value="EN">Anglais</option></select></label>
-        <label className="text-[12px] text-[#5f6873]">Relation actuelle avec l’agence<select name="status" className={`${field} mt-1 w-full`}><option value="">Tous les clients autorisés</option><option value="ACTIVE">Clients ayant une opération en cours</option><option value="LEAD">Nouveaux contacts à convertir</option></select></label>
+        <label className="text-[12px] text-[#5f6873]">{dashboardText("Langue préférée des clients")}<select name="language" className={`${field} mt-1 w-full`}><option value="">{dashboardText("Toutes les langues")}</option><option value="FR">{dashboardText("Français")}</option><option value="EN">{dashboardText("Anglais")}</option></select></label>
+        <label className="text-[12px] text-[#5f6873]">{dashboardText("Relation actuelle avec l’agence")}<select name="status" className={`${field} mt-1 w-full`}><option value="">{dashboardText("Tous les clients autorisés")}</option><option value="ACTIVE">{dashboardText("Clients ayant une opération en cours")}</option><option value="LEAD">{dashboardText("Nouveaux contacts à convertir")}</option></select></label>
         <section className="grid gap-2 rounded-md border border-[#e1e5e8] p-3">
           <div>
-            <p className="text-[12px] font-medium text-[#273038]">Sélectionner des clients précis (facultatif)</p>
-            <p className="mt-1 text-[11px] text-[#727b84]">Sans sélection, le groupe utilise les filtres ci-dessus. Avec une sélection, seuls ces clients correspondant aussi aux filtres seront inclus.</p>
+            <p className="text-[12px] font-medium text-[#273038]">{dashboardText("Sélectionner des clients précis (facultatif)")}</p>
+            <p className="mt-1 text-[11px] text-[#727b84]">{dashboardText("Sans sélection, le groupe utilise les filtres ci-dessus. Avec une sélection, seuls ces clients correspondant aussi aux filtres seront inclus.")}</p>
           </div>
-          <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder="Rechercher un client par nom, téléphone…" aria-label="Rechercher un client" />
+          <input value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} className={field} placeholder={dashboardText("Rechercher un client par nom, téléphone…")} aria-label={dashboardText("Rechercher un client")} />
           <div className="max-h-48 overflow-y-auto rounded border border-[#edf0f2]">
             {clientOptions.length ? clientOptions.map((client) => {
               const id = String(client.id);
               const selected = selectedClientIds.includes(id);
               return <label key={id} className="flex cursor-pointer items-center gap-2 border-b border-[#edf0f2] px-3 py-2 text-[12px] last:border-0 hover:bg-[#f8faf9]">
                 <input type="checkbox" checked={selected} onChange={() => setSelectedClientIds((current) => selected ? current.filter((value) => value !== id) : [...current, id])} />
-                <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || "Client"}</span>
-                <span className="shrink-0 text-[#77818a]">{client.phone || client.email || "Contact manquant"}</span>
+                <span className="min-w-0 flex-1 truncate text-[#273038]">{client.display_name || client.name || client.company_name || client.phone || dashboardText("Client")}</span>
+                <span className="shrink-0 text-[#77818a]">{client.phone || client.email || dashboardText("Contact manquant")}</span>
               </label>;
-            }) : <p className="px-3 py-3 text-[12px] text-[#77818a]">Aucun client trouvé. Modifiez la recherche ou vérifiez que le client appartient à cette agence.</p>}
+            }) : <p className="px-3 py-3 text-[12px] text-[#77818a]">{dashboardText("Aucun client trouvé. Modifiez la recherche ou vérifiez que le client appartient à cette agence.")}</p>}
           </div>
-          <p className="text-[11px] text-[#5f6873]">{selectedClientIds.length} client{selectedClientIds.length === 1 ? " sélectionné" : "s sélectionnés"}</p>
+          <p className="text-[11px] text-[#5f6873]">{selectedClientIds.length} {dashboardText(" client")}{selectedClientIds.length === 1 ? dashboardText(" sélectionné") : dashboardText("s sélectionnés")}</p>
         </section>
         {error && (
           <p className="rounded-md bg-red-50 p-3 text-[12px] text-red-700">
-            {error}
+            {dashboardText(error)}
           </p>
         )}
         <button disabled={busy} className={primary}>
-          {busy ? "Enregistrement…" : "Enregistrer le groupe"}
+          {busy ? dashboardText("Enregistrement…") : dashboardText("Enregistrer le groupe")}
         </button>
       </form>
     </Modal>
@@ -612,11 +600,12 @@ function Modal({
   close: () => void;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <OperationDrawer
       open
       title={title}
-      description={description || "Renseignez uniquement les informations utiles à l’agence."}
+      description={description || dashboardText("Renseignez uniquement les informations utiles à l’agence.")}
       width={width}
       close={close}
     >

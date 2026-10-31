@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { useState } from "react";
 import Link from "next/link";
@@ -13,6 +15,7 @@ export function AuthSessionState({
   title?: string;
   description?: string;
 }) {
+  useDashboardMessages();
   const { signOut } = useClerk();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -28,14 +31,14 @@ export function AuthSessionState({
 
   return (
     <>
-      {signingOut ? <SlaivioLogoLoader overlay label="Déconnexion…" /> : null}
+      {signingOut ? <SlaivioLogoLoader overlay label={dashboardText("Déconnexion…")} /> : null}
       <div className="space-y-4">
       <div className="rounded-xl border border-[#e3e6e5] bg-[#fafbfa] p-4 text-left">
         <h2 className="text-[15px] font-medium text-[#25292e]">
-          {title}
+          {dashboardText(title)}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          {description}
+          {dashboardText(description)}
         </p>
       </div>
 
@@ -43,8 +46,7 @@ export function AuthSessionState({
         href="/app"
         className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#16855f] px-4 text-sm font-medium text-white transition-colors hover:bg-[#126c4e]"
       >
-        Reprendre mon activité
-        <ArrowRight size={16} />
+        {dashboardText("Reprendre mon activité")}<ArrowRight size={16} />
       </Link>
 
         <button
@@ -54,8 +56,7 @@ export function AuthSessionState({
           className="flex h-10 w-full items-center justify-center gap-2 rounded-lg px-4 text-sm text-[#69717a] transition-colors hover:bg-[#f4f5f4] disabled:pointer-events-none disabled:opacity-60"
         >
           <LogOut size={16} />
-          Se déconnecter
-        </button>
+          {dashboardText("Se déconnecter")}</button>
       </div>
     </>
   );

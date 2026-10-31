@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { FormEvent, useEffect, useState } from "react";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
@@ -20,6 +22,7 @@ const primary =
 const label = "grid gap-1.5 text-[12px] font-medium text-[#34393f]";
 
 export function DepartureCommandCenter() {
+  useDashboardMessages();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"create" | "allocate">("create");
   const [services, setServices] = useState<Service[]>([]);
@@ -86,13 +89,12 @@ export function DepartureCommandCenter() {
         className="fixed bottom-5 right-5 z-40 rounded-[5px] bg-[#16855f] px-4 py-2 text-[13px] font-semibold text-white"
         onClick={() => setOpen(true)}
       >
-        Gérer les départs
-      </button>
+        {dashboardText("Gérer les départs")}</button>
       <OperationDrawer
         open={open}
         close={() => setOpen(false)}
-        title={mode === "create" ? "Nouveau départ" : "Affecter une expédition"}
-        description="Planifiez un départ ou rattachez une expédition à un départ ouvert."
+        title={mode === "create" ? dashboardText("Nouveau départ") : dashboardText("Affecter une expédition")}
+        description={dashboardText("Planifiez un départ ou rattachez une expédition à un départ ouvert.")}
         width="max-w-[640px]"
       >
         <form onSubmit={submit}>
@@ -102,22 +104,19 @@ export function DepartureCommandCenter() {
               className={mode === "create" ? primary : `${button} border-0 bg-transparent`}
               onClick={() => setMode("create")}
             >
-              Créer un départ
-            </button>
+              {dashboardText("Créer un départ")}</button>
             <button
               type="button"
               className={mode === "allocate" ? primary : `${button} border-0 bg-transparent`}
               onClick={() => setMode("allocate")}
             >
-              Affecter une expédition
-            </button>
+              {dashboardText("Affecter une expédition")}</button>
           </div>
           {mode === "create" ? (
             <>
               <label className={label}>
-                Service d’expédition
-                <select required name="service" className={input}>
-                  <option value="">Sélectionner un service</option>
+                {dashboardText("Service d’expédition")}<select required name="service" className={input}>
+                  <option value="">{dashboardText("Sélectionner un service")}</option>
                   {services.map((service) => (
                     <option key={service.id} value={service.id}>
                       {service.service_name}
@@ -127,41 +126,33 @@ export function DepartureCommandCenter() {
               </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className={label}>
-                  Départ planifié
-                  <input required name="scheduled" type="datetime-local" className={input} />
+                  {dashboardText("Départ planifié")}<input required name="scheduled" type="datetime-local" className={input} />
                 </label>
                 <label className={label}>
-                  Heure limite
-                  <input name="cutoff" type="datetime-local" className={input} />
+                  {dashboardText("Heure limite")}<input name="cutoff" type="datetime-local" className={input} />
                 </label>
                 <label className={label}>
-                  Arrivée estimée
-                  <input name="arrival" type="datetime-local" className={input} />
+                  {dashboardText("Arrivée estimée")}<input name="arrival" type="datetime-local" className={input} />
                 </label>
                 <label className={label}>
-                  Capacité en kg
-                  <input name="weight" type="number" min="0" step="0.001" className={input} />
+                  {dashboardText("Capacité en kg")}<input name="weight" type="number" min="0" step="0.001" className={input} />
                 </label>
                 <label className={label}>
-                  Capacité en CBM
-                  <input name="cbm" type="number" min="0" step="0.001" className={input} />
+                  {dashboardText("Capacité en CBM")}<input name="cbm" type="number" min="0" step="0.001" className={input} />
                 </label>
                 <label className={label}>
-                  Transporteur
-                  <input name="carrier" className={input} placeholder="Nom du transporteur" />
+                  {dashboardText("Transporteur")}<input name="carrier" className={input} placeholder={dashboardText("Nom du transporteur")} />
                 </label>
               </div>
               <label className={label}>
-                Référence de transport
-                <input name="reference" className={input} placeholder="Vol, navire ou conteneur" />
+                {dashboardText("Référence de transport")}<input name="reference" className={input} placeholder={dashboardText("Vol, navire ou conteneur")} />
               </label>
             </>
           ) : (
             <>
               <label className={label}>
-                Départ ouvert
-                <select required name="departure" className={input}>
-                  <option value="">Sélectionner un départ</option>
+                {dashboardText("Départ ouvert")}<select required name="departure" className={input}>
+                  <option value="">{dashboardText("Sélectionner un départ")}</option>
                   {deps
                     .filter((departure) => departure.status === "OPEN")
                     .map((departure) => (
@@ -172,26 +163,23 @@ export function DepartureCommandCenter() {
                 </select>
               </label>
               <label className={label}>
-                Expédition
-                <select required name="shipment" className={input}>
-                  <option value="">Sélectionner une expédition</option>
+                {dashboardText("Expédition")}<select required name="shipment" className={input}>
+                  <option value="">{dashboardText("Sélectionner une expédition")}</option>
                   {ships.map((shipment) => (
                     <option key={shipment.id} value={shipment.id}>
-                      {shipment.expedition_reference} · {shipment.total_weight_kg} kg
-                    </option>
+                      {shipment.expedition_reference} · {shipment.total_weight_kg} {dashboardText(" kg")}</option>
                   ))}
                 </select>
               </label>
             </>
           )}
           {error && (
-            <p className="rounded-[5px] bg-red-50 p-3 text-[12px] text-red-700">{error}</p>
+            <p className="rounded-[5px] bg-red-50 p-3 text-[12px] text-red-700">{dashboardText(error)}</p>
           )}
           <footer className="flex justify-end gap-2 border-t pt-4">
             <button type="button" className={button} onClick={() => setOpen(false)}>
-              Annuler
-            </button>
-            <button className={primary}>Valider</button>
+              {dashboardText("Annuler")}</button>
+            <button className={primary}>{dashboardText("Valider")}</button>
           </footer>
         </form>
       </OperationDrawer>

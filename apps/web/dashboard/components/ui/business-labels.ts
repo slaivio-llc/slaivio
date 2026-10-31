@@ -1,3 +1,4 @@
+import {dashboardText} from '@/components/i18n/dashboard-messages';
 const businessLabels: Record<string, string> = {
   OWNER: "Propriétaire", MANAGER: "Responsable", OPERATOR: "Agent opérationnel",
   WAREHOUSE: "Entrepôt", FINANCE: "Gestion financière", SUPPORT: "Assistance clients",
@@ -104,14 +105,14 @@ const businessLabels: Record<string, string> = {
 };
 
 export function businessLabel(value: unknown, fallback = "Non renseigné") {
-  if (value === null || value === undefined || value === "") return fallback;
+  if (value === null || value === undefined || value === "") return dashboardText(fallback);
   const raw = String(value).trim();
   const key = raw.toUpperCase();
-  if (businessLabels[key]) return businessLabels[key];
+  if (businessLabels[key]) return dashboardText(businessLabels[key]);
 
   // Unknown machine identifiers are not translations. Keep custom, readable
   // agency labels intact, but never turn a backend code into English prose.
-  if (/^[a-z\d]+(?:[_.:][a-z\d]+)+$/i.test(raw)) return fallback;
+  if (/^[a-z\d]+(?:[_.:][a-z\d]+)+$/i.test(raw)) return dashboardText(fallback);
   return raw
     .replaceAll("_", " ")
     .toLocaleLowerCase("fr-FR")
@@ -147,8 +148,8 @@ const eventLabels: Record<string,string> = {
 export function businessHistoryTitle(value: unknown, eventType?: unknown) {
   const raw = typeof value === 'string' ? value.trim() : '';
   const known = eventLabels[raw.toUpperCase()];
-  if (known) return known;
-  const translated = raw.replace(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b/g, token => businessLabels[token] || token);
-  if (translated && !/\b[A-Za-z\d]+(?:[_.:][A-Za-z\d]+)+\b/.test(translated) && !/^[A-Z\d _:-]+$/.test(translated)) return translated;
-  return eventLabels[String(eventType || '').toUpperCase()] || 'Mise à jour enregistrée';
+  if (known) return dashboardText(known);
+  const translated = raw.replace(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*\b/g, token => businessLabels[token] ? dashboardText(businessLabels[token]) : token);
+  if (translated && !/\b[A-Za-z\d]+(?:[_.:][A-Za-z\d]+)+\b/.test(translated) && !/^[A-Z\d _:-]+$/.test(translated)) return dashboardText(translated);
+  return dashboardText(eventLabels[String(eventType || '').toUpperCase()] || 'Mise à jour enregistrée');
 }

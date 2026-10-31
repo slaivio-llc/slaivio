@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 
 import axios from "axios";
@@ -91,15 +93,17 @@ const buttonClass = "inline-flex h-9 items-center justify-center gap-2 rounded-m
 const primaryButtonClass = "inline-flex h-9 items-center justify-center gap-2 rounded-md bg-[#12c76f] px-4 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#0fb966]";
 
 export function ShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
+  useDashboardMessages();
   const [parcel,setParcel]=useState<boolean|null>(null);
   const [error,setError]=useState(false);const [retry,setRetry]=useState(0);
   useEffect(()=>{let active=true;setError(false);getTenantContext().then(context=>{if(active)setParcel(getOrganizationProductProfile(context.active_tenant?.organization_type)===PRODUCT_PROFILES.PARCEL_FREIGHT);}).catch(()=>{if(active)setError(true);});return()=>{active=false;};},[retry]);
-  if(error)return <p role="alert" className="p-8">Fiche indisponible. <button onClick={()=>setRetry(n=>n+1)}>Réessayer</button></p>;
+  if(error)return <p role="alert" className="p-8">{dashboardText("Fiche indisponible. ")}<button onClick={()=>setRetry(n=>n+1)}>{dashboardText("Réessayer")}</button></p>;
   if(parcel===null)return <LoadingState/>;
   return parcel?<FreightShipmentDetail key={shipmentId} shipmentId={shipmentId}/>:<LegacyShipmentDetailPage shipmentId={shipmentId}/>;
 }
 
 function LegacyShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
+  useDashboardMessages();
   const [shipment, setShipment] = useState<ExpeditionDetail | null>(null);
   const [availablePackages, setAvailablePackages] = useState<ShipmentPackageEligibility[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
@@ -155,14 +159,14 @@ function LegacyShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
   }, [shipment]);
 
   if (loading) {
-    return <LoadingState label="Chargement de l’expédition…" />;
+    return <LoadingState label={dashboardText("Chargement de l’expédition…")} />;
   }
 
   if (!shipment) {
     return (
       <div className="min-h-[calc(100vh-56px)] bg-[#f7f8fa] p-8">
-        <OperationBackLink href="/app/shipments" label="Retour aux expéditions" />
-        <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">{error || "Expédition introuvable."}</div>
+        <OperationBackLink href="/app/shipments" label={dashboardText("Retour aux expéditions")} />
+        <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-red-700">{error || dashboardText("Expédition introuvable.")}</div>
       </div>
     );
   }
@@ -173,30 +177,30 @@ function LegacyShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
         <header className="border-b border-[#eceef1] px-6 py-5">
           <div className="mb-5 flex flex-wrap items-center justify-end gap-4">
             <div className="flex items-center gap-2">
-              <OperationBackLink href="/app/shipments" label="Retour aux expéditions" />
-              <button className={`${buttonClass} w-9 px-0`} onClick={load} aria-label="Actualiser" title="Actualiser"><RefreshCcw size={16} /></button>
-              <PermissionGuard permission="shipments.update"><button className={primaryButtonClass} onClick={() => setActiveTab("Colis")}><Plus size={16} /> Ajouter colis</button></PermissionGuard>
+              <OperationBackLink href="/app/shipments" label={dashboardText("Retour aux expéditions")} />
+              <button className={`${buttonClass} w-9 px-0`} onClick={load} aria-label={dashboardText("Actualiser")} title={dashboardText("Actualiser")}><RefreshCcw size={16} /></button>
+              <PermissionGuard permission="shipments.update"><button className={primaryButtonClass} onClick={() => setActiveTab("Colis")}><Plus size={16} /> {dashboardText(" Ajouter colis")}</button></PermissionGuard>
             </div>
           </div>
           <div className="flex flex-wrap items-end justify-between gap-5">
             <div>
-              <div className="mb-2 text-[13px] text-[#5f6b7a]">Operations <span className="mx-1">›</span> Expéditions <span className="mx-1">›</span> {shipment.expedition_reference}</div>
+              <div className="mb-2 text-[13px] text-[#5f6b7a]">{dashboardText("Operations ")}<span className="mx-1">›</span> {dashboardText(" Expéditions ")}<span className="mx-1">›</span> {shipment.expedition_reference}</div>
               <h1 className="text-[21px] font-semibold">{shipment.expedition_reference}</h1>
               <p className="mt-2 text-[15px] text-[#5f6b7a]">
-                {shipment.title || "Expédition cargo"} · {modeLabels[shipment.mode]} · {shipment.route_label || `${shipment.origin_country || "-"} → ${shipment.destination_country || "-"}`}
+                {shipment.title || dashboardText("Expédition cargo")} · {dashboardText(modeLabels[shipment.mode])} · {shipment.route_label || `${shipment.origin_country || dashboardText("-")} → ${shipment.destination_country || dashboardText("-")}`}
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3 text-right">
-              <HeaderMetric label="ETA" value={formatDate(shipment.eta_at)} />
-              <HeaderMetric label="Colis" value={shipment.packages_count} />
-              <HeaderMetric label="Clients" value={shipment.clients_count} />
+              <HeaderMetric label={dashboardText("ETA")} value={formatDate(shipment.eta_at)} />
+              <HeaderMetric label={dashboardText("Colis")} value={shipment.packages_count} />
+              <HeaderMetric label={dashboardText("Clients")} value={shipment.clients_count} />
             </div>
           </div>
         </header>
 
-        {error ? <div className="m-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">{error}</div> : null}
+        {error ? <div className="m-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-700">{dashboardText(error)}</div> : null}
 
-        <div className="border-b border-[#d8dce2] px-4 py-2"><select aria-label="Vue de l’expédition" className="h-9 w-full max-w-[260px] rounded-[6px] border border-[#d5dade] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]" value={activeTab} onChange={(event) => setActiveTab(event.target.value as Tab)}>{[...primaryTabs, ...secondaryTabs].map((tab) => <option key={tab} value={tab}>{tab}</option>)}</select></div>
+        <div className="border-b border-[#d8dce2] px-4 py-2"><select aria-label={dashboardText("Vue de l’expédition")} className="h-9 w-full max-w-[260px] rounded-[6px] border border-[#d5dade] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]" value={activeTab} onChange={(event) => setActiveTab(event.target.value as Tab)}>{[...primaryTabs, ...secondaryTabs].map((tab) => <option key={tab} value={tab}>{tab}</option>)}</select></div>
 
         <div className="p-5">
           {activeTab === "Overview" ? <Overview shipment={shipment} progress={progress} setTab={setActiveTab} /> : null}
@@ -232,22 +236,23 @@ function LegacyShipmentDetailPage({ shipmentId }: { shipmentId: string }) {
 }
 
 function Overview({ shipment, progress, setTab }: { shipment: ExpeditionDetail; progress: number; setTab: (tab: Tab) => void }) {
+  useDashboardMessages();
   const riskText = shipment.open_anomalies ? `${shipment.open_anomalies} anomalie(s) ouverte(s)` : "Risque opérationnel maîtrisé";
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
       <div className="space-y-5">
-        <Card title="Route opérationnelle">
+        <Card title={dashboardText("Route opérationnelle")}>
           <div className="flex items-center justify-between gap-5">
-            <RoutePoint label="Départ" city={shipment.origin_city} country={shipment.origin_country} warehouse={shipment.origin_warehouse} />
+            <RoutePoint label={dashboardText("Départ")} city={shipment.origin_city} country={shipment.origin_country} warehouse={shipment.origin_warehouse} />
             <ArrowLine />
-            <RoutePoint label="Transit" city={shipment.carrier_name || shipment.mode} country={shipment.service_type} warehouse={shipment.flight_number || shipment.container_number} />
+            <RoutePoint label={dashboardText("Transit")} city={shipment.carrier_name || shipment.mode} country={shipment.service_type} warehouse={shipment.flight_number || shipment.container_number} />
             <ArrowLine />
-            <RoutePoint label="Destination" city={shipment.destination_city} country={shipment.destination_country} warehouse={shipment.destination_warehouse} />
+            <RoutePoint label={dashboardText("Destination")} city={shipment.destination_city} country={shipment.destination_country} warehouse={shipment.destination_warehouse} />
           </div>
         </Card>
-        <Card title="Progression">
+        <Card title={dashboardText("Progression")}>
           <div className="mb-4 flex items-center justify-between">
-            <span className="text-[14px] text-[#64748b]">Progression logistique</span>
+            <span className="text-[14px] text-[#64748b]">{dashboardText("Progression logistique")}</span>
             <span className="font-semibold text-[#067a45]">{progress}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-[#edf1f5]"><div className="h-full rounded-full bg-[#12c76f]" style={{ width: `${progress}%` }} /></div>
@@ -265,25 +270,25 @@ function Overview({ shipment, progress, setTab }: { shipment: ExpeditionDetail; 
         </Card>
       </div>
       <div className="space-y-5">
-        <Card title="Résumé expédition">
-          <SummaryLine label="Colis" value={shipment.packages_count} />
-          <SummaryLine label="Clients" value={shipment.clients_count} />
-          <SummaryLine label="Poids total" value={`${formatNumber(shipment.total_weight_kg)} kg`} />
-          <SummaryLine label="Volume" value={`${formatNumber(shipment.total_volume_cbm)} CBM`} />
-          <SummaryLine label="Risque" value={riskText} />
-          <SummaryLine label="Profit estimé" value={`${formatMoney(shipment.profit_total, shipment.currency)}`} />
+        <Card title={dashboardText("Résumé expédition")}>
+          <SummaryLine label={dashboardText("Colis")} value={shipment.packages_count} />
+          <SummaryLine label={dashboardText("Clients")} value={shipment.clients_count} />
+          <SummaryLine label={dashboardText("Poids total")} value={`${formatNumber(shipment.total_weight_kg)} kg`} />
+          <SummaryLine label={dashboardText("Volume")} value={`${formatNumber(shipment.total_volume_cbm)} CBM`} />
+          <SummaryLine label={dashboardText("Risque")} value={riskText} />
+          <SummaryLine label={dashboardText("Profit estimé")} value={`${formatMoney(shipment.profit_total, shipment.currency)}`} />
         </Card>
-        <Card title="Actions rapides">
+        <Card title={dashboardText("Actions rapides")}>
           <div className="grid gap-2">
-            <button className={buttonClass} onClick={() => setTab("Colis")}><Package size={16} /> Ajouter des colis</button>
-            <button className={buttonClass} onClick={() => setTab("Tracking")}><Truck size={16} /> Mettre à jour tracking</button>
-            <button className={buttonClass} onClick={() => setTab("Risques")}><Bell size={16} /> Notifier les clients</button>
-            <button className={buttonClass} onClick={() => setTab("Finance")}><DollarSign size={16} /> Ajouter coûts/revenus</button>
+            <button className={buttonClass} onClick={() => setTab("Colis")}><Package size={16} /> {dashboardText(" Ajouter des colis")}</button>
+            <button className={buttonClass} onClick={() => setTab("Tracking")}><Truck size={16} /> {dashboardText(" Mettre à jour tracking")}</button>
+            <button className={buttonClass} onClick={() => setTab("Risques")}><Bell size={16} /> {dashboardText(" Notifier les clients")}</button>
+            <button className={buttonClass} onClick={() => setTab("Finance")}><DollarSign size={16} /> {dashboardText(" Ajouter coûts/revenus")}</button>
           </div>
         </Card>
-        <Card title="Synthèse opérationnelle">
+        <Card title={dashboardText("Synthèse opérationnelle")}>
           <p className="text-[14px] leading-6 text-[#526071]">
-            Cette expédition contient {shipment.packages_count} colis pour {shipment.clients_count} client(s). Le mode est {modeLabels[shipment.mode]} avec une ETA au {formatDate(shipment.eta_at)}. {shipment.is_delayed ? "Un retard est marqué, une communication client est recommandée." : "Aucun retard n'est marqué pour le moment."}
+            {dashboardText("Cette expédition contient ")}{shipment.packages_count} {dashboardText(" colis pour ")}{shipment.clients_count} {dashboardText(" client(s). Le mode est ")}{dashboardText(modeLabels[shipment.mode])} {dashboardText(" avec une ETA au ")}{formatDate(shipment.eta_at)}. {shipment.is_delayed ? dashboardText("Un retard est marqué, une communication client est recommandée.") : dashboardText("Aucun retard n'est marqué pour le moment.")}
           </p>
         </Card>
       </div>
@@ -292,6 +297,7 @@ function Overview({ shipment, progress, setTab }: { shipment: ExpeditionDetail; 
 }
 
 function PackagesTab({ shipment, availablePackages, saving, onAdd, onRemove }: { shipment: ExpeditionDetail; availablePackages: ShipmentPackageEligibility[]; saving: boolean; onAdd: (id: string) => void; onRemove: (id: string) => void }) {
+  useDashboardMessages();
   const candidates = availablePackages.filter((item) => item.eligible);
   const blocked = availablePackages.filter((item) => !item.eligible);
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -304,23 +310,22 @@ function PackagesTab({ shipment, availablePackages, saving, onAdd, onRemove }: {
     <div className="space-y-4">
       <form className="flex flex-wrap items-end gap-3 rounded-md border border-[#d8dce2] bg-[#fbfcfd] p-4" onSubmit={handleSubmit}>
         <label className="min-w-[320px] flex-1">
-          <span className="mb-1 block text-[13px] font-medium text-[#334155]">Colis à ajouter</span>
+          <span className="mb-1 block text-[13px] font-medium text-[#334155]">{dashboardText("Colis à ajouter")}</span>
           <select name="package_id" className="h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[14px]">
-            <option value="">Sélectionner un colis</option>
-            {candidates.map((item) => <option key={item.id} value={item.id}>{item.package_reference || item.tracking_id} · {item.client_name || "Client non renseigné"}</option>)}
+            <option value="">{dashboardText("Sélectionner un colis")}</option>
+            {candidates.map((item) => <option key={item.id} value={item.id}>{item.package_reference || item.tracking_id} · {item.client_name || dashboardText("Client non renseigné")}</option>)}
           </select>
         </label>
-        <button className={primaryButtonClass} disabled={saving || candidates.length === 0}><Plus size={16} /> Ajouter</button>
+        <button className={primaryButtonClass} disabled={saving || candidates.length === 0}><Plus size={16} /> {dashboardText(" Ajouter")}</button>
       </form>
       {blocked.length ? (
         <details className="rounded-md border border-[#e5e7eb] bg-white">
           <summary className="cursor-pointer px-4 py-3 text-[13px] font-medium text-[#475569]">
-            {blocked.length} colis à régulariser avant expédition
-          </summary>
+            {blocked.length} {dashboardText(" colis à régulariser avant expédition")}</summary>
           <div className="divide-y divide-[#eef0f2] border-t border-[#eef0f2]">
             {blocked.slice(0, 30).map((item) => (
               <div key={item.id} className="grid gap-1 px-4 py-3 md:grid-cols-[220px_1fr]">
-                <div className="text-[13px] font-medium text-[#1f2937]">{item.package_reference || item.tracking_id || "Colis"}</div>
+                <div className="text-[13px] font-medium text-[#1f2937]">{item.package_reference || item.tracking_id || dashboardText("Colis")}</div>
                 <div className="text-[12px] leading-5 text-[#b45309]">{item.reasons.join(" ")}</div>
               </div>
             ))}
@@ -331,13 +336,13 @@ function PackagesTab({ shipment, availablePackages, saving, onAdd, onRemove }: {
         {shipment.packages.map((item) => (
           <tr className="border-b border-[#edf0f3]" key={item.id}>
             <td className="px-4 py-3 font-semibold">{item.package_reference || item.tracking_id}</td>
-            <td className="px-4 py-3">{item.client_name || "-"}</td>
-            <td className="px-4 py-3">{item.dossier_reference || "-"}</td>
+            <td className="px-4 py-3">{item.client_name || dashboardText("-")}</td>
+            <td className="px-4 py-3">{item.dossier_reference || dashboardText("-")}</td>
             <td className="px-4 py-3">{businessLabel(item.status)}</td>
-            <td className="px-4 py-3">{formatNumber(item.weight_kg)} kg</td>
-            <td className="px-4 py-3">{formatNumber(item.volume_cbm)} CBM</td>
+            <td className="px-4 py-3">{formatNumber(item.weight_kg)} {dashboardText(" kg")}</td>
+            <td className="px-4 py-3">{formatNumber(item.volume_cbm)} {dashboardText(" CBM")}</td>
             <td className="px-4 py-3">{businessLabel(item.payment_status)}</td>
-            <td className="px-4 py-3 text-right"><button className={buttonClass} onClick={() => onRemove(item.id)}><X size={15} /> Retirer</button></td>
+            <td className="px-4 py-3 text-right"><button className={buttonClass} onClick={() => onRemove(item.id)}><X size={15} /> {dashboardText(" Retirer")}</button></td>
           </tr>
         ))}
       </DataTable>
@@ -346,17 +351,18 @@ function PackagesTab({ shipment, availablePackages, saving, onAdd, onRemove }: {
 }
 
 function ClientsTab({ shipment }: { shipment: ExpeditionDetail }) {
+  useDashboardMessages();
   return (
     <DataTable headers={["Client", "Téléphone", "Email", "Colis", "Poids", "Valeur", "Paiement"]}>
       {shipment.clients.map((client) => (
         <tr className="border-b border-[#edf0f3]" key={client.id || client.name || "unknown"}>
-          <td className="px-4 py-3 font-semibold">{client.name || "Client non renseigné"}</td>
-          <td className="px-4 py-3">{client.phone || "-"}</td>
-          <td className="px-4 py-3">{client.email || "-"}</td>
+          <td className="px-4 py-3 font-semibold">{client.name || dashboardText("Client non renseigné")}</td>
+          <td className="px-4 py-3">{client.phone || dashboardText("-")}</td>
+          <td className="px-4 py-3">{client.email || dashboardText("-")}</td>
           <td className="px-4 py-3">{client.packages_count}</td>
-          <td className="px-4 py-3">{formatNumber(client.total_weight_kg)} kg</td>
+          <td className="px-4 py-3">{formatNumber(client.total_weight_kg)} {dashboardText(" kg")}</td>
           <td className="px-4 py-3">{formatMoney(client.declared_value_total, shipment.currency)}</td>
-          <td className="px-4 py-3">{client.unpaid_packages ? `${client.unpaid_packages} à vérifier` : "OK"}</td>
+          <td className="px-4 py-3">{client.unpaid_packages ? dashboardText("{0} à vérifier", client.unpaid_packages) : dashboardText("OK")}</td>
         </tr>
       ))}
     </DataTable>
@@ -364,9 +370,10 @@ function ClientsTab({ shipment }: { shipment: ExpeditionDetail }) {
 }
 
 function TrackingTab({ shipment, saving, onComplete }: { shipment: ExpeditionDetail; saving: boolean; onComplete: (key: string) => void }) {
+  useDashboardMessages();
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
-      <Card title="Timeline tracking">
+      <Card title={dashboardText("Timeline tracking")}>
         <div className="space-y-3">
           {shipment.checkpoints.map((checkpoint) => (
             <div key={checkpoint.id} className="flex gap-4 rounded-md border border-[#e1e6ec] bg-white p-4">
@@ -377,9 +384,9 @@ function TrackingTab({ shipment, saving, onComplete }: { shipment: ExpeditionDet
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold">{checkpoint.title}</div>
-                    <div className="mt-1 text-[13px] text-[#64748b]">{checkpoint.location || "Position non renseignée"} · {formatDate(checkpoint.completed_at || checkpoint.planned_at)}</div>
+                    <div className="mt-1 text-[13px] text-[#64748b]">{checkpoint.location || dashboardText("Position non renseignée")} · {formatDate(checkpoint.completed_at || checkpoint.planned_at)}</div>
                   </div>
-                  {checkpoint.status !== "COMPLETED" ? <button className={buttonClass} disabled={saving} onClick={() => onComplete(checkpoint.checkpoint_key)}><CheckCircle2 size={16} /> Terminer</button> : null}
+                  {checkpoint.status !== "COMPLETED" ? <button className={buttonClass} disabled={saving} onClick={() => onComplete(checkpoint.checkpoint_key)}><CheckCircle2 size={16} /> {dashboardText(" Terminer")}</button> : null}
                 </div>
                 {checkpoint.notes ? <p className="mt-2 text-[13px] text-[#526071]">{checkpoint.notes}</p> : null}
               </div>
@@ -387,16 +394,17 @@ function TrackingTab({ shipment, saving, onComplete }: { shipment: ExpeditionDet
           ))}
         </div>
       </Card>
-      <Card title="Dernière position">
+      <Card title={dashboardText("Dernière position")}>
         <MapPin className="mb-3 text-[#12c76f]" size={24} />
         <div className="text-[18px] font-semibold">{lastLocation(shipment)}</div>
-        <p className="mt-2 text-[14px] leading-6 text-[#64748b]">Mettez à jour les étapes dès qu&apos;un événement opérationnel est confirmé. La timeline servira ensuite aux notifications client.</p>
+        <p className="mt-2 text-[14px] leading-6 text-[#64748b]">{dashboardText("Mettez à jour les étapes dès qu'un événement opérationnel est confirmé. La timeline servira ensuite aux notifications client.")}</p>
       </Card>
     </div>
   );
 }
 
 function TimelineTab({ shipment }: { shipment: ExpeditionDetail }) {
+  useDashboardMessages();
   return (
     <div className="space-y-3">
       {shipment.events.map((event) => (
@@ -413,6 +421,7 @@ function TimelineTab({ shipment }: { shipment: ExpeditionDetail }) {
 }
 
 function DocumentsTab({ shipment, saving, onUpload }: { shipment: ExpeditionDetail; saving: boolean; onUpload: (file:File,type:string,notes?:string) => Promise<void> }) {
+  useDashboardMessages();
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -423,18 +432,18 @@ function DocumentsTab({ shipment, saving, onUpload }: { shipment: ExpeditionDeta
   async function open(documentId:string){const url=await getShipmentDocumentUrl(shipment.id,documentId);window.open(url,"_blank","noopener,noreferrer")}
   async function manifest(){const blob=await exportShipmentManifest(shipment.id);const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`manifest-${shipment.expedition_reference}.csv`;link.click();URL.revokeObjectURL(url)}
   return (
-    <div className="space-y-4"><div className="flex justify-end"><button className={buttonClass} onClick={manifest}>Télécharger le manifeste</button></div>
+    <div className="space-y-4"><div className="flex justify-end"><button className={buttonClass} onClick={manifest}>{dashboardText("Télécharger le manifeste")}</button></div>
       <InlineForm onSubmit={handleSubmit} saving={saving} submitLabel="Ajouter document">
-        <Field name="document_type" label="Type" placeholder="Manifest, AWB, BL..." />
-        <label><span className="mb-1 block text-[13px] font-medium text-[#334155]">Fichier privé</span><input required name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.docx" className="block w-full text-[12px]"/></label>
-        <Field name="notes" label="Notes" placeholder="Document douane" />
+        <Field name="document_type" label={dashboardText("Type")} placeholder={dashboardText("Manifest, AWB, BL...")} />
+        <label><span className="mb-1 block text-[13px] font-medium text-[#334155]">{dashboardText("Fichier privé")}</span><input required name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.docx" className="block w-full text-[12px]"/></label>
+        <Field name="notes" label={dashboardText("Notes")} placeholder={dashboardText("Document douane")} />
       </InlineForm>
       <DataTable headers={["Type", "Nom", "URL", "Visibilité", "Ajouté le"]}>
         {shipment.documents.map((doc) => (
           <tr className="border-b border-[#edf0f3]" key={doc.id}>
             <td className="px-4 py-3 font-semibold">{doc.document_type}</td>
-            <td className="px-4 py-3">{doc.file_name || "-"}</td>
-            <td className="px-4 py-3"><button className="text-[#5149bd] hover:underline" onClick={()=>open(doc.id)}>Ouvrir</button></td>
+            <td className="px-4 py-3">{doc.file_name || dashboardText("-")}</td>
+            <td className="px-4 py-3"><button className="text-[#5149bd] hover:underline" onClick={()=>open(doc.id)}>{dashboardText("Ouvrir")}</button></td>
             <td className="px-4 py-3">{doc.visibility}</td>
             <td className="px-4 py-3">{formatDate(doc.created_at)}</td>
           </tr>
@@ -445,6 +454,7 @@ function DocumentsTab({ shipment, saving, onUpload }: { shipment: ExpeditionDeta
 }
 
 function FinanceTab({ shipment, saving, onSubmit }: { shipment: ExpeditionDetail; saving: boolean; onSubmit: (payload: { line_type?: string; amount: number; direction?: "COST" | "REVENUE"; category?: string; description?: string; currency?: string }) => void }) {
+  useDashboardMessages();
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -456,24 +466,24 @@ function FinanceTab({ shipment, saving, onSubmit }: { shipment: ExpeditionDetail
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-3">
-        <MetricCard label="Revenus" value={formatMoney(shipment.billed_total, shipment.currency)} />
-        <MetricCard label="Coûts" value={formatMoney(shipment.cost_total, shipment.currency)} warm />
-        <MetricCard label="Profit" value={formatMoney(shipment.profit_total, shipment.currency)} />
+        <MetricCard label={dashboardText("Revenus")} value={formatMoney(shipment.billed_total, shipment.currency)} />
+        <MetricCard label={dashboardText("Coûts")} value={formatMoney(shipment.cost_total, shipment.currency)} warm />
+        <MetricCard label={dashboardText("Profit")} value={formatMoney(shipment.profit_total, shipment.currency)} />
       </div>
       <InlineForm onSubmit={handleSubmit} saving={saving} submitLabel="Ajouter ligne">
-        <Field name="line_type" label="Type" placeholder="Transport, douane..." />
-        <Field name="category" label="Catégorie" placeholder="Air freight" />
-        <Select name="direction" label="Direction" options={{ COST: "Coût", REVENUE: "Revenu" }} />
-        <Field name="amount" label="Montant" type="number" required />
-        <Field name="currency" label="Devise" defaultValue={shipment.currency} />
-        <Field name="description" label="Description" placeholder="Détail de la ligne" />
+        <Field name="line_type" label={dashboardText("Type")} placeholder={dashboardText("Transport, douane...")} />
+        <Field name="category" label={dashboardText("Catégorie")} placeholder={dashboardText("Air freight")} />
+        <Select name="direction" label={dashboardText("Direction")} options={{ COST: "Coût", REVENUE: "Revenu" }} />
+        <Field name="amount" label={dashboardText("Montant")} type="number" required />
+        <Field name="currency" label={dashboardText("Devise")} defaultValue={shipment.currency} />
+        <Field name="description" label={dashboardText("Description")} placeholder={dashboardText("Détail de la ligne")} />
       </InlineForm>
       <DataTable headers={["Direction", "Type", "Catégorie", "Montant", "Statut", "Créé le"]}>
         {shipment.financial_lines.map((line) => (
           <tr className="border-b border-[#edf0f3]" key={line.id}>
             <td className="px-4 py-3">{line.direction}</td>
             <td className="px-4 py-3 font-semibold">{line.line_type}</td>
-            <td className="px-4 py-3">{line.category || "-"}</td>
+            <td className="px-4 py-3">{line.category || dashboardText("-")}</td>
             <td className="px-4 py-3">{formatMoney(line.amount, line.currency)}</td>
             <td className="px-4 py-3">{line.status}</td>
             <td className="px-4 py-3">{formatDate(line.created_at)}</td>
@@ -485,6 +495,7 @@ function FinanceTab({ shipment, saving, onSubmit }: { shipment: ExpeditionDetail
 }
 
 function RisksTab({ shipment, saving, onSubmit, onResolve, onNotify }: { shipment: ExpeditionDetail; saving: boolean; onSubmit: (payload: { title: string; severity?: RiskLevel; anomaly_type?: string; description?: string }) => void; onResolve: (id: string) => void; onNotify: (message: string) => void }) {
+  useDashboardMessages();
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -496,24 +507,23 @@ function RisksTab({ shipment, saving, onSubmit, onResolve, onNotify }: { shipmen
   return (
     <div className="space-y-4">
       <InlineForm onSubmit={handleSubmit} saving={saving} submitLabel="Signaler">
-        <Field name="title" label="Titre" placeholder="Retard douane, colis manquant..." required />
-        <Select name="severity" label="Sévérité" options={riskLabels} defaultValue="MEDIUM" />
-        <Field name="anomaly_type" label="Type" placeholder="Douane, retard, document..." />
-        <Field name="description" label="Description" placeholder="Contexte opérationnel" />
+        <Field name="title" label={dashboardText("Titre")} placeholder={dashboardText("Retard douane, colis manquant...")} required />
+        <Select name="severity" label={dashboardText("Sévérité")} options={riskLabels} defaultValue="MEDIUM" />
+        <Field name="anomaly_type" label={dashboardText("Type")} placeholder={dashboardText("Douane, retard, document...")} />
+        <Field name="description" label={dashboardText("Description")} placeholder={dashboardText("Contexte opérationnel")} />
       </InlineForm>
       <div className="flex justify-end">
         <button className={buttonClass} onClick={() => onNotify(`Mise à jour expédition ${shipment.expedition_reference}: votre cargaison est actuellement au statut ${statusLabels[shipment.status]}.`)}>
-          <Bell size={16} /> Préparer notification client
-        </button>
+          <Bell size={16} /> {dashboardText(" Préparer notification client")}</button>
       </div>
       <DataTable headers={["Anomalie", "Sévérité", "Statut", "Détectée", ""]}>
         {shipment.anomalies.map((anomaly) => (
           <tr className="border-b border-[#edf0f3]" key={anomaly.id}>
             <td className="px-4 py-3"><div className="font-semibold">{anomaly.title}</div><div className="text-[#64748b]">{anomaly.description || anomaly.anomaly_type}</div></td>
-            <td className="px-4 py-3">{riskLabels[anomaly.severity]}</td>
+            <td className="px-4 py-3">{dashboardText(riskLabels[anomaly.severity])}</td>
             <td className="px-4 py-3">{anomaly.status}</td>
             <td className="px-4 py-3">{formatDate(anomaly.detected_at)}</td>
-            <td className="px-4 py-3 text-right">{anomaly.status !== "RESOLVED" ? <button className={buttonClass} onClick={() => onResolve(anomaly.id)}><CheckCircle2 size={16} /> Résoudre</button> : null}</td>
+            <td className="px-4 py-3 text-right">{anomaly.status !== "RESOLVED" ? <button className={buttonClass} onClick={() => onResolve(anomaly.id)}><CheckCircle2 size={16} /> {dashboardText(" Résoudre")}</button> : null}</td>
           </tr>
         ))}
       </DataTable>
@@ -522,6 +532,7 @@ function RisksTab({ shipment, saving, onSubmit, onResolve, onNotify }: { shipmen
 }
 
 function NotesTab({ shipment, saving, onSubmit }: { shipment: ExpeditionDetail; saving: boolean; onSubmit: (note: string) => void }) {
+  useDashboardMessages();
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const note = value(new FormData(event.currentTarget), "note");
@@ -532,8 +543,8 @@ function NotesTab({ shipment, saving, onSubmit }: { shipment: ExpeditionDetail; 
   return (
     <div className="space-y-4">
       <form className="rounded-md border border-[#d8dce2] bg-[#fbfcfd] p-4" onSubmit={handleSubmit}>
-        <textarea name="note" className="min-h-24 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[14px]" placeholder="Note privée pour cette expédition..." />
-        <div className="mt-3 flex justify-end"><button className={primaryButtonClass} disabled={saving}><StickyNote size={16} /> Ajouter note</button></div>
+        <textarea name="note" className="min-h-24 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[14px]" placeholder={dashboardText("Note privée pour cette expédition...")} />
+        <div className="mt-3 flex justify-end"><button className={primaryButtonClass} disabled={saving}><StickyNote size={16} /> {dashboardText(" Ajouter note")}</button></div>
       </form>
       <div className="grid gap-3 md:grid-cols-2">
         {shipment.notes_list.map((note) => (
@@ -548,6 +559,7 @@ function NotesTab({ shipment, saving, onSubmit }: { shipment: ExpeditionDetail; 
 }
 
 function SettingsTab({ shipment, saving, onSubmit,onArchive }: { shipment: ExpeditionDetail; saving: boolean; onSubmit: (payload: ExpeditionPayload) => void;onArchive:()=>Promise<void> }) {
+  useDashboardMessages();
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -565,26 +577,26 @@ function SettingsTab({ shipment, saving, onSubmit,onArchive }: { shipment: Exped
   }
   return (
     <form className="grid gap-4 md:grid-cols-3" onSubmit={handleSubmit}>
-      <Field name="title" label="Titre" defaultValue={shipment.title || ""} />
-      <Select name="status" label="Statut" options={statusLabels} defaultValue={shipment.status} />
-      <Select name="mode" label="Mode" options={modeLabels} defaultValue={shipment.mode} />
-      <Select name="risk_level" label="Risque" options={riskLabels} defaultValue={shipment.risk_level} />
-      <Field name="eta_at" label="ETA" type="datetime-local" defaultValue={toDatetimeLocal(shipment.eta_at)} />
-      <Field name="owner_name" label="Responsable" defaultValue={shipment.owner_name || ""} />
+      <Field name="title" label={dashboardText("Titre")} defaultValue={shipment.title || ""} />
+      <Select name="status" label={dashboardText("Statut")} options={statusLabels} defaultValue={shipment.status} />
+      <Select name="mode" label={dashboardText("Mode")} options={modeLabels} defaultValue={shipment.mode} />
+      <Select name="risk_level" label={dashboardText("Risque")} options={riskLabels} defaultValue={shipment.risk_level} />
+      <Field name="eta_at" label={dashboardText("ETA")} type="datetime-local" defaultValue={toDatetimeLocal(shipment.eta_at)} />
+      <Field name="owner_name" label={dashboardText("Responsable")} defaultValue={shipment.owner_name || ""} />
       <label className="flex items-center gap-2 text-[14px]">
-        <input name="is_delayed" type="checkbox" defaultChecked={shipment.is_delayed} /> Marquer en retard
-      </label>
-      <Field name="delay_reason" label="Raison retard" defaultValue={shipment.delay_reason || ""} />
+        <input name="is_delayed" type="checkbox" defaultChecked={shipment.is_delayed} /> {dashboardText(" Marquer en retard")}</label>
+      <Field name="delay_reason" label={dashboardText("Raison retard")} defaultValue={shipment.delay_reason || ""} />
       <label className="md:col-span-3">
-        <span className="mb-1 block text-[13px] font-medium text-[#334155]">Notes</span>
+        <span className="mb-1 block text-[13px] font-medium text-[#334155]">{dashboardText("Notes")}</span>
         <textarea name="notes" defaultValue={shipment.notes || ""} className="min-h-24 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[14px]" />
       </label>
-      <div className="md:col-span-3 flex items-center justify-between"><PermissionGuard permission="shipments.update"><button className={primaryButtonClass} disabled={saving}><Save size={16} /> Enregistrer</button><button type="button" className="rounded-md px-3 py-2 text-[13px] text-red-700 hover:bg-red-50" onClick={()=>{if(window.confirm("Archiver cette expédition ?"))void onArchive()}}>Archiver</button></PermissionGuard></div>
+      <div className="md:col-span-3 flex items-center justify-between"><PermissionGuard permission="shipments.update"><button className={primaryButtonClass} disabled={saving}><Save size={16} /> {dashboardText(" Enregistrer")}</button><button type="button" className="rounded-md px-3 py-2 text-[13px] text-red-700 hover:bg-red-50" onClick={()=>{if(window.confirm("Archiver cette expédition ?"))void onArchive()}}>{dashboardText("Archiver")}</button></PermissionGuard></div>
     </form>
   );
 }
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
+  useDashboardMessages();
   return (
     <section className="rounded-lg bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.045)] ring-1 ring-[#eceef1]">
       <h2 className="mb-4 text-[16px] font-semibold">{title}</h2>
@@ -594,6 +606,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function DataTable({ headers, children }: { headers: string[]; children: ReactNode }) {
+  useDashboardMessages();
   return (
     <div className="overflow-x-auto rounded-lg border border-[#d8dce2] bg-white">
       <table className="w-full min-w-[860px] border-collapse text-left text-[13px]">
@@ -607,6 +620,7 @@ function DataTable({ headers, children }: { headers: string[]; children: ReactNo
 }
 
 function InlineForm({ children, saving, submitLabel, onSubmit }: { children: ReactNode; saving: boolean; submitLabel: string; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  useDashboardMessages();
   return (
     <form className="grid gap-3 rounded-md border border-[#d8dce2] bg-[#fbfcfd] p-4 md:grid-cols-4" onSubmit={onSubmit}>
       {children}
@@ -616,42 +630,49 @@ function InlineForm({ children, saving, submitLabel, onSubmit }: { children: Rea
 }
 
 function Field({ label, name, placeholder, type = "text", defaultValue, required }: { label: string; name: string; placeholder?: string; type?: string; defaultValue?: string; required?: boolean }) {
+  useDashboardMessages();
   return (
     <label>
-      <span className="mb-1 block text-[13px] font-medium text-[#334155]">{label}</span>
+      <span className="mb-1 block text-[13px] font-medium text-[#334155]">{dashboardText(label)}</span>
       <input name={name} required={required} type={type} defaultValue={defaultValue} placeholder={placeholder} className="h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[14px] outline-none focus:border-[#12c76f]" />
     </label>
   );
 }
 
 function Select({ label, name, options, defaultValue }: { label: string; name: string; options: Record<string, string>; defaultValue?: string }) {
+  useDashboardMessages();
   return (
     <label>
-      <span className="mb-1 block text-[13px] font-medium text-[#334155]">{label}</span>
+      <span className="mb-1 block text-[13px] font-medium text-[#334155]">{dashboardText(label)}</span>
       <select name={name} defaultValue={defaultValue} className="h-9 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[14px] outline-none focus:border-[#12c76f]">
-        {Object.entries(options).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
+        {Object.entries(options).map(([key, label]) => <option value={key} key={key}>{dashboardText(label)}</option>)}
       </select>
     </label>
   );
 }
 
 function HeaderMetric({ label, value }: { label: string; value: ReactNode }) {
-  return <div><div className="text-[12px] text-[#64748b]">{label}</div><div className="mt-1 font-semibold">{value}</div></div>;
+  useDashboardMessages();
+  return <div><div className="text-[12px] text-[#64748b]">{dashboardText(label)}</div><div className="mt-1 font-semibold">{value}</div></div>;
 }
 
 function MetricCard({ label, value, warm }: { label: string; value: string; warm?: boolean }) {
-  return <div className={`rounded-md border p-4 ${warm ? "border-amber-200 bg-amber-50" : "border-[#d8dce2] bg-white"}`}><div className="text-[13px] text-[#64748b]">{label}</div><div className="mt-2 text-[24px] font-medium">{value}</div></div>;
+  useDashboardMessages();
+  return <div className={`rounded-md border p-4 ${warm ? "border-amber-200 bg-amber-50" : "border-[#d8dce2] bg-white"}`}><div className="text-[13px] text-[#64748b]">{dashboardText(label)}</div><div className="mt-2 text-[24px] font-medium">{value}</div></div>;
 }
 
 function SummaryLine({ label, value }: { label: string; value: ReactNode }) {
-  return <div className="flex items-center justify-between border-b border-[#edf0f3] py-2 last:border-0"><span className="text-[#64748b]">{label}</span><span className="font-semibold">{value}</span></div>;
+  useDashboardMessages();
+  return <div className="flex items-center justify-between border-b border-[#edf0f3] py-2 last:border-0"><span className="text-[#64748b]">{dashboardText(label)}</span><span className="font-semibold">{value}</span></div>;
 }
 
 function RoutePoint({ label, city, country, warehouse }: { label: string; city?: string | null; country?: string | null; warehouse?: string | null }) {
-  return <div className="min-w-0 flex-1 rounded-md border border-[#e1e6ec] bg-[#fbfcfd] p-4"><div className="text-[12px] text-[#64748b]">{label}</div><div className="mt-1 font-semibold">{city || "-"}</div><div className="text-[13px] text-[#64748b]">{country || ""}</div><div className="mt-2 truncate text-[12px] text-[#526071]">{warehouse || "Entrepôt non renseigné"}</div></div>;
+  useDashboardMessages();
+  return <div className="min-w-0 flex-1 rounded-md border border-[#e1e6ec] bg-[#fbfcfd] p-4"><div className="text-[12px] text-[#64748b]">{dashboardText(label)}</div><div className="mt-1 font-semibold">{city || dashboardText("-")}</div><div className="text-[13px] text-[#64748b]">{country || ""}</div><div className="mt-2 truncate text-[12px] text-[#526071]">{warehouse || dashboardText("Entrepôt non renseigné")}</div></div>;
 }
 
 function ArrowLine() {
+  useDashboardMessages();
   return <div className="hidden h-px min-w-12 bg-[#d8dce2] md:block" />;
 }
 
@@ -666,20 +687,20 @@ function clean<T extends Record<string, unknown>>(payload: T): T {
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat(dashboardFormatLocale(), { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
 }
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat(dashboardFormatLocale(), { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function formatNumber(value?: number | null) {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(Number(value || 0));
+  return new Intl.NumberFormat(dashboardFormatLocale(), { maximumFractionDigits: 2 }).format(Number(value || 0));
 }
 
 function formatMoney(value?: number | null, currency = "USD") {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(value || 0));
+  return new Intl.NumberFormat(dashboardFormatLocale(), { style: "currency", currency }).format(Number(value || 0));
 }
 
 function toDatetimeLocal(value?: string | null) {

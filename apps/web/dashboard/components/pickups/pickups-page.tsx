@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
   CheckCircle2,
@@ -59,6 +61,7 @@ const labels: Record<string, string> = {
   CANCELLED: "Annulé",
 };
 export function PickupsPage() {
+  useDashboardMessages();
   const [items, setItems] = useState<Pickup[]>([]),
     [stats, setStats] = useState<PickupStats>({
       waiting: 0,
@@ -127,21 +130,19 @@ export function PickupsPage() {
   return (
     <div className="min-h-full bg-[#f7f7f6]">
       <OperationPageHeader
-        title="Retraits en agence"
-        description="Vérifiez le client, le paiement et le code avant toute remise physique."
+        title={dashboardText("Retraits en agence")}
+        description={dashboardText("Vérifiez le client, le paiement et le code avant toute remise physique.")}
         actions={
           <>
             <PermissionGuard permission="pickups.export">
               <OperationButton onClick={download}>
                 <Download size={14} />
-                Exporter
-              </OperationButton>
+                {dashboardText("Exporter")}</OperationButton>
             </PermissionGuard>
             <PermissionGuard permission="pickups.create">
               <OperationButton variant="primary" onClick={() => setCreateOpen(true)}>
                 <Plus size={14} />
-                Préparer un retrait
-              </OperationButton>
+                {dashboardText("Préparer un retrait")}</OperationButton>
             </PermissionGuard>
           </>
         }
@@ -150,22 +151,21 @@ export function PickupsPage() {
         <OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-6">
             {[
-              ["En attente", stats.waiting],
-              ["Au guichet", stats.at_counter],
-              ["Vérifiés", stats.verified],
-              ["Remis aujourd’hui", stats.released_today],
-              ["Non retirés > 7 j", stats.overdue],
-              ["Frais de garde", money(stats.storage_fees_due, "USD")],
+              [dashboardText("En attente"), stats.waiting],
+              [dashboardText("Au guichet"), stats.at_counter],
+              [dashboardText("Vérifiés"), stats.verified],
+              [dashboardText("Remis aujourd’hui"), stats.released_today],
+              [dashboardText("Non retirés > 7 j"), stats.overdue],
+              [dashboardText("Frais de garde"), money(stats.storage_fees_due, dashboardText("USD"))],
             ].map(([l, v]) => <OperationMetric key={String(l)} label={String(l)} value={v} />)}
           </OperationMetricGrid>
         </OperationMetrics>
         <section className="overflow-hidden bg-white">
-          <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder="Téléphone, nom, colis ou tracking…" />} filters={<><OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title="Filtrer les retraits"><OperationField label="Étape du retrait"><select value={status} onChange={(e) => setStatus(e.target.value)} className={`${input} w-full`}><option value="">Toutes les étapes</option>{Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></OperationField></OperationFilterPopover><OperationActionMenu><button onClick={() => setAnalyticsOpen(true)}>Analytics</button><PermissionGuard permission="pickups.notify"><button onClick={reminders}>Relancer les retraits en attente</button></PermissionGuard><PermissionGuard permission="pickups.settings"><button onClick={() => setSettingsOpen(true)}>Paramètres des retraits</button></PermissionGuard></OperationActionMenu><OperationButton onClick={load}>
+          <OperationToolbar search={<OperationSearch value={q} onChange={setQ} placeholder={dashboardText("Téléphone, nom, colis ou tracking…")} />} filters={<><OperationFilterPopover activeCount={status ? 1 : 0} onReset={() => setStatus("")} title={dashboardText("Filtrer les retraits")}><OperationField label={dashboardText("Étape du retrait")}><select value={status} onChange={(e) => setStatus(e.target.value)} className={`${input} w-full`}><option value="">{dashboardText("Toutes les étapes")}</option>{Object.entries(labels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></OperationField></OperationFilterPopover><OperationActionMenu><button onClick={() => setAnalyticsOpen(true)}>{dashboardText("Analytics")}</button><PermissionGuard permission="pickups.notify"><button onClick={reminders}>{dashboardText("Relancer les retraits en attente")}</button></PermissionGuard><PermissionGuard permission="pickups.settings"><button onClick={() => setSettingsOpen(true)}>{dashboardText("Paramètres des retraits")}</button></PermissionGuard></OperationActionMenu><OperationButton onClick={load}>
               <RefreshCcw size={14} />
-              Actualiser
-            </OperationButton></>} />
-          {error && <ErrorState title="Retraits indisponibles" description={error} retry={load} />}
-          {loading ? <TableSkeleton rows={7} columns={8} label="Chargement des retraits…" /> : <Table items={items} open={open} />}
+              {dashboardText("Actualiser")}</OperationButton></>} />
+          {error && <ErrorState title={dashboardText("Retraits indisponibles")} description={dashboardText(error)} retry={load} />}
+          {loading ? <TableSkeleton rows={7} columns={8} label={dashboardText("Chargement des retraits…")} /> : <Table items={items} open={open} />}
         </section>
       </main>
       {createOpen && (
@@ -202,6 +202,7 @@ function Table({
   items: Pickup[];
   open: (id: string) => void;
 }) {
+  useDashboardMessages();
   if (!items.length) return <Empty />;
   return (
     <div className="min-h-[460px] overflow-x-auto">
@@ -209,13 +210,13 @@ function Table({
         <thead className="bg-[#fbfcfd] text-[#5f6b7a]">
           <tr className="border-b border-[#e6e9ee]">
             {[
-              "Retrait",
-              "Client",
-              "Colis",
-              "Paiement",
-              "Frais garde",
-              "Statut",
-              "Attente",
+              dashboardText("Retrait"),
+              dashboardText("Client"),
+              dashboardText("Colis"),
+              dashboardText("Paiement"),
+              dashboardText("Frais garde"),
+              dashboardText("Statut"),
+              dashboardText("Attente"),
               "",
             ].map((h, i) => (
               <th key={`${h}${i}`} className="p-3 font-medium">
@@ -252,7 +253,7 @@ function Table({
               <td>{money(p.storage_fee, p.currency)}</td>
               <td>
                 <Badge ok={p.status === "RELEASED"}>
-                  {labels[p.status] || p.status}
+                  {dashboardText(labels[p.status]) || p.status}
                 </Badge>
               </td>
               <td>{age(p.ready_at)}</td>
@@ -273,6 +274,7 @@ function CreatePickup({
   close: () => void;
   done: (id: string) => void;
 }) {
+  useDashboardMessages();
   const [q, setQ] = useState(""),
     [rows, setRows] = useState<EligiblePackage[]>([]),
     [selected, setSelected] = useState<string[]>([]),
@@ -301,13 +303,13 @@ function CreatePickup({
   }
   const client = rows.find((r) => selected.includes(r.id))?.client_id;
   return (
-    <Modal title="Préparer un retrait" close={close} wide>
+    <Modal title={dashboardText("Préparer un retrait")} close={close} wide>
       <form onSubmit={submit} className="space-y-3">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className={`${input} w-full`}
-          placeholder="Rechercher par téléphone, client, colis ou tracking"
+          placeholder={dashboardText("Rechercher par téléphone, client, colis ou tracking")}
         />
         <div className="max-h-[45vh] overflow-y-auto rounded-[6px] bg-[#f6f7f7] p-2">
           {rows.map((p) => {
@@ -343,19 +345,17 @@ function CreatePickup({
           })}
           {!rows.length && (
             <p className="p-8 text-center text-[13px] text-[#68717d]">
-              Aucun colis prêt au retrait.
-            </p>
+              {dashboardText("Aucun colis prêt au retrait.")}</p>
           )}
         </div>
         <textarea
           name="notes"
           className="min-h-20 w-full rounded-[5px] border p-3 text-[13px]"
-          placeholder="Note guichet"
+          placeholder={dashboardText("Note guichet")}
         />
-        {error && <p className="text-red-600">{error}</p>}
+        {error && <p className="text-red-600">{dashboardText(error)}</p>}
         <button disabled={!selected.length} className={`${primary} w-full`}>
-          Préparer {selected.length} colis
-        </button>
+          {dashboardText("Préparer ")}{selected.length} {dashboardText(" colis")}</button>
       </form>
     </Modal>
   );
@@ -369,6 +369,7 @@ function PickupPanel({
   close: () => void;
   reload: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function run(fn: () => Promise<unknown>) {
@@ -395,11 +396,11 @@ function PickupPanel({
     <OperationDrawer
       open
       title={item.pickup_reference}
-      description="Retrait en agence"
+      description={dashboardText("Retrait en agence")}
       close={close}
     >
       <div className="mt-4 flex flex-wrap gap-2">
-        <Badge ok={item.status === "RELEASED"}>{labels[item.status]}</Badge>
+        <Badge ok={item.status === "RELEASED"}>{dashboardText(labels[item.status])}</Badge>
         <Badge ok={["PAID", "CLEARED"].includes(item.payment_status)}>
           {businessLabel(item.payment_status)}
         </Badge>
@@ -408,15 +409,14 @@ function PickupPanel({
         )}
         {item.status === "RELEASED" && (
           <button onClick={receipt} className={button}>
-            Reçu / PDF
-          </button>
+            {dashboardText("Reçu / PDF")}</button>
         )}
       </div>
       <div className="space-y-4 pt-4">
         {error && (
-          <p className="bg-red-50 p-3 text-[13px] text-red-700">{error}</p>
+          <p className="bg-red-50 p-3 text-[13px] text-red-700">{dashboardText(error)}</p>
         )}
-        <Section title="Résumé">
+        <Section title={dashboardText("Résumé")}>
           <Grid
             rows={[
               ["Client", item.recipient_name],
@@ -428,7 +428,7 @@ function PickupPanel({
             ]}
           />
         </Section>
-        <Section title="Colis">
+        <Section title={dashboardText("Colis")}>
           <div>
             {item.packages.map((p) => (
               <div
@@ -441,21 +441,20 @@ function PickupPanel({
                     {p.description || p.tracking_id}
                   </p>
                 </div>
-                <span>{p.weight_kg || 0} kg</span>
+                <span>{p.weight_kg || 0} {dashboardText(" kg")}</span>
               </div>
             ))}
           </div>
         </Section>
         <Workflow item={item} busy={busy} run={run} />
         {["CHECKED_IN", "VERIFIED", "RELEASED"].includes(item.status) && (
-          <Section title="Preuves privées">
+          <Section title={dashboardText("Preuves privées")}>
             <ProofUpload item={item} busy={busy} run={run} />
             <p className="mt-3 text-[12px] text-[#68717d]">
-              {item.proofs.length} preuve(s) enregistrée(s).
-            </p>
+              {item.proofs.length} {dashboardText(" preuve(s) enregistrée(s).")}</p>
           </Section>
         )}
-        <Section title="Contrôles effectués">
+        <Section title={dashboardText("Contrôles effectués")}>
           <div className="grid gap-2 sm:grid-cols-3">
             {item.verifications.map((v) => (
               <div
@@ -476,7 +475,7 @@ function PickupPanel({
             ))}
           </div>
         </Section>
-        <Section title="Historique">
+        <Section title={dashboardText("Historique")}>
           <div>
             {item.events.map((e) => (
               <div
@@ -504,6 +503,7 @@ function ProofUpload({
   busy: boolean;
   run: (fn: () => Promise<unknown>) => void;
 }) {
+  useDashboardMessages();
   return (
     <form
       onSubmit={(e) => {
@@ -523,9 +523,9 @@ function ProofUpload({
       className="grid gap-2 sm:grid-cols-2"
     >
       <select name="proof_type" className={input}>
-        <option value="PHOTO">Photo de remise</option>
-        <option value="SIGNATURE">Signature tactile</option>
-        <option value="IDENTITY">Pièce présentée</option>
+        <option value="PHOTO">{dashboardText("Photo de remise")}</option>
+        <option value="SIGNATURE">{dashboardText("Signature tactile")}</option>
+        <option value="IDENTITY">{dashboardText("Pièce présentée")}</option>
       </select>
       <input
         required
@@ -535,10 +535,9 @@ function ProofUpload({
         capture="environment"
         className={input}
       />
-      <input name="notes" className={input} placeholder="Note facultative" />
+      <input name="notes" className={input} placeholder={dashboardText("Note facultative")} />
       <button disabled={busy} className={button}>
-        Ajouter la preuve
-      </button>
+        {dashboardText("Ajouter la preuve")}</button>
     </form>
   );
 }
@@ -551,17 +550,18 @@ function Workflow({
   busy: boolean;
   run: (fn: () => Promise<unknown>) => void;
 }) {
+  useDashboardMessages();
   if (item.status === "RELEASED")
     return (
-      <Section title="Retrait clôturé">
+      <Section title={dashboardText("Retrait clôturé")}>
         <div className="flex items-center gap-3 text-emerald-700">
           <CheckCircle2 />
-          <span>Les colis ont été remis et sortis du stock.</span>
+          <span>{dashboardText("Les colis ont été remis et sortis du stock.")}</span>
         </div>
       </Section>
     );
   return (
-    <Section title="Parcours guichet">
+    <Section title={dashboardText("Parcours guichet")}>
       <div className="space-y-4">
         {item.status === "READY" && (
           <PermissionGuard permission="pickups.notify">
@@ -570,8 +570,7 @@ function Workflow({
               onClick={() => run(() => notifyPickup(item.id))}
               className={`${primary} w-full`}
             >
-              Notifier le client et générer l’OTP
-            </button>
+              {dashboardText("Notifier le client et générer l’OTP")}</button>
           </PermissionGuard>
         )}
         {["READY", "NOTIFIED"].includes(item.status) && (
@@ -583,8 +582,7 @@ function Workflow({
               }
               className={`${button} w-full`}
             >
-              Le client est au guichet
-            </button>
+              {dashboardText("Le client est au guichet")}</button>
           </PermissionGuard>
         )}
         {item.status === "CHECKED_IN" && (
@@ -606,6 +604,7 @@ function VerificationForms({
   busy: boolean;
   run: (fn: () => Promise<unknown>) => void;
 }) {
+  useDashboardMessages();
   return (
     <div className="space-y-3">
       <form
@@ -623,11 +622,10 @@ function VerificationForms({
           pattern="[0-9]{6}"
           maxLength={6}
           className={`${input} flex-1`}
-          placeholder="Code OTP à 6 chiffres"
+          placeholder={dashboardText("Code OTP à 6 chiffres")}
         />
         <button disabled={busy} className={button}>
-          Vérifier OTP
-        </button>
+          {dashboardText("Vérifier OTP")}</button>
       </form>
       <form
         onSubmit={(e) => {
@@ -646,33 +644,32 @@ function VerificationForms({
         className="grid gap-2 sm:grid-cols-2"
       >
         <select name="recipient_type" className={input}>
-          <option value="CLIENT">Client</option>
-          <option value="AUTHORIZED_PERSON">Mandataire</option>
+          <option value="CLIENT">{dashboardText("Client")}</option>
+          <option value="AUTHORIZED_PERSON">{dashboardText("Mandataire")}</option>
         </select>
         <select name="identity_type" className={input}>
-          <option>Carte d’identité</option>
-          <option>Passeport</option>
-          <option>Permis</option>
+          <option>{dashboardText("Carte d’identité")}</option>
+          <option>{dashboardText("Passeport")}</option>
+          <option>{dashboardText("Permis")}</option>
         </select>
         <input
           name="identity_reference"
           required
           className={input}
-          placeholder="Numéro de pièce"
+          placeholder={dashboardText("Numéro de pièce")}
         />
         <input
           name="authorized_person_name"
           className={input}
-          placeholder="Nom du mandataire"
+          placeholder={dashboardText("Nom du mandataire")}
         />
         <input
           name="authorized_person_phone"
           className={input}
-          placeholder="Téléphone mandataire"
+          placeholder={dashboardText("Téléphone mandataire")}
         />
         <button disabled={busy} className={button}>
-          Valider l’identité
-        </button>
+          {dashboardText("Valider l’identité")}</button>
       </form>
       <form
         onSubmit={(e) => {
@@ -688,9 +685,9 @@ function VerificationForms({
         className="flex flex-wrap gap-2"
       >
         <select name="payment_status" className={input}>
-          <option value="PAID">Payé</option>
-          <option value="PARTIAL">Partiel</option>
-          <option value="PENDING">En attente</option>
+          <option value="PAID">{dashboardText("Payé")}</option>
+          <option value="PARTIAL">{dashboardText("Partiel")}</option>
+          <option value="PENDING">{dashboardText("En attente")}</option>
         </select>
         <input
           name="paid_amount"
@@ -701,16 +698,14 @@ function VerificationForms({
           className={input}
         />
         <button disabled={busy} className={button}>
-          Valider le paiement
-        </button>
+          {dashboardText("Valider le paiement")}</button>
       </form>
       <button
         disabled={busy}
         onClick={() => run(() => markPickupVerified(item.id, item.row_version))}
         className={`${primary} w-full`}
       >
-        Terminer toutes les vérifications
-      </button>
+        {dashboardText("Terminer toutes les vérifications")}</button>
     </div>
   );
 }
@@ -723,6 +718,7 @@ function ReleaseForm({
   busy: boolean;
   run: (fn: () => Promise<unknown>) => void;
 }) {
+  useDashboardMessages();
   return (
     <form
       onSubmit={(e) => {
@@ -743,24 +739,24 @@ function ReleaseForm({
         name="signed_by"
         defaultValue={item.authorized_person_name || item.recipient_name || ""}
         className={`${input} w-full`}
-        placeholder="Nom de la personne qui reçoit"
+        placeholder={dashboardText("Nom de la personne qui reçoit")}
       />
       <textarea
         required
         name="signature_text"
         className="min-h-20 w-full rounded-[5px] border p-3 text-[13px]"
-        placeholder="Confirmation/signature : Je reconnais avoir reçu les colis…"
+        placeholder={dashboardText("Confirmation/signature : Je reconnais avoir reçu les colis…")}
       />
       <PermissionGuard permission="pickups.release">
         <button disabled={busy} className={`${primary} w-full`}>
           <HandCoins size={15} />
-          Remettre les colis et clôturer
-        </button>
+          {dashboardText("Remettre les colis et clôturer")}</button>
       </PermissionGuard>
     </form>
   );
 }
 function SettingsModal({ close }: { close: () => void }) {
+  useDashboardMessages();
   const [value, setValue] = useState<PickupSettings | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
@@ -784,12 +780,11 @@ function SettingsModal({ close }: { close: () => void }) {
     close();
   }
   return (
-    <Modal title="Paramètres des retraits" close={close}>
+    <Modal title={dashboardText("Paramètres des retraits")} close={close}>
       {value ? (
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           <label className="text-[12px]">
-            Délai de grâce
-            <input
+            {dashboardText("Délai de grâce")}<input
               name="grace_days"
               type="number"
               min="0"
@@ -798,8 +793,7 @@ function SettingsModal({ close }: { close: () => void }) {
             />
           </label>
           <label className="text-[12px]">
-            Frais par jour et colis
-            <input
+            {dashboardText("Frais par jour et colis")}<input
               name="daily_storage_fee"
               type="number"
               min="0"
@@ -809,8 +803,7 @@ function SettingsModal({ close }: { close: () => void }) {
             />
           </label>
           <label className="text-[12px]">
-            Devise
-            <input
+            {dashboardText("Devise")}<input
               name="currency"
               maxLength={3}
               defaultValue={value.currency}
@@ -818,8 +811,7 @@ function SettingsModal({ close }: { close: () => void }) {
             />
           </label>
           <label className="text-[12px]">
-            Validité OTP (minutes)
-            <input
+            {dashboardText("Validité OTP (minutes)")}<input
               name="otp_ttl_minutes"
               type="number"
               min="2"
@@ -829,8 +821,7 @@ function SettingsModal({ close }: { close: () => void }) {
             />
           </label>
           <label className="text-[12px]">
-            Tentatives OTP
-            <input
+            {dashboardText("Tentatives OTP")}<input
               name="max_otp_attempts"
               type="number"
               min="1"
@@ -843,17 +834,17 @@ function SettingsModal({ close }: { close: () => void }) {
             {[
               [
                 "require_payment",
-                "Paiement obligatoire",
+                dashboardText("Paiement obligatoire"),
                 value.require_payment,
               ],
               [
                 "require_identity",
-                "Identité obligatoire",
+                dashboardText("Identité obligatoire"),
                 value.require_identity,
               ],
               [
                 "require_signature",
-                "Signature obligatoire",
+                dashboardText("Signature obligatoire"),
                 value.require_signature,
               ],
             ].map(([n, l, v]) => (
@@ -867,41 +858,42 @@ function SettingsModal({ close }: { close: () => void }) {
               </label>
             ))}
           </div>
-          <button className={`${primary} sm:col-span-2`}>Enregistrer</button>
+          <button className={`${primary} sm:col-span-2`}>{dashboardText("Enregistrer")}</button>
         </form>
       ) : error ? (
-        <p className="rounded-[5px] bg-red-50 p-3 text-[12px] text-red-700">{error}</p>
+        <p className="rounded-[5px] bg-red-50 p-3 text-[12px] text-red-700">{dashboardText(error)}</p>
       ) : (
-        <LoadingState label="Chargement des paramètres…" />
+        <LoadingState label={dashboardText("Chargement des paramètres…")} />
       )}
     </Modal>
   );
 }
 function AnalyticsModal({ close }: { close: () => void }) {
+  useDashboardMessages();
   const [data, setData] = useState<PickupAnalytics | null>(null);
   useEffect(() => {
     getPickupAnalytics().then(setData);
   }, []);
   return (
-    <Modal title="Performance des retraits" close={close} wide>
+    <Modal title={dashboardText("Performance des retraits")} close={close} wide>
       {data ? (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
-              ["Retraits", data.summary.total],
-              ["Remis", data.summary.released],
-              ["Refusés", data.summary.refused],
+              [dashboardText("Retraits"), data.summary.total],
+              [dashboardText("Remis"), data.summary.released],
+              [dashboardText("Refusés"), data.summary.refused],
               [
-                "Attente moyenne",
-                `${data.summary.average_wait_hours.toFixed(1)} h`,
+                dashboardText("Attente moyenne"),
+                dashboardText("{0} h", data.summary.average_wait_hours.toFixed(1)),
               ],
               [
-                "Temps guichet",
-                `${data.summary.average_counter_minutes.toFixed(1)} min`,
+                dashboardText("Temps guichet"),
+                dashboardText("{0} min", data.summary.average_counter_minutes.toFixed(1)),
               ],
               [
-                "Frais encaissés",
-                money(data.summary.storage_fees_collected, "USD"),
+                dashboardText("Frais encaissés"),
+                money(data.summary.storage_fees_collected, dashboardText("USD")),
               ],
             ].map(([l, v]) => (
               <div key={l} className="rounded bg-[#f5f6f6] p-3">
@@ -912,23 +904,21 @@ function AnalyticsModal({ close }: { close: () => void }) {
           </div>
           <div>
             <h3 className="mb-2 text-[13px] font-semibold">
-              Performance par agent
-            </h3>
+              {dashboardText("Performance par agent")}</h3>
             {data.operators.map((o) => (
               <div
                 key={o.label}
                 className="flex justify-between border-b py-2 text-[13px]"
               >
-                <span>{o.label}</span>
+                <span>{dashboardText(o.label)}</span>
                 <b>
-                  {o.released} remis · {o.average_minutes} min
-                </b>
+                  {o.released} {dashboardText(" remis · ")}{o.average_minutes} {dashboardText(" min")}</b>
               </div>
             ))}
           </div>
         </div>
       ) : (
-        <LoadingState label="Chargement des performances…" />
+        <LoadingState label={dashboardText("Chargement des performances…")} />
       )}
     </Modal>
   );
@@ -944,6 +934,7 @@ function Modal({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  useDashboardMessages();
   return (
     <OperationDrawer
       open
@@ -962,6 +953,7 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <section className="rounded-[7px] bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,.07)]">
       <h3 className="mb-4 text-[14px] font-semibold">{title}</h3>
@@ -970,6 +962,7 @@ function Section({
   );
 }
 function Grid({ rows }: { rows: any[][] }) {
+  useDashboardMessages();
   return (
     <div className="grid gap-x-6 sm:grid-cols-2">
       {rows.map(([k, v]) => (
@@ -988,6 +981,7 @@ function Badge({
   children: React.ReactNode;
   ok?: boolean;
 }) {
+  useDashboardMessages();
   return (
     <span
       className={`inline-flex rounded-full px-2 py-1 text-[11px] font-medium ${ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
@@ -997,26 +991,26 @@ function Badge({
   );
 }
 function Empty() {
+  useDashboardMessages();
   return (
     <div className="grid min-h-60 place-items-center text-center">
       <div>
         <HandCoins className="mx-auto text-[#89929c]" />
-        <b className="mt-3 block">Aucun retrait dans cette vue</b>
+        <b className="mt-3 block">{dashboardText("Aucun retrait dans cette vue")}</b>
         <p className="mt-1 text-[13px] text-[#68717d]">
-          Les colis prêts au retrait peuvent être regroupés par client.
-        </p>
+          {dashboardText("Les colis prêts au retrait peuvent être regroupés par client.")}</p>
       </div>
     </div>
   );
 }
 function money(v: number, c: string) {
-  return new Intl.NumberFormat("fr-FR", {
+  return new Intl.NumberFormat(dashboardFormatLocale(), {
     style: "currency",
     currency: c || "USD",
   }).format(v || 0);
 }
 function date(v: string) {
-  return new Date(v).toLocaleString("fr-FR");
+  return new Date(v).toLocaleString(dashboardFormatLocale());
 }
 function age(v: string) {
   const days = Math.floor((Date.now() - new Date(v).getTime()) / 86400000);

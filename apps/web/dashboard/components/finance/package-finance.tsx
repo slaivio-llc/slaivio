@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
@@ -29,6 +31,7 @@ function getErrorMessage(error: unknown) {
 }
 
 export function PackageFinance({ item, onUpdated }: { item: PackageRecord; onUpdated: (item: PackageRecord) => void }) {
+  useDashboardMessages();
   const [invoice, setInvoice] = useState<FinanceDocument | null>(null);
   const [pricedPackage, setPricedPackage] = useState(item);
   const [loading, setLoading] = useState(true);
@@ -83,7 +86,7 @@ export function PackageFinance({ item, onUpdated }: { item: PackageRecord; onUpd
   const currency = invoice?.currency || pricedPackage.currency;
   const money = (amount: number | string | null | undefined) => {
     if (amount == null || !currency) return "—";
-    return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(Number(amount));
+    return new Intl.NumberFormat(dashboardFormatLocale(), { style: "currency", currency }).format(Number(amount));
   };
   const total = invoice?.total ?? pricedPackage.fees_total;
   const paid = invoice?.amount_paid ?? pricedPackage.fees_paid;
@@ -91,36 +94,36 @@ export function PackageFinance({ item, onUpdated }: { item: PackageRecord; onUpd
   const unavailable = loading || Boolean(error);
   return <section className="space-y-4">
     <div className="flex items-center justify-between gap-3">
-      <h3 className="text-sm font-semibold">Paiement</h3>
+      <h3 className="text-sm font-semibold">{dashboardText("Paiement")}</h3>
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)} className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-        {expanded ? "Masquer les détails" : "Détails du paiement"}<ChevronDown size={14} className={expanded ? "rotate-180 transition-transform" : "transition-transform"}/>
+        {expanded ? dashboardText("Masquer les détails") : dashboardText("Détails du paiement")}<ChevronDown size={14} className={expanded ? "rotate-180 transition-transform" : "transition-transform"}/>
       </button>
     </div>
     <dl className="grid grid-cols-3 gap-3">
-      <div><dt className="text-xs text-slate-500">Total</dt><dd className="mt-1 text-sm font-semibold">{unavailable ? "—" : total == null ? "Tarif à calculer" : money(total)}</dd></div>
-      <div><dt className="text-xs text-slate-500">Payé</dt><dd className="mt-1 text-sm font-semibold text-emerald-700">{money(unavailable ? null : paid)}</dd></div>
-      <div><dt className="text-xs text-slate-500">Reste</dt><dd className="mt-1 text-sm font-semibold text-red-700">{money(unavailable ? null : balance)}</dd></div>
+      <div><dt className="text-xs text-slate-500">{dashboardText("Total")}</dt><dd className="mt-1 text-sm font-semibold">{unavailable ? "—" : total == null ? dashboardText("Tarif à calculer") : money(total)}</dd></div>
+      <div><dt className="text-xs text-slate-500">{dashboardText("Payé")}</dt><dd className="mt-1 text-sm font-semibold text-emerald-700">{money(unavailable ? null : paid)}</dd></div>
+      <div><dt className="text-xs text-slate-500">{dashboardText("Reste")}</dt><dd className="mt-1 text-sm font-semibold text-red-700">{money(unavailable ? null : balance)}</dd></div>
     </dl>
-    {!expanded && loading && <p role="status" className="text-xs text-slate-500">Actualisation de la facture…</p>}
-    {error && <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3"><p className="text-sm text-red-800">{error}</p><button type="button" className="mt-2 text-sm underline" onClick={() => setRetry(value => value + 1)}>Réessayer</button></div>}
+    {!expanded && loading && <p role="status" className="text-xs text-slate-500">{dashboardText("Actualisation de la facture…")}</p>}
+    {error && <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3"><p className="text-sm text-red-800">{dashboardText(error)}</p><button type="button" className="mt-2 text-sm underline" onClick={() => setRetry(value => value + 1)}>{dashboardText("Réessayer")}</button></div>}
     {expanded && <div className="space-y-4 border-t border-slate-100 pt-4">
-    <h4 className="text-sm font-semibold">Détails Finance</h4>
-    {loading ? <p role="status" className="text-sm text-slate-500">Chargement de la situation financière…</p> : invoice ? <>
-      <p className="text-sm">{invoice.document_number} {invoice.status === "DRAFT" ? "· Brouillon — aucun paiement demandé" : "· Facture"}</p>
+    <h4 className="text-sm font-semibold">{dashboardText("Détails Finance")}</h4>
+    {loading ? <p role="status" className="text-sm text-slate-500">{dashboardText("Chargement de la situation financière…")}</p> : invoice ? <>
+      <p className="text-sm">{invoice.document_number} {invoice.status === "DRAFT" ? dashboardText("· Brouillon — aucun paiement demandé") : dashboardText("· Facture")}</p>
       <dl className="grid gap-3 sm:grid-cols-3">{[
-        ["Montant de la facture", invoice.total], ["Paiements reçus", invoice.amount_paid],
-        [invoice.status === "DRAFT" ? "Solde du brouillon" : "Solde de la facture", invoice.balance_due],
-      ].map(([label, amount]) => <div key={label}><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 font-semibold">{new Intl.NumberFormat("fr-FR", { style: "currency", currency: invoice.currency }).format(Number(amount))}</dd></div>)}</dl>
-      <Link className="inline-flex h-9 items-center rounded-md border px-3 text-sm" href={`/app/finance?open=${encodeURIComponent(invoice.id)}`}>Ouvrir dans Finance</Link>
+        [dashboardText("Montant de la facture"), invoice.total], [dashboardText("Paiements reçus"), invoice.amount_paid],
+        [invoice.status === "DRAFT" ? dashboardText("Solde du brouillon") : dashboardText("Solde de la facture"), invoice.balance_due],
+      ].map(([label, amount]) => <div key={label}><dt className="text-xs text-slate-500">{dashboardText(label)}</dt><dd className="mt-1 font-semibold">{new Intl.NumberFormat(dashboardFormatLocale(), { style: "currency", currency: invoice.currency }).format(Number(amount))}</dd></div>)}</dl>
+      <Link className="inline-flex h-9 items-center rounded-md border px-3 text-sm" href={`/app/finance?open=${encodeURIComponent(invoice.id)}`}>{dashboardText("Ouvrir dans Finance")}</Link>
     </> : <>
-      <p className="text-sm text-slate-500">Aucune facture liée. Une facture reprend un tarif calculé et enregistré ; elle ne constitue pas une preuve d’encaissement.</p>
+      <p className="text-sm text-slate-500">{dashboardText("Aucune facture liée. Une facture reprend un tarif calculé et enregistré ; elle ne constitue pas une preuve d’encaissement.")}</p>
       {!hasVerifiedPrice ? pricedPackage.shipping_service_id ? <PermissionGuard permission="packages.pricing">
         <button disabled={busy || pricedPackage.row_version == null} onClick={calculatePrice} className="h-9 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white disabled:opacity-50">
-          {busy ? "Calcul du tarif…" : "Calculer le tarif du colis"}
+          {busy ? dashboardText("Calcul du tarif…") : dashboardText("Calculer le tarif du colis")}
         </button>
-      </PermissionGuard> : <p className="text-sm text-amber-800">Aucun service configuré sur ce colis. Associez d’abord un trajet et un service dans sa fiche, puis calculez le tarif.</p> : <PermissionGuard permission="finance.create">
+      </PermissionGuard> : <p className="text-sm text-amber-800">{dashboardText("Aucun service configuré sur ce colis. Associez d’abord un trajet et un service dans sa fiche, puis calculez le tarif.")}</p> : <PermissionGuard permission="finance.create">
         <button disabled={busy || pricedPackage.row_version == null} onClick={create} className="h-9 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white disabled:opacity-50">
-          {busy ? "Création…" : "Créer la facture depuis le tarif enregistré"}
+          {busy ? dashboardText("Création…") : dashboardText("Créer la facture depuis le tarif enregistré")}
         </button>
       </PermissionGuard>}
     </>}

@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { getOrganizationProductProfile, PRODUCT_PROFILES } from "@/config/product-profile";
 
 import axios from "axios";
@@ -134,6 +136,7 @@ type Pagination = {
 };
 
 export function ShipmentsPage({ embedded = false, createRequest = 0 }: { embedded?: boolean; createRequest?: number }) {
+  useDashboardMessages();
   const [parcel, setParcel] = useState<boolean | null>(null);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -143,12 +146,13 @@ export function ShipmentsPage({ embedded = false, createRequest = 0 }: { embedde
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [retry]);
-  if (error) return <div role="alert" className="p-8">Impossible de charger les expéditions. <button className="underline" onClick={() => setRetry(n => n+1)}>Réessayer</button></div>;
+  if (error) return <div role="alert" className="p-8">{dashboardText("Impossible de charger les expéditions. ")}<button className="underline" onClick={() => setRetry(n => n+1)}>{dashboardText("Réessayer")}</button></div>;
   if (parcel === null) return <TableSkeleton rows={6} columns={4}/>;
   return parcel ? <FreightShipmentRegister embedded={embedded} createRequest={createRequest}/> : <LegacyShipmentsPage/>;
 }
 
 function LegacyShipmentsPage() {
+  useDashboardMessages();
   const router = useRouter();
   const [shipments, setShipments] = useState<ExpeditionRecord[]>([]);
   const [stats, setStats] = useState<ExpeditionStats>(emptyStats);
@@ -349,20 +353,19 @@ function LegacyShipmentsPage() {
     <div className="min-h-full bg-white text-[#1f2328]">
       <section className="overflow-hidden bg-white">
         <OperationPageHeader
-          title="Expéditions"
-          description="Pilotez les transports réels de vos colis : routes, ETA, statuts, clients concernés, documents, coûts et risques."
+          title={dashboardText("Expéditions")}
+          description={dashboardText("Pilotez les transports réels de vos colis : routes, ETA, statuts, clients concernés, documents, coûts et risques.")}
           actions={
             <>
               <PermissionGuard permission="shipments.read">
-                <button className={buttonClass} onClick={handleExport}><Download size={14} />Exporter CSV</button>
+                <button className={buttonClass} onClick={handleExport}><Download size={14} />{dashboardText("Exporter CSV")}</button>
               </PermissionGuard>
               <PermissionGuard permission="shipments.create">
                 <button
                   className={primaryButtonClass}
                   onClick={() => setFormOpen(true)}
                 >
-                  <Plus size={16} /> Nouvelle expédition
-                </button>
+                  <Plus size={16} /> {dashboardText(" Nouvelle expédition")}</button>
               </PermissionGuard>
             </>
           }
@@ -371,20 +374,20 @@ function LegacyShipmentsPage() {
         <OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-6">
             {kpis.map((item) => (
-              <OperationMetric key={item.label} label={item.label} value={item.value} tone={activeMetric === item.label ? "success" : item.warm ? "warning" : "default"} active={activeMetric === item.label} onClick={() => { setActiveMetric(item.label); setActiveView(item.view); setStatus(""); }} />
+              <OperationMetric key={item.label} label={dashboardText(item.label)} value={item.value} tone={activeMetric === item.label ? "success" : item.warm ? "warning" : "default"} active={activeMetric === item.label} onClick={() => { setActiveMetric(item.label); setActiveView(item.view); setStatus(""); }} />
             ))}
           </OperationMetricGrid>
         </OperationMetrics>
 
         {analyticsOpen ? (
           <>
-            <OperationToolbar filters={<OperationActionMenu><button onClick={() => setAnalyticsOpen(false)}>Revenir à la liste</button></OperationActionMenu>} />
+            <OperationToolbar filters={<OperationActionMenu><button onClick={() => setAnalyticsOpen(false)}>{dashboardText("Revenir à la liste")}</button></OperationActionMenu>} />
             <ShipmentAnalyticsView data={analytics} />
           </>
         ) : (
           <>
             <OperationToolbar
-              search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher une expédition…" />}
+              search={<OperationSearch value={query} onChange={setQuery} placeholder={dashboardText("Rechercher une expédition…")} />}
               filters={
                 <>
                 <OperationFilterPopover
@@ -392,14 +395,14 @@ function LegacyShipmentsPage() {
                   onOpenChange={setFiltersOpen}
                   activeCount={[status, mode, risk].filter(Boolean).length + (sort !== "updated_desc" ? 1 : 0) + (activeView !== "all" ? 1 : 0)}
                   onReset={() => { setActiveMetric(null); setActiveView("all"); setStatus(""); setMode(""); setRisk(""); setSort("updated_desc"); }}
-                  title="Filtrer les expéditions"
+                  title={dashboardText("Filtrer les expéditions")}
                 >
-                  <OperationField label="Vue">
+                  <OperationField label={dashboardText("Vue")}>
                     <select className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none" value={activeView} onChange={(event) => { setActiveMetric(null); setActiveView(event.target.value); setStatus(""); }}>
-                      {views.map((view) => <option key={view.key} value={view.key}>{view.label}</option>)}
+                      {views.map((view) => <option key={view.key} value={view.key}>{dashboardText(view.label)}</option>)}
                     </select>
                   </OperationField>
-                  <OperationField label="Étape de l’expédition">
+                  <OperationField label={dashboardText("Étape de l’expédition")}>
                   <select
                     className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]"
                     value={status}
@@ -408,15 +411,15 @@ function LegacyShipmentsPage() {
                     }
                     disabled={Boolean(currentView.status)}
                   >
-                    <option value="">Toutes les étapes</option>
+                    <option value="">{dashboardText("Toutes les étapes")}</option>
                     {Object.entries(statusLabels).map(([key, label]) => (
                       <option key={key} value={key}>
-                        {label}
+                        {dashboardText(label)}
                       </option>
                     ))}
                   </select>
                   </OperationField>
-                  <OperationField label="Mode de transport">
+                  <OperationField label={dashboardText("Mode de transport")}>
                   <select
                     className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]"
                     value={mode}
@@ -424,15 +427,15 @@ function LegacyShipmentsPage() {
                       setMode(event.target.value as ExpeditionMode | "")
                     }
                   >
-                    <option value="">Tous les modes</option>
+                    <option value="">{dashboardText("Tous les modes")}</option>
                     {Object.entries(modeLabels).map(([key, label]) => (
                       <option key={key} value={key}>
-                        {label}
+                        {dashboardText(label)}
                       </option>
                     ))}
                   </select>
                   </OperationField>
-                  <OperationField label="Niveau de risque">
+                  <OperationField label={dashboardText("Niveau de risque")}>
                   <select
                     className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]"
                     value={risk}
@@ -440,29 +443,29 @@ function LegacyShipmentsPage() {
                       setRisk(event.target.value as RiskLevel | "")
                     }
                   >
-                    <option value="">Tous les niveaux</option>
+                    <option value="">{dashboardText("Tous les niveaux")}</option>
                     {Object.entries(riskLabels).map(([key, label]) => (
                       <option key={key} value={key}>
-                        {label}
+                        {dashboardText(label)}
                       </option>
                     ))}
                   </select>
                   </OperationField>
-                  <OperationField label="Ordre d’affichage">
+                  <OperationField label={dashboardText("Ordre d’affichage")}>
                   <select
                     className="h-10 w-full rounded-md border border-[#cfd5dd] bg-white px-3 text-[13px] outline-none focus:border-[#12a865]"
                     value={sort}
                     onChange={(event) => setSort(event.target.value)}
                   >
-                    <option value="updated_desc">Mise à jour récente</option>
-                    <option value="eta_asc">ETA proche</option>
-                    <option value="created_desc">Création récente</option>
-                    <option value="reference_asc">Référence A-Z</option>
+                    <option value="updated_desc">{dashboardText("Mise à jour récente")}</option>
+                    <option value="eta_asc">{dashboardText("ETA proche")}</option>
+                    <option value="created_desc">{dashboardText("Création récente")}</option>
+                    <option value="reference_asc">{dashboardText("Référence A-Z")}</option>
                   </select>
                   </OperationField>
                 </OperationFilterPopover>
                 <OperationActionMenu>
-                  <button onClick={() => setAnalyticsOpen(true)}>Voir les analytics</button>
+                  <button onClick={() => setAnalyticsOpen(true)}>{dashboardText("Voir les analytics")}</button>
                 </OperationActionMenu>
                 </>
               }
@@ -470,11 +473,11 @@ function LegacyShipmentsPage() {
 
             <OperationContent className="pt-4">
 
-            {error ? <ErrorState title="Expéditions indisponibles" description={error} /> : null}
+            {error ? <ErrorState title={dashboardText("Expéditions indisponibles")} description={dashboardText(error)} /> : null}
 
             {selected.length > 0 && (
               <div className="flex items-center justify-between bg-[#f0efff] px-4 py-2 text-[12px] text-[#5149bd]">
-                <span>{selected.length} expédition(s) sélectionnée(s)</span>
+                <span>{selected.length} {dashboardText(" expédition(s) sélectionnée(s)")}</span>
                 <PermissionGuard permission="shipments.update">
                   <button
                     className={buttonClass}
@@ -488,16 +491,15 @@ function LegacyShipmentsPage() {
                       }
                     }}
                   >
-                    Notifier les clients
-                  </button>
+                    {dashboardText("Notifier les clients")}</button>
                 </PermissionGuard>
               </div>
             )}
             <div className="min-h-[460px] overflow-x-auto">
               {loading ? (
-                <TableSkeleton rows={7} columns={10} label="Chargement des expéditions…" />
+                <TableSkeleton rows={7} columns={10} label={dashboardText("Chargement des expéditions…")} />
               ) : shipments.length === 0 ? (
-                <EmptyState title="Aucune expédition trouvée" description="Créez une expédition puis ajoutez les colis prêts à partir. Les indicateurs se recalculeront automatiquement." />
+                <EmptyState title={dashboardText("Aucune expédition trouvée")} description={dashboardText("Créez une expédition puis ajoutez les colis prêts à partir. Les indicateurs se recalculeront automatiquement.")} />
               ) : (
                 <table className="w-full min-w-[1180px] border-collapse text-left text-[13px]">
                   <thead className="bg-[#fbfcfd] text-[#5f6b7a]">
@@ -520,16 +522,16 @@ function LegacyShipmentsPage() {
                           }
                         />
                       </th>
-                      <th className="px-4 py-3 font-medium">Expédition</th>
-                      <th className="px-4 py-3 font-medium">Statut</th>
-                      <th className="px-4 py-3 font-medium">Mode</th>
-                      <th className="px-4 py-3 font-medium">Route</th>
-                      <th className="px-4 py-3 font-medium">Clients</th>
-                      <th className="px-4 py-3 font-medium">Colis</th>
-                      <th className="px-4 py-3 font-medium">Poids</th>
-                      <th className="px-4 py-3 font-medium">Volume</th>
-                      <th className="px-4 py-3 font-medium">ETA</th>
-                      <th className="px-4 py-3 font-medium">Responsable</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Expédition")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Statut")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Mode")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Route")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Clients")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Colis")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Poids")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Volume")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("ETA")}</th>
+                      <th className="px-4 py-3 font-medium">{dashboardText("Responsable")}</th>
                       <th className="px-4 py-3 font-medium"></th>
                     </tr>
                   </thead>
@@ -565,40 +567,38 @@ function LegacyShipmentsPage() {
                           <div className="text-[#64748b]">
                             {shipment.title ||
                               shipment.batch_reference ||
-                              "Expédition cargo"}
+                              dashboardText("Expédition cargo")}
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <Badge className={statusStyles[shipment.status]}>
-                            {statusLabels[shipment.status]}
+                            {dashboardText(statusLabels[shipment.status])}
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          {modeLabels[shipment.mode]}
+                          {dashboardText(modeLabels[shipment.mode])}
                         </td>
                         <td className="px-4 py-3">
                           <div>
                             {shipment.route_label ||
-                              `${shipment.origin_country || "-"} → ${shipment.destination_country || "-"}`}
+                              `${shipment.origin_country || dashboardText("-")} → ${shipment.destination_country || dashboardText("-")}`}
                           </div>
                           <div className="text-[#64748b]">
-                            {shipment.origin_city || "-"} →{" "}
-                            {shipment.destination_city || "-"}
+                            {shipment.origin_city || dashboardText("-")} →{" "}
+                            {shipment.destination_city || dashboardText("-")}
                           </div>
                         </td>
                         <td className="px-4 py-3">{shipment.clients_count}</td>
                         <td className="px-4 py-3">{shipment.packages_count}</td>
                         <td className="px-4 py-3">
-                          {formatNumber(shipment.total_weight_kg)} kg
-                        </td>
+                          {formatNumber(shipment.total_weight_kg)} {dashboardText(" kg")}</td>
                         <td className="px-4 py-3">
-                          {formatNumber(shipment.total_volume_cbm)} CBM
-                        </td>
+                          {formatNumber(shipment.total_volume_cbm)} {dashboardText(" CBM")}</td>
                         <td className="px-4 py-3">
                           {formatDate(shipment.eta_at)}
                         </td>
                         <td className="px-4 py-3">
-                          {shipment.owner_name || "-"}
+                          {shipment.owner_name || dashboardText("-")}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <ChevronRight size={16} className="ml-auto text-[#66717e]" />
@@ -613,8 +613,8 @@ function LegacyShipmentsPage() {
             <div className="flex items-center justify-between px-1 py-3 text-[13px] text-[#5f6b7a]">
               <span>
                 {pagination.total
-                  ? `${(page - 1) * pagination.page_size + 1} – ${Math.min(page * pagination.page_size, pagination.total)} sur ${pagination.total} expéditions`
-                  : "0 expédition"}
+                  ? dashboardText("{0} – {1} sur {2} expéditions", (page - 1) * pagination.page_size + 1, Math.min(page * pagination.page_size, pagination.total), pagination.total)
+                  : dashboardText("0 expédition")}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -646,8 +646,8 @@ function LegacyShipmentsPage() {
       {formOpen ? (
         <OperationDrawer
           open
-          title="Nouvelle expédition"
-          description="Choisissez une route et un service, puis ajoutez les colis prêts à partir après la création."
+          title={dashboardText("Nouvelle expédition")}
+          description={dashboardText("Choisissez une route et un service, puis ajoutez les colis prêts à partir après la création.")}
           close={() => setFormOpen(false)}
           width="max-w-2xl"
         >
@@ -655,38 +655,35 @@ function LegacyShipmentsPage() {
             onSubmit={handleCreate}
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">Route
-                <select required className={formInputClass} value={routeId} disabled={catalogLoading || !!catalogError} onChange={event => {setRouteId(event.target.value);setServiceId("");}}>
-                  <option value="">{catalogLoading ? "Chargement…" : "Choisir une route"}</option>
+              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">{dashboardText("Route")}<select required className={formInputClass} value={routeId} disabled={catalogLoading || !!catalogError} onChange={event => {setRouteId(event.target.value);setServiceId("");}}>
+                  <option value="">{catalogLoading ? dashboardText("Chargement…") : dashboardText("Choisir une route")}</option>
                   {routes.map(route => <option key={route.id} value={route.id}>{route.route_name}</option>)}
                 </select>
               </label>
-              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">Service et voie
-                <select required className={formInputClass} value={serviceId} disabled={!routeId || catalogLoading} onChange={event => setServiceId(event.target.value)}>
-                  <option value="">Choisir un service</option>
+              <label className="grid gap-1 text-[13px] font-medium text-[#334155]">{dashboardText("Service et voie")}<select required className={formInputClass} value={serviceId} disabled={!routeId || catalogLoading} onChange={event => setServiceId(event.target.value)}>
+                  <option value="">{dashboardText("Choisir un service")}</option>
                   {routeServices.map(service => <option key={service.id} value={service.id}>{service.service_name}</option>)}
                 </select>
               </label>
               {catalogError && <p role="alert" className="sm:col-span-2 text-sm text-red-700">{catalogError}</p>}
-              {!catalogLoading && !catalogError && (!routes.length || (routeId && !routeServices.length)) && <p className="sm:col-span-2 text-sm text-[#69747d]">Configurez une route active et son service dans Routes et Services avant de créer l’expédition.</p>}
+              {!catalogLoading && !catalogError && (!routes.length || (routeId && !routeServices.length)) && <p className="sm:col-span-2 text-sm text-[#69747d]">{dashboardText("Configurez une route active et son service dans Routes et Services avant de créer l’expédition.")}</p>}
               {selectedRoute && <div className="sm:col-span-2 rounded-lg bg-[#f5f8f7] p-3 text-[13px] text-[#52616a]">
                 <p>{[selectedRoute.origin_city, selectedRoute.origin_country].filter(Boolean).join(", ")} → {[selectedRoute.destination_city, selectedRoute.destination_country].filter(Boolean).join(", ")}</p>
-                {selectedService && <p className="mt-1">{selectedService.service_name} · {selectedService.currency_code} · Délai indicatif : {selectedService.eta_min_days}–{selectedService.eta_max_days} jours</p>}
+                {selectedService && <p className="mt-1">{selectedService.service_name} · {selectedService.currency_code} {dashboardText(" · Délai indicatif : ")}{selectedService.eta_min_days}–{selectedService.eta_max_days} {dashboardText(" jours")}</p>}
               </div>}
-              <Field name="planned_departure_at" label="Départ prévu" type="datetime-local"/>
-              <Field name="eta_at" label="Arrivée estimée" type="datetime-local"/>
-              <Field name="title" label="Libellé (optionnel)" placeholder="Généré à partir de la route et du service"/>
-              <Field name="carrier_name" label="Transporteur (optionnel)"/>
-              {selectedService && ["AIR", "EXPRESS"].includes(selectedService.shipping_mode) && <>
-                <Field name="flight_number" label="Numéro de vol (optionnel)"/>
-                <Field name="awb_number" label="Lettre de transport aérien · AWB (optionnel)"/>
+              <Field name="planned_departure_at" label={dashboardText("Départ prévu")} type="datetime-local"/>
+              <Field name="eta_at" label={dashboardText("Arrivée estimée")} type="datetime-local"/>
+              <Field name="title" label={dashboardText("Libellé (optionnel)")} placeholder={dashboardText("Généré à partir de la route et du service")}/>
+              <Field name="carrier_name" label={dashboardText("Transporteur (optionnel)")}/>
+              {selectedService && [dashboardText("AIR"), dashboardText("EXPRESS")].includes(selectedService.shipping_mode) && <>
+                <Field name="flight_number" label={dashboardText("Numéro de vol (optionnel)")}/>
+                <Field name="awb_number" label={dashboardText("Lettre de transport aérien · AWB (optionnel)")}/>
               </>}
               {selectedService?.shipping_mode === "SEA" && <>
-                <Field name="container_number" label="Numéro de conteneur (optionnel)"/>
-                <Field name="bl_number" label="Connaissement · BL (optionnel)"/>
+                <Field name="container_number" label={dashboardText("Numéro de conteneur (optionnel)")}/>
+                <Field name="bl_number" label={dashboardText("Connaissement · BL (optionnel)")}/>
               </>}
-              <label className="sm:col-span-2 grid gap-1 text-[13px] font-medium text-[#334155]">Notes internes (optionnelles)
-                <textarea name="notes" className="min-h-20 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[13px]" placeholder="Consignes pour l’équipe"/>
+              <label className="sm:col-span-2 grid gap-1 text-[13px] font-medium text-[#334155]">{dashboardText("Notes internes (optionnelles)")}<textarea name="notes" className="min-h-20 w-full rounded-md border border-[#cfd5dd] px-3 py-2 text-[13px]" placeholder={dashboardText("Consignes pour l’équipe")}/>
               </label>
             </div>
             {formError ? (
@@ -700,8 +697,7 @@ function LegacyShipmentsPage() {
                 className={buttonClass}
                 onClick={() => setFormOpen(false)}
               >
-                Annuler
-              </button>
+                {dashboardText("Annuler")}</button>
               <button
                 type="submit"
                 className={primaryButtonClass}
@@ -712,8 +708,7 @@ function LegacyShipmentsPage() {
                 ) : (
                   <Plus size={16} />
                 )}{" "}
-                Créer l&apos;expédition
-              </button>
+                {dashboardText("Créer l'expédition")}</button>
             </div>
           </form>
         </OperationDrawer>
@@ -723,11 +718,11 @@ function LegacyShipmentsPage() {
 }
 
 function ShipmentAnalyticsView({ data }: { data: ShipmentAnalytics | null }) {
+  useDashboardMessages();
   if (!data)
     return (
       <div className="flex min-h-[420px] items-center justify-center text-[13px] text-[#687584]">
-        Analytics indisponibles.
-      </div>
+        {dashboardText("Analytics indisponibles.")}</div>
     );
   const deliveredWithEta = data.summary.arrived_with_eta;
   const etaRate = deliveredWithEta > 0
@@ -755,18 +750,18 @@ function ShipmentAnalyticsView({ data }: { data: ShipmentAnalytics | null }) {
             key={label}
             className="rounded-lg bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.04)]"
           >
-            <p className="text-[12px] text-[#687584]">{label}</p>
+            <p className="text-[12px] text-[#687584]">{dashboardText(label)}</p>
             <p className="mt-2 text-[25px] font-medium">{value}</p>
           </div>
         ))}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <AnalyticsRows title="Par statut" rows={data.by_status} />
-        <AnalyticsRows title="Par mode" rows={data.by_mode} />
-        <AnalyticsRows title="Routes principales" rows={data.by_route} />
-        <AnalyticsRows title="Retards par route" rows={data.delays_by_route} />
+        <AnalyticsRows title={dashboardText("Par statut")} rows={data.by_status} />
+        <AnalyticsRows title={dashboardText("Par mode")} rows={data.by_mode} />
+        <AnalyticsRows title={dashboardText("Routes principales")} rows={data.by_route} />
+        <AnalyticsRows title={dashboardText("Retards par route")} rows={data.delays_by_route} />
         <AnalyticsRows
-          title="Livraisons mensuelles"
+          title={dashboardText("Livraisons mensuelles")}
           rows={data.monthly_deliveries}
         />
       </div>
@@ -780,6 +775,7 @@ function AnalyticsRows({
   title: string;
   rows: Array<{ label: string; count: number }>;
 }) {
+  useDashboardMessages();
   return (
     <section className="rounded-lg bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
       <h3 className="mb-2 text-[14px] font-semibold">{title}</h3>
@@ -788,12 +784,12 @@ function AnalyticsRows({
           key={row.label}
           className="flex justify-between border-b border-[#f0f1f3] py-2 text-[12px]"
         >
-          <span>{row.label}</span>
+          <span>{dashboardText(row.label)}</span>
           <b>{row.count}</b>
         </div>
       ))}
       {!rows.length && (
-        <p className="py-4 text-[12px] text-[#687584]">Aucune donnée.</p>
+        <p className="py-4 text-[12px] text-[#687584]">{dashboardText("Aucune donnée.")}</p>
       )}
     </section>
   );
@@ -812,10 +808,11 @@ function Field({
   type?: string;
   defaultValue?: string;
 }) {
+  useDashboardMessages();
   return (
     <label>
       <span className="mb-1 block text-[13px] font-medium text-[#334155]">
-        {label}
+        {dashboardText(label)}
       </span>
       <input
         name={name}
@@ -835,6 +832,7 @@ function Badge({
   children: ReactNode;
   className: string;
 }) {
+  useDashboardMessages();
   return (
     <span
       className={`inline-flex rounded-full px-2 py-1 text-[12px] font-medium ring-1 ${className}`}
@@ -859,7 +857,7 @@ function clean<T extends Record<string, unknown>>(payload: T): T {
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat(dashboardFormatLocale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -867,7 +865,7 @@ function formatDate(value?: string | null) {
 }
 
 function formatNumber(value?: number | null) {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(
+  return new Intl.NumberFormat(dashboardFormatLocale(), { maximumFractionDigits: 2 }).format(
     Number(value || 0),
   );
 }

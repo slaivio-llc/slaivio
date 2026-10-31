@@ -1,4 +1,6 @@
 "use client";
+import {useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
@@ -11,6 +13,7 @@ const labels = {
 };
 
 export function WorkspaceSearch({ close, locale }: { close: () => void; locale: "fr" | "en" }) {
+  useDashboardMessages();
   const router = useRouter();
   const dialog = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);

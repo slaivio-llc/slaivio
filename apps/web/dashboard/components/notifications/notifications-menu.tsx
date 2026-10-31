@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCheck, ChevronRight, MoreHorizontal, Package, X } from "lucide-react";
@@ -6,6 +8,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { listNotifications, markAllRead, notificationAction, type CenterItem } from "@/services/notification-center";
 
 export function NotificationsMenu({ close }: { close: () => void }) {
+  useDashboardMessages();
   const router = useRouter();
   const { permissions } = usePermissions();
   const canManage = permissions.includes("notifications.manage");
@@ -77,41 +80,41 @@ export function NotificationsMenu({ close }: { close: () => void }) {
   }
   const filtered = items;
 
-  return <div role="dialog" aria-label="Notifications" className="h-[440px] max-h-[calc(100dvh-76px)] w-[344px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[10px] border border-[#dfe2e4] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
+  return <div role="dialog" aria-label={dashboardText("Notifications")} className="h-[440px] max-h-[calc(100dvh-76px)] w-[344px] max-w-[calc(100vw-24px)] overflow-hidden rounded-[10px] border border-[#dfe2e4] bg-white shadow-[0_16px_44px_rgba(15,23,42,.18)]">
     <div key={selected ? `detail-${selected.id}` : "list"} className={`help-panel-enter-${direction} flex h-full min-h-0 flex-col`}>
       {!selected ? <>
         <header className="flex shrink-0 items-start gap-2 px-3 pt-3">
-          <div className="min-w-0 flex-1"><h2 className="text-[13px] font-semibold text-[#25292e]">Notifications</h2><p className="mt-0.5 text-[13px] text-[#737b82]">{unreadCount} non lue{unreadCount === 1 ? "" : "s"}</p></div>
-          {canManage && <button type="button" title="Tout marquer comme lu" aria-label="Tout marquer comme lu" disabled={busy || loading || unreadCount === 0} onClick={() => void readEverything()} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5] disabled:opacity-40"><MoreHorizontal size={16}/></button>}
-          <button type="button" aria-label="Fermer les notifications" onClick={close} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5]"><X size={14}/></button>
+          <div className="min-w-0 flex-1"><h2 className="text-[13px] font-semibold text-[#25292e]">{dashboardText("Notifications")}</h2><p className="mt-0.5 text-[13px] text-[#737b82]">{unreadCount} {dashboardText(" non lue")}{unreadCount === 1 ? "" : dashboardText("s")}</p></div>
+          {canManage && <button type="button" title={dashboardText("Tout marquer comme lu")} aria-label={dashboardText("Tout marquer comme lu")} disabled={busy || loading || unreadCount === 0} onClick={() => void readEverything()} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5] disabled:opacity-40"><MoreHorizontal size={16}/></button>}
+          <button type="button" aria-label={dashboardText("Fermer les notifications")} onClick={close} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5]"><X size={14}/></button>
         </header>
-        <nav aria-label="Filtres des notifications" className="mx-3 mt-2 flex shrink-0 gap-1 border-b border-[#e9ebec] pb-2">
-          <button type="button" aria-pressed={tab === "all"} onClick={() => switchTab("all")} className={`h-7 rounded-full px-3 text-[13px] ${tab === "all" ? "bg-[#111] font-semibold text-white" : "text-[#555e65] hover:bg-[#f3f4f4]"}`}>Toutes</button>
-          <button type="button" aria-pressed={tab === "unread"} onClick={() => switchTab("unread")} className={`h-7 rounded-full px-3 text-[13px] ${tab === "unread" ? "bg-[#111] font-semibold text-white" : "text-[#555e65] hover:bg-[#f3f4f4]"}`}>Non lues ({unreadCount})</button>
+        <nav aria-label={dashboardText("Filtres des notifications")} className="mx-3 mt-2 flex shrink-0 gap-1 border-b border-[#e9ebec] pb-2">
+          <button type="button" aria-pressed={tab === "all"} onClick={() => switchTab("all")} className={`h-7 rounded-full px-3 text-[13px] ${tab === "all" ? "bg-[#111] font-semibold text-white" : "text-[#555e65] hover:bg-[#f3f4f4]"}`}>{dashboardText("Toutes")}</button>
+          <button type="button" aria-pressed={tab === "unread"} onClick={() => switchTab("unread")} className={`h-7 rounded-full px-3 text-[13px] ${tab === "unread" ? "bg-[#111] font-semibold text-white" : "text-[#555e65] hover:bg-[#f3f4f4]"}`}>{dashboardText("Non lues (")}{unreadCount})</button>
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
-          {loading ? <div className="flex h-full items-center justify-center" aria-label="Chargement des notifications"><span className="flex items-center gap-1.5">{[0, 1, 2].map(dot => <span key={dot} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#169c68]" style={{ animationDelay: `${dot * 140}ms` }}/>)}</span></div>
-            : error && !items.length ? <div role="alert" className="p-5 text-center text-[13px] text-red-600">{error}<button type="button" onClick={() => { setError(""); setLoading(true); setRevision(value => value + 1); }} className="mt-2 block w-full underline">Réessayer</button></div>
-            : !filtered.length ? <div className="flex min-h-[120px] flex-col items-center justify-center px-5 text-center"><CheckCheck size={21} className="text-[#a1a7ad]"/><p className="mt-2 text-[13px] font-medium">Aucune notification {tab === "unread" ? "non lue" : "pour le moment"}</p><p className="mt-1 text-[13px] text-[#858b92]">Les mises à jour opérationnelles apparaîtront ici.</p></div>
+          {loading ? <div className="flex h-full items-center justify-center" aria-label={dashboardText("Chargement des notifications")}><span className="flex items-center gap-1.5">{[0, 1, 2].map(dot => <span key={dot} className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#169c68]" style={{ animationDelay: `${dot * 140}ms` }}/>)}</span></div>
+            : error && !items.length ? <div role="alert" className="p-5 text-center text-[13px] text-red-600">{dashboardText(error)}<button type="button" onClick={() => { setError(""); setLoading(true); setRevision(value => value + 1); }} className="mt-2 block w-full underline">{dashboardText("Réessayer")}</button></div>
+            : !filtered.length ? <div className="flex min-h-[120px] flex-col items-center justify-center px-5 text-center"><CheckCheck size={21} className="text-[#a1a7ad]"/><p className="mt-2 text-[13px] font-medium">{dashboardText("Aucune notification ")}{tab === "unread" ? dashboardText("non lue") : dashboardText("pour le moment")}</p><p className="mt-1 text-[13px] text-[#858b92]">{dashboardText("Les mises à jour opérationnelles apparaîtront ici.")}</p></div>
             : filtered.map(item => <button type="button" disabled={busy} key={`${item.source}-${item.id}`} onClick={() => void openNotification(item)} className="flex min-h-[56px] w-full items-center gap-2 border-b border-[#f0f1f2] px-1.5 py-2 text-left hover:bg-[#fafbfb] disabled:opacity-60">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[5px] bg-[#f2f3f3] text-[#626b72]"><Package size={13}/></span>
-              <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium text-[#25292e]">{item.title}</span><span className="mt-0.5 block truncate text-[12px] text-[#697179]">{item.message}</span><span className="mt-0.5 block text-[13px] text-[#939ba2]">{timeAgo(item.created_at)}</span></span>
+              <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium text-[#25292e]">{dashboardText(item.title)}</span><span className="mt-0.5 block truncate text-[12px] text-[#697179]">{dashboardText(item.message)}</span><span className="mt-0.5 block text-[13px] text-[#939ba2]">{timeAgo(item.created_at)}</span></span>
               {!item.read_at && <span className="h-2 w-2 shrink-0 rounded-full bg-[#df5b26]"/>}<ChevronRight size={13} className="shrink-0 text-[#939ba2]"/>
             </button>)}
         </div>
-        {error && items.length > 0 && <p role="alert" className="border-t border-[#f0d8d5] px-3 py-1.5 text-[12px] text-red-700">{error}</p>}
+        {error && items.length > 0 && <p role="alert" className="border-t border-[#f0d8d5] px-3 py-1.5 text-[12px] text-red-700">{dashboardText(error)}</p>}
       </> : <>
         <header className="flex h-[46px] shrink-0 items-center gap-2 border-b border-[#e9ebec] px-2.5">
-          <button type="button" aria-label="Retour à la liste" onClick={backToList} className="grid h-7 w-7 place-items-center rounded text-[#596169] hover:bg-[#f3f5f4]"><ArrowLeft size={14}/></button>
-          <h2 className="flex-1 text-[13px] font-medium text-[#25292e]">Détail de la notification</h2>
-          <button type="button" aria-label="Fermer les notifications" onClick={close} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5]"><X size={14}/></button>
+          <button type="button" aria-label={dashboardText("Retour à la liste")} onClick={backToList} className="grid h-7 w-7 place-items-center rounded text-[#596169] hover:bg-[#f3f5f4]"><ArrowLeft size={14}/></button>
+          <h2 className="flex-1 text-[13px] font-medium text-[#25292e]">{dashboardText("Détail de la notification")}</h2>
+          <button type="button" aria-label={dashboardText("Fermer les notifications")} onClick={close} className="grid h-7 w-7 place-items-center rounded text-[#697179] hover:bg-[#f4f5f5]"><X size={14}/></button>
         </header>
         <article className="min-h-0 flex-1 overflow-y-auto px-3.5 py-4">
-          <div className="flex items-start gap-2"><Package size={15} className="mt-0.5 shrink-0 text-[#30363a]"/><div className="min-w-0"><h3 className="text-[13px] font-semibold text-[#25292e]">{selected.title}</h3><p className="mt-0.5 text-[12px] text-[#858d93]">{timeAgo(selected.created_at)}</p></div></div>
-          <p className="mt-3 whitespace-pre-wrap text-[13px] leading-[1.55] text-[#424a50]">{selected.message}</p>
-          {selected.href && <button type="button" onClick={() => openDestination(selected)} className="mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-[#111] text-[13px] font-semibold text-white hover:bg-[#303030]">Voir {["PARCEL","PACKAGE"].includes(selected.resource_kind || "") ? "le colis" : ["SHIPMENT","EXPEDITION"].includes(selected.resource_kind || "") ? "l’expédition" : selected.resource_kind === "INVOICE" ? "la facture" : "le détail"}<span aria-hidden="true">↗</span></button>}
-          {busy && <p className="mt-2 text-[12px] text-[#697179]">Mise à jour du statut de lecture…</p>}
-          {error && <p role="alert" className="mt-2 text-[12px] text-amber-700">{error}</p>}
+          <div className="flex items-start gap-2"><Package size={15} className="mt-0.5 shrink-0 text-[#30363a]"/><div className="min-w-0"><h3 className="text-[13px] font-semibold text-[#25292e]">{dashboardText(selected.title)}</h3><p className="mt-0.5 text-[12px] text-[#858d93]">{timeAgo(selected.created_at)}</p></div></div>
+          <p className="mt-3 whitespace-pre-wrap text-[13px] leading-[1.55] text-[#424a50]">{dashboardText(selected.message)}</p>
+          {selected.href && <button type="button" onClick={() => openDestination(selected)} className="mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-full bg-[#111] text-[13px] font-semibold text-white hover:bg-[#303030]">{dashboardText("Voir ")}{["PARCEL","PACKAGE"].includes(selected.resource_kind || "") ? dashboardText("le colis") : ["SHIPMENT","EXPEDITION"].includes(selected.resource_kind || "") ? dashboardText("l’expédition") : selected.resource_kind === "INVOICE" ? dashboardText("la facture") : dashboardText("le détail")}<span aria-hidden="true">↗</span></button>}
+          {busy && <p className="mt-2 text-[12px] text-[#697179]">{dashboardText("Mise à jour du statut de lecture…")}</p>}
+          {error && <p role="alert" className="mt-2 text-[12px] text-amber-700">{dashboardText(error)}</p>}
         </article>
       </>}
     </div>

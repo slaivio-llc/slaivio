@@ -1,3 +1,6 @@
+
+"use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
 import { ReactNode } from "react";
 
 import { SlaivioBrand } from "@/components/ui/slaivio-brand";
@@ -11,6 +14,7 @@ export function AuthShell({
   description: string;
   children: ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <main className="flex min-h-dvh flex-col bg-white text-[#25292e]">
       <header className="px-6 py-6 sm:px-10"><SlaivioBrand compact /></header>
@@ -30,7 +34,7 @@ export function AuthShell({
         </div>
       </section>
 
-      <footer className="px-6 pb-6 text-center text-[12px] text-[#858b90]">Slaivio · Gestion de colis et de fret</footer>
+      <footer className="px-6 pb-6 text-center text-[12px] text-[#858b90]">{dashboardText("Slaivio · Gestion de colis et de fret")}</footer>
     </main>
   );
 }

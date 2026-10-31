@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+
 
 import {
   ChevronRight,
@@ -40,6 +42,7 @@ const input =
   "h-9 rounded-[5px] border border-[#d6dadd] bg-white px-3 text-[13px] outline-none focus:border-[#12a861]";
 
 export function DocumentsPage() {
+  useDashboardMessages();
   const [items, setItems] = useState<Doc[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -93,22 +96,21 @@ export function DocumentsPage() {
   return (
     <div className="min-h-full bg-[#f7f7f6]">
       <OperationPageHeader
-        title="Documents et conformité"
-        description="Centralisez les pièces cargo, contrôlez leur validité et suivez les échéances."
+        title={dashboardText("Documents et conformité")}
+        description={dashboardText("Centralisez les pièces cargo, contrôlez leur validité et suivez les échéances.")}
         actions={
           <OperationButton variant="primary" onClick={() => setOpen(true)}>
             <FilePlus2 size={15} />
-            Ajouter un document
-          </OperationButton>
+            {dashboardText("Ajouter un document")}</OperationButton>
         }
       />
       <main>
         <OperationMetrics>
           <OperationMetricGrid>
-            <OperationMetric label="Documents" value={items.length} />
-            <OperationMetric label="À contrôler" value={pending} tone={pending ? "warning" : "default"} />
-            <OperationMetric label="Conformes" value={valid} tone="success" />
-            <OperationMetric label="À renouveler bientôt" value={expiring} tone={expiring ? "warning" : "default"} />
+            <OperationMetric label={dashboardText("Documents")} value={items.length} />
+            <OperationMetric label={dashboardText("À contrôler")} value={pending} tone={pending ? "warning" : "default"} />
+            <OperationMetric label={dashboardText("Conformes")} value={valid} tone="success" />
+            <OperationMetric label={dashboardText("À renouveler bientôt")} value={expiring} tone={expiring ? "warning" : "default"} />
           </OperationMetricGrid>
         </OperationMetrics>
         <OperationToolbar
@@ -116,31 +118,31 @@ export function DocumentsPage() {
             <OperationSearch
               value={query}
               onChange={setQuery}
-              placeholder="Rechercher un document..."
+              placeholder={dashboardText("Rechercher un document...")}
             />
           }
         />
         <section className="border-b border-[#dfe1e3] bg-white">
           {error && !items.length ? (
-            <ErrorState title="Documents indisponibles" description={error} retry={load} />
+            <ErrorState title={dashboardText("Documents indisponibles")} description={dashboardText(error)} retry={load} />
           ) : loading ? (
-            <TableSkeleton columns={7} label="Chargement des documents" />
+            <TableSkeleton columns={7} label={dashboardText("Chargement des documents")} />
           ) : filtered.length ? (
             <OperationTable>
             <table className="w-full min-w-[850px] border-collapse text-left text-[13px]">
               <thead className="bg-[#fbfcfd] text-[#5f6b7a]">
                 <tr className="border-b border-[#e6e9ee]">
                   {[
-                    "Code",
-                    "Document",
-                    "Élément lié",
-                    "Statut",
-                    "Expiration",
-                    "Actions",
+                    dashboardText("Code"),
+                    dashboardText("Document"),
+                    dashboardText("Élément lié"),
+                    dashboardText("Statut"),
+                    dashboardText("Expiration"),
+                    dashboardText("Actions"),
                     "",
                   ].map((label) => (
                     <th className="px-4 py-3 font-medium" key={label}>
-                      {label}
+                      {dashboardText(label)}
                     </th>
                   ))}
                 </tr>
@@ -172,8 +174,7 @@ export function DocumentsPage() {
                           window.open(await downloadDoc(item.id), "_blank")
                         }
                       >
-                        Ouvrir
-                      </button>
+                        {dashboardText("Ouvrir")}</button>
                       {item.status === "PENDING_REVIEW" && (
                         <>
                           <button
@@ -181,8 +182,7 @@ export function DocumentsPage() {
                               reviewDoc(item.id, "VALID").then(load)
                             }
                           >
-                            Valider
-                          </button>
+                            {dashboardText("Valider")}</button>
                           <button
                             className="text-red-600"
                             onClick={() => {
@@ -193,8 +193,7 @@ export function DocumentsPage() {
                                 );
                             }}
                           >
-                            Rejeter
-                          </button>
+                            {dashboardText("Rejeter")}</button>
                         </>
                       )}
                     </td>
@@ -207,40 +206,40 @@ export function DocumentsPage() {
             </table>
             </OperationTable>
           ) : (
-            <EmptyState title="Aucun document dans cette vue" description="Les pièces liées aux opérations apparaîtront ici." />
+            <EmptyState title={dashboardText("Aucun document dans cette vue")} description={dashboardText("Les pièces liées aux opérations apparaîtront ici.")} />
           )}
         </section>
       </main>
       {open && (
         <OperationDrawer
           open
-          title="Ajouter un document"
-          description="Ajoutez une pièce à une opération existante de l’agence."
+          title={dashboardText("Ajouter un document")}
+          description={dashboardText("Ajoutez une pièce à une opération existante de l’agence.")}
           close={() => setOpen(false)}
         >
           <form onSubmit={submit} className="grid gap-5">
-            <FormSection title="Identification" description="Nommez clairement la pièce pour que l’équipe puisse la retrouver.">
+            <FormSection title={dashboardText("Identification")} description={dashboardText("Nommez clairement la pièce pour que l’équipe puisse la retrouver.")}>
               <div className="grid gap-4 sm:grid-cols-2">
-                <OperationField label="Code du document" required><input required name="document_code" className={input} placeholder="Ex. DOC-2026-001" /></OperationField>
-                <OperationField label="Type de document" required><input required name="document_type" className={input} placeholder="Ex. Facture fournisseur" /></OperationField>
-                <OperationField label="Titre" required><input required name="title" className={input} placeholder="Nom compréhensible par l’équipe" /></OperationField>
-                <OperationField label="Émis par"><input name="issuer" className={input} placeholder="Fournisseur, douane ou agence" /></OperationField>
+                <OperationField label={dashboardText("Code du document")} required><input required name="document_code" className={input} placeholder={dashboardText("Ex. DOC-2026-001")} /></OperationField>
+                <OperationField label={dashboardText("Type de document")} required><input required name="document_type" className={input} placeholder={dashboardText("Ex. Facture fournisseur")} /></OperationField>
+                <OperationField label={dashboardText("Titre")} required><input required name="title" className={input} placeholder={dashboardText("Nom compréhensible par l’équipe")} /></OperationField>
+                <OperationField label={dashboardText("Émis par")}><input name="issuer" className={input} placeholder={dashboardText("Fournisseur, douane ou agence")} /></OperationField>
               </div>
             </FormSection>
-            <FormSection title="Élément concerné" description="Reliez la pièce à l’opération réelle pour éviter les documents isolés.">
+            <FormSection title={dashboardText("Élément concerné")} description={dashboardText("Reliez la pièce à l’opération réelle pour éviter les documents isolés.")}>
               <div className="grid gap-4 sm:grid-cols-2">
-                <OperationField label="Ce document concerne" required><select name="entity_type" className={input}><option value="SHIPMENT">Une expédition</option><option value="DOSSIER">Un dossier</option><option value="PACKAGE">Un colis</option><option value="CLIENT">Un client</option><option value="DEPARTURE">Un départ</option><option value="ORGANIZATION">L’agence</option></select></OperationField>
-                <OperationField label="Référence visible" hint="Exemple : COL-2026-008452" required><input required name="entity_id" className={input} placeholder="Référence du dossier, colis ou expédition" /></OperationField>
-                <OperationField label="Date d’émission"><input name="issued_at" type="date" className={input} /></OperationField>
-                <OperationField label="Date d’expiration"><input name="expires_at" type="date" className={input} /></OperationField>
+                <OperationField label={dashboardText("Ce document concerne")} required><select name="entity_type" className={input}><option value="SHIPMENT">{dashboardText("Une expédition")}</option><option value="DOSSIER">{dashboardText("Un dossier")}</option><option value="PACKAGE">{dashboardText("Un colis")}</option><option value="CLIENT">{dashboardText("Un client")}</option><option value="DEPARTURE">{dashboardText("Un départ")}</option><option value="ORGANIZATION">{dashboardText("L’agence")}</option></select></OperationField>
+                <OperationField label={dashboardText("Référence visible")} hint="Exemple : COL-2026-008452" required><input required name="entity_id" className={input} placeholder={dashboardText("Référence du dossier, colis ou expédition")} /></OperationField>
+                <OperationField label={dashboardText("Date d’émission")}><input name="issued_at" type="date" className={input} /></OperationField>
+                <OperationField label={dashboardText("Date d’expiration")}><input name="expires_at" type="date" className={input} /></OperationField>
               </div>
             </FormSection>
-            <FormSection title="Fichier" description="PDF ou image lisible. Le document restera lié à l’agence active.">
-              <OperationField label="Choisir le fichier" required><input required name="file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="rounded-[6px] border border-dashed border-[#cfd5dd] p-4 text-[13px]" /></OperationField>
+            <FormSection title={dashboardText("Fichier")} description={dashboardText("PDF ou image lisible. Le document restera lié à l’agence active.")}>
+              <OperationField label={dashboardText("Choisir le fichier")} required><input required name="file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="rounded-[6px] border border-dashed border-[#cfd5dd] p-4 text-[13px]" /></OperationField>
             </FormSection>
             <div className="flex justify-end gap-2 border-t border-[#eceef1] pt-4">
-              <OperationButton type="button" onClick={() => setOpen(false)}>Annuler</OperationButton>
-              <OperationButton type="submit" variant="primary">Enregistrer</OperationButton>
+              <OperationButton type="button" onClick={() => setOpen(false)}>{dashboardText("Annuler")}</OperationButton>
+              <OperationButton type="submit" variant="primary">{dashboardText("Enregistrer")}</OperationButton>
             </div>
           </form>
         </OperationDrawer>
@@ -250,6 +249,7 @@ export function DocumentsPage() {
 }
 
 function DocumentStatus({ value }: { value: string }) {
+  useDashboardMessages();
   const states: Record<string, { label: string; tone: "success" | "danger" | "warning" | "neutral" }> = {
     VALID: { label: "Conforme", tone: "success" },
     REJECTED: { label: "Rejeté", tone: "danger" },
@@ -257,10 +257,10 @@ function DocumentStatus({ value }: { value: string }) {
     EXPIRED: { label: "Expiré", tone: "danger" },
   };
   const state = states[value] || { label: businessLabel(value), tone: "neutral" as const };
-  return <OperationStatus label={state.label} tone={state.tone} />;
+  return <OperationStatus label={dashboardText(state.label)} tone={state.tone} />;
 }
 function entityLabel(value: string) {
-  return (
+  return dashboardText((
     (
       {
         SHIPMENT: "Expédition",
@@ -271,5 +271,5 @@ function entityLabel(value: string) {
         ORGANIZATION: "Agence",
       } as Record<string, string>
     )[value] || businessLabel(value)
-  );
+  ));
 }

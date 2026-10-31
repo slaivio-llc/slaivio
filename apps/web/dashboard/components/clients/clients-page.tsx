@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 
 import { useResourceLink } from "@/components/ui/use-resource-link";
 import { CargoDirectory } from "@/components/clients/cargo-directory";
@@ -172,6 +174,7 @@ type DetailTab =
   | "notes";
 
 export function ClientsPage() {
+  useDashboardMessages();
   const { permissions, available: permissionsAvailable } = usePermissions();
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [stats, setStats] = useState<ClientStats>(emptyStats);
@@ -570,16 +573,15 @@ export function ClientsPage() {
     <div className="min-h-full bg-[#f7f7f6] text-[#1f2328]">
       <div className="overflow-hidden bg-white">
         {!parcelFreight && <OperationPageHeader
-          title="Clients"
-          description="Retrouvez et gérez les clients de votre organisation."
+          title={dashboardText("Clients")}
+          description={dashboardText("Retrouvez et gérez les clients de votre organisation.")}
           wide={parcelFreight}
           actions={
             <>
               <PermissionGuard permission="clients.import">
                 <OperationButton onClick={() => setImportOpen(true)}>
                   <Upload size={14} />
-                  Importer
-                </OperationButton>
+                  {dashboardText("Importer")}</OperationButton>
               </PermissionGuard>
               {!parcelFreight && <PermissionGuard permission="clients.export">
                 <OperationButton
@@ -587,21 +589,20 @@ export function ClientsPage() {
                   disabled={exporting}
                 >
                   <Download size={14} />
-                  {exporting ? "Export..." : "Exporter"}
+                  {exporting ? dashboardText("Export...") : dashboardText("Exporter")}
                 </OperationButton>
               </PermissionGuard>}
               <PermissionGuard permission="clients.create">
                 <OperationButton variant="primary" onClick={openCreate} disabled={!profileReady}>
                   <span className="text-lg leading-none">+</span>
-                  Nouveau client
-                </OperationButton>
+                  {dashboardText("Nouveau client")}</OperationButton>
               </PermissionGuard>
             </>
           }
         />}
 
-        {profileReady && parcelFreight && error && <p role="alert" className="mx-auto max-w-[1200px] px-8 text-sm text-red-700">{error}</p>}
-{!profileReady ? <div className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8">{error ? <p role="alert">{error}</p> : <TableSkeleton rows={6} columns={3} label="Chargement des clients"/>}</div> : parcelFreight ? <CargoDirectory revision={directoryRevision} create={openCreate} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
+        {profileReady && parcelFreight && error && <p role="alert" className="mx-auto max-w-[1200px] px-8 text-sm text-red-700">{dashboardText(error)}</p>}
+{!profileReady ? <div className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8">{error ? <p role="alert">{dashboardText(error)}</p> : <TableSkeleton rows={6} columns={3} label={dashboardText("Chargement des clients")}/>}</div> : parcelFreight ? <CargoDirectory revision={directoryRevision} create={openCreate} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-5">
             {statCards.map((card) => (
               <button
@@ -616,8 +617,8 @@ export function ClientsPage() {
                 className={`group min-w-0 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#12a865] ${activeView === card.view ? "bg-[#edf8f2] shadow-[inset_0_3px_0_#12a865]" : "hover:bg-[#f7faf8]"}`}
               >
                 <OperationMetric
-                  label={card.label}
-                  value={card.value.toLocaleString("fr-FR")}
+                  label={dashboardText(card.label)}
+                  value={card.value.toLocaleString(dashboardFormatLocale())}
                   tone={activeView === card.view ? "success" : card.tone === "amber" ? "warning" : "default"}
                   className="cursor-pointer"
                 />
@@ -628,50 +629,50 @@ export function ClientsPage() {
 
         <section>
           <OperationToolbar
-            search={<OperationSearch value={query} onChange={setQuery} placeholder="Rechercher un client…" />}
+            search={<OperationSearch value={query} onChange={setQuery} placeholder={dashboardText("Rechercher un client…")} />}
             filters={
               <OperationFilterPopover
                 open={filtersOpen}
                 onOpenChange={setFiltersOpen}
                 activeCount={[customerType, status, source].filter(Boolean).length + (sort !== "created_desc" ? 1 : 0) + (currentView.archived ? 1 : 0)}
                 onReset={() => { setActiveView("all"); setCustomerType(""); setStatus(""); setSource(""); setSort("created_desc"); }}
-                title="Filtrer les clients"
+                title={dashboardText("Filtrer les clients")}
               >
-                <OperationField label="Disponibilité">
+                <OperationField label={dashboardText("Disponibilité")}>
                   <select
                     value={currentView.archived ? "archived" : "current"}
                     onChange={(event) => setActiveView(event.target.value === "archived" ? "archived" : "all")}
                     className={inputClass}
                   >
-                    <option value="current">Clients actuels</option>
-                    <option value="archived" disabled={!archivedAllowed}>Clients archivés{archivedAllowed ? "" : " · accès requis"}</option>
+                    <option value="current">{dashboardText("Clients actuels")}</option>
+                    <option value="archived" disabled={!archivedAllowed}>{dashboardText("Clients archivés")}{archivedAllowed ? "" : dashboardText(" · accès requis")}</option>
                   </select>
                 </OperationField>
-                <OperationField label="Type de client">
+                <OperationField label={dashboardText("Type de client")}>
                   <select value={customerType} onChange={(event) => setCustomerType(event.target.value as ClientCustomerType | "")} className={inputClass}>
-                    <option value="">Tous les types</option>
-                    {Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    <option value="">{dashboardText("Tous les types")}</option>
+                    {Object.entries(typeLabels).map(([value, label]) => <option key={value} value={value}>{dashboardText(label)}</option>)}
                   </select>
                 </OperationField>
-                <OperationField label="Relation avec l’agence">
+                <OperationField label={dashboardText("Relation avec l’agence")}>
                   <select value={status} onChange={(event) => setStatus(event.target.value as ClientLifecycleStatus | "")} className={inputClass}>
-                    <option value="">Toutes les situations</option>
-                    {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    <option value="">{dashboardText("Toutes les situations")}</option>
+                    {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{dashboardText(label)}</option>)}
                   </select>
                 </OperationField>
-                <OperationField label="Origine du contact">
+                <OperationField label={dashboardText("Origine du contact")}>
                   <select value={source} onChange={(event) => setSource(event.target.value as ClientSource | "")} className={inputClass}>
-                    <option value="">Toutes les sources</option>
-                    {Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    <option value="">{dashboardText("Toutes les sources")}</option>
+                    {Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{dashboardText(label)}</option>)}
                   </select>
                 </OperationField>
-                <OperationField label="Ordre d’affichage">
+                <OperationField label={dashboardText("Ordre d’affichage")}>
                   <select value={sort} onChange={(event) => setSort(event.target.value)} className={inputClass}>
-                    <option value="created_desc">Créés récemment</option>
-                    <option value="created_asc">Créés anciennement</option>
-                    <option value="name_asc">Nom A-Z</option>
-                    <option value="name_desc">Nom Z-A</option>
-                    <option value="activity_desc">Activité récente</option>
+                    <option value="created_desc">{dashboardText("Créés récemment")}</option>
+                    <option value="created_asc">{dashboardText("Créés anciennement")}</option>
+                    <option value="name_asc">{dashboardText("Nom A-Z")}</option>
+                    <option value="name_desc">{dashboardText("Nom Z-A")}</option>
+                    <option value="activity_desc">{dashboardText("Activité récente")}</option>
                   </select>
                 </OperationField>
               </OperationFilterPopover>
@@ -683,16 +684,16 @@ export function ClientsPage() {
             <div className="mb-4 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
               <AlertCircle size={17} className="mt-0.5" />
               <div className="flex-1">
-                <p>{error}</p>
+                <p>{dashboardText(error)}</p>
                 <button
                   onClick={() => loadClients(page)}
                   disabled={loading}
                   className="mt-2 font-semibold underline disabled:opacity-50"
                 >
-                  {loading ? "Nouvelle tentative..." : "Réessayer"}
+                  {loading ? dashboardText("Nouvelle tentative...") : dashboardText("Réessayer")}
                 </button>
               </div>
-              <button onClick={() => setError("")} aria-label="Fermer l’alerte">
+              <button onClick={() => setError("")} aria-label={dashboardText("Fermer l’alerte")}>
                 <X size={15} />
               </button>
             </div>
@@ -708,8 +709,8 @@ export function ClientsPage() {
           <div className="flex flex-col gap-3 border-t border-[#d8dce2] px-5 py-3 text-[13px] text-[#5f6b76] sm:flex-row sm:items-center sm:justify-between">
             <span>
               {pagination.total === 0
-                ? "0 client"
-                : `${(page - 1) * pagination.page_size + 1} - ${Math.min(page * pagination.page_size, pagination.total)} sur ${pagination.total} client(s)`}
+                ? dashboardText("0 client")
+                : dashboardText("{0} - {1} sur {2} client(s)", (page - 1) * pagination.page_size + 1, Math.min(page * pagination.page_size, pagination.total), pagination.total)}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -812,12 +813,13 @@ function ClientsTable({
   selectedId?: string;
   onSelect: (client: ClientRecord) => void;
 }) {
+  useDashboardMessages();
   if (loading) {
     return <TableSkeleton />;
   }
 
   if (clients.length === 0) {
-    return <SharedEmptyState title="Aucun client trouvé" description="Créez votre premier client ou ajustez la recherche. Seules les données de l’agence active apparaissent ici." />;
+    return <SharedEmptyState title={dashboardText("Aucun client trouvé")} description={dashboardText("Créez votre premier client ou ajustez la recherche. Seules les données de l’agence active apparaissent ici.")} />;
   }
 
   return (
@@ -825,12 +827,12 @@ function ClientsTable({
       <table className="min-w-[760px] w-full border-collapse text-left text-[13px]">
         <thead className="border-b border-[#d8dce2] bg-[#f7f8fa] font-medium text-[#5f6b76]">
           <tr>
-            <th className="px-3 py-2">Client</th>
-            <th className="px-3 py-2">Téléphone</th>
-            <th className="px-3 py-2">Pays / ville</th>
-            <th className="px-3 py-2">Statut</th>
-            <th className="px-3 py-2">Colis</th>
-            <th className="px-3 py-2">Activité</th>
+            <th className="px-3 py-2">{dashboardText("Client")}</th>
+            <th className="px-3 py-2">{dashboardText("Téléphone")}</th>
+            <th className="px-3 py-2">{dashboardText("Pays / ville")}</th>
+            <th className="px-3 py-2">{dashboardText("Statut")}</th>
+            <th className="px-3 py-2">{dashboardText("Colis")}</th>
+            <th className="px-3 py-2">{dashboardText("Activité")}</th>
             <th className="w-10 px-3 py-2" />
           </tr>
         </thead>
@@ -856,7 +858,7 @@ function ClientsTable({
                       {client.display_name ||
                         client.name ||
                         client.company_name ||
-                        "Sans nom"}
+                        dashboardText("Sans nom")}
                     </p>
                     <p className="truncate text-[12px] text-[#687584]">
                       {client.company_name || client.source}
@@ -865,11 +867,11 @@ function ClientsTable({
                 </div>
               </td>
               <td className="px-3 py-2 text-[#334155]">
-                {client.phone || client.whatsapp_phone || "-"}
+                {client.phone || client.whatsapp_phone || dashboardText("-")}
               </td>
               <td className="px-3 py-2 text-[#334155]">
                 {[client.city, client.country].filter(Boolean).join(", ") ||
-                  "-"}
+                  dashboardText("-")}
               </td>
               <td className="px-3 py-2">
                 <StatusBadge status={client.lifecycle_status} />
@@ -934,6 +936,7 @@ function ClientDetails({
   clientAction: "archive" | "restore" | null;
   parcelFreight: boolean;
 }) {
+  useDashboardMessages();
   const tabs: Array<{ key: DetailTab; label: string }> = [
     { key: "summary", label: "Résumé" },
     { key: "operations", label: "Opérations" },
@@ -949,8 +952,8 @@ function ClientDetails({
       open
       close={onClose}
       width="max-w-3xl"
-      title={client.display_name || client.name || client.company_name || "Sans nom"}
-      description={`Fiche client · ${typeLabels[client.customer_type]} · ${sourceLabels[client.source]}`}
+      title={client.display_name || client.name || client.company_name || dashboardText("Sans nom")}
+      description={dashboardText("Fiche client · {0} · {1}", typeLabels[client.customer_type], sourceLabels[client.source])}
       headerActions={
         <>
                 {!archived && (
@@ -958,21 +961,19 @@ function ClientDetails({
                     <OperationDrawerAction
                       onClick={onEdit}
                       icon="edit"
-                      aria-label="Modifier le client"
+                      aria-label={dashboardText("Modifier le client")}
                     >
-                      Modifier
-                    </OperationDrawerAction>
+                      {dashboardText("Modifier")}</OperationDrawerAction>
                   </PermissionGuard>
                 )}
                 <PermissionGuard
                   permission="clients.archive"
                   fallback={
                     <span
-                      title="Permission clients.archive requise"
+                      title={dashboardText("Permission clients.archive requise")}
                       className="inline-flex h-8 items-center rounded-md border border-[#ddd] bg-[#f5f5f3] px-2 text-[11px] text-[#777]"
                     >
-                      Archivage non autorisé
-                    </span>
+                      {dashboardText("Archivage non autorisé")}</span>
                   }
                 >
                   {archived ? (
@@ -980,11 +981,11 @@ function ClientDetails({
                       onClick={onRestore}
                       disabled={clientAction !== null}
                       icon="restore"
-                      aria-label="Restaurer le client"
+                      aria-label={dashboardText("Restaurer le client")}
                     >
                       {clientAction === "restore"
-                        ? "Restauration..."
-                        : "Restaurer"}
+                        ? dashboardText("Restauration...")
+                        : dashboardText("Restaurer")}
                     </OperationDrawerAction>
                   ) : (
                     <OperationDrawerAction
@@ -992,9 +993,9 @@ function ClientDetails({
                       disabled={clientAction !== null}
                       icon="archive"
                       intent="danger"
-                      aria-label="Archiver le client"
+                      aria-label={dashboardText("Archiver le client")}
                     >
-                      {clientAction === "archive" ? "Archivage..." : "Archiver"}
+                      {clientAction === "archive" ? dashboardText("Archivage...") : dashboardText("Archiver")}
                     </OperationDrawerAction>
                   )}
                 </PermissionGuard>
@@ -1036,68 +1037,69 @@ function ClientDetails({
 }
 
 function SummaryTab({ client, parcelFreight, workspace }: { client: ClientRecord; parcelFreight: boolean; workspace: ClientWorkspace | null }) {
+  useDashboardMessages();
   if(parcelFreight) return <div className="grid gap-6 sm:grid-cols-2">
-    <Section title="Client"><InfoRow icon={Phone} label="Téléphone · WhatsApp" value={client.phone || client.whatsapp_phone || "Non renseigné"}/><Field label="Type" value={typeLabels[client.customer_type]}/><Field label="Pays" value={client.country || "Non renseigné"}/><Field label="Ville" value={client.city || "Non renseignée"}/></Section>
-    <Section title="Activité"><div className="grid grid-cols-2 gap-3"><SmallMetric label="Colis" value={workspace?.summary.packages ?? 0}/><SmallMetric label="En cours" value={workspace?.summary.active_packages ?? 0}/></div><Field label="Statut" value={statusLabels[client.lifecycle_status] || client.lifecycle_status}/></Section>
+    <Section title={dashboardText("Client")}><InfoRow icon={Phone} label={dashboardText("Téléphone · WhatsApp")} value={client.phone || client.whatsapp_phone || "Non renseigné"}/><Field label={dashboardText("Type")} value={typeLabels[client.customer_type]}/><Field label={dashboardText("Pays")} value={client.country || "Non renseigné"}/><Field label={dashboardText("Ville")} value={client.city || "Non renseignée"}/></Section>
+    <Section title={dashboardText("Activité")}><div className="grid grid-cols-2 gap-3"><SmallMetric label={dashboardText("Colis")} value={workspace?.summary.packages ?? 0}/><SmallMetric label={dashboardText("En cours")} value={workspace?.summary.active_packages ?? 0}/></div><Field label={dashboardText("Statut")} value={statusLabels[client.lifecycle_status] || client.lifecycle_status}/></Section>
   </div>;
   return (
     <div className="space-y-5">
-      <Section title="Coordonnées">
-        <InfoRow icon={Phone} label="Téléphone" value={client.phone || "-"} />
+      <Section title={dashboardText("Coordonnées")}>
+        <InfoRow icon={Phone} label={dashboardText("Téléphone")} value={client.phone || "-"} />
         <InfoRow
           icon={MessageCircle}
-          label="WhatsApp"
+          label={dashboardText("WhatsApp")}
           value={client.whatsapp_phone || client.phone || "-"}
         />
-        <InfoRow icon={Mail} label="Email" value={client.email || "-"} />
+        <InfoRow icon={Mail} label={dashboardText("Email")} value={client.email || "-"} />
         <InfoRow
           icon={UserRound}
-          label="Type"
+          label={dashboardText("Type")}
           value={typeLabels[client.customer_type]}
         />
       </Section>
-      <Section title="Localisation & identité">
-        <Field label="Entreprise" value={client.company_name || "-"} />
-        <Field label="Identifiant fiscal" value={client.tax_id || "-"} />
-        <Field label="Ville" value={client.city || "-"} />
-        <Field label="Pays" value={client.country || "-"} />
-        <Field label="Adresse" value={client.address || "-"} />
+      <Section title={dashboardText("Localisation & identité")}>
+        <Field label={dashboardText("Entreprise")} value={client.company_name || "-"} />
+        <Field label={dashboardText("Identifiant fiscal")} value={client.tax_id || "-"} />
+        <Field label={dashboardText("Ville")} value={client.city || "-"} />
+        <Field label={dashboardText("Pays")} value={client.country || "-"} />
+        <Field label={dashboardText("Adresse")} value={client.address || "-"} />
       </Section>
-      <Section title="Résumé opérationnel">
+      <Section title={dashboardText("Résumé opérationnel")}>
         <div className="grid grid-cols-2 gap-3">
-          <SmallMetric label="Dossiers" value={client.dossiers_count} />
+          <SmallMetric label={dashboardText("Dossiers")} value={client.dossiers_count} />
           <SmallMetric
-            label="Colis / expéditions"
+            label={dashboardText("Colis / expéditions")}
             value={client.shipments_count}
           />
           <SmallMetric
-            label="Solde"
+            label={dashboardText("Solde")}
             value={formatMoney(
               client.current_balance,
               client.preferred_currency,
             )}
           />
           <SmallMetric
-            label="Total dépensé"
+            label={dashboardText("Total dépensé")}
             value={formatMoney(client.total_spent, client.preferred_currency)}
           />
         </div>
       </Section>
       {client.payment_amount_due > 0 && (
-        <Section title="Paiement du client">
+        <Section title={dashboardText("Paiement du client")}>
           <div className="grid grid-cols-2 gap-3">
             <SmallMetric
-              label="Montant attendu"
+              label={dashboardText("Montant attendu")}
               value={formatMoney(client.payment_amount_due, client.payment_currency)}
             />
             <SmallMetric
-              label="Montant payé"
+              label={dashboardText("Montant payé")}
               value={formatMoney(client.payment_amount_paid, client.payment_currency)}
             />
           </div>
-          <Field label="État du paiement" value={humanStatus(client.payment_status)} />
+          <Field label={dashboardText("État du paiement")} value={humanStatus(client.payment_status)} />
           <Field
-            label="Reste à payer"
+            label={dashboardText("Reste à payer")}
             value={formatMoney(
               Math.max(0, client.payment_amount_due - client.payment_amount_paid),
               client.payment_currency,
@@ -1110,34 +1112,37 @@ function SummaryTab({ client, parcelFreight, workspace }: { client: ClientRecord
 }
 
 function OperationsTab({ workspace, loading }: { workspace: ClientWorkspace | null; loading: boolean }) {
+  useDashboardMessages();
   if (loading) return <LoadingLines />;
-  if (!workspace?.packages.length) return <EmptyState title="Aucun colis" text="Les colis enregistrés pour ce client apparaîtront ici avec leur départ et leur destination." />;
+  if (!workspace?.packages.length) return <EmptyState title={dashboardText("Aucun colis")} text="Les colis enregistrés pour ce client apparaîtront ici avec leur départ et leur destination." />;
   return <div className="space-y-3">
-    <div className="grid grid-cols-2 gap-3"><SmallMetric label="Colis" value={workspace.summary.packages}/><SmallMetric label="En cours" value={workspace.summary.active_packages}/></div>
+    <div className="grid grid-cols-2 gap-3"><SmallMetric label={dashboardText("Colis")} value={workspace.summary.packages}/><SmallMetric label={dashboardText("En cours")} value={workspace.summary.active_packages}/></div>
     {workspace.packages.map(item=><article key={item.id} className="rounded-md border border-[#dfe3e7] bg-white p-4">
-      <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-[#273038]">{item.package_reference}</p><p className="mt-1 text-[12px] text-[#687584]">{item.tracking_id || "Suivi non renseigné"}</p></div><span className="rounded-full bg-[#eef8f3] px-2.5 py-1 text-[11px] font-semibold text-[#087a48]">{humanStatus(item.status)}</span></div>
-      <div className="mt-3 grid gap-2 text-[12px] text-[#5f6b76] sm:grid-cols-2"><span>Destination : {[item.destination_city,item.destination_country].filter(Boolean).join(", ") || "—"}</span><span>Poids : {item.weight_kg == null ? "—" : `${item.weight_kg} kg`}</span><span>Départ : {item.departure_code || "Non affecté"}</span><span>Mise à jour : {formatDate(item.updated_at)}</span></div>
+      <div className="flex items-start justify-between gap-3"><div><p className="font-semibold text-[#273038]">{item.package_reference}</p><p className="mt-1 text-[12px] text-[#687584]">{item.tracking_id || dashboardText("Suivi non renseigné")}</p></div><span className="rounded-full bg-[#eef8f3] px-2.5 py-1 text-[11px] font-semibold text-[#087a48]">{humanStatus(item.status)}</span></div>
+      <div className="mt-3 grid gap-2 text-[12px] text-[#5f6b76] sm:grid-cols-2"><span>{dashboardText("Destination : ")}{[item.destination_city,item.destination_country].filter(Boolean).join(", ") || "—"}</span><span>{dashboardText("Poids : ")}{item.weight_kg == null ? "—" : dashboardText("{0} kg", item.weight_kg)}</span><span>{dashboardText("Départ : ")}{item.departure_code || dashboardText("Non affecté")}</span><span>{dashboardText("Mise à jour : ")}{formatDate(item.updated_at)}</span></div>
     </article>)}
   </div>;
 }
 
 function MessagesTab({ workspace, loading }: { workspace: ClientWorkspace | null; loading: boolean }) {
+  useDashboardMessages();
   if (loading) return <LoadingLines />;
-  if (!workspace?.messages.length) return <EmptyState title="Aucun message" text="Les échanges WhatsApp associés à cette fiche client apparaîtront ici." />;
+  if (!workspace?.messages.length) return <EmptyState title={dashboardText("Aucun message")} text="Les échanges WhatsApp associés à cette fiche client apparaîtront ici." />;
   return <div className="space-y-2">{workspace.messages.map(item=><article key={item.id} className={`max-w-[88%] rounded-lg px-3.5 py-3 ${item.direction === "outbound" ? "ml-auto bg-[#eaf8f1]" : "bg-[#f3f5f6]"}`}>
-    <div className="flex items-center justify-between gap-4 text-[11px] text-[#74808a]"><span>{item.direction === "outbound" ? "Agence" : item.sender_name || item.from_phone || "Client"}</span><time>{formatDate(item.created_at)}</time></div>
-    <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-5 text-[#303941]">{item.text_body || item.media_file_name || (item.message_type ? `Message ${item.message_type}` : "Message")}</p>
+    <div className="flex items-center justify-between gap-4 text-[11px] text-[#74808a]"><span>{item.direction === "outbound" ? dashboardText("Agence") : item.sender_name || item.from_phone || dashboardText("Client")}</span><time>{formatDate(item.created_at)}</time></div>
+    <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-5 text-[#303941]">{item.text_body || item.media_file_name || (item.message_type ? dashboardText("Message {0}", item.message_type) : dashboardText("Message"))}</p>
     {item.send_status && item.direction === "outbound" && <p className="mt-1 text-right text-[10px] text-[#718079]">{humanStatus(item.send_status)}</p>}
   </article>)}</div>;
 }
 
 function PaymentsTab({ workspace, loading, currency }: { workspace: ClientWorkspace | null; loading: boolean; currency?: string | null }) {
+  useDashboardMessages();
   if (loading) return <LoadingLines />;
-  if (!workspace || (!workspace.documents.length && !workspace.payments.length)) return <EmptyState title="Aucune opération financière" text="Les factures, reçus, paiements et soldes de ce client apparaîtront ici." />;
+  if (!workspace || (!workspace.documents.length && !workspace.payments.length)) return <EmptyState title={dashboardText("Aucune opération financière")} text="Les factures, reçus, paiements et soldes de ce client apparaîtront ici." />;
   return <div className="space-y-5">
-    <div className="grid grid-cols-2 gap-3"><SmallMetric label="Payé" value={formatMoney(workspace.summary.paid,currency)}/><SmallMetric label="Solde à payer" value={formatMoney(workspace.summary.outstanding,currency)}/></div>
-    <Section title="Factures et documents">{workspace.documents.map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#edf0f2] py-3 last:border-0"><div><p className="font-medium text-[#273038]">{item.document_number}</p><p className="mt-1 text-[12px] text-[#687584]">{humanStatus(item.document_type)} · {humanStatus(item.status)}</p></div><div className="text-right"><p className="font-semibold">{formatMoney(item.total,item.currency)}</p><p className="mt-1 text-[11px] text-[#687584]">Solde {formatMoney(item.balance_due,item.currency)}</p></div></div>)}</Section>
-    <Section title="Paiements reçus">{workspace.payments.length ? workspace.payments.map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#edf0f2] py-3 last:border-0"><div><p className="font-medium">{item.receipt_number}</p><p className="mt-1 text-[12px] text-[#687584]">{item.document_number} · {item.method}</p></div><div className="text-right"><p className="font-semibold text-[#087a48]">{formatMoney(item.amount,item.currency)}</p><p className="mt-1 text-[11px] text-[#687584]">{formatDate(item.paid_at)}</p></div></div>) : <p className="py-3 text-[13px] text-[#687584]">Aucun paiement reçu.</p>}</Section>
+    <div className="grid grid-cols-2 gap-3"><SmallMetric label={dashboardText("Payé")} value={formatMoney(workspace.summary.paid,currency)}/><SmallMetric label={dashboardText("Solde à payer")} value={formatMoney(workspace.summary.outstanding,currency)}/></div>
+    <Section title={dashboardText("Factures et documents")}>{workspace.documents.map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#edf0f2] py-3 last:border-0"><div><p className="font-medium text-[#273038]">{item.document_number}</p><p className="mt-1 text-[12px] text-[#687584]">{humanStatus(item.document_type)} · {humanStatus(item.status)}</p></div><div className="text-right"><p className="font-semibold">{formatMoney(item.total,item.currency)}</p><p className="mt-1 text-[11px] text-[#687584]">{dashboardText("Solde ")}{formatMoney(item.balance_due,item.currency)}</p></div></div>)}</Section>
+    <Section title={dashboardText("Paiements reçus")}>{workspace.payments.length ? workspace.payments.map(item=><div key={item.id} className="flex items-center justify-between gap-3 border-b border-[#edf0f2] py-3 last:border-0"><div><p className="font-medium">{item.receipt_number}</p><p className="mt-1 text-[12px] text-[#687584]">{item.document_number} · {item.method}</p></div><div className="text-right"><p className="font-semibold text-[#087a48]">{formatMoney(item.amount,item.currency)}</p><p className="mt-1 text-[11px] text-[#687584]">{formatDate(item.paid_at)}</p></div></div>) : <p className="py-3 text-[13px] text-[#687584]">{dashboardText("Aucun paiement reçu.")}</p>}</Section>
   </div>;
 }
 
@@ -1148,11 +1153,12 @@ function HistoryTab({
   events: ClientTimelineEvent[];
   loading: boolean;
 }) {
+  useDashboardMessages();
   if (loading) return <LoadingLines />;
   if (events.length === 0)
     return (
       <EmptyState
-        title="Aucun historique"
+        title={dashboardText("Aucun historique")}
         text="Les événements apparaîtront ici dès que le client aura des dossiers, messages, relances ou expéditions liés."
       />
     );
@@ -1196,6 +1202,7 @@ function DuplicatesTab({
   mergingId: string | null;
   onMerge: (source: ClientDuplicate) => void;
 }) {
+  useDashboardMessages();
   const [manualQuery, setManualQuery] = useState("");
   const [manualResults, setManualResults] = useState<ClientDuplicate[]>([]);
   const [manualLoading, setManualLoading] = useState(false);
@@ -1244,31 +1251,28 @@ function DuplicatesTab({
     <div className="space-y-3">
       <div className="rounded-md border border-[#d8dce2] bg-[#fbfcfd] p-4">
         <h3 className="text-[14px] font-semibold">
-          Fusionner une autre fiche dans celle-ci
-        </h3>
+          {dashboardText("Fusionner une autre fiche dans celle-ci")}</h3>
         <p className="mt-1 text-[12px] leading-5 text-[#687584]">
-          Les dossiers, colis, messages et opérations de la fiche choisie seront
-          déplacés vers la fiche actuellement ouverte.
-        </p>
+          {dashboardText("Les dossiers, colis, messages et opérations de la fiche choisie seront déplacés vers la fiche actuellement ouverte.")}</p>
         <label className="mt-3 flex h-9 items-center rounded-md border border-[#cfd5dd] bg-white px-3 focus-within:border-[#615cf2]">
           <Search size={15} className="text-[#687584]" />
           <input
             value={manualQuery}
             onChange={(event) => setManualQuery(event.target.value)}
-            placeholder="Rechercher par nom, téléphone ou email…"
+            placeholder={dashboardText("Rechercher par nom, téléphone ou email…")}
             className="ml-2 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
           />
         </label>
         {manualLoading && (
-          <p className="mt-2 text-[12px] text-[#687584]">Recherche…</p>
+          <p className="mt-2 text-[12px] text-[#687584]">{dashboardText("Recherche…")}</p>
         )}
       </div>
       {candidates.length === 0 && (
         <EmptyState
           title={
             manualQuery.trim().length >= 2
-              ? "Aucune autre fiche trouvée"
-              : "Aucun doublon détecté"
+              ? dashboardText("Aucune autre fiche trouvée")
+              : dashboardText("Aucun doublon détecté")
           }
           text="Utilisez la recherche ci-dessus pour sélectionner manuellement une autre fiche client."
         />
@@ -1281,10 +1285,10 @@ function DuplicatesTab({
                 {item.display_name ||
                   item.name ||
                   item.company_name ||
-                  "Client sans nom"}
+                  dashboardText("Client sans nom")}
               </p>
               <p className="mt-1 text-[13px] text-[#687584]">
-                {item.email || item.phone || item.whatsapp_phone || "-"}
+                {item.email || item.phone || item.whatsapp_phone || dashboardText("-")}
               </p>
             </div>
             <span className="rounded-full bg-amber-50 px-2 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-100">
@@ -1295,9 +1299,7 @@ function DuplicatesTab({
             permission="clients.merge"
             fallback={
               <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                La permission <code>clients.merge</code> est nécessaire pour
-                fusionner ces fiches.
-              </p>
+                {dashboardText("La permission ")}<code>{dashboardText("clients.merge")}</code> {dashboardText(" est nécessaire pour fusionner ces fiches.")}</p>
             }
           >
             <button
@@ -1306,8 +1308,8 @@ function DuplicatesTab({
               className="mt-3 inline-flex h-9 w-full items-center justify-center rounded-md bg-[#615cf2] px-3 text-[12px] font-semibold text-white hover:bg-[#504ad8] disabled:opacity-50"
             >
               {mergingId === item.id
-                ? "Fusion en cours…"
-                : "Fusionner cette fiche dans la fiche ouverte"}
+                ? dashboardText("Fusion en cours…")
+                : dashboardText("Fusionner cette fiche dans la fiche ouverte")}
             </button>
           </PermissionGuard>
         </div>
@@ -1317,10 +1319,11 @@ function DuplicatesTab({
 }
 
 function NotesTab({ client }: { client: ClientRecord }) {
+  useDashboardMessages();
   if (!client.notes)
     return (
       <EmptyState
-        title="Aucune note"
+        title={dashboardText("Aucune note")}
         text="Les notes internes ajoutées sur la fiche client apparaîtront ici."
       />
     );
@@ -1350,6 +1353,7 @@ export function ClientFormModal({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  useDashboardMessages();
   const title = mode === "edit" ? "Modifier le client" : "Nouveau client";
   const [cargoType, setCargoType] = useState(client?.customer_type === 'business' ? 'business' : 'individual');
   const [country, setCountry] = useState(client?.country || "");
@@ -1359,15 +1363,15 @@ export function ClientFormModal({
     <OperationDrawer
       open
       title={title}
-      description={parcelFreight ? "Ajouter un client au répertoire." : "Renseignez les informations disponibles."}
+      description={parcelFreight ? dashboardText("Ajouter un client au répertoire.") : dashboardText("Renseignez les informations disponibles.")}
       close={onClose}
       placement="center"
       width="max-w-3xl"
       footer={
         <>
-          <OperationButton type="button" onClick={onClose} disabled={saving}>Annuler</OperationButton>
+          <OperationButton type="button" onClick={onClose} disabled={saving}>{dashboardText("Annuler")}</OperationButton>
           <OperationButton type="submit" form="client-form" variant="primary" disabled={saving}>
-            {saving ? "Enregistrement..." : mode === "edit" ? "Enregistrer" : "Créer le client"}
+            {saving ? dashboardText("Enregistrement...") : mode === "edit" ? dashboardText("Enregistrer") : dashboardText("Créer le client")}
           </OperationButton>
         </>
       }
@@ -1375,117 +1379,117 @@ export function ClientFormModal({
         <form id="client-form" onSubmit={onSubmit} className="grid gap-6">
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
-              {error}
+              {dashboardText(error)}
             </div>
           )}
           {parcelFreight ? <div className="grid gap-5">
-            <fieldset className="grid gap-2"><legend className="text-sm font-medium">Type de client</legend><div className="flex flex-wrap gap-x-5 gap-y-2">
-              <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="customer_type" value="individual" checked={cargoType === "individual"} onChange={()=>setCargoType("individual")} className="accent-slate-900"/>Particulier</label>
-              <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="customer_type" value="business" checked={cargoType === "business"} onChange={()=>setCargoType("business")} className="accent-slate-900"/>Entreprise</label>
+            <fieldset className="grid gap-2"><legend className="text-sm font-medium">{dashboardText("Type de client")}</legend><div className="flex flex-wrap gap-x-5 gap-y-2">
+              <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="customer_type" value="individual" checked={cargoType === "individual"} onChange={()=>setCargoType("individual")} className="accent-slate-900"/>{dashboardText("Particulier")}</label>
+              <label className="inline-flex items-center gap-2 text-sm"><input type="radio" name="customer_type" value="business" checked={cargoType === "business"} onChange={()=>setCargoType("business")} className="accent-slate-900"/>{dashboardText("Entreprise")}</label>
             </div></fieldset>
-            {cargoType === "business" ? <Input key="company" label="Nom de l’entreprise" name="company_name" required defaultValue={client?.company_name || ""}/> : <Input key="person" label="Nom complet" name="name" required defaultValue={client?.name || ""}/>}
-            <InternationalPhone required defaultValue={client?.phone || initialPhone} className={inputClass} label="Téléphone / WhatsApp" showHelp={false}/>
+            {cargoType === "business" ? <Input key="company" label={dashboardText("Nom de l’entreprise")} name="company_name" required defaultValue={client?.company_name || ""}/> : <Input key="person" label={dashboardText("Nom complet")} name="name" required defaultValue={client?.name || ""}/>}
+            <InternationalPhone required defaultValue={client?.phone || initialPhone} className={inputClass} label={dashboardText("Téléphone / WhatsApp")} showHelp={false}/>
             <GeographyFields country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} className={inputClass} fieldClassName="grid min-w-0 gap-2 text-sm" required showCity={false}/>
-            <Input label="Email (facultatif)" name="email" type="email" defaultValue={client?.email || ""}/>
-            <Input label="Adresse (facultative)" name="address" defaultValue={client?.address || ""}/>
-            <label className="grid gap-2 text-sm font-medium">Note interne (facultative)<textarea name="notes" rows={3} defaultValue={client?.notes || ""} className="min-h-20 w-full resize-y rounded-md border border-[#cfd5dd] bg-white px-3 py-2 text-[13px] font-normal outline-none focus:border-[#12a865]" placeholder="Informations utiles pour l’équipe…"/></label>
-            <p className="text-xs text-slate-500">Le client sera rattaché au bureau actif.</p>
+            <Input label={dashboardText("Email (facultatif)")} name="email" type="email" defaultValue={client?.email || ""}/>
+            <Input label={dashboardText("Adresse (facultative)")} name="address" defaultValue={client?.address || ""}/>
+            <label className="grid gap-2 text-sm font-medium">{dashboardText("Note interne (facultative)")}<textarea name="notes" rows={3} defaultValue={client?.notes || ""} className="min-h-20 w-full resize-y rounded-md border border-[#cfd5dd] bg-white px-3 py-2 text-[13px] font-normal outline-none focus:border-[#12a865]" placeholder={dashboardText("Informations utiles pour l’équipe…")}/></label>
+            <p className="text-xs text-slate-500">{dashboardText("Le client sera rattaché au bureau actif.")}</p>
             <input type="hidden" name="lifecycle_status" value={client?.lifecycle_status || "lead"}/>
             <input type="hidden" name="source" value={client?.source || "manual"}/>
           </div> : <><div className="grid gap-5 md:grid-cols-2">
             <Input
-              label="Nom affiché"
+              label={dashboardText("Nom affiché")}
               name="display_name"
               defaultValue={client?.display_name || ""}
             />
             <Input
-              label="Nom complet"
+              label={dashboardText("Nom complet")}
               name="name"
               defaultValue={client?.name || ""}
             />
             <Input
-              label="Entreprise"
+              label={dashboardText("Entreprise")}
               name="company_name"
               defaultValue={client?.company_name || ""}
             />
             <Input
-              label="Téléphone"
+              label={dashboardText("Téléphone")}
               name="phone"
               defaultValue={client?.phone || ""}
             />
             <Input
-              label="WhatsApp"
+              label={dashboardText("WhatsApp")}
               name="whatsapp_phone"
               defaultValue={client?.whatsapp_phone || ""}
             />
             <Input
-              label="Email"
+              label={dashboardText("Email")}
               name="email"
               defaultValue={client?.email || ""}
             />
             <GeographyFields country={country} city={city} onCountryChange={setCountry} onCityChange={setCity} className={inputClass} fieldClassName="grid min-w-0 gap-2"/>
             <Input
-              label="Identifiant fiscal"
+              label={dashboardText("Identifiant fiscal")}
               name="tax_id"
               defaultValue={client?.tax_id || ""}
             />
             <SelectInput
-              label="Type"
+              label={dashboardText("Type")}
               name="customer_type"
               defaultValue={client?.customer_type || "individual"}
               options={typeLabels}
             />
             <SelectInput
-              label="Statut"
+              label={dashboardText("Statut")}
               name="lifecycle_status"
               defaultValue={client?.lifecycle_status || "lead"}
               options={statusLabels}
             />
             <SelectInput
-              label="Source"
+              label={dashboardText("Source")}
               name="source"
               defaultValue={client?.source || "manual"}
               options={sourceLabels}
             />
             <Input
-              label="Langue"
+              label={dashboardText("Langue")}
               name="preferred_language"
               defaultValue={client?.preferred_language || "FR"}
             />
             <Input
-              label="Montant attendu"
+              label={dashboardText("Montant attendu")}
               name="payment_amount_due"
               type="number"
               min="0"
               defaultValue={String(client?.payment_amount_due || 0)}
             />
             <Input
-              label="Montant payé"
+              label={dashboardText("Montant payé")}
               name="payment_amount_paid"
               type="number"
               min="0"
               defaultValue={String(client?.payment_amount_paid || 0)}
             />
             <SelectInput
-              label="Devise du paiement"
+              label={dashboardText("Devise du paiement")}
               name="payment_currency"
               defaultValue={(client?.payment_currency || "USD") as keyof typeof currencyLabels}
               options={currencyLabels}
             />
           </div>
           <Input
-            label="Adresse"
+            label={dashboardText("Adresse")}
             name="address"
             defaultValue={client?.address || ""}
           />
           <label className="flex min-h-14 items-center justify-between gap-4 rounded-[8px] border border-[#dfe3e7] bg-[#fafbfb] px-4 py-3">
-            <span><span className="block text-[13px] font-semibold text-[#303941]">Crédit client</span><span className="mt-0.5 block text-[12px] text-[#74808a]">Activez uniquement si l’agence autorise ce client à payer plus tard.</span></span>
-            <input name="credit_enabled" type="checkbox" role="switch" aria-label="Autoriser un crédit à ce client" checked={creditEnabled} onChange={event=>setCreditEnabled(event.target.checked)} className="h-4 w-4 shrink-0 accent-[#12a865]"/>
+            <span><span className="block text-[13px] font-semibold text-[#303941]">{dashboardText("Crédit client")}</span><span className="mt-0.5 block text-[12px] text-[#74808a]">{dashboardText("Activez uniquement si l’agence autorise ce client à payer plus tard.")}</span></span>
+            <input name="credit_enabled" type="checkbox" role="switch" aria-label={dashboardText("Autoriser un crédit à ce client")} checked={creditEnabled} onChange={event=>setCreditEnabled(event.target.checked)} className="h-4 w-4 shrink-0 accent-[#12a865]"/>
           </label>
           <fieldset disabled={!creditEnabled} className="disabled:opacity-45">
-            <Input label="Limite de crédit" name="credit_limit" type="number" min="0" defaultValue={String(client?.credit_limit || 0)}/>
+            <Input label={dashboardText("Limite de crédit")} name="credit_limit" type="number" min="0" defaultValue={String(client?.credit_limit || 0)}/>
           </fieldset>
-          <OperationField label="Notes internes">
+          <OperationField label={dashboardText("Notes internes")}>
             <textarea
               name="notes"
               rows={4}
@@ -1516,6 +1520,7 @@ function ImportClientsModal({
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  useDashboardMessages();
   function downloadErrorReport() {
     if (!result?.errors.length) return;
     const lines = [
@@ -1554,8 +1559,8 @@ function ImportClientsModal({
   return (
     <OperationDrawer
       open
-      title="Importer des clients"
-      description="CSV supporté : nom, entreprise, téléphone, WhatsApp, email, pays, ville, statut et type."
+      title={dashboardText("Importer des clients")}
+      description={dashboardText("CSV supporté : nom, entreprise, téléphone, WhatsApp, email, pays, ville, statut et type.")}
       close={onClose}
       width="max-w-lg"
     >
@@ -1565,25 +1570,23 @@ function ImportClientsModal({
               onClick={downloadTemplate}
               className="text-[12px] font-semibold text-[#315fbc] underline"
             >
-              Télécharger le modèle CSV
-            </button>
+              {dashboardText("Télécharger le modèle CSV")}</button>
         </div>
         <form onSubmit={onSubmit} className="grid gap-4">
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-[13px] text-red-700">
-              {error}
+              {dashboardText(error)}
             </div>
           )}
           {result && (
             <div className="space-y-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-[13px] text-emerald-800">
               <p>
-                {result.processed} ligne(s) traitée(s) : {result.created}{" "}
-                créée(s), {result.skipped} doublon(s) ignoré(s),{" "}
-                {result.errors.length} erreur(s).
-              </p>
+                {result.processed} {dashboardText(" ligne(s) traitée(s) : ")}{result.created}{" "}
+                {dashboardText("créée(s), ")}{result.skipped} {dashboardText(" doublon(s) ignoré(s),")}{" "}
+                {result.errors.length} {dashboardText(" erreur(s).")}</p>
               {result.errors.slice(0, 5).map((item) => (
                 <p key={`${item.row}-${item.error}`} className="text-red-700">
-                  Ligne {item.row} : {importErrorLabel(item.error)}
+                  {dashboardText("Ligne ")}{item.row} : {importErrorLabel(item.error)}
                 </p>
               ))}
               {result.errors.length > 0 && (
@@ -1592,16 +1595,14 @@ function ImportClientsModal({
                   onClick={downloadErrorReport}
                   className="font-semibold text-[#315fbc] underline"
                 >
-                  Télécharger le rapport d’erreurs
-                </button>
+                  {dashboardText("Télécharger le rapport d’erreurs")}</button>
               )}
             </div>
           )}
           <label className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-[#b9c1cc] bg-[#fbfcfd] p-5 text-center text-[13px] text-[#5f6b76] hover:bg-[#f6f8fb]">
             <Import size={22} />
             <span className="mt-2 font-medium text-[#1f2328]">
-              Choisir un fichier CSV
-            </span>
+              {dashboardText("Choisir un fichier CSV")}</span>
             <input
               name="file"
               type="file"
@@ -1624,14 +1625,13 @@ function ImportClientsModal({
               disabled={importing}
               className={`${buttonClass} disabled:opacity-40`}
             >
-              Fermer
-            </button>
+              {dashboardText("Fermer")}</button>
             <button
               type="submit"
               disabled={importing}
               className={`${primaryButtonClass} disabled:opacity-60`}
             >
-              {importing ? "Import..." : "Importer"}
+              {importing ? dashboardText("Import...") : dashboardText("Importer")}
             </button>
           </div>
         </form>
@@ -1656,8 +1656,9 @@ function Input({
   required?: boolean;
   min?: string;
 }) {
+  useDashboardMessages();
   return (
-    <OperationField label={label} required={required}>
+    <OperationField label={dashboardText(label)} required={required}>
       <input
         name={name}
         type={type}
@@ -1682,8 +1683,9 @@ function SelectInput<T extends string>({
   defaultValue: T;
   options: Record<T, string>;
 }) {
+  useDashboardMessages();
   return (
-    <OperationField label={label}>
+    <OperationField label={dashboardText(label)}>
       <select
         name={name}
         defaultValue={defaultValue}
@@ -1706,6 +1708,7 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <section className="rounded-md border border-[#d8dce2] bg-white">
       <h3 className="border-b border-[#eef0f3] px-4 py-3 text-[13px] font-semibold text-[#1f2328]">
@@ -1725,11 +1728,12 @@ function InfoRow({
   label: string;
   value: string;
 }) {
+  useDashboardMessages();
   return (
     <div className="flex gap-3 text-[13px]">
       <Icon size={16} className="mt-0.5 text-[#64748b]" />
       <div>
-        <p className="text-[#687584]">{label}</p>
+        <p className="text-[#687584]">{dashboardText(label)}</p>
         <p className="mt-0.5 font-medium text-[#1f2328]">{value}</p>
       </div>
     </div>
@@ -1737,9 +1741,10 @@ function InfoRow({
 }
 
 function Field({ label, value }: { label: string; value: string }) {
+  useDashboardMessages();
   return (
     <div className="grid grid-cols-[130px_1fr] gap-3 text-[13px]">
-      <p className="text-[#687584]">{label}</p>
+      <p className="text-[#687584]">{dashboardText(label)}</p>
       <p className="min-w-0 break-words font-medium text-[#1f2328]">{value}</p>
     </div>
   );
@@ -1752,15 +1757,17 @@ function SmallMetric({
   label: string;
   value: string | number;
 }) {
+  useDashboardMessages();
   return (
     <div className="rounded-md border border-[#eef0f3] bg-[#fbfcfd] p-3">
-      <p className="text-[12px] text-[#687584]">{label}</p>
+      <p className="text-[12px] text-[#687584]">{dashboardText(label)}</p>
       <p className="mt-1 text-[16px] font-semibold text-[#1f2328]">{value}</p>
     </div>
   );
 }
 
 function EmptyState({ title, text }: { title: string; text: string }) {
+  useDashboardMessages();
   return (
     <div className="flex min-h-[220px] flex-col items-center justify-center rounded-md border border-[#d8dce2] bg-[#fbfcfd] p-8 text-center">
       <h3 className="text-[16px] font-semibold">{title}</h3>
@@ -1772,6 +1779,7 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 }
 
 function LoadingLines() {
+  useDashboardMessages();
   return (
     <div className="space-y-2">
       {[0, 1, 2, 3].map((item) => (
@@ -1785,6 +1793,7 @@ function LoadingLines() {
 }
 
 function Initials({ name }: { name: string }) {
+  useDashboardMessages();
   const initials =
     name
       .split(" ")
@@ -1801,16 +1810,18 @@ function Initials({ name }: { name: string }) {
 }
 
 function StatusBadge({ status }: { status: ClientLifecycleStatus }) {
+  useDashboardMessages();
   return (
     <span
       className={`inline-flex rounded-full px-2 py-0.5 text-[12px] font-medium ring-1 ${statusStyles[status]}`}
     >
-      {statusLabels[status]}
+      {dashboardText(statusLabels[status])}
     </span>
   );
 }
 
 function TimelineIcon({ type }: { type: string }) {
+  useDashboardMessages();
   const props = { size: 15 };
   if (type === "dossier") return <FileText {...props} />;
   if (type === "shipment") return <Truck {...props} />;
@@ -1825,14 +1836,14 @@ function clean(value: FormDataEntryValue | null) {
 }
 
 function duplicateLabel(reason: string) {
-  if (reason === "phone") return "Même téléphone";
-  if (reason === "email") return "Même email";
-  return "Nom proche";
+  if (reason === "phone") return dashboardText("Même téléphone");
+  if (reason === "email") return dashboardText("Même email");
+  return dashboardText("Nom proche");
 }
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat(dashboardFormatLocale(), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -1861,7 +1872,7 @@ function formatMoney(
   currency?: string | null,
 ) {
   const amount = Number(value || 0);
-  return `${amount.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${currency || "$"}`;
+  return `${amount.toLocaleString(dashboardFormatLocale(), { maximumFractionDigits: 2 })} ${currency || "$"}`;
 }
 
 export function apiErrorMessage(error: unknown) {
@@ -1927,15 +1938,15 @@ export function apiErrorMessage(error: unknown) {
 }
 
 function importErrorLabel(error: string) {
-  if (error === "duplicate_client") return "Client déjà existant";
-  if (error === "invalid_phone") return "Numéro de téléphone invalide";
-  if (error === "invalid_email") return "Adresse email invalide";
+  if (error === "duplicate_client") return dashboardText("Client déjà existant");
+  if (error === "invalid_phone") return dashboardText("Numéro de téléphone invalide");
+  if (error === "invalid_email") return dashboardText("Adresse email invalide");
   if (error === "invalid_customer_type")
-    return "Type de client invalide : choisissez particulier, entreprise, agent ou partenaire.";
+    return dashboardText("Type de client invalide : choisissez particulier, entreprise, agent ou partenaire.");
   if (error === "invalid_lifecycle_status")
-    return "Statut invalide : choisissez prospect, actif, en attente, inactif ou bloqué.";
-  if (error === "invalid_credit_limit") return "Limite de crédit invalide";
+    return dashboardText("Statut invalide : choisissez prospect, actif, en attente, inactif ou bloqué.");
+  if (error === "invalid_credit_limit") return dashboardText("Limite de crédit invalide");
   if (error === "name_company_phone_or_email_required")
-    return "Nom, entreprise, téléphone ou email requis";
-  return "Ligne non importée";
+    return dashboardText("Nom, entreprise, téléphone ou email requis");
+  return dashboardText("Ligne non importée");
 }

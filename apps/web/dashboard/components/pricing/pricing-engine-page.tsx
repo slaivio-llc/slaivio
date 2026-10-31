@@ -1,4 +1,6 @@
 "use client";
+import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
+
 import { goodsClassificationLabels } from "@/services/goods-classification";
 import {getOperationalSettings} from '@/services/organization-admin';
 import {agencyCurrency,agencyCurrencyOptions} from '@/config/currencies';
@@ -80,6 +82,7 @@ type View =
   | "ANALYTICS"
   | "SETTINGS";
 export function PricingEnginePage() {
+  useDashboardMessages();
   const [data, setData] = useState<Dashboard | null>(null),
     [catalog, setCatalog] = useState<Catalog | null>(null),
     [view, setView] = useState<View>("OVERVIEW"),
@@ -131,26 +134,24 @@ export function PricingEnginePage() {
     [
       "Dernière modification",
       stats.last_modified
-        ? new Date(String(stats.last_modified)).toLocaleDateString("fr-FR")
+        ? new Date(String(stats.last_modified)).toLocaleDateString(dashboardFormatLocale())
         : "—",
     ],
   ];
   return (
     <div className="min-h-full bg-[#f7f7f6]">
       <OperationPageHeader
-        title="Tarification"
-        description="Définissez les prix facturés aux clients selon la route et le service choisis."
+        title={dashboardText("Tarification")}
+        description={dashboardText("Définissez les prix facturés aux clients selon la route et le service choisis.")}
         actions={
           <>
             <a className={btn} href="/api/pricing/export.csv">
               <Download size={14} />
-              Exporter
-            </a>
+              {dashboardText("Exporter")}</a>
             <PermissionGuard permission="pricing.create">
               <button className={primary} onClick={() => setCreateOpen(true)}>
                 <Plus size={14} />
-                Nouveau tarif
-              </button>
+                {dashboardText("Nouveau tarif")}</button>
             </PermissionGuard>
           </>
         }
@@ -160,8 +161,8 @@ export function PricingEnginePage() {
         {cards.slice(0, 4).map(([l, v], index) => { const target:View=(["GRIDS","ROUTES","SERVICES","FEES"] as View[])[index]; return <OperationMetric key={String(l)} label={String(l)} value={v} active={view===target} onClick={()=>setView(target)} />; })}
       </OperationMetricGrid>
       </OperationMetrics>
-       <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder="Grille, route, service, catégorie…" />} filters={<OperationFilterPopover activeCount={view === "OVERVIEW" ? 0 : 1} onReset={() => setView("OVERVIEW")} title="Filtrer la tarification"><OperationField label="Vue"><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="OVERVIEW">Vue d’ensemble</option><option value="GRIDS">Grilles</option><option value="ROUTES">Par route</option><option value="SERVICES">Par service</option><option value="CATEGORIES">Catégories</option><option value="TIERS">Paliers</option><option value="FEES">Frais</option><option value="DISCOUNTS">Remises</option><option value="PROMOTIONS">Promotions</option><option value="CLIENTS">Tarifs clients</option>       <option value="COSTS">Coûts & marges</option><option value="SIMULATOR">Simulateur</option><option value="HISTORY">Historique</option><option value="ANALYTICS">Analytics</option><option value="SETTINGS">Paramètres</option></select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}><RefreshCcw size={14} />Actualiser</OperationButton></OperationToolbar>
-      {error && <ErrorState title="Tarification indisponible" description={error} retry={load} />}
+       <OperationToolbar search={<OperationSearch value={query} onChange={setQuery} placeholder={dashboardText("Grille, route, service, catégorie…")} />} filters={<OperationFilterPopover activeCount={view === "OVERVIEW" ? 0 : 1} onReset={() => setView("OVERVIEW")} title={dashboardText("Filtrer la tarification")}><OperationField label={dashboardText("Vue")}><select className={input} value={view} onChange={(event) => setView(event.target.value as View)}><option value="OVERVIEW">{dashboardText("Vue d’ensemble")}</option><option value="GRIDS">{dashboardText("Grilles")}</option><option value="ROUTES">{dashboardText("Par route")}</option><option value="SERVICES">{dashboardText("Par service")}</option><option value="CATEGORIES">{dashboardText("Catégories")}</option><option value="TIERS">{dashboardText("Paliers")}</option><option value="FEES">{dashboardText("Frais")}</option><option value="DISCOUNTS">{dashboardText("Remises")}</option><option value="PROMOTIONS">{dashboardText("Promotions")}</option><option value="CLIENTS">{dashboardText("Tarifs clients")}</option>       <option value="COSTS">{dashboardText("Coûts & marges")}</option><option value="SIMULATOR">{dashboardText("Simulateur")}</option><option value="HISTORY">{dashboardText("Historique")}</option><option value="ANALYTICS">{dashboardText("Analytics")}</option><option value="SETTINGS">{dashboardText("Paramètres")}</option></select></OperationField></OperationFilterPopover>}><OperationButton onClick={load}><RefreshCcw size={14} />{dashboardText("Actualiser")}</OperationButton></OperationToolbar>
+      {error && <ErrorState title={dashboardText("Tarification indisponible")} description={dashboardText(error)} retry={load} />}
       {view === "CATEGORIES" ? (
         <PricingCategories catalog={catalog} saved={load} />
       ) : view === "SIMULATOR" ? (
@@ -173,14 +174,14 @@ export function PricingEnginePage() {
       ) : (
         <>
           {loading ? (
-            <TableSkeleton rows={7} columns={9} label="Chargement des tarifs…" />
+            <TableSkeleton rows={7} columns={9} label={dashboardText("Chargement des tarifs…")} />
           ) : grids.length ? (
             <GridTable
               grids={grids}
               open={async (g) => setSelected(await gridDetail(g.id))}
             />
           ) : (
-            <EmptyState title="Aucun tarif créé" description="Créez un tarif avec son prix de base pour une route et un service de l’agence." />
+            <EmptyState title={dashboardText("Aucun tarif créé")} description={dashboardText("Créez un tarif avec son prix de base pour une route et un service de l’agence.")} />
           )}
         </>
       )}
@@ -198,8 +199,8 @@ export function PricingEnginePage() {
       {createOpen && catalog && (
         <OperationDrawer
           open
-          title="Configuration du tarif"
-          description="Configurez les conditions réelles de facturation pour un service et une route."
+          title={dashboardText("Configuration du tarif")}
+          description={dashboardText("Configurez les conditions réelles de facturation pour un service et une route.")}
           close={() => setCreateOpen(false)}
         >
           <CreateGrid
@@ -217,6 +218,7 @@ export function PricingEnginePage() {
 }
 
 export function PricingManagementSection({ headerActionsTarget }: { headerActionsTarget?: HTMLElement | null } = {}) {
+  useDashboardMessages();
   const [data, setData] = useState<Dashboard | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -268,31 +270,31 @@ export function PricingManagementSection({ headerActionsTarget }: { headerAction
     return `${grid?.currency_code || "USD"} / ${unit}`;
   }
 
-  const createAction = <PermissionGuard permission="pricing.create"><button type="button" className="inline-flex h-9 items-center gap-2 bg-[#111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]" onClick={() => { setCreateTarget(null); setCreateOpen(true); }}><Plus size={14}/>Ajouter un tarif</button></PermissionGuard>;
+  const createAction = <PermissionGuard permission="pricing.create"><button type="button" className="inline-flex h-9 items-center gap-2 bg-[#111] px-3 text-[12px] font-semibold text-white hover:bg-[#303030]" onClick={() => { setCreateTarget(null); setCreateOpen(true); }}><Plus size={14}/>{dashboardText("Ajouter un tarif")}</button></PermissionGuard>;
 
   return <section className="min-w-0 space-y-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h2 className="text-[14px] font-semibold text-[#25292e]">Tarification</h2><p className="mt-1 text-[11px] text-[#697178]">Configurez les prix applicables à vos services.</p></div>
+      <div><h2 className="text-[14px] font-semibold text-[#25292e]">{dashboardText("Tarification")}</h2><p className="mt-1 text-[11px] text-[#697178]">{dashboardText("Configurez les prix applicables à vos services.")}</p></div>
       {headerActionsTarget === undefined ? createAction : headerActionsTarget && createPortal(createAction, headerActionsTarget)}
     </div>
     <div className="space-y-2">
       {hasUnpricedService && <div className="flex items-start gap-2 border border-[#e2e5e5] bg-[#fafbfb] p-3">
         <span aria-hidden="true" className="mt-0.5 text-[#59636b]">ⓘ</span>
-        <div><p className="text-[12px] font-semibold text-[#25292e]">Tarifs non renseignés</p><p className="mt-1 text-[11px] leading-5 text-[#697178]">Aucun prix ne doit être proposé aux clients ou utilisé dans une facture tant qu’un tarif applicable n’est pas configuré et validé.</p></div>
+        <div><p className="text-[12px] font-semibold text-[#25292e]">{dashboardText("Tarifs non renseignés")}</p><p className="mt-1 text-[11px] leading-5 text-[#697178]">{dashboardText("Aucun prix ne doit être proposé aux clients ou utilisé dans une facture tant qu’un tarif applicable n’est pas configuré et validé.")}</p></div>
       </div>}
-      {error && <p role="alert" className="text-[12px] text-red-700">{error}</p>}
-      {loading ? <TableSkeleton rows={3} columns={1} label="Chargement des tarifs…" /> : services.length ? services.map((service) => {
+      {error && <p role="alert" className="text-[12px] text-red-700">{dashboardText(error)}</p>}
+      {loading ? <TableSkeleton rows={3} columns={1} label={dashboardText("Chargement des tarifs…")} /> : services.length ? services.map((service) => {
         const related = (data?.grids || []).filter((grid) => grid.shipping_service_id === service.id)
           .sort((left, right) => Number(right.status === "ACTIVE") - Number(left.status === "ACTIVE") || right.version - left.version);
         const current = related[0];
         const configured = current?.status === "ACTIVE" && (current.base_price != null || current.tier_count > 0);
         return <button key={service.id} type="button" onClick={() => void openService(service)} className="flex w-full min-w-0 items-center justify-between gap-3 border border-[#dfe3e4] px-3 py-3 text-left transition-colors hover:bg-[#fafbfb]">
           <span className="min-w-0"><span className="block truncate text-[12px] font-medium text-[#25292e]">{service.service_name}</span><span className="mt-1 block text-[11px] text-[#697178]">{unitText(current, service)}</span></span>
-          <span className="flex shrink-0 items-center gap-2"><span className={`px-2 py-1 text-[10px] ${configured ? "bg-[#dcf5e5] text-[#14804a]" : "bg-[#fff0e8] text-[#c75b23]"}`}>{configured ? "Tarif configuré" : current ? "À valider" : "Tarif à définir"}</span><ChevronRight size={14} className="text-[#697178]"/></span>
+          <span className="flex shrink-0 items-center gap-2"><span className={`px-2 py-1 text-[10px] ${configured ? "bg-[#dcf5e5] text-[#14804a]" : "bg-[#fff0e8] text-[#c75b23]"}`}>{configured ? dashboardText("Tarif configuré") : current ? dashboardText("À valider") : dashboardText("Tarif à définir")}</span><ChevronRight size={14} className="text-[#697178]"/></span>
         </button>;
-      }) : <EmptyState title="Aucun service configuré" description="Créez d’abord un service de transport avant de définir son tarif." />}
+      }) : <EmptyState title={dashboardText("Aucun service configuré")} description={dashboardText("Créez d’abord un service de transport avant de définir son tarif.")} />}
     </div>
-    {createOpen && catalog && <OperationDrawer open title="Configuration du tarif" description="Configurez le prix applicable à un service et une route." close={() => { setCreateOpen(false); setCreateTarget(null); }} width="max-w-[620px]" variant="form" bodyClassName="p-0">
+    {createOpen && catalog && <OperationDrawer open title={dashboardText("Configuration du tarif")} description={dashboardText("Configurez le prix applicable à un service et une route.")} close={() => { setCreateOpen(false); setCreateTarget(null); }} width="max-w-[620px]" variant="form" bodyClassName="p-0">
       <CreateGrid key={`${createTarget?.id || "all"}:${createTarget?.route_id || ""}`} catalog={catalog} initialServiceId={createTarget?.id} initialRouteId={createTarget?.route_id} done={async (id) => { setCreateOpen(false); setCreateTarget(null); await load(); setSelected(await gridDetail(id)); }}/>
     </OperationDrawer>}
     {selected && <GridDrawer detail={selected} close={() => setSelected(null)} versionCreated={async (id) => setSelected(await gridDetail(id))} changed={async () => { setSelected(await gridDetail(selected.grid.id)); await load(); }} />}
@@ -306,20 +308,21 @@ function GridTable({
   grids: Grid[];
   open: (g: Grid) => void;
 }) {
+  useDashboardMessages();
   return (
     <div className="overflow-x-auto bg-white">
       <table className="w-full min-w-[1050px] text-left text-[12px]">
         <thead className="bg-[#f5f6f6]">
           <tr>
             {[
-              "Tarif",
-              "Route",
-              "Service",
-              "Calcul et prix de base",
-              "Devise",
-              "Validité",
-              "Version",
-              "Statut",
+              dashboardText("Tarif"),
+              dashboardText("Route"),
+              dashboardText("Service"),
+              dashboardText("Calcul et prix de base"),
+              dashboardText("Devise"),
+              dashboardText("Validité"),
+              dashboardText("Version"),
+              dashboardText("Statut"),
               "",
             ].map((x) => (
               <th key={x} className="p-3 font-medium text-[#5d6670]">
@@ -344,20 +347,20 @@ function GridTable({
                 {g.service_name}
                 <small className="block">{g.shipping_mode}</small>
               </td>
-              <td>              {calculationLabels[g.base_price_method || g.calculation_method] || g.calculation_method}
+              <td>              {dashboardText(calculationLabels[g.base_price_method || g.calculation_method]) || g.calculation_method}
               <small className="block">
-                {g.base_price != null ? `${g.base_price} ${g.currency_code}` : "Prix de base à définir"}
+                {g.base_price != null ? `${g.base_price} ${g.currency_code}` : dashboardText("Prix de base à définir")}
               </small></td>
               <td>{g.currency_code}</td>
               <td>
-                {new Date(g.effective_from).toLocaleDateString("fr-FR")}
+                {new Date(g.effective_from).toLocaleDateString(dashboardFormatLocale())}
                 <small className="block">
                   {g.effective_until
-                    ? new Date(g.effective_until).toLocaleDateString("fr-FR")
-                    : "Sans fin"}
+                    ? new Date(g.effective_until).toLocaleDateString(dashboardFormatLocale())
+                    : dashboardText("Sans fin")}
                 </small>
               </td>
-              <td>v{g.version}</td>
+              <td>{dashboardText("v")}{g.version}</td>
               <td>
                 <Badge value={g.status} />
               </td>
@@ -370,13 +373,13 @@ function GridTable({
       </table>
       {!grids.length && (
         <p className="p-16 text-center text-[13px]">
-          Aucun tarif créé. Créez un tarif avec son prix de base, puis faites-le vérifier et publier.
-        </p>
+          {dashboardText("Aucun tarif créé. Créez un tarif avec son prix de base, puis faites-le vérifier et publier.")}</p>
       )}
     </div>
   );
 }
 function PricingCategories({catalog,saved}:{catalog:Catalog|null;saved:()=>Promise<void>}){
+  useDashboardMessages();
   const [saving,setSaving]=useState(false),[error,setError]=useState("");
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();const formElement=event.currentTarget;const form=new FormData(formElement);
@@ -389,20 +392,20 @@ function PricingCategories({catalog,saved}:{catalog:Catalog|null;saved:()=>Promi
   }
   return <main className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_360px]">
     <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold">Catégories de marchandises</h2>
-      <p className="mt-1 text-sm text-slate-600">Configurez uniquement les distinctions qui changent réellement vos tarifs. Une catégorie n’est jamais obligatoire si la grille ne l’utilise pas.</p>
-      {!catalog?<TableSkeleton rows={4} columns={2}/>:!catalog.categories.length?<p className="py-10 text-center text-sm text-slate-500">Aucune catégorie personnalisée disponible.</p>:<ul className="mt-5 divide-y divide-slate-100">{catalog.categories.map(item=><li key={item.id} className="flex items-center justify-between gap-4 py-3"><span><span className="block text-sm font-medium">{item.name}</span><span className="text-xs text-slate-500">{item.code}</span></span><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{businessLabel(item.risk_class)}</span></li>)}</ul>}
+      <h2 className="font-semibold">{dashboardText("Catégories de marchandises")}</h2>
+      <p className="mt-1 text-sm text-slate-600">{dashboardText("Configurez uniquement les distinctions qui changent réellement vos tarifs. Une catégorie n’est jamais obligatoire si la grille ne l’utilise pas.")}</p>
+      {!catalog?<TableSkeleton rows={4} columns={2}/>:!catalog.categories.length?<p className="py-10 text-center text-sm text-slate-500">{dashboardText("Aucune catégorie personnalisée disponible.")}</p>:<ul className="mt-5 divide-y divide-slate-100">{catalog.categories.map(item=><li key={item.id} className="flex items-center justify-between gap-4 py-3"><span><span className="block text-sm font-medium">{item.name}</span><span className="text-xs text-slate-500">{item.code}</span></span><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{businessLabel(item.risk_class)}</span></li>)}</ul>}
     </section>
     <form onSubmit={submit} className="h-fit rounded-xl border border-slate-200 bg-white p-5">
-      <h3 className="font-semibold">Ajouter une catégorie</h3>
-      <p className="mb-4 mt-1 text-xs text-slate-500">Par exemple : colis standard, électronique, cosmétique, batterie ou matériaux.</p>
+      <h3 className="font-semibold">{dashboardText("Ajouter une catégorie")}</h3>
+      <p className="mb-4 mt-1 text-xs text-slate-500">{dashboardText("Par exemple : colis standard, électronique, cosmétique, batterie ou matériaux.")}</p>
       <div className="grid gap-3">
-        <label className="grid gap-1.5 text-sm">Nom<input required name="name" maxLength={120} className={input} placeholder="Ex. Cosmétiques"/></label>
-        <label className="grid gap-1.5 text-sm">Code (facultatif)<input name="code" maxLength={60} className={input} placeholder="Généré depuis le nom"/></label>
-        <label className="grid gap-1.5 text-sm">Classe de risque<select name="risk_class" className={input}><option value="ORDINARY">Ordinaire</option><option value="SENSITIVE">Sensible</option><option value="CONDITIONAL">Conditionnel</option><option value="DANGEROUS">Dangereux</option><option value="HIGH_VALUE">Valeur élevée</option></select></label>
-        <label className="grid gap-1.5 text-sm">Description<input name="description" maxLength={500} className={input}/></label>
-        {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-        <button disabled={saving} className={primary}>{saving?"Création…":"Ajouter la catégorie"}</button>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Nom")}<input required name="name" maxLength={120} className={input} placeholder={dashboardText("Ex. Cosmétiques")}/></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Code (facultatif)")}<input name="code" maxLength={60} className={input} placeholder={dashboardText("Généré depuis le nom")}/></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Classe de risque")}<select name="risk_class" className={input}><option value="ORDINARY">{dashboardText("Ordinaire")}</option><option value="SENSITIVE">{dashboardText("Sensible")}</option><option value="CONDITIONAL">{dashboardText("Conditionnel")}</option><option value="DANGEROUS">{dashboardText("Dangereux")}</option><option value="HIGH_VALUE">{dashboardText("Valeur élevée")}</option></select></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Description")}<input name="description" maxLength={500} className={input}/></label>
+        {error&&<p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
+        <button disabled={saving} className={primary}>{saving?dashboardText("Création…"):dashboardText("Ajouter la catégorie")}</button>
       </div>
     </form>
   </main>;
@@ -418,6 +421,7 @@ function CreateGrid({
   initialServiceId?: string;
   initialRouteId?: string;
 }) {
+  useDashboardMessages();
   type TierInput = { min: string; max: string; price: string };
   type Draft = {
     name: string; route: string; service: string; packageType: string; classification: string;
@@ -511,63 +515,63 @@ function CreateGrid({
 
   return (
     <div className="grid gap-0 p-5">
-      <p className="text-sm text-slate-600">Un tarif associe un service, une route et des conditions de facturation.</p>
+      <p className="text-sm text-slate-600">{dashboardText("Un tarif associe un service, une route et des conditions de facturation.")}</p>
       <div className="my-5 grid grid-cols-2 gap-3 border-b border-slate-200 pb-3 text-xs">
-        {["Configuration", "Vérification"].map((label, index) => (
+        {[dashboardText("Configuration"), dashboardText("Vérification")].map((label, index) => (
           <div key={label} className={`border-b-2 pb-2 ${step === index + 1 ? "border-emerald-600 font-semibold text-slate-900" : "border-slate-200 text-slate-500"}`}>
-            {index + 1}. {label}
+            {index + 1}. {dashboardText(label)}
           </div>
         ))}
       </div>
       {step === 1 ? <form onSubmit={continueToReview} className="grid gap-5">
         <section className="grid gap-3">
-          <h3 className="text-sm font-semibold">Informations générales</h3>
-          <label className="grid gap-1.5 text-[13px]">Nom du tarif *<input required name="name" minLength={3} maxLength={160} className={input} placeholder="Ex. Tarif aérien Guangzhou – Kinshasa" /></label>
-          <label className="grid gap-1.5 text-[13px]">Service *<select required className={input} value={service} onChange={(event) => { setService(event.target.value); setRoute(""); }}><option value="">Sélectionner un service</option>{Array.from(new Map(catalog.services.map((item) => [item.id, item])).values()).map((item) => <option key={item.id} value={item.id}>{item.service_name}</option>)}</select></label>
-          <label className="grid gap-1.5 text-[13px]">Route *<select required className={input} value={route} onChange={(event) => setRoute(event.target.value)}><option value="">Sélectionner une route</option>{catalog.routes.filter((item) => !service || catalog.services.some((entry) => entry.id === service && entry.route_id === item.id)).map((item) => <option key={item.id} value={item.id}>{item.route_name}</option>)}</select></label>
+          <h3 className="text-sm font-semibold">{dashboardText("Informations générales")}</h3>
+          <label className="grid gap-1.5 text-[13px]">{dashboardText("Nom du tarif *")}<input required name="name" minLength={3} maxLength={160} className={input} placeholder={dashboardText("Ex. Tarif aérien Guangzhou – Kinshasa")} /></label>
+          <label className="grid gap-1.5 text-[13px]">{dashboardText("Service *")}<select required className={input} value={service} onChange={(event) => { setService(event.target.value); setRoute(""); }}><option value="">{dashboardText("Sélectionner un service")}</option>{Array.from(new Map(catalog.services.map((item) => [item.id, item])).values()).map((item) => <option key={item.id} value={item.id}>{item.service_name}</option>)}</select></label>
+          <label className="grid gap-1.5 text-[13px]">{dashboardText("Route *")}<select required className={input} value={route} onChange={(event) => setRoute(event.target.value)}><option value="">{dashboardText("Sélectionner une route")}</option>{catalog.routes.filter((item) => !service || catalog.services.some((entry) => entry.id === service && entry.route_id === item.id)).map((item) => <option key={item.id} value={item.id}>{item.route_name}</option>)}</select></label>
         </section>
         <section className="grid gap-3 border-t border-slate-200 pt-5">
-          <h3 className="text-sm font-semibold">Classification du colis</h3>
-          <label className="grid gap-1.5 text-[13px]">Type de conditionnement *<select required name="package_type" className={input} defaultValue="carton">{Object.entries(packageTypeLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
-          <label className="grid gap-1.5 text-[13px]">Catégorie de marchandise *<select required name="classification" className={input} defaultValue="ORDINARY_GOODS">{Object.entries(goodsClassificationLabels).map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
-          <p className="text-xs text-slate-500">Les marchandises réglementées doivent être autorisées sur le service et la route.</p>
+          <h3 className="text-sm font-semibold">{dashboardText("Classification du colis")}</h3>
+          <label className="grid gap-1.5 text-[13px]">{dashboardText("Type de conditionnement *")}<select required name="package_type" className={input} defaultValue="carton">{Object.entries(packageTypeLabels).map(([code, label]) => <option key={code} value={code}>{dashboardText(label)}</option>)}</select></label>
+          <label className="grid gap-1.5 text-[13px]">{dashboardText("Catégorie de marchandise *")}<select required name="classification" className={input} defaultValue="ORDINARY_GOODS">{Object.entries(goodsClassificationLabels).map(([code, label]) => <option key={code} value={code}>{dashboardText(label)}</option>)}</select></label>
+          <p className="text-xs text-slate-500">{dashboardText("Les marchandises réglementées doivent être autorisées sur le service et la route.")}</p>
         </section>
         <section className="grid gap-3 border-t border-slate-200 pt-5">
-          <h3 className="text-sm font-semibold">Prix et facturation</h3>
+          <h3 className="text-sm font-semibold">{dashboardText("Prix et facturation")}</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1.5 text-[13px]">Unité<select className={input} value={unit} onChange={(event) => setUnit(event.target.value as Draft["unit"])}><option value="PER_KG">Kilogramme (kg)</option><option value="PER_CBM">Mètre cube (CBM)</option><option value="PER_PACKAGE">Colis</option><option value="PER_UNIT">Unité</option></select></label>
-            <label className="grid gap-1.5 text-[13px]">Devise<select required name="currency" className={input} value={currency} disabled={!currencyReady} onChange={(event) => setCurrency(event.target.value)}>{!currencyReady&&<option value="">{currencyFailed?'Devise indisponible':'Chargement de la devise…'}</option>}{agencyCurrencyOptions(referenceCurrency).map(code=><option key={code} value={code}>{code}</option>)}</select></label>
-            {currencyFailed?<div role="alert" className="text-xs text-red-700">La devise de référence n’a pas pu être chargée. <button type="button" className="underline" onClick={()=>setCurrencyAttempt(value=>value+1)}>Réessayer</button></div>:<p className="text-xs text-[#697178]">La devise de référence du bureau est présélectionnée. Vous pouvez choisir une autre devise pour ce tarif ; les montants saisis ne sont pas convertis automatiquement.</p>}
+            <label className="grid gap-1.5 text-[13px]">{dashboardText("Unité")}<select className={input} value={unit} onChange={(event) => setUnit(event.target.value as Draft["unit"])}><option value="PER_KG">{dashboardText("Kilogramme (kg)")}</option><option value="PER_CBM">{dashboardText("Mètre cube (CBM)")}</option><option value="PER_PACKAGE">{dashboardText("Colis")}</option><option value="PER_UNIT">{dashboardText("Unité")}</option></select></label>
+            <label className="grid gap-1.5 text-[13px]">{dashboardText("Devise")}<select required name="currency" className={input} value={currency} disabled={!currencyReady} onChange={(event) => setCurrency(event.target.value)}>{!currencyReady&&<option value="">{currencyFailed?dashboardText("Devise indisponible"):dashboardText("Chargement de la devise…")}</option>}{agencyCurrencyOptions(referenceCurrency).map(code=><option key={code} value={code}>{code}</option>)}</select></label>
+            {currencyFailed?<div role="alert" className="text-xs text-red-700">{dashboardText("La devise de référence n’a pas pu être chargée. ")}<button type="button" className="underline" onClick={()=>setCurrencyAttempt(value=>value+1)}>{dashboardText("Réessayer")}</button></div>:<p className="text-xs text-[#697178]">{dashboardText("La devise de référence du bureau est présélectionnée. Vous pouvez choisir une autre devise pour ce tarif ; les montants saisis ne sont pas convertis automatiquement.")}</p>}
           </div>
           <div className="grid gap-2 text-[13px]">
-            <label className="flex items-center gap-2"><input type="radio" name="price_mode" checked={priceMode === "single"} onChange={() => setPriceMode("single")} />Prix unique par unité</label>
-            <label className="flex items-center gap-2"><input type="radio" name="price_mode" checked={priceMode === "tiered"} onChange={() => setPriceMode("tiered")} />Prix par paliers</label>
+            <label className="flex items-center gap-2"><input type="radio" name="price_mode" checked={priceMode === "single"} onChange={() => setPriceMode("single")} />{dashboardText("Prix unique par unité")}</label>
+            <label className="flex items-center gap-2"><input type="radio" name="price_mode" checked={priceMode === "tiered"} onChange={() => setPriceMode("tiered")} />{dashboardText("Prix par paliers")}</label>
           </div>
-          {priceMode === "single" ? <label className="grid gap-1.5 text-[13px]">Prix par {unitLabel.toLowerCase()} ({currency}) *<input required name="price" type="number" min="0.01" step="0.01" className={input} placeholder="Saisir le montant" /></label> : <div className="grid gap-2">
-            {tiers.map((tier, index) => <div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2"><label className="grid gap-1 text-xs">À partir de<input className={input} type="number" min="0" step="0.01" value={tier.min} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, min: event.target.value } : item))} /></label><label className="grid gap-1 text-xs">Jusqu’à<input className={input} type="number" min="0.01" step="0.01" placeholder="Sans limite" value={tier.max} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, max: event.target.value } : item))} /></label><label className="grid gap-1 text-xs">Prix<input className={input} required type="number" min="0.01" step="0.01" value={tier.price} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, price: event.target.value } : item))} /></label><button type="button" aria-label="Supprimer le palier" disabled={tiers.length === 1} className={`${btn} disabled:opacity-40`} onClick={() => setTiers((current) => current.filter((_, i) => i !== index))}>×</button></div>)}
-            <button type="button" className={`${btn} w-full`} onClick={() => setTiers((current) => [...current, { min: current[current.length - 1]?.max || "", max: "", price: "" }])}><Plus size={14} />Ajouter un palier</button>
+          {priceMode === "single" ? <label className="grid gap-1.5 text-[13px]">{dashboardText("Prix par ")}{unitLabel.toLowerCase()} ({currency}) *<input required name="price" type="number" min="0.01" step="0.01" className={input} placeholder={dashboardText("Saisir le montant")} /></label> : <div className="grid gap-2">
+            {tiers.map((tier, index) => <div key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] items-end gap-2"><label className="grid gap-1 text-xs">{dashboardText("À partir de")}<input className={input} type="number" min="0" step="0.01" value={tier.min} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, min: event.target.value } : item))} /></label><label className="grid gap-1 text-xs">{dashboardText("Jusqu’à")}<input className={input} type="number" min="0.01" step="0.01" placeholder={dashboardText("Sans limite")} value={tier.max} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, max: event.target.value } : item))} /></label><label className="grid gap-1 text-xs">{dashboardText("Prix")}<input className={input} required type="number" min="0.01" step="0.01" value={tier.price} onChange={(event) => setTiers((current) => current.map((item, i) => i === index ? { ...item, price: event.target.value } : item))} /></label><button type="button" aria-label={dashboardText("Supprimer le palier")} disabled={tiers.length === 1} className={`${btn} disabled:opacity-40`} onClick={() => setTiers((current) => current.filter((_, i) => i !== index))}>{dashboardText("×")}</button></div>)}
+            <button type="button" className={`${btn} w-full`} onClick={() => setTiers((current) => [...current, { min: current[current.length - 1]?.max || "", max: "", price: "" }])}><Plus size={14} />{dashboardText("Ajouter un palier")}</button>
           </div>}
-          <label className="grid gap-1.5 text-[13px]">Montant minimum facturable (facultatif)<input name="minimum_amount" type="number" min="0" step="0.01" className={input} placeholder="Facultatif" /></label>
+          <label className="grid gap-1.5 text-[13px]">{dashboardText("Montant minimum facturable (facultatif)")}<input name="minimum_amount" type="number" min="0" step="0.01" className={input} placeholder={dashboardText("Facultatif")} /></label>
         </section>
         <section className="grid gap-3 border-t border-slate-200 pt-5">
-          <h3 className="text-sm font-semibold">Validité et statut</h3>
-          <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-[13px]">Début *<input required name="effective_from" type="date" defaultValue={today} className={input} /></label><label className="grid gap-1.5 text-[13px]">Fin (facultatif)<input name="effective_until" type="date" min={today} className={input} /></label></div>
-          <label className="grid gap-1.5 text-[13px]">Note interne<textarea name="note" rows={2} maxLength={1000} className={`${input} h-auto py-2`} placeholder="Conditions ou références internes…" /></label>
-          <label className="flex items-start gap-2 text-[13px]"><input name="approval" type="checkbox" defaultChecked className="mt-0.5" /><span>Activer après validation<small className="block text-xs text-slate-500">Le tarif restera en brouillon jusqu’à son approbation et sa publication.</small></span></label>
+          <h3 className="text-sm font-semibold">{dashboardText("Validité et statut")}</h3>
+          <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-[13px]">{dashboardText("Début *")}<input required name="effective_from" type="date" defaultValue={today} className={input} /></label><label className="grid gap-1.5 text-[13px]">{dashboardText("Fin (facultatif)")}<input name="effective_until" type="date" min={today} className={input} /></label></div>
+          <label className="grid gap-1.5 text-[13px]">{dashboardText("Note interne")}<textarea name="note" rows={2} maxLength={1000} className={`${input} h-auto py-2`} placeholder={dashboardText("Conditions ou références internes…")} /></label>
+          <label className="flex items-start gap-2 text-[13px]"><input name="approval" type="checkbox" defaultChecked className="mt-0.5" /><span>{dashboardText("Activer après validation")}<small className="block text-xs text-slate-500">{dashboardText("Le tarif restera en brouillon jusqu’à son approbation et sa publication.")}</small></span></label>
         </section>
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <div className="flex justify-end border-t border-slate-200 pt-4"><button disabled={!currencyReady} className={primary}>Vérifier le tarif <ChevronRight size={14} /></button></div>
+        {error && <p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
+        <div className="flex justify-end border-t border-slate-200 pt-4"><button disabled={!currencyReady} className={primary}>{dashboardText("Vérifier le tarif ")}<ChevronRight size={14} /></button></div>
       </form> : <div className="grid gap-5">
-        <section className="grid gap-3"><h3 className="text-sm font-semibold">Récapitulatif du tarif</h3>{[
-          ["Tarif", draft?.name], ["Service", serviceName], ["Route", routeName],
-          ["Conditionnement", packageTypeLabels[draft?.packageType || ""]], ["Marchandise", goodsClassificationLabels[draft?.classification || ""]],
-          ["Unité", unitLabel], ["Mode de prix", draft?.priceMode === "tiered" ? `${tiers.length} palier(s)` : `${draft?.price} ${draft?.currency}`],
-          ["Montant minimum", draft?.minimumAmount ? `${draft.minimumAmount} ${draft.currency}` : "Aucun"],
-          ["Validité", `${draft?.effectiveFrom}${draft?.effectiveUntil ? ` — ${draft.effectiveUntil}` : " — sans date de fin"}`],
-        ].map(([label, value]) => <div key={label} className="flex justify-between gap-3 border-b border-slate-100 py-2 text-[13px]"><span className="text-slate-500">{label}</span><span className="text-right font-medium">{value || "—"}</span></div>)}</section>
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Le tarif sera créé en brouillon. Il ne pourra servir aux calculs qu’après validation et publication.</p>
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <div className="flex justify-between border-t border-slate-200 pt-4"><button type="button" className={btn} onClick={() => setStep(1)}>Retour</button><button type="button" disabled={saving} className={primary} onClick={createTariff}>{saving ? "Enregistrement…" : "Enregistrer le tarif"}</button></div>
+        <section className="grid gap-3"><h3 className="text-sm font-semibold">{dashboardText("Récapitulatif du tarif")}</h3>{[
+          [dashboardText("Tarif"), draft?.name], [dashboardText("Service"), serviceName], [dashboardText("Route"), routeName],
+          [dashboardText("Conditionnement"), dashboardText(packageTypeLabels[draft?.packageType || ""])], [dashboardText("Marchandise"), goodsClassificationLabels[draft?.classification || ""]],
+          [dashboardText("Unité"), unitLabel], [dashboardText("Mode de prix"), draft?.priceMode === "tiered" ? dashboardText("{0} palier(s)", tiers.length) : `${draft?.price} ${draft?.currency}`],
+          [dashboardText("Montant minimum"), draft?.minimumAmount ? `${draft.minimumAmount} ${draft.currency}` : dashboardText("Aucun")],
+          [dashboardText("Validité"), `${draft?.effectiveFrom}${draft?.effectiveUntil ? ` — ${draft.effectiveUntil}` : dashboardText(" — sans date de fin")}`],
+        ].map(([label, value]) => <div key={label} className="flex justify-between gap-3 border-b border-slate-100 py-2 text-[13px]"><span className="text-slate-500">{dashboardText(label)}</span><span className="text-right font-medium">{value || "—"}</span></div>)}</section>
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{dashboardText("Le tarif sera créé en brouillon. Il ne pourra servir aux calculs qu’après validation et publication.")}</p>
+        {error && <p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
+        <div className="flex justify-between border-t border-slate-200 pt-4"><button type="button" className={btn} onClick={() => setStep(1)}>{dashboardText("Retour")}</button><button type="button" disabled={saving} className={primary} onClick={createTariff}>{saving ? dashboardText("Enregistrement…") : dashboardText("Enregistrer le tarif")}</button></div>
       </div>}
     </div>
   );
@@ -583,6 +587,7 @@ function GridDrawer({
   versionCreated:(id:string)=>Promise<void>;
   changed: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const g = detail.grid;
   const [tab, setTab] = useState<"details" | "tiers" | "conditions" | "history">("details");
   const [versionOpen, setVersionOpen] = useState(false);
@@ -602,9 +607,9 @@ function GridDrawer({
   const unit = method === "PER_CBM" ? "CBM" : method === "PER_PACKAGE" ? "colis" : method === "PER_UNIT" ? "unité" : method === "FIXED" ? "forfait" : "kg";
   const baseAmount = g.base_price ?? baseRule?.amount;
   const statusLabel = g.status === "ACTIVE" ? "Actif" : g.status === "DRAFT" ? "Brouillon" : g.status === "INACTIVE" ? "Inactif" : g.status;
-  const validFrom = g.effective_from ? new Date(g.effective_from).toLocaleDateString("fr-FR") : "—";
-  const validUntil = g.effective_until ? new Date(g.effective_until).toLocaleDateString("fr-FR") : "Sans date de fin";
-  const dateValue = (value: unknown) => value ? new Date(String(value)).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "Date non renseignée";
+  const validFrom = g.effective_from ? new Date(g.effective_from).toLocaleDateString(dashboardFormatLocale()) : "—";
+  const validUntil = g.effective_until ? new Date(g.effective_until).toLocaleDateString(dashboardFormatLocale()) : "Sans date de fin";
+  const dateValue = (value: unknown) => value ? new Date(String(value)).toLocaleString(dashboardFormatLocale(), { dateStyle: "medium", timeStyle: "short" }) : "Date non renseignée";
   const statusClass = g.status === "ACTIVE" ? "bg-[#dcf5e5] text-[#14804a]" : g.status === "DRAFT" ? "bg-[#fff0e8] text-[#c75b23]" : "bg-[#f1f2f1] text-[#59636b]";
   const gridLimits = g as Grid & { minimum_weight_kg?: number | null; minimum_cbm?: number | null; minimum_billable_amount?: number | null };
   const minimumQuantity = gridLimits.minimum_weight_kg != null ? `${gridLimits.minimum_weight_kg} kg` : gridLimits.minimum_cbm != null ? `${gridLimits.minimum_cbm} CBM` : "Aucune";
@@ -617,17 +622,17 @@ function GridDrawer({
       placement="center"
       variant="detail"
       title={g.name}
-      description={`${g.grid_code} · Fiche tarifaire`}
-      headerMeta={<><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass}`}>{statusLabel}</span><span className="text-[11px] text-[#697178]">{g.route_name}</span></>}
-      headerActions={<PermissionGuard permission="pricing.update"><button type="button" onClick={() => { setTab("tiers"); setVersionOpen(true); }} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#d8dddf] px-3 text-[11px] font-medium text-[#30363a] hover:bg-[#f5f7f6]">Modifier</button></PermissionGuard>}
-      tabs={<div className="flex w-full gap-1 overflow-x-auto border-b border-[#edf0ee] pb-3">{([["details", "Détails"], ["tiers", "Paliers"], ["conditions", "Conditions"], ["history", "Historique"]] as const).map(([key, label]) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key)} className={`h-8 shrink-0 rounded-full px-3 text-[11px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f2f3f3]"}`}>{label}</button>)}</div>}
+      description={dashboardText("{0} · Fiche tarifaire", g.grid_code)}
+      headerMeta={<><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold ${statusClass}`}>{dashboardText(statusLabel)}</span><span className="text-[11px] text-[#697178]">{g.route_name}</span></>}
+      headerActions={<PermissionGuard permission="pricing.update"><button type="button" onClick={() => { setTab("tiers"); setVersionOpen(true); }} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#d8dddf] px-3 text-[11px] font-medium text-[#30363a] hover:bg-[#f5f7f6]">{dashboardText("Modifier")}</button></PermissionGuard>}
+      tabs={<div className="flex w-full gap-1 overflow-x-auto border-b border-[#edf0ee] pb-3">{([["details", dashboardText("Détails")], ["tiers", dashboardText("Paliers")], ["conditions", dashboardText("Conditions")], ["history", dashboardText("Historique")]] as const).map(([key, label]) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key)} className={`h-8 shrink-0 rounded-full px-3 text-[11px] font-medium ${tab === key ? "bg-[#111] text-white" : "text-[#59636b] hover:bg-[#f2f3f3]"}`}>{dashboardText(label)}</button>)}</div>}
       bodyClassName="bg-white p-4 sm:p-5"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
-          <span className="text-[10px] text-[#697178]">Tarif {g.grid_code}</span>
+          <span className="text-[10px] text-[#697178]">{dashboardText("Tarif ")}{g.grid_code}</span>
           <div className="flex flex-wrap justify-end gap-2">
-            {g.status === "DRAFT" && <PermissionGuard permission="pricing.approve"><button className={btn} onClick={async () => { try { setActionError(""); await approveGrid(g.id, "Tarif vérifié"); await changed(); } catch { setActionError("La validation du tarif a échoué."); } }}>Valider</button><button className={primary} onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "ACTIVE", "Publication tarifaire"); await changed(); } catch { setActionError("La publication du tarif a échoué."); } }}>Publier</button></PermissionGuard>}
-            {g.status === "ACTIVE" && <PermissionGuard permission="pricing.update"><button className="h-8 rounded-full border border-[#f0cccc] px-3 text-[11px] text-red-600 hover:bg-red-50" onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "INACTIVE", "Désactivation depuis la fiche tarif"); await changed(); } catch { setActionError("Le tarif n’a pas pu être désactivé."); } }}>Désactiver le tarif</button></PermissionGuard>}
+            {g.status === "DRAFT" && <PermissionGuard permission="pricing.approve"><button className={btn} onClick={async () => { try { setActionError(""); await approveGrid(g.id, "Tarif vérifié"); await changed(); } catch { setActionError("La validation du tarif a échoué."); } }}>{dashboardText("Valider")}</button><button className={primary} onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "ACTIVE", "Publication tarifaire"); await changed(); } catch { setActionError("La publication du tarif a échoué."); } }}>{dashboardText("Publier")}</button></PermissionGuard>}
+            {g.status === "ACTIVE" && <PermissionGuard permission="pricing.update"><button className="h-8 rounded-full border border-[#f0cccc] px-3 text-[11px] text-red-600 hover:bg-red-50" onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "INACTIVE", "Désactivation depuis la fiche tarif"); await changed(); } catch { setActionError("Le tarif n’a pas pu être désactivé."); } }}>{dashboardText("Désactiver le tarif")}</button></PermissionGuard>}
           </div>
           {actionError && <p role="alert" className="basis-full text-right text-xs text-red-700">{actionError}</p>}
         </div>
@@ -635,29 +640,29 @@ function GridDrawer({
     >
       <main className="grid gap-4">
         <section className="grid gap-3 border-b border-[#edf0ee] pb-4">
-          <div><p className="text-[10px] text-[#697178]">Prix de référence</p><p className="mt-1 text-[20px] font-semibold text-[#20252b]">{baseAmount == null ? "À définir" : `${baseAmount} ${g.currency_code}`} <span className="text-[12px] font-normal text-[#697178]">/ {unit}</span></p></div>
+          <div><p className="text-[10px] text-[#697178]">{dashboardText("Prix de référence")}</p><p className="mt-1 text-[20px] font-semibold text-[#20252b]">{baseAmount == null ? dashboardText("À définir") : `${baseAmount} ${g.currency_code}`} <span className="text-[12px] font-normal text-[#697178]">/ {unit}</span></p></div>
           <p className="flex items-center gap-2 text-[11px] text-[#30363a]"><ChevronRight size={13}/>{g.route_name}</p>
-          <p className="text-[10px] text-[#697178]">Version {g.version} · Application {validFrom}{g.effective_until ? ` – ${validUntil}` : ""}</p>
+          <p className="text-[10px] text-[#697178]">{dashboardText("Version ")}{g.version} {dashboardText(" · Application ")}{validFrom}{g.effective_until ? ` – ${validUntil}` : ""}</p>
         </section>
         {tab === "details" && <section className="grid gap-0">
-          {detailRows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-4 border-b border-[#f0f2f1] py-2.5 text-[11px]"><span className="text-[#697178]">{label}</span><span className="text-right font-medium text-[#25292e]">{value}</span></div>)}
+          {detailRows.map(([label, value]) => <div key={label} className="flex items-start justify-between gap-4 border-b border-[#f0f2f1] py-2.5 text-[11px]"><span className="text-[#697178]">{dashboardText(label)}</span><span className="text-right font-medium text-[#25292e]">{value}</span></div>)}
         </section>}
         {tab === "tiers" && <section className="grid gap-3">
-          <p className="text-[11px] leading-5 text-[#697178]">{detail.tiers.length ? "Prix appliqués selon la quantité facturable." : "Ce tarif utilise actuellement un prix fixe. Aucun palier progressif n’est configuré."}</p>
-          {detail.tiers.length ? <div className="grid gap-0"><div className="grid grid-cols-2 border-b border-[#e8ebea] py-2 text-[10px] font-semibold text-[#59636b]"><span>Quantité</span><span>Prix unitaire</span></div>{detail.tiers.map((tier, index) => <div key={String(tier.id || index)} className="grid grid-cols-2 border-b border-[#edf0ee] py-2.5 text-[11px]"><span>{`À partir de ${tier.min_quantity ?? 0}${tier.max_quantity == null ? "" : ` jusqu’à ${tier.max_quantity}`}`}</span><span>{`${tier.unit_price ?? "—"} ${g.currency_code} / ${String(tier.basis || unit).toLowerCase()}`}</span></div>)}</div> : <div className="grid grid-cols-2 border-b border-[#edf0ee] py-2 text-[11px]"><span>À partir de {(g as Grid & { minimum_weight_kg?: number | null }).minimum_weight_kg ?? 1} {unit}</span><span>{baseAmount == null ? "Prix à définir" : `${baseAmount} ${g.currency_code}/${unit}`}</span></div>}
+          <p className="text-[11px] leading-5 text-[#697178]">{detail.tiers.length ? dashboardText("Prix appliqués selon la quantité facturable.") : dashboardText("Ce tarif utilise actuellement un prix fixe. Aucun palier progressif n’est configuré.")}</p>
+          {detail.tiers.length ? <div className="grid gap-0"><div className="grid grid-cols-2 border-b border-[#e8ebea] py-2 text-[10px] font-semibold text-[#59636b]"><span>{dashboardText("Quantité")}</span><span>{dashboardText("Prix unitaire")}</span></div>{detail.tiers.map((tier, index) => <div key={String(tier.id || index)} className="grid grid-cols-2 border-b border-[#edf0ee] py-2.5 text-[11px]"><span>{dashboardText("À partir de {0}{1}", tier.min_quantity ?? 0, tier.max_quantity == null ? "" : dashboardText(" jusqu’à {0}",tier.max_quantity))}</span><span>{`${tier.unit_price ?? "—"} ${g.currency_code} / ${String(tier.basis || unit).toLowerCase()}`}</span></div>)}</div> : <div className="grid grid-cols-2 border-b border-[#edf0ee] py-2 text-[11px]"><span>{dashboardText("À partir de ")}{(g as Grid & { minimum_weight_kg?: number | null }).minimum_weight_kg ?? 1} {unit}</span><span>{baseAmount == null ? dashboardText("Prix à définir") : `${baseAmount} ${g.currency_code}/${unit}`}</span></div>}
           {g.status === "DRAFT" && <AddTier grid={g.id} rules={detail.rules} changed={changed}/>}
-          {versionOpen && <form className="grid gap-2 border-t border-[#edf0ee] pt-3" onSubmit={prepareVersion}><p className="text-[12px] font-semibold">Créer une nouvelle version</p><p className="text-[10px] leading-4 text-[#697178]">Le tarif publié reste inchangé pour préserver les opérations déjà facturées.</p><label className="grid gap-1 text-[11px]">Date d’application<input required type="datetime-local" value={versionDate} onChange={e=>setVersionDate(e.target.value)} className={input}/></label>{actionError&&<p role="alert" className="text-xs text-red-700">{actionError}</p>}<button disabled={versionSaving} className={btn}>{versionSaving ? "Préparation…" : "Préparer la version suivante"}</button></form>}
+          {versionOpen && <form className="grid gap-2 border-t border-[#edf0ee] pt-3" onSubmit={prepareVersion}><p className="text-[12px] font-semibold">{dashboardText("Créer une nouvelle version")}</p><p className="text-[10px] leading-4 text-[#697178]">{dashboardText("Le tarif publié reste inchangé pour préserver les opérations déjà facturées.")}</p><label className="grid gap-1 text-[11px]">{dashboardText("Date d’application")}<input required type="datetime-local" value={versionDate} onChange={e=>setVersionDate(e.target.value)} className={input}/></label>{actionError&&<p role="alert" className="text-xs text-red-700">{actionError}</p>}<button disabled={versionSaving} className={btn}>{versionSaving ? dashboardText("Préparation…") : dashboardText("Préparer la version suivante")}</button></form>}
           {g.status === "DRAFT" && <AddRule grid={g.id} changed={changed}/>}
         </section>}
         {tab === "conditions" && <section className="grid gap-3 text-[11px] leading-5">
-          <div><p className="font-medium text-[#697178]">Conditions d’application</p><p className="mt-1">Applicable aux {String(baseRule?.category_name || goodsClassificationLabels[conditions.category_code] || "marchandises générales")} {conditions.package_type ? `conditionnées en ${packageTypeLabels[conditions.package_type] || conditions.package_type}` : "acceptées"} sur cette route.</p></div>
-          <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">Mode de calcul</p><p className="mt-1">{baseAmount == null ? "Prix déterminé par les paliers configurés." : `Quantité facturable × ${baseAmount} ${g.currency_code} par ${unit}, sous réserve du montant minimum et des frais applicables.`}</p></div>
-          <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">Application aux opérations</p><p className="mt-1">Ce tarif s’applique si le service, la route, la catégorie, l’emballage et la date correspondent. Un devis ou une facture déjà validé ne doit pas être modifié rétroactivement.</p></div>
-          {detail.fees.length > 0 && <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">Frais supplémentaires</p>{detail.fees.map((fee, index) => <p key={String(fee.id || index)} className="mt-1">{String(fee.name || "Frais")} · {String(fee.amount ?? "—")} {g.currency_code}</p>)}</div>}
+          <div><p className="font-medium text-[#697178]">{dashboardText("Conditions d’application")}</p><p className="mt-1">{dashboardText("Applicable aux ")}{String(baseRule?.category_name || goodsClassificationLabels[conditions.category_code] || dashboardText("marchandises générales"))} {conditions.package_type ? dashboardText("conditionnées en {0}", packageTypeLabels[conditions.package_type] || conditions.package_type) : dashboardText("acceptées")} {dashboardText(" sur cette route.")}</p></div>
+          <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">{dashboardText("Mode de calcul")}</p><p className="mt-1">{baseAmount == null ? dashboardText("Prix déterminé par les paliers configurés.") : dashboardText("Quantité facturable × {0} {1} par {2}, sous réserve du montant minimum et des frais applicables.", baseAmount, g.currency_code, unit)}</p></div>
+          <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">{dashboardText("Application aux opérations")}</p><p className="mt-1">{dashboardText("Ce tarif s’applique si le service, la route, la catégorie, l’emballage et la date correspondent. Un devis ou une facture déjà validé ne doit pas être modifié rétroactivement.")}</p></div>
+          {detail.fees.length > 0 && <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">{dashboardText("Frais supplémentaires")}</p>{detail.fees.map((fee, index) => <p key={String(fee.id || index)} className="mt-1">{String(fee.name || dashboardText("Frais"))} · {String(fee.amount ?? "—")} {g.currency_code}</p>)}</div>}
           {g.status === "DRAFT" && <AddFee grid={g.id} changed={changed}/>}
         </section>}
-        {tab === "history" && <section className="grid gap-0">{detail.audit.slice(0, 20).map((event, index) => <div key={String(event.id || index)} className="flex gap-3 border-b border-[#edf0ee] py-3"><HistoryIcon size={13} className="mt-0.5 shrink-0 text-[#697178]"/><div><p className="text-[11px] font-medium text-[#25292e]">{String(event.event_type || "Modification").replaceAll("_", " ").toLowerCase().replace(/^./, letter => letter.toUpperCase())}</p><p className="mt-1 text-[10px] text-[#697178]">{dateValue(event.created_at)} · {String(event.actor_name || "Membre de l’agence")}</p>{event.reason != null && <p className="mt-1 text-[10px] text-[#697178]">{String(event.reason)}</p>}</div></div>)}{!detail.audit.length && <p className="py-6 text-center text-[11px] text-[#697178]">Aucun événement enregistré.</p>}</section>}
-        {g.status === "DRAFT" && <p className="border-t border-[#edf0ee] pt-3 text-[10px] leading-4 text-[#697178]">Ce brouillon doit être validé puis publié avant de pouvoir être proposé aux clients.</p>}
+        {tab === "history" && <section className="grid gap-0">{detail.audit.slice(0, 20).map((event, index) => <div key={String(event.id || index)} className="flex gap-3 border-b border-[#edf0ee] py-3"><HistoryIcon size={13} className="mt-0.5 shrink-0 text-[#697178]"/><div><p className="text-[11px] font-medium text-[#25292e]">{String(event.event_type || dashboardText("Modification")).replaceAll("_", " ").toLowerCase().replace(/^./, letter => letter.toUpperCase())}</p><p className="mt-1 text-[10px] text-[#697178]">{dateValue(event.created_at)} · {String(event.actor_name || dashboardText("Membre de l’agence"))}</p>{event.reason != null && <p className="mt-1 text-[10px] text-[#697178]">{String(event.reason)}</p>}</div></div>)}{!detail.audit.length && <p className="py-6 text-center text-[11px] text-[#697178]">{dashboardText("Aucun événement enregistré.")}</p>}</section>}
+        {g.status === "DRAFT" && <p className="border-t border-[#edf0ee] pt-3 text-[10px] leading-4 text-[#697178]">{dashboardText("Ce brouillon doit être validé puis publié avant de pouvoir être proposé aux clients.")}</p>}
       </main>
     </OperationDrawer>
   );
@@ -670,6 +675,7 @@ function AddRule({
   grid: string;
   changed: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const [open,setOpen]=useState(false),[error,setError]=useState(""),[saving,setSaving]=useState(false);
   const [method,setMethod]=useState("PER_KG");
   async function submit(event:FormEvent<HTMLFormElement>){
@@ -689,14 +695,14 @@ function AddRule({
   return (
     <PermissionGuard permission="pricing.update">
       <div className="mt-3">
-        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un prix par colis</button>:<form className="grid gap-3 pt-3 sm:grid-cols-2" onSubmit={submit}>
-          <label className="grid gap-1 text-xs">Marchandise<select name="classification" className={input}><option value="">Toutes les marchandises</option>{Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
-          <label className="grid gap-1 text-xs">Type d’emballage<select name="package_type" className={input}><option value="">Tous les types</option>{Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
-          <label className="grid gap-1 text-xs">Calcul du prix<select name="method" className={input} value={method} onChange={event=>setMethod(event.target.value)}>{Object.entries(calculationLabels).filter(([key])=>key!=="TIERED"&&key!=="CUSTOM").map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-          <label className="grid gap-1 text-xs">{method==="PERCENT_VALUE"?"Taux (%)":"Prix"}<input required name="amount" type="number" min="0.01" step="0.01" className={input}/></label>
-          <p className="text-[11px] text-slate-500 sm:col-span-2">Le prix s’applique à la combinaison choisie et prend priorité sur le tarif général.</p>
-          {error&&<p role="alert" className="text-xs text-red-700">{error}</p>}
-          <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>Annuler</button><button disabled={saving} className={primary}>{saving?"Enregistrement…":"Enregistrer le prix"}</button></div>
+        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>{dashboardText("Ajouter un prix par colis")}</button>:<form className="grid gap-3 pt-3 sm:grid-cols-2" onSubmit={submit}>
+          <label className="grid gap-1 text-xs">{dashboardText("Marchandise")}<select name="classification" className={input}><option value="">{dashboardText("Toutes les marchandises")}</option>{Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{dashboardText(label)}</option>)}</select></label>
+          <label className="grid gap-1 text-xs">{dashboardText("Type d’emballage")}<select name="package_type" className={input}><option value="">{dashboardText("Tous les types")}</option>{Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{dashboardText(label)}</option>)}</select></label>
+          <label className="grid gap-1 text-xs">{dashboardText("Calcul du prix")}<select name="method" className={input} value={method} onChange={event=>setMethod(event.target.value)}>{Object.entries(calculationLabels).filter(([key])=>key!=="TIERED"&&key!=="CUSTOM").map(([key,label])=><option key={key} value={key}>{dashboardText(label)}</option>)}</select></label>
+          <label className="grid gap-1 text-xs">{method==="PERCENT_VALUE"?dashboardText("Taux (%)"):dashboardText("Prix")}<input required name="amount" type="number" min="0.01" step="0.01" className={input}/></label>
+          <p className="text-[11px] text-slate-500 sm:col-span-2">{dashboardText("Le prix s’applique à la combinaison choisie et prend priorité sur le tarif général.")}</p>
+          {error&&<p role="alert" className="text-xs text-red-700">{dashboardText(error)}</p>}
+          <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>{dashboardText("Annuler")}</button><button disabled={saving} className={primary}>{saving?dashboardText("Enregistrement…"):dashboardText("Enregistrer le prix")}</button></div>
         </form>}
       </div>
     </PermissionGuard>
@@ -711,6 +717,7 @@ function AddTier({
   rules:Array<Record<string,unknown>>;
   changed: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const [open,setOpen]=useState(false),[error,setError]=useState(""),[saving,setSaving]=useState(false);
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();const form=new FormData(event.currentTarget);
@@ -723,17 +730,17 @@ function AddTier({
   return (
     <PermissionGuard permission="pricing.update">
       <div className="mt-3">
-        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un palier</button>:<form className="grid gap-3 pt-3" onSubmit={submit}>
-          <label className="grid gap-1 text-xs">Règle concernée<select name="rule" className={input}><option value="">Palier général</option>{rules.filter(x=>x.action_type==="SET_PRICE").map(x=><option key={String(x.id)} value={String(x.id)}>{String(x.name)}</option>)}</select></label>
+        {!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>{dashboardText("Ajouter un palier")}</button>:<form className="grid gap-3 pt-3" onSubmit={submit}>
+          <label className="grid gap-1 text-xs">{dashboardText("Règle concernée")}<select name="rule" className={input}><option value="">{dashboardText("Palier général")}</option>{rules.filter(x=>x.action_type==="SET_PRICE").map(x=><option key={String(x.id)} value={String(x.id)}>{String(x.name)}</option>)}</select></label>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs">Base<select name="basis" className={input}><option value="WEIGHT">Poids (kg)</option><option value="CBM">Volume (CBM)</option><option value="UNITS">Unités</option><option value="VALUE">Valeur déclarée</option></select></label>
-            <label className="grid gap-1 text-xs">Mode de calcul<select name="method" className={input}><option value="PER_UNIT">Prix par unité de base</option><option value="FIXED">Forfait pour le palier</option></select></label>
-            <label className="grid gap-1 text-xs">Quantité minimale incluse<input required name="min" type="number" min="0" step="0.0001" defaultValue="0" className={input}/></label>
-            <label className="grid gap-1 text-xs">Limite haute (exclue, vide = sans limite)<input name="max" type="number" min="0" step="0.0001" className={input}/></label>
-            <label className="grid gap-1 text-xs sm:col-span-2">Prix unitaire ou montant forfaitaire<input required name="price" type="number" min="0" step="0.01" className={input}/></label>
+            <label className="grid gap-1 text-xs">{dashboardText("Base")}<select name="basis" className={input}><option value="WEIGHT">{dashboardText("Poids (kg)")}</option><option value="CBM">{dashboardText("Volume (CBM)")}</option><option value="UNITS">{dashboardText("Unités")}</option><option value="VALUE">{dashboardText("Valeur déclarée")}</option></select></label>
+            <label className="grid gap-1 text-xs">{dashboardText("Mode de calcul")}<select name="method" className={input}><option value="PER_UNIT">{dashboardText("Prix par unité de base")}</option><option value="FIXED">{dashboardText("Forfait pour le palier")}</option></select></label>
+            <label className="grid gap-1 text-xs">{dashboardText("Quantité minimale incluse")}<input required name="min" type="number" min="0" step="0.0001" defaultValue="0" className={input}/></label>
+            <label className="grid gap-1 text-xs">{dashboardText("Limite haute (exclue, vide = sans limite)")}<input name="max" type="number" min="0" step="0.0001" className={input}/></label>
+            <label className="grid gap-1 text-xs sm:col-span-2">{dashboardText("Prix unitaire ou montant forfaitaire")}<input required name="price" type="number" min="0" step="0.01" className={input}/></label>
           </div>
-          {error&&<p role="alert" className="text-xs text-red-700">{error}</p>}
-          <div className="flex justify-end gap-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>Annuler</button><button disabled={saving} className={primary}>{saving?"Enregistrement…":"Enregistrer le palier"}</button></div>
+          {error&&<p role="alert" className="text-xs text-red-700">{dashboardText(error)}</p>}
+          <div className="flex justify-end gap-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>{dashboardText("Annuler")}</button><button disabled={saving} className={primary}>{saving?dashboardText("Enregistrement…"):dashboardText("Enregistrer le palier")}</button></div>
         </form>}
       </div>
     </PermissionGuard>
@@ -746,6 +753,7 @@ function AddFee({
   grid: string;
   changed: () => Promise<void>;
 }) {
+  useDashboardMessages();
   const [open,setOpen]=useState(false),[error,setError]=useState(""),[saving,setSaving]=useState(false);
   async function submit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();const form=new FormData(event.currentTarget);
@@ -756,21 +764,22 @@ function AddFee({
   }
   return (
     <PermissionGuard permission="pricing.update">
-      <div className="mt-3">{!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>Ajouter un frais</button>:<form className="grid gap-3 pt-3" onSubmit={submit}>
-        <label className="grid gap-1 text-xs">Nom du frais<input required name="name" maxLength={120} className={input} placeholder="Ex. Frais de manutention"/></label>
+      <div className="mt-3">{!open?<button type="button" className={btn} onClick={()=>setOpen(true)}><Plus size={13}/>{dashboardText("Ajouter un frais")}</button>:<form className="grid gap-3 pt-3" onSubmit={submit}>
+        <label className="grid gap-1 text-xs">{dashboardText("Nom du frais")}<input required name="name" maxLength={120} className={input} placeholder={dashboardText("Ex. Frais de manutention")}/></label>
         <div className="grid gap-2 sm:grid-cols-2">
-          <label className="grid gap-1 text-xs">Type<select name="fee_type" className={input}>{["HANDLING","WAREHOUSE","PACKAGING","CUSTOMS","INSURANCE","LAST_MILE","PICKUP","REMOTE_AREA","FUEL","DANGEROUS_GOODS","SENSITIVE_GOODS","DOCUMENTATION","INSPECTION","STORAGE","OTHER"].map(value=><option key={value} value={value}>{businessLabel(value)}</option>)}</select></label>
-          <label className="grid gap-1 text-xs">Calcul<select name="method" className={input}><option value="FIXED">Forfait</option><option value="PER_KG">Par kg</option><option value="PER_CBM">Par CBM</option><option value="PERCENT_SUBTOTAL">% du transport</option><option value="PERCENT_VALUE">% de la valeur déclarée</option></select></label>
+          <label className="grid gap-1 text-xs">{dashboardText("Type")}<select name="fee_type" className={input}>{["HANDLING","WAREHOUSE","PACKAGING","CUSTOMS","INSURANCE","LAST_MILE","PICKUP","REMOTE_AREA","FUEL","DANGEROUS_GOODS","SENSITIVE_GOODS","DOCUMENTATION","INSPECTION","STORAGE","OTHER"].map(value=><option key={value} value={value}>{businessLabel(value)}</option>)}</select></label>
+          <label className="grid gap-1 text-xs">{dashboardText("Calcul")}<select name="method" className={input}><option value="FIXED">{dashboardText("Forfait")}</option><option value="PER_KG">{dashboardText("Par kg")}</option><option value="PER_CBM">{dashboardText("Par CBM")}</option><option value="PERCENT_SUBTOTAL">{dashboardText("% du transport")}</option><option value="PERCENT_VALUE">{dashboardText("% de la valeur déclarée")}</option></select></label>
         </div>
-        <label className="grid gap-1 text-xs">Montant / taux<input required name="amount" type="number" min="0" step="0.01" className={input}/></label>
-        <label className="flex items-center gap-2 text-xs"><input name="taxable" type="checkbox"/> Taxable</label>
-        {error&&<p role="alert" className="text-xs text-red-700">{error}</p>}
-        <div className="flex justify-end gap-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>Annuler</button><button disabled={saving} className={primary}>{saving?"Enregistrement…":"Ajouter le frais"}</button></div>
+        <label className="grid gap-1 text-xs">{dashboardText("Montant / taux")}<input required name="amount" type="number" min="0" step="0.01" className={input}/></label>
+        <label className="flex items-center gap-2 text-xs"><input name="taxable" type="checkbox"/> {dashboardText(" Taxable")}</label>
+        {error&&<p role="alert" className="text-xs text-red-700">{dashboardText(error)}</p>}
+        <div className="flex justify-end gap-2"><button type="button" className={btn} disabled={saving} onClick={()=>setOpen(false)}>{dashboardText("Annuler")}</button><button disabled={saving} className={primary}>{saving?dashboardText("Enregistrement…"):dashboardText("Ajouter le frais")}</button></div>
       </form>}</div>
     </PermissionGuard>
   );
 }
 function Simulator({ catalog }: { catalog: Catalog | null }) {
+  useDashboardMessages();
   const [result, setResult] = useState<Awaited<
       ReturnType<typeof simulatePrice>
     > | null>(null),
@@ -810,7 +819,7 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
   return (
     <main className="grid gap-4 p-4 xl:grid-cols-[400px_1fr]">
       <form onSubmit={submit} className="grid gap-3 bg-white p-4">
-        <h2 className="font-semibold">Simuler un tarif explicable</h2>
+        <h2 className="font-semibold">{dashboardText("Simuler un tarif explicable")}</h2>
         <select
           required
           name="route"
@@ -818,7 +827,7 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
           value={route}
           onChange={(e) => setRoute(e.target.value)}
         >
-          <option value="">Route</option>
+          <option value="">{dashboardText("Route")}</option>
           {catalog?.routes.map((x) => (
             <option key={x.id} value={x.id}>
               {x.route_name}
@@ -826,7 +835,7 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
           ))}
         </select>
         <select required name="service" className={input}>
-          <option value="">Service</option>
+          <option value="">{dashboardText("Service")}</option>
           {catalog?.services
             .filter((x) => x.route_id === route)
             .map((x) => (
@@ -835,23 +844,23 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
               </option>
             ))}
         </select>
-        <select name="category" className={input} aria-label="Marchandise">
-          <option value="">Toutes marchandises</option>
-          {Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}
+        <select name="category" className={input} aria-label={dashboardText("Marchandise")}>
+          <option value="">{dashboardText("Toutes marchandises")}</option>
+          {Object.entries(goodsClassificationLabels).map(([code,label])=><option key={code} value={code}>{dashboardText(label)}</option>)}
           {catalog?.categories.map((x) => <option key={x.id} value={x.code}>{x.name}</option>)}
         </select>
-        <select name="package_type" className={input} aria-label="Type d’emballage">
-          <option value="">Tous les types d’emballage</option>
-          {Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}
+        <select name="package_type" className={input} aria-label={dashboardText("Type d’emballage")}>
+          <option value="">{dashboardText("Tous les types d’emballage")}</option>
+          {Object.entries(packageTypeLabels).map(([code,label])=><option key={code} value={code}>{dashboardText(label)}</option>)}
         </select>
         {[
-          ["weight", "Poids réel kg"],
-          ["cbm", "CBM (si connu)"],
-          ["length", "Longueur cm"],
-          ["width", "Largeur cm"],
-          ["height", "Hauteur cm"],
-          ["units", "Unités"],
-          ["value", "Valeur déclarée"],
+          ["weight", dashboardText("Poids réel kg")],
+          ["cbm", dashboardText("CBM (si connu)")],
+          ["length", dashboardText("Longueur cm")],
+          ["width", dashboardText("Largeur cm")],
+          ["height", dashboardText("Hauteur cm")],
+          ["units", dashboardText("Unités")],
+          ["value", dashboardText("Valeur déclarée")],
         ].map(([n, p]) => (
           <input
             key={n}
@@ -864,29 +873,28 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
         ))}
         <button className={primary}>
           <Calculator size={14} />
-          Calculer
-        </button>
-        {error && <p className="text-[12px] text-red-600">{error}</p>}
+          {dashboardText("Calculer")}</button>
+        {error && <p className="text-[12px] text-red-600">{dashboardText(error)}</p>}
       </form>
       <section className="bg-white p-5">
-        <h2 className="font-semibold">Explication du calcul</h2>
+        <h2 className="font-semibold">{dashboardText("Explication du calcul")}</h2>
         {result ? (
           <>
             <OperationMetricGrid className="mt-4">
               <OperationMetric
-                label="Poids réel"
+                label={dashboardText("Poids réel")}
                 value={`${result.actual_weight_kg} kg`}
               />
               <OperationMetric
-                label="Poids volumétrique"
+                label={dashboardText("Poids volumétrique")}
                 value={`${result.volumetric_weight_kg.toFixed(2)} kg`}
               />
               <OperationMetric
-                label="Poids facturable"
+                label={dashboardText("Poids facturable")}
                 value={`${result.chargeable_weight_kg} kg`}
               />
               <OperationMetric
-                label="Total"
+                label={dashboardText("Total")}
                 value={`${result.total} ${result.currency}`}
               />
             </OperationMetricGrid>
@@ -896,7 +904,7 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
                   key={i}
                   className="flex justify-between border-t py-3 text-[12px]"
                 >
-                  <span>{x.label}</span>
+                  <span>{dashboardText(x.label)}</span>
                   <b>
                     {x.amount} {result.currency}
                   </b>
@@ -904,21 +912,19 @@ function Simulator({ catalog }: { catalog: Catalog | null }) {
               ))}
             </div>
             <p className="mt-3 text-[11px] text-[#69717a]">
-              Grille {result.grid_code} v{result.grid_version} · marge{" "}
-              {result.margin_percent}% · ce résultat peut être figé dans un
-              devis ou dossier.
-            </p>
+              {dashboardText("Grille ")}{result.grid_code} {dashboardText(" v")}{result.grid_version} {dashboardText(" · marge")}{" "}
+              {result.margin_percent}{dashboardText("% · ce résultat peut être figé dans un devis ou dossier.")}</p>
           </>
         ) : (
           <p className="py-16 text-center text-[13px] text-[#69717a]">
-            Renseignez le contexte réel pour obtenir un prix traçable.
-          </p>
+            {dashboardText("Renseignez le contexte réel pour obtenir un prix traçable.")}</p>
         )}
       </section>
     </main>
   );
 }
 function Analytics() {
+  useDashboardMessages();
   const [data, setData] = useState<Awaited<
     ReturnType<typeof pricingAnalytics>
   > | null>(null),[error,setError]=useState("");
@@ -930,15 +936,15 @@ function Analytics() {
   useEffect(() => {
     void load();
   }, [load]);
-  if(error)return <main className="p-4"><ErrorState title="Statistiques indisponibles" description={error} retry={()=>void load()}/></main>;
+  if(error)return <main className="p-4"><ErrorState title={dashboardText("Statistiques indisponibles")} description={dashboardText(error)} retry={()=>void load()}/></main>;
   return (
     <main className="grid gap-4 p-4 md:grid-cols-2">
-      <Card title="Simulations par route">
+      <Card title={dashboardText("Simulations par route")}>
         {data?.by_route.map((x, i) => (
           <Row key={i} x={x} />
         ))}
       </Card>
-      <Card title="Simulations par catégorie">
+      <Card title={dashboardText("Simulations par catégorie")}>
         {data?.by_category.map((x, i) => (
           <Row key={i} x={x} />
         ))}
@@ -947,6 +953,7 @@ function Analytics() {
   );
 }
 function Settings({ data }: { data: Dashboard | null }) {
+  useDashboardMessages();
   const [form,setForm]=useState({default_currency:"USD",minimum_margin_percent:15,max_agent_discount_percent:3,approval_required:true,allow_discount_stacking:false,default_volumetric_divisor:6000});
   const [saving,setSaving]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState(false);
   useEffect(()=>{if(data?.settings)setForm({
@@ -965,19 +972,19 @@ function Settings({ data }: { data: Dashboard | null }) {
   }
   return <main className="p-4">
     <form onSubmit={submit} className="max-w-3xl rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold">Garde-fous commerciaux</h2>
-      <p className="mb-5 mt-1 text-sm text-slate-600">Ces valeurs encadrent les simulations et les remises. Elles ne modifient pas rétroactivement les prix figés.</p>
+      <h2 className="font-semibold">{dashboardText("Garde-fous commerciaux")}</h2>
+      <p className="mb-5 mt-1 text-sm text-slate-600">{dashboardText("Ces valeurs encadrent les simulations et les remises. Elles ne modifient pas rétroactivement les prix figés.")}</p>
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-1.5 text-sm">Devise par défaut<input required minLength={3} maxLength={3} className={input} value={form.default_currency} onChange={e=>setForm(current=>({...current,default_currency:e.target.value.toUpperCase()}))}/></label>
-        <label className="grid gap-1.5 text-sm">Diviseur volumétrique par défaut<input required type="number" min="0.001" step="0.001" className={input} value={form.default_volumetric_divisor} onChange={e=>setForm(current=>({...current,default_volumetric_divisor:Number(e.target.value)}))}/></label>
-        <label className="grid gap-1.5 text-sm">Marge minimale (%)<input required type="number" min="0" max="100" step="0.01" className={input} value={form.minimum_margin_percent} onChange={e=>setForm(current=>({...current,minimum_margin_percent:Number(e.target.value)}))}/></label>
-        <label className="grid gap-1.5 text-sm">Remise maximale agent (%)<input required type="number" min="0" max="100" step="0.01" className={input} value={form.max_agent_discount_percent} onChange={e=>setForm(current=>({...current,max_agent_discount_percent:Number(e.target.value)}))}/></label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.approval_required} onChange={e=>setForm(current=>({...current,approval_required:e.target.checked}))}/> Approbation requise avant publication</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.allow_discount_stacking} onChange={e=>setForm(current=>({...current,allow_discount_stacking:e.target.checked}))}/> Autoriser le cumul de remises</label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Devise par défaut")}<input required minLength={3} maxLength={3} className={input} value={form.default_currency} onChange={e=>setForm(current=>({...current,default_currency:e.target.value.toUpperCase()}))}/></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Diviseur volumétrique par défaut")}<input required type="number" min="0.001" step="0.001" className={input} value={form.default_volumetric_divisor} onChange={e=>setForm(current=>({...current,default_volumetric_divisor:Number(e.target.value)}))}/></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Marge minimale (%)")}<input required type="number" min="0" max="100" step="0.01" className={input} value={form.minimum_margin_percent} onChange={e=>setForm(current=>({...current,minimum_margin_percent:Number(e.target.value)}))}/></label>
+        <label className="grid gap-1.5 text-sm">{dashboardText("Remise maximale agent (%)")}<input required type="number" min="0" max="100" step="0.01" className={input} value={form.max_agent_discount_percent} onChange={e=>setForm(current=>({...current,max_agent_discount_percent:Number(e.target.value)}))}/></label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.approval_required} onChange={e=>setForm(current=>({...current,approval_required:e.target.checked}))}/> {dashboardText(" Approbation requise avant publication")}</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.allow_discount_stacking} onChange={e=>setForm(current=>({...current,allow_discount_stacking:e.target.checked}))}/> {dashboardText(" Autoriser le cumul de remises")}</label>
       </div>
-      {error&&<p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
-      {saved&&<p role="status" className="mt-4 text-sm text-emerald-800">Paramètres enregistrés.</p>}
-      <PermissionGuard permission="pricing.settings"><button disabled={saving} className={`${primary} mt-5`}>{saving?"Enregistrement…":"Enregistrer les paramètres"}</button></PermissionGuard>
+      {error&&<p role="alert" className="mt-4 text-sm text-red-700">{dashboardText(error)}</p>}
+      {saved&&<p role="status" className="mt-4 text-sm text-emerald-800">{dashboardText("Paramètres enregistrés.")}</p>}
+      <PermissionGuard permission="pricing.settings"><button disabled={saving} className={`${primary} mt-5`}>{saving?dashboardText("Enregistrement…"):dashboardText("Enregistrer les paramètres")}</button></PermissionGuard>
     </form>
   </main>;
 }
@@ -988,6 +995,7 @@ function Card({
   title: string;
   children: React.ReactNode;
 }) {
+  useDashboardMessages();
   return (
     <section className="bg-white p-4">
       <h3 className="mb-3 text-[13px] font-semibold">{title}</h3>
@@ -996,6 +1004,7 @@ function Card({
   );
 }
 function Row({ x }: { x: Record<string, unknown> }) {
+  useDashboardMessages();
   return (
     <div className="border-t py-2 text-[11px]">
       <b>
@@ -1005,7 +1014,7 @@ function Row({ x }: { x: Record<string, unknown> }) {
             x.fee_code ||
             x.event_type ||
             x.label ||
-            "Configuration",
+            dashboardText("Configuration"),
         )}
       </b>
       <small className="block text-[#69717a]">
@@ -1029,6 +1038,7 @@ function Row({ x }: { x: Record<string, unknown> }) {
   );
 }
 function Badge({ value }: { value: string }) {
+  useDashboardMessages();
   const labels: Record<string, string> = {
     DRAFT: "Brouillon",
     SCHEDULED: "Programmée",
@@ -1041,7 +1051,7 @@ function Badge({ value }: { value: string }) {
     <span
       className={`rounded-full px-2 py-1 text-[10px] font-medium ${value === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : value === "SUSPENDED" || value === "EXPIRED" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}
     >
-      {labels[value] || businessLabel(value)}
+      {dashboardText(labels[value]) || businessLabel(value)}
     </span>
   );
 }

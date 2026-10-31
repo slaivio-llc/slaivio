@@ -27,6 +27,19 @@ class ClerkResponse:
         return self.payload
 
 
+def test_completion_logs_the_rejection_reason_without_account_or_ticket_data(monkeypatch, caplog):
+    from app.organizations.services import invitation_completion
+    denied=Mock(side_effect=HTTPException(403,'invitation_membership_not_confirmed'))
+    monkeypatch.setattr(invitation_completion,'complete_invitation',denied)
+    with pytest.raises(HTTPException):
+        invitations.complete_invitation(invitations.CompleteInvitationRequest(org_id='private-agency'),
+                                        {'user_id':'private-user','email':'private@example.com'})
+    assert 'reason=invitation_membership_not_confirmed status=403' in caplog.text
+    assert 'private-agency' not in caplog.text
+    assert 'private@example.com' not in caplog.text
+    assert 'private-user' not in caplog.text
+
+
 def test_invitation_reports_clerk_organizations_feature_disabled(monkeypatch):
     save_record = Mock()
     monkeypatch.setattr(invitation_service, "CLERK_SECRET_KEY", "test-secret")

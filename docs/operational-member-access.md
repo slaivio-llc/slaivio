@@ -38,3 +38,12 @@ l’accès doit être refusé. Contrôler aussi un rôle personnalisé existant.
 
 Les tests locaux de permissions et de redirection ne remplacent pas cette
 recette Clerk réelle. Ne pas communiquer les identifiants du propriétaire.
+
+Tester aussi l’ouverture du lien dans un navigateur où le destinataire est
+déjà connecté : la page liste ses invitations Clerk en attente et demande une
+acceptation explicite avant de vérifier les accès dans l’API. Une connexion
+réussie n’est pas une preuve d’acceptation de l’invitation.
+
+En cas de refus de `/organization/invitations/complete`, les logs contiennent
+`invitation_completion_rejected reason=… status=…`, sans email ni jeton.
+Ne jamais accorder un rôle manuellement pour contourner ce refus.

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel,Field
 from typing import Literal
 from uuid import UUID
+import logging
 
 from app.core.auth import get_current_manager
 from app.organizations.services.staff_roles import StaffRole
@@ -16,6 +17,7 @@ from app.organizations.services.invitation_service import (
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 class CompleteInvitationRequest(BaseModel):
     org_id:str|None=Field(default=None,max_length=160)
@@ -23,7 +25,16 @@ class CompleteInvitationRequest(BaseModel):
 @router.post('/organization/invitations/complete')
 def complete_invitation(body:CompleteInvitationRequest,manager=Depends(get_current_manager)):
     from app.organizations.services.invitation_completion import complete_invitation
-    return complete_invitation(manager,body.org_id)
+    try:
+        return complete_invitation(manager,body.org_id)
+    except HTTPException as exc:
+        # No invitation ticket, token, email or request body in diagnostics.
+        known={'invitation_membership_not_confirmed','organization_access_suspended',
+               'organization_membership_inactive','invitation_provider_invalid_response',
+               'invitation_membership_verification_unavailable','invitation_provider_not_configured'}
+        reason=exc.detail if isinstance(exc.detail,str) and exc.detail in known else 'access_verification_failed'
+        logger.warning('invitation_completion_rejected reason=%s status=%s',reason,exc.status_code)
+        raise
 
 
 class InviteUserRequest(BaseModel):

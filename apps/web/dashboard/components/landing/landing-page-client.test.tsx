@@ -44,7 +44,7 @@ it('shows the real monthly prices and capacity differences with demo actions',()
   render(<LandingPageClient/>);
   expect(screen.getByRole('link',{name:'Tarifs'})).toHaveAttribute('href','#tarifs');
   const pricing=screen.getByRole('region',{name:/Un cadre pour démarrer/});
-  for(const [name,price,capacity] of [['Starter','119','500 colis / mois'],['Pro','229','2 500 colis / mois'],['Business','799','15 000 colis / mois']]){
+  for(const [name,price,capacity] of [['Starter','119','500 colis / mois'],['Pro','299','2 500 colis / mois'],['Business','799','15 000 colis / mois']]){
     const card=within(pricing).getByRole('article',{name});
     expect(card).toHaveTextContent(`${price} $`);
     expect(card).toHaveTextContent(capacity);

@@ -28,7 +28,7 @@ beforeEach(()=>{
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue(overview);
   vi.mocked(billing.getSubscriptionPlans).mockResolvedValue([
     {code:'STARTER',name:'Starter',monthly_price_minor:11900,currency_code:'USD',max_users:3},
-    {code:'PRO',name:'Pro',monthly_price_minor:22900,currency_code:'USD',max_users:10},
+    {code:'PRO',name:'Pro',monthly_price_minor:29900,currency_code:'USD',max_users:10},
     {code:'ENTERPRISE',name:'Business',monthly_price_minor:79900,currency_code:'USD',max_users:999},
   ]);
   vi.mocked(billing.createSubscriptionCheckout).mockResolvedValue({id:'checkout',checkout_url:'https://pay.saspay.me/checkout/test',status:'PENDING'});
@@ -87,7 +87,7 @@ it('keeps offer selection available but disables payment when the provider is no
 it('presents all three priced offer cards with no plan dropdown',async()=>{
   render(<SubscriptionSettings organization={{}}/>);
   expect(await screen.findByRole('article',{name:'Offre Starter'})).toHaveTextContent('119');
-  expect(screen.getByRole('article',{name:'Offre Pro'})).toHaveTextContent('229');
+  expect(screen.getByRole('article',{name:'Offre Pro'})).toHaveTextContent('299');
   expect(screen.getByRole('article',{name:'Offre Business'})).toHaveTextContent('799');
   expect(screen.queryByRole('combobox',{name:'Forfait'})).not.toBeInTheDocument();
   expect(screen.queryByRole('form',{name:'Finaliser l’abonnement'})).not.toBeInTheDocument();
@@ -95,7 +95,7 @@ it('presents all three priced offer cards with no plan dropdown',async()=>{
 
 it('explains team seats and shows real benefits returned by the catalogue',async()=>{
   vi.mocked(billing.getSubscriptionPlans).mockResolvedValue([
-    {code:'PRO',name:'Pro',monthly_price_minor:22900,currency_code:'USD',limits:{max_users:10},positioning:'Suivre vos clients au-delà des confirmations.',value_highlights:['Relancer les colis attendus et les départs bloqués selon vos réglages'],included_features:['Relances clients programmées']},
+    {code:'PRO',name:'Pro',monthly_price_minor:29900,currency_code:'USD',limits:{max_users:10},positioning:'Suivre vos clients au-delà des confirmations.',value_highlights:['Relancer les colis attendus et les départs bloqués selon vos réglages'],included_features:['Relances clients programmées']},
   ]);
   render(<SubscriptionSettings organization={{}}/>);
   const card=await screen.findByRole('article',{name:'Offre Pro'});
@@ -126,13 +126,13 @@ it('allows switching plans and shows only current catalogue prices despite a leg
   await waitFor(()=>expect(billing.verifySubscriptionCheckout).toHaveBeenCalledWith('old-checkout'));
   await waitFor(()=>expect(screen.getByRole('button',{name:'Choisir Pro'})).toBeEnabled());
   fireEvent.click(screen.getByRole('button',{name:'Choisir Pro'}));
-  expect(screen.getByRole('button',{name:/Payer 229.* avec SasPay/})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:/Payer 299.* avec SasPay/})).toBeInTheDocument();
   expect(screen.queryByRole('button',{name:/Payer 49/})).not.toBeInTheDocument();
   expect(screen.getByRole('article',{name:'Offre Starter'})).toHaveTextContent('119');
 });
 
 it('uses equal grey card borders and only server-supplied features',async()=>{
-  vi.mocked(billing.getSubscriptionPlans).mockResolvedValue([{code:'PRO',name:'Pro',monthly_price_minor:22900,currency_code:'USD',max_users:999,included_features:['Gestion des colis et des expéditions']}]);
+  vi.mocked(billing.getSubscriptionPlans).mockResolvedValue([{code:'PRO',name:'Pro',monthly_price_minor:29900,currency_code:'USD',max_users:999,included_features:['Gestion des colis et des expéditions']}]);
   render(<SubscriptionSettings organization={{}}/>);
   const card=await screen.findByRole('article',{name:'Offre Pro'});
   expect(card).toHaveClass('border-[#e0e4e7]','hover:border-[#18794e]');

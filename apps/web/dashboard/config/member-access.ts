@@ -15,6 +15,15 @@ const modules:ReadonlyArray<readonly [string,readonly string[]]>=[
 export function memberLanding(permissions:readonly string[],role?:string):string|null{
  if(role==='OWNER'||role==='MANAGER'||permissions.includes('organization.manage'))return '/app';
  if(role==='FINANCE'&&permissions.includes('finance.read'))return '/app/finance';
+ const preferred:Record<string,readonly [string,string]>={
+  OPERATOR:['/app/operations','packages.read'], SUPPORT:['/app/inbox','inbox.read'],
+  WAREHOUSE:['/app/warehouses','warehouses.read'], WAREHOUSE_SUPERVISOR:['/app/warehouses','warehouses.read'],
+  RECEIVER:['/app/warehouses','warehouses.read'], WEIGHER:['/app/warehouses','warehouses.read'],
+  QUALITY_CONTROLLER:['/app/warehouses','warehouses.read'],
+  COUNTER_AGENT:['/app/pickups','pickups.read'], CASHIER:['/app/pickups','pickups.read'],
+ };
+ const destination=role?preferred[role]:undefined;
+ if(destination&&permissions.includes(destination[1]))return destination[0];
  for(const path of ['/app/operations','/app/communication','/app/clients','/app/finance','/app/dossiers','/app/reports','/app/management','/app/settings']){
   const entry=modules.find(([key])=>key===path);
   if(entry?.[1].some(p=>permissions.includes(p)))return path;

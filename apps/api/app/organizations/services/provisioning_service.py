@@ -3,6 +3,7 @@ from sqlalchemy import text
 
 from app.db.database import engine
 from app.organizations.services.manager_policy import ensure_manager_role_permissions
+from app.organizations.services.operational_role_policy import ensure_operational_role_permissions
 
 
 DEFAULT_ORGANIZATION_ROLES = (
@@ -183,6 +184,7 @@ def provision_organization(
         ensure_tracking_role_permissions(org_id)
         ensure_finance_role_permissions(org_id)
         ensure_manager_role_permissions(org_id)
+        ensure_operational_role_permissions(org_id)
         from app.billing.repositories.saspay_repository import ensure_trial
         ensure_trial(org_id)
     return org

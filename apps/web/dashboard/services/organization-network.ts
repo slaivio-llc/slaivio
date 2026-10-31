@@ -1,5 +1,8 @@
 import { api } from "@/services/api";
 
+export type NetworkAgencyRole = "MANAGER" | "OPERATOR" | "WAREHOUSE" | "SUPPORT" | "FINANCE"
+  | "WAREHOUSE_SUPERVISOR" | "RECEIVER" | "WEIGHER" | "QUALITY_CONTROLLER" | "COUNTER_AGENT" | "CASHIER";
+
 export type NetworkOffice = {
   workspace_kind?: "OFFICE" | "WAREHOUSE";
   org_id: string;
@@ -29,7 +32,7 @@ export type NetworkInvitation = {
   status: "PENDING" | "ACCEPTED" | "REVOKED" | string;
   created_at: string;
   accepted_at?: string | null;
-  role_code: "MANAGER" | "OPERATOR" | "WAREHOUSE" | "SUPPORT" | "FINANCE";
+  role_code: NetworkAgencyRole;
   office_ids: string[];
   office_names: string[];
 };
@@ -57,7 +60,7 @@ export async function createNetworkOffice(body: {
 export async function grantNetworkOffices(body: {
   user_id: string;
   office_ids: string[];
-  role_code: "MANAGER" | "OPERATOR" | "WAREHOUSE" | "SUPPORT" | "FINANCE";
+  role_code: NetworkAgencyRole;
 }) {
   return (await api.post<{ grant: typeof body }>("/organization/network/members/grant", body)).data;
 }

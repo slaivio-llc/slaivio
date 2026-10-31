@@ -87,3 +87,29 @@ def test_bureau_manager_migration_is_scoped_and_repeatable(database):
     custom=set(conn.exec_driver_sql("select p.permission_code from permissions p join role_permissions rp on rp.permission_id=p.id join organization_roles r on r.id=rp.role_id where r.org_id='custom' and r.role_code='MANAGER'").scalars())
     assert 'network.overview' in custom
     assert conn.exec_driver_sql('select count(*) from organization_memberships').scalar_one()==1
+
+
+def test_operational_migration_preserves_custom_roles_and_is_repeatable(database):
+    from sqlalchemy import text
+    from app.organizations.services.operational_role_policy import OPERATIONAL_ROLES
+    conn, _ = database
+    conn.exec_driver_sql('create table organizations(id text primary key)')
+    conn.exec_driver_sql("insert into organizations values('agency'),('custom'),('new-agency')")
+    conn.exec_driver_sql('alter table organization_roles add column role_name text, add column description text, add unique(org_id,role_code)')
+    conn.exec_driver_sql("insert into organization_roles(org_id,role_code,system_role) values('agency','SUPPORT',true),('custom','SUPPORT',false)")
+    for code in {p for value in OPERATIONAL_ROLES.values() for p in value[2].split()}:
+        conn.execute(text('insert into permissions(permission_code) select :code where not exists(select 1 from permissions where permission_code=:code)'), {'code': code})
+    conn.exec_driver_sql("insert into role_permissions select r.id,p.id from organization_roles r cross join permissions p where r.role_code='SUPPORT'")
+    def granted(org):
+        return set(conn.execute(text('''select p.permission_code from role_permissions rp
+            join permissions p on p.id=rp.permission_id join organization_roles r on r.id=rp.role_id
+            where r.org_id=:org and r.role_code='SUPPORT' '''), {'org': org}).scalars())
+    custom = granted('custom')
+    script = (Path(__file__).resolve().parents[3]/'infra/sql/164_operational_member_access.sql').read_text(encoding='utf-8').replace('begin;', '').replace('commit;', '')
+    for _ in range(2):
+        conn.exec_driver_sql(script)
+        conn.commit()
+        assert granted('agency') == set(OPERATIONAL_ROLES['SUPPORT'][2].split())
+        assert granted('new-agency') == granted('agency')
+        assert granted('custom') == custom
+        assert conn.exec_driver_sql('select count(*) from organization_memberships').scalar_one() == 1

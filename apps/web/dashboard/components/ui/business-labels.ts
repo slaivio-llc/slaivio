@@ -2,6 +2,8 @@ import {dashboardText} from '@/components/i18n/dashboard-messages';
 const businessLabels: Record<string, string> = {
   OWNER: "Propriétaire", MANAGER: "Responsable", OPERATOR: "Agent opérationnel",
   WAREHOUSE: "Entrepôt", FINANCE: "Gestion financière", SUPPORT: "Assistance clients",
+  WAREHOUSE_SUPERVISOR: "Superviseur entrepôt", RECEIVER: "Réceptionnaire", WEIGHER: "Peseur",
+  QUALITY_CONTROLLER: "Contrôleur qualité", COUNTER_AGENT: "Agent guichet", CASHIER: "Caissier",
   AIR: "Aérien", SEA: "Maritime", ROAD: "Routier", RAIL: "Ferroviaire",
   PER_KG: "Au kilogramme", PER_CBM: "Au mètre cube", FLAT: "Forfait",
   CREDIT_NOTE: "Avoir", RECEIPT: "Reçu", MANIFEST: "Manifeste", OTHER: "Autre",

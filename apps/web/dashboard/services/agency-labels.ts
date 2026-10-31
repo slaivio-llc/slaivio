@@ -2,7 +2,9 @@
 import {dashboardText} from '@/components/i18n/dashboard-messages';
 const roles: Record<string,string> = {
   OWNER:'Propriétaire', MANAGER:'Responsable du bureau', OPERATOR:'Agent opérationnel',
-  AGENT:'Agent', WAREHOUSE:'Responsable d’entrepôt', SUPPORT:'Assistance clients',
+  AGENT:'Agent', WAREHOUSE:'Agent entrepôt', SUPPORT:'Assistance clients',
+  WAREHOUSE_SUPERVISOR:'Superviseur entrepôt', RECEIVER:'Réceptionnaire', WEIGHER:'Peseur',
+  QUALITY_CONTROLLER:'Contrôleur qualité', COUNTER_AGENT:'Agent guichet', CASHIER:'Caissier',
   FINANCE:'Gestion financière', ADMIN:'Administrateur', ADMINISTRATOR:'Administrateur',
   MEMBER:'Collaborateur', VIEWER:'Consultation uniquement',
 };

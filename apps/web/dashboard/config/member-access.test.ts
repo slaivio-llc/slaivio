@@ -4,6 +4,20 @@ import {canAccessRoute,getAppNavigation} from './app-navigation';
 import {PRODUCT_PROFILES} from './product-profile';
 
 describe('effective member navigation',()=>{
+ it.each([
+  ['OPERATOR','packages.read','/app/operations'],['SUPPORT','inbox.read','/app/inbox'],
+  ['WAREHOUSE','warehouses.read','/app/warehouses'],['WAREHOUSE_SUPERVISOR','warehouses.read','/app/warehouses'],
+  ['RECEIVER','warehouses.read','/app/warehouses'],['WEIGHER','warehouses.read','/app/warehouses'],
+  ['QUALITY_CONTROLLER','warehouses.read','/app/warehouses'],
+  ['COUNTER_AGENT','pickups.read','/app/pickups'],['CASHIER','pickups.read','/app/pickups'],
+ ])('opens the assigned workplace for %s without granting extra access',(role,permission,path)=>{
+  expect(memberLanding([permission],role)).toBe(path);
+  expect(canOpenMemberPath(path,[permission],role)).toBe(true);
+  for(const forbidden of ['/app','/app/finance','/app/settings','/app/management']){
+   expect(canOpenMemberPath(forbidden,[permission],role)).toBe(false);
+  }
+  expect(memberLanding([],role)).toBeNull();
+ });
  const finance=['finance.read','finance.create','finance.issue','finance.payments','finance.export'];
  it('opens finance without requiring general client or parcel rights',()=>{
   expect(memberLanding(finance,'FINANCE')).toBe('/app/finance');

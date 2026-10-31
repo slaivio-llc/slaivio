@@ -1,4 +1,11 @@
 {
+  "Agent entrepôt": "Warehouse agent",
+  "Superviseur entrepôt": "Warehouse supervisor",
+  "Réceptionnaire": "Receiving clerk",
+  "Peseur": "Weighing agent",
+  "Contrôleur qualité": "Quality inspector",
+  "Agent guichet": "Counter agent",
+  "Caissier": "Cashier",
   "50": "50",
   "Accueil": "Home",
   "Tableau de bord": "Dashboard",

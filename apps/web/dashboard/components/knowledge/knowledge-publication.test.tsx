@@ -17,6 +17,13 @@ beforeEach(()=>{
   vi.mocked(publishPilotKnowledge).mockResolvedValue({...draft,status:'PUBLISHED',version:5});
 });
 async function open(){render(<KnowledgePage embedded/>);fireEvent.click(await screen.findByRole('button',{name:/Dépôt en Chine/}));await screen.findByRole('dialog',{name:'Fiche connaissance'});}
+it('places Add at the top right in Communication and still opens the creation form',async()=>{
+  render(<KnowledgePage embedded/>);
+  const button=screen.getByRole('button',{name:'Ajouter'});
+  expect(button.closest('header')).toHaveClass('flex','justify-end');
+  fireEvent.click(button);
+  expect(await screen.findByRole('dialog',{name:'Ajouter une connaissance'})).toBeVisible();
+});
 it('requires confirmation and sends the current version to publish a draft',async()=>{
   await open();
   fireEvent.click(screen.getByRole('button',{name:'Vérifier et publier'}));

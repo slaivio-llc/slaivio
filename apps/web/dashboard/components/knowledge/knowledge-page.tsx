@@ -37,7 +37,7 @@ export function KnowledgePage({embedded=false}:{embedded?:boolean}){
     />}
     <OperationContent className={embedded?"pt-0":"pt-4"}>
       <section className="w-full bg-white">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <header className={embedded?"flex items-center justify-end gap-3":"flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"}>
           {!embedded&&<div><h2 className="text-[17px] font-semibold text-[#29323a]">{dashboardText("Connaissances")}</h2><p className="mt-1 text-[12px] text-[#77818a]">{dashboardText("Informations de référence de l’agence")}</p></div>}
           <PermissionGuard permission="pilot.knowledge.manage"><OperationButton variant="primary" onClick={()=>setCreateOpen(true)}><Plus size={15}/>{dashboardText("Ajouter")}</OperationButton></PermissionGuard>
         </header>

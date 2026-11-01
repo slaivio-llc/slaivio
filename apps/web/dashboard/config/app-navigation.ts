@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 import { getProductProfile, PRODUCT_PROFILES, type ProductProfile } from "@/config/product-profile";
-import {canOpenMemberPath} from './member-access';
+import {canOpenMemberPath,canUseMemberWorkspace} from './member-access';
 
 export type AppRoute = {
   label: string;
@@ -241,8 +241,10 @@ export function canAccessRoute(
   route: AppRoute,
   permissions: readonly string[],
   permissionsAvailable: boolean,
+  roleCode?: string,
 ) {
   if(!permissionsAvailable)return false;
-  if (!route.permission) return canOpenMemberPath(route.href,permissions);
+  if(!canUseMemberWorkspace(route.href,roleCode))return false;
+  if (!route.permission) return canOpenMemberPath(route.href,permissions,roleCode);
   return permissions.includes(route.permission);
 }

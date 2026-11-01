@@ -1,4 +1,12 @@
 // Navigation convenience only. Every API still checks the effective agency role.
+// Support reads tracking context inside customer conversations, not the
+// operational workspaces. Read permission alone must not expose those screens.
+export function canUseMemberWorkspace(path:string,role?:string):boolean{
+ const pathname=path.split(/[?#]/,1)[0];
+ const operational=['/app/operations','/app/packages','/app/shipments','/app/warehouses',
+  '/app/departures','/app/batches','/app/pickups'];
+ return role!=='SUPPORT'||!operational.some(base=>pathname===base||pathname.startsWith(base+'/'));
+}
 const modules:ReadonlyArray<readonly [string,readonly string[]]>=[
  ['/app/finance',['finance.read']],['/app/clients',['clients.read']],
  ['/app/operations',['packages.read','shipments.read','warehouses.read','pickups.read']],
@@ -26,11 +34,12 @@ export function memberLanding(permissions:readonly string[],role?:string):string
  if(destination&&permissions.includes(destination[1]))return destination[0];
  for(const path of ['/app/operations','/app/communication','/app/clients','/app/finance','/app/dossiers','/app/reports','/app/management','/app/settings']){
   const entry=modules.find(([key])=>key===path);
-  if(entry?.[1].some(p=>permissions.includes(p)))return path;
+  if(canUseMemberWorkspace(path,role)&&entry?.[1].some(p=>permissions.includes(p)))return path;
  }
- return modules.find(([,required])=>required.some(permission=>permissions.includes(permission)))?.[0]||null;
+ return modules.find(([path,required])=>canUseMemberWorkspace(path,role)&&required.some(permission=>permissions.includes(permission)))?.[0]||null;
 }
 export function canOpenMemberPath(path:string,permissions:readonly string[],role?:string):boolean{
+ if(!canUseMemberWorkspace(path,role))return false;
  if(path==='/app/platform'||path.startsWith('/app/platform/'))return true; // Protected by independent platform API grants.
  if(path==='/app')return role==='OWNER'||role==='MANAGER'||permissions.includes('organization.manage');
  const entry=modules.find(([key])=>path===key||path.startsWith(key+'/'));

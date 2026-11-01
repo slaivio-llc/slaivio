@@ -9,6 +9,18 @@ beforeEach(() => { vi.useFakeTimers(); mocks.search.mockReset(); mocks.push.mock
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("workspace search", () => {
+  it('does not send Support to operational screens through search results',async()=>{
+    mocks.search.mockResolvedValue([
+      {kind:'package',id:'parcel',title:'Parcel result',subtitle:'Tracking',href:'/app/packages?open=parcel'},
+      {kind:'client',id:'client',title:'Awa',subtitle:'Customer',href:'/app/clients/client'},
+    ]);
+    render(<WorkspaceSearch locale="en" roleCode="SUPPORT" close={vi.fn()}/>);
+    fireEvent.change(screen.getByRole('textbox'),{target:{value:'Awa'}});
+    await act(async()=>{vi.advanceTimersByTime(300);});
+    expect(screen.queryByText('Parcel result')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Awa Customer'}));
+    expect(mocks.push).toHaveBeenCalledWith('/app/clients/client');
+  });
   it("waits for two characters and debounces the request", async () => {
     mocks.search.mockResolvedValue([]);
     render(<WorkspaceSearch locale="fr" close={vi.fn()}/>);

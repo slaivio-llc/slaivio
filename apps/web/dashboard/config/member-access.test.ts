@@ -4,6 +4,26 @@ import {canAccessRoute,getAppNavigation} from './app-navigation';
 import {PRODUCT_PROFILES} from './product-profile';
 
 describe('effective member navigation',()=>{
+ const support=['clients.read','clients.create','clients.update','packages.read','shipments.read','dossiers.read','tracking.read','inbox.read','inbox.reply','inbox.manage','pickups.read','pickups.notify'];
+ it.each(['/app/operations','/app/operations/packages','/app/packages','/app/packages/parcel','/app/shipments','/app/warehouses','/app/departures','/app/batches','/app/pickups'])('keeps Support outside the operational workspace %s',path=>{
+  expect(canOpenMemberPath(path,support,'SUPPORT')).toBe(false);
+ });
+ it.each(Object.values(PRODUCT_PROFILES))('hides Support operational navigation across the %s product profile',profile=>{
+  const routes=getAppNavigation(profile).flatMap(group=>group.routes);
+  const visible=routes.filter(route=>canAccessRoute(route,support,true,'SUPPORT')).map(route=>route.href);
+  expect(visible).not.toContain('/app/operations');
+  expect(visible).not.toContain('/app/packages');
+  expect(visible).not.toContain('/app/shipments');
+  expect(visible).not.toContain('/app/pickups');
+ });
+ it('preserves customer context permissions without using them to show the operational workspace',()=>{
+  expect(memberLanding(support,'SUPPORT')).toBe('/app/inbox');
+  expect(canOpenMemberPath('/app/clients/client',support,'SUPPORT')).toBe(true);
+  expect(canOpenMemberPath('/app/inbox',support,'SUPPORT')).toBe(true);
+  expect(canOpenMemberPath('/app/communication',support,'SUPPORT')).toBe(true);
+  expect(memberLanding(['packages.read'],'SUPPORT')).toBeNull();
+  expect(canOpenMemberPath('/app/operations',['packages.read'],'OPERATOR')).toBe(true);
+ });
  it.each([
   ['OPERATOR','packages.read','/app/operations'],['SUPPORT','inbox.read','/app/inbox'],
   ['WAREHOUSE','warehouses.read','/app/warehouses'],['WAREHOUSE_SUPERVISOR','warehouses.read','/app/warehouses'],

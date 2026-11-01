@@ -112,9 +112,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const groupedRoutes = useMemo(
     () => appNavigation.map((group) => ({
       ...group,
-      routes: group.routes.filter((route) => canAccessRoute(route, permissions, permissionsAvailable)),
+      routes: group.routes.filter((route) => canAccessRoute(route, permissions, permissionsAvailable,roleCode)),
     })).filter((group) => group.routes.length),
-    [appNavigation, permissions, permissionsAvailable],
+    [appNavigation, permissions, permissionsAvailable,roleCode],
   );
 
   const pilotPrimaryRoutes = useMemo(() => {
@@ -127,13 +127,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const results = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("fr");
     const routes = [...searchableAppRoutes, ...utilityRoutes].filter((route) =>
-      canAccessRoute(route, permissions, permissionsAvailable),
+      canAccessRoute(route, permissions, permissionsAvailable,roleCode),
     );
     if (!normalized) return routes;
     return routes.filter((route) =>
       [route.label, ...route.keywords].some((term) => term.toLocaleLowerCase("fr").includes(normalized)),
     );
-  }, [query, permissions, permissionsAvailable, searchableAppRoutes]);
+  }, [query, permissions, permissionsAvailable, searchableAppRoutes,roleCode]);
 
   useEffect(() => {
     if (pilot) {
@@ -318,7 +318,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </>}
         </nav>
 
-        {cargo && canAccessRoute(utilityRoutes.find(route => route.href === "/app/settings")!, permissions, permissionsAvailable) && <div className={`shrink-0 py-3 ${sidebarCollapsed ? "px-2" : "px-3"}`}><div aria-hidden="true" className="mb-3 border-t border-[#e8eaed]"/><CargoSidebarLink href="/app/settings" icon={<Settings size={17}/>} active={isNavigationRouteActive(pathname, searchParams, "/app/settings")} label={dashboardText("Paramètres")} collapsed={sidebarCollapsed}/></div>}
+        {cargo && canAccessRoute(utilityRoutes.find(route => route.href === "/app/settings")!, permissions, permissionsAvailable,roleCode) && <div className={`shrink-0 py-3 ${sidebarCollapsed ? "px-2" : "px-3"}`}><div aria-hidden="true" className="mb-3 border-t border-[#e8eaed]"/><CargoSidebarLink href="/app/settings" icon={<Settings size={17}/>} active={isNavigationRouteActive(pathname, searchParams, "/app/settings")} label={dashboardText("Paramètres")} collapsed={sidebarCollapsed}/></div>}
         {pilot && !cargo && <div className="mt-auto flex shrink-0 items-center px-3 pb-3 lg:grid lg:px-0 lg:pb-0">
           <PilotRailButton label={dashboardLabel(locale, dashboardText("Notifications"))} icon={<Bell size={19} />} onClick={() => togglePanel("notifications")} active={floatingPanel === "notifications"} />
           <AccountTrigger onClick={() => togglePanel("account")} rail />
@@ -376,7 +376,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
       </section>
 
-      {cargo && searchOpen && <WorkspaceSearch locale={locale} close={() => setSearchOpen(false)}/>}
+      {cargo && searchOpen && <WorkspaceSearch locale={locale} roleCode={roleCode} close={() => setSearchOpen(false)}/>}
       {!pilot && searchOpen && (
         <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/25 px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label={dashboardText("Recherche Slaivio")} onMouseDown={(event) => { if (event.currentTarget === event.target) setSearchOpen(false); }}>
           <div className="w-full max-w-xl overflow-hidden rounded-[8px] border border-[#cfd2d5] bg-white shadow-2xl">

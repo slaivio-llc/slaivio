@@ -10,8 +10,14 @@ vi.mock('@/components/ui/page-state',()=>({
  ErrorState:({retry}:{retry:()=>void})=><button onClick={retry}>Reessayer</button>,
  ForbiddenState:()=> <p>Acces refuse</p>,
 }));
-beforeEach(()=>{state.path='/app';state.loading=false;state.available=true;state.replace.mockClear();state.reload.mockClear();});
+beforeEach(()=>{state.path='/app';state.loading=false;state.available=true;state.permissions=['finance.read'];state.roleCode='FINANCE';state.replace.mockClear();state.reload.mockClear();});
 describe('member content boundary',()=>{
+ it('blocks Support from mounting Operations even with parcel read access',()=>{
+  state.path='/app/operations';state.roleCode='SUPPORT';state.permissions=['packages.read','inbox.read','clients.read'];
+  render(<MemberAccessBoundary><p>Operational controls</p></MemberAccessBoundary>);
+  expect(screen.queryByText('Operational controls')).not.toBeInTheDocument();
+  expect(screen.getByText('Acces refuse')).toBeVisible();
+ });
  it('redirects a Finance member before mounting the operational dashboard',()=>{
   render(<MemberAccessBoundary><p>Private dashboard</p></MemberAccessBoundary>);
   expect(state.replace).toHaveBeenCalledWith('/app/finance');

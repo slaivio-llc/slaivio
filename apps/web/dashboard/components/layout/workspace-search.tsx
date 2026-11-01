@@ -6,13 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { searchDashboardHome, type HomeSearchResult } from "@/services/dashboard";
+import {canUseMemberWorkspace} from '@/config/member-access';
 
 const labels = {
   fr: { title: "Rechercher dans Slaivio", hint: "Nom, téléphone, suivi, expédition ou facture", scope: "Recherche dans le bureau actif, selon vos accès", loading: "Recherche en cours…", empty: "Aucun résultat. Vérifiez le numéro ou essayez le nom ou le téléphone du client.", error: "Recherche indisponible. Réessayez.", start: "Saisissez au moins deux caractères.", close: "Fermer la recherche", client: "Clients", package: "Colis", shipment: "Expéditions", dossier: "Dossiers", invoice: "Factures" },
   en: { title: "Search Slaivio", hint: "Name, phone, tracking, shipment or invoice", scope: "Searching the active office within your access rights", loading: "Searching…", empty: "No results. Check the reference or try the customer name or phone.", error: "Search unavailable. Please try again.", start: "Enter at least two characters.", close: "Close search", client: "Customers", package: "Parcels", shipment: "Shipments", dossier: "Cases", invoice: "Invoices" },
 };
 
-export function WorkspaceSearch({ close, locale }: { close: () => void; locale: "fr" | "en" }) {
+export function WorkspaceSearch({ close, locale, roleCode }: { close: () => void; locale: "fr" | "en"; roleCode?:string }) {
   useDashboardMessages();
   const router = useRouter();
   const dialog = useRef<HTMLDivElement>(null);
@@ -22,6 +23,7 @@ export function WorkspaceSearch({ close, locale }: { close: () => void; locale: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const t = labels[locale];
+  const visibleItems=items.filter(item=>canUseMemberWorkspace(item.href,roleCode));
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     input.current?.focus();
@@ -56,9 +58,9 @@ export function WorkspaceSearch({ close, locale }: { close: () => void; locale: 
       <div className="flex items-center gap-3 border-b p-3"><Search size={18} aria-hidden="true"/><input ref={input} value={query} maxLength={100} onChange={event => setQuery(event.target.value)} aria-label={t.title} placeholder={t.hint} className="h-10 min-w-0 flex-1 bg-white text-sm outline-none"/><button type="button" onClick={close} aria-label={t.close} className="grid h-9 w-9 place-items-center rounded-md hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-emerald-600"><X size={18}/></button></div>
       <p className="px-4 py-2 text-xs text-slate-500">{t.scope}</p>
       <div className="min-h-24 overflow-y-auto p-2" aria-busy={loading}>
-        {error ? <p role="alert" className="p-4 text-sm text-red-700">{t.error}</p> : loading ? <p role="status" className="p-4 text-sm text-slate-500">{t.loading}</p> : !items.length ? <p role="status" className="p-4 text-sm text-slate-500">{query.trim().length < 2 ? t.start : t.empty}</p> :
+        {error ? <p role="alert" className="p-4 text-sm text-red-700">{t.error}</p> : loading ? <p role="status" className="p-4 text-sm text-slate-500">{t.loading}</p> : !visibleItems.length ? <p role="status" className="p-4 text-sm text-slate-500">{query.trim().length < 2 ? t.start : t.empty}</p> :
           (["client", "package", "shipment", "dossier", "invoice"] as const).map(kind => {
-            const group = items.filter(item => item.kind === kind);
+            const group = visibleItems.filter(item => item.kind === kind);
             return group.length ? <section key={kind} aria-label={t[kind]}><h3 className="px-3 py-2 text-xs font-semibold text-slate-500">{t[kind]}</h3>{group.map(item => <button type="button" key={item.id} onClick={() => { close(); router.push(item.href); }} className="block w-full rounded-lg px-3 py-3 text-left hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"><span className="block text-sm font-medium">{item.title}</span><span className="block text-xs text-slate-500">{item.subtitle}</span></button>)}</section> : null;
           })}
       </div>

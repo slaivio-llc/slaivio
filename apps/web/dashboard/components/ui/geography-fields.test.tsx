@@ -13,7 +13,7 @@ vi.mock("countrycitystatejson/client", () => ({
     : { states: { Brussels: [{ name: "Brussels" }] } },
 }));
 
-import { GeographyFields } from "./geography-fields";
+import { GeographyFields,FormGeographyFields } from "./geography-fields";
 
 function Harness() {
   const [country, setCountry] = useState("");
@@ -33,6 +33,15 @@ function Harness() {
 }
 
 describe("GeographyFields", () => {
+  it('lets an agency search countries with flags without changing the stored country name',async()=>{
+    const user=userEvent.setup();
+    const {container}=render(<form data-testid="country-form"><FormGeographyFields searchableCountry className="field"/></form>);
+    await user.click(screen.getByRole('button',{name:'Pays'}));
+    await user.type(screen.getByRole('combobox',{name:'Rechercher un pays'}),'Belg');
+    await user.click(screen.getByRole('option',{name:'Belgique'}));
+    expect(container.querySelector('.fi-be')).toBeInTheDocument();
+    expect(new FormData(screen.getByTestId('country-form') as HTMLFormElement).get('country')).toBe('Belgium');
+  });
   it("propose seulement les villes du pays sélectionné et conserve les valeurs métier", async () => {
     const user = userEvent.setup();
     render(<Harness />);

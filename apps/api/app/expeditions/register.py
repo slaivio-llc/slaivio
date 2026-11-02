@@ -140,7 +140,7 @@ def create(org_id, actor_id, route_id, planned_departure_at, request_key, shippi
             if not service:
                 raise HTTPException(409, 'shipment_service_unavailable_for_route')
         transport_mode = service['shipping_mode'] if service else route['transport_mode']
-        reference = generate_expedition_reference()
+        reference = generate_expedition_reference(conn,org_id)
         conn.execute(text("""insert into cargo_expeditions
             (id,org_id,expedition_reference,status,mode,service_type,route_id,shipping_service_id,notes,route_label,workflow_version,
              origin_country,origin_city,destination_country,destination_city,

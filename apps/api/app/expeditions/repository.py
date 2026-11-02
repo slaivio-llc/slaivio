@@ -406,7 +406,9 @@ def _ensure_schema() -> None:
     _SCHEMA_READY = True
 
 
-def generate_expedition_reference() -> str:
+def generate_expedition_reference(connection=None, org_id=None) -> str:
+    if connection is not None and org_id:
+        return connection.execute(text("select next_shipment_reference(:org)"),{'org':org_id}).scalar_one()
     return f"EXP-{datetime.utcnow().year}-{str(uuid4()).split('-')[0].upper()}"
 
 
@@ -914,7 +916,7 @@ def create_expedition(org_id: str, user_id: str, payload: dict) -> dict:
         raise ValueError("shipment_milestones_are_server_managed")
     with engine.begin() as conn:
         payload = _hydrate_expedition_references(conn, org_id, payload)
-        reference = payload.get("expedition_reference") or generate_expedition_reference()
+        reference = payload.get("expedition_reference") or generate_expedition_reference(conn,org_id)
         mode = payload.get("mode") or "AIR"
         if mode not in EXPEDITION_MODES:
             raise ValueError("invalid_mode")

@@ -10,7 +10,7 @@ def setup_create(monkeypatch, *, service=True):
     conn, engine = MagicMock(), MagicMock()
     engine.begin.return_value.__enter__.return_value = conn
     monkeypatch.setattr(register, "engine", engine)
-    monkeypatch.setattr(register, "generate_expedition_reference", lambda: "EXP-TEST")
+    monkeypatch.setattr(register, "generate_expedition_reference", lambda *_: "EXP-TEST")
     events = MagicMock()
     monkeypatch.setattr(register, "_insert_event", events)
     statements = []

@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowRight, Check, CreditCard, ShieldCheck } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationButton } from "@/components/ui/operation-controls";
-import { ErrorState, LoadingState } from "@/components/ui/page-state";
+import { ErrorState } from "@/components/ui/page-state";
 import { apiErrorDetail } from "@/services/api";
 import { cancelSubscriptionCheckout, createSubscriptionCheckout, getSubscriptionBilling, getSubscriptionPlans, openSubscriptionCheckout, verifySubscriptionCheckout, type BillingOverview, type SubscriptionPlan } from "@/services/subscription-billing";
 
@@ -89,7 +89,7 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
     finally{setBusy(false);}
   }
 
-  if(!billing)return error?<ErrorState title={dashboardText("Abonnement indisponible")} description={dashboardText(error)} retry={()=>{setError('');void load().catch(()=>setError('Impossible de charger votre abonnement.'));}}/>:<LoadingState label={dashboardText("Chargement de l’abonnement…")}/>;
+  if(!billing)return error?<ErrorState title={dashboardText("Abonnement indisponible")} description={dashboardText(error)} retry={()=>{setError('');void load().catch(()=>setError('Impossible de charger votre abonnement.'));}}/>:<p role="status" className="py-6 text-[13px] text-[#697178]">{dashboardText("Chargement de l’abonnement…")}</p>;
   const subscription=billing.subscription;
   const trial=subscription?.status==='TRIAL';
   const offersVisible=showOffers??trial;
@@ -112,7 +112,7 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
       <div className="mb-5"><h3 id="subscription-offers-title" className="text-[18px] font-semibold tracking-tight">{dashboardText("Une offre adaptée à votre agence")}</h3><p className="mt-2 text-[13px] leading-6 text-[#697178]">{dashboardText("Tarifs mensuels par agence de colis et de fret. Les montants et fonctionnalités proviennent du catalogue Slaivio.")}</p></div>
       {!billing.checkout_available&&<p className="mb-5 rounded-xl border border-[#e4e7e9] p-4 text-[14px] text-[#697178]">{dashboardText("Le paiement SasPay est en cours d’activation. Votre essai gratuit reste disponible. Contactez le support SLAIVIO pour toute question.")}</p>}
       <PermissionGuard permission="organization.manage" fallback={<p className="text-[13px] text-[#697178]">{dashboardText("Demandez au responsable de votre agence de gérer l’abonnement.")}</p>}>
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {[...plans].sort((a,b)=>a.monthly_price_minor-b.monthly_price_minor).map(plan=>{
             const pro=plan.code==='PRO';
             const name=plan.code==='ENTERPRISE'?'Business':plan.name;

@@ -46,6 +46,7 @@ def test_whatsapp_selection_uses_connected_portfolio_numbers_and_is_audited():
 
 def test_pilot_settings_ui_separates_channels_ai_privacy_and_notifications():
     page = read("apps/web/dashboard/components/settings/pilot-settings-page.tsx")
+    role_choices = read("apps/web/dashboard/config/invitation-roles.ts")
     for label in (
         "Entreprise",
         "Responsable",
@@ -56,14 +57,14 @@ def test_pilot_settings_ui_separates_channels_ai_privacy_and_notifications():
         "Confidentialité & données",
         "Notifications",
     ):
-        assert label in page
+        assert label in page + role_choices
     for mode in ("Suggestion uniquement", "Mode automatique", "IA en pause"):
         assert mode in page
     for hidden_term in ("Workspaces", "Rôles & permissions", "Clé API", "Journal d’audit", "meta_phone_number_id", "UUID"):
         assert hidden_term not in page
-    assert "Lier un compte WhatsApp" in page
+    assert "Connecter WhatsApp" in page
     assert "startPilotWhatsappQR" in page
-    assert "mode « appareil lié »" in page
+    assert "Je confirme être autorisé à connecter ce numéro WhatsApp à Slaivio." in page
 
 
 def test_pilot_route_is_reversible_and_knowledge_defaults_are_effective():

@@ -2,15 +2,17 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OrganizationAdminPage } from "./organization-admin-page";
-import { getAdmin, inviteMember, updateMember, updateOrganization, uploadAgencyBrandImage, type AdminData } from "@/services/organization-admin";
+import { getAdmin, inviteMember, updateMember, updateOrganization, uploadAgencyBrandImage, saveNumbering, type AdminData } from "@/services/organization-admin";
 
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }), useSearchParams: () => navigation.params }));
 vi.mock("@/services/organization-admin", () => ({
-  getAdmin: vi.fn(), inviteMember: vi.fn(), updateMember: vi.fn(), updateOrganization: vi.fn(), uploadAgencyBrandImage: vi.fn(),
+  getAdmin: vi.fn(), inviteMember: vi.fn(), updateMember: vi.fn(), updateOrganization: vi.fn(), uploadAgencyBrandImage: vi.fn(),saveNumbering:vi.fn(),updateSettings:vi.fn(),
 }));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children, permission }: { children: ReactNode; permission: string }) => permission === "platform.admin.read" ? null : children }));
 vi.mock("@/components/ui/geography-fields", () => ({ FormGeographyFields: () => <><input name="country" aria-label="Pays"/><input name="city" aria-label="Ville"/></> }));
+vi.mock('./subscription-settings',()=>({SubscriptionSettings:()=> <p>Subscription content</p>}));
+vi.mock('./customer-automation-settings',()=>({CustomerAutomationSettings:()=> <p>Automation settings</p>}));
 
 const fixture: AdminData = {
   organization: { organization_name: "Agence Cargo", row_version: 3, logo_url: "https://example.com/current.png" },
@@ -29,6 +31,57 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it('keeps subscription in the same settings container and groups notifications on demand',async()=>{
+    const {container}=render(<OrganizationAdminPage/>);
+    await screen.findByRole('heading',{name:'Paramètres de l’agence'});
+    const menu=within(container.querySelector('aside')!);
+    const frame=container.firstElementChild?.firstElementChild;
+    const frameClasses=frame?.className;
+    const width=container.querySelector('fieldset')?.className;
+    fireEvent.click(menu.getByRole('button',{name:'Abonnement'}));
+    expect(screen.getByText('Subscription content')).toBeVisible();
+    expect(frame?.className).toBe(frameClasses);
+    expect(container.querySelector('fieldset')?.className).toBe(width);
+    fireEvent.click(menu.getByRole('button',{name:'Notifications & messages'}));
+    expect(screen.queryByText('Automation settings')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Relances et messages'}));
+    expect(screen.getByText('Automation settings')).toBeVisible();
+  });
+  it('groups related settings and keeps language and currency in the simplified profile',async()=>{
+    const {container}=render(<OrganizationAdminPage/>);
+    await screen.findByRole('heading',{name:'Paramètres de l’agence'});
+    const menu=within(container.querySelector('aside')!);
+    expect(menu.getByRole('button',{name:'Réception & horaires'})).toBeVisible();
+    expect(menu.getByRole('button',{name:'Livraison & conditions clients'})).toBeVisible();
+    expect(menu.queryByRole('button',{name:'Langues & devises'})).not.toBeInTheDocument();
+    expect(menu.queryByRole('button',{name:'Horaires & disponibilité'})).not.toBeInTheDocument();
+    expect(menu.queryByRole('button',{name:'Clients & conditions'})).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Langue par défaut')).toBeVisible();
+    expect(screen.getByLabelText('Devise de référence')).toBeVisible();
+    for(const name of ['Identifiant fiscal','Numéro d’enregistrement','Slogan','Raison sociale'])expect(screen.queryByLabelText(name)).not.toBeInTheDocument();
+    fireEvent.submit(screen.getByLabelText('Nom commercial *').closest('form')!);
+    await waitFor(()=>expect(updateOrganization).toHaveBeenCalled());
+    for(const name of ['tax_number','registration_number','legal_name','brand_slogan'])expect(vi.mocked(updateOrganization).mock.lastCall?.[0]).not.toHaveProperty(name);
+  });
+  it('lets an agency create a missing numbering format and configure customer references',async()=>{
+    navigation.params=new URLSearchParams('section=numbering');
+    vi.mocked(saveNumbering).mockResolvedValue({});
+    render(<OrganizationAdminPage/>);
+    const format=await screen.findByLabelText('Format de référence');
+    expect(format).toHaveValue('COL-{YYYY}-{000001}');
+    expect(screen.queryByText(/compteur de références colis n’est pas configuré/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Type de référence'),{target:{value:'CLIENT'}});
+    fireEvent.change(screen.getByLabelText('Format de référence'),{target:{value:'CLIENT-{YYYY}-{000001}'}});
+    fireEvent.submit(screen.getByLabelText('Format de référence').closest('form')!);
+    await waitFor(()=>expect(saveNumbering).toHaveBeenCalledWith('CLIENT','CLIENT-{YYYY}-{000001}',0,'GLOBAL','NEVER'));
+  });
+  it('removes the tracking preview while keeping public page settings',async()=>{
+    navigation.params=new URLSearchParams('section=tracking');
+    render(<OrganizationAdminPage/>);
+    expect(await screen.findByLabelText('Activer le suivi public')).toBeVisible();
+    expect(screen.queryByText('Aperçu de la page client')).not.toBeInTheDocument();
+    expect(screen.queryByText('Suivez votre colis')).not.toBeInTheDocument();
+  });
   it('keeps the invitation compact and member role controls closed until requested',async()=>{
     const roleCodes=['MANAGER','OPERATOR','WAREHOUSE','SUPPORT','FINANCE'];
     vi.mocked(getAdmin).mockResolvedValue({...fixture,

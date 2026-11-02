@@ -1,5 +1,6 @@
 "use client";
 import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
+import {CountryPicker} from './country-picker';
 
 
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
@@ -48,6 +49,7 @@ export function GeographyFields({
   countryLabel = "Pays",
   cityLabel = "Ville",
   showCity = true,
+  searchableCountry = false,
 }: {
   country: string;
   city: string;
@@ -64,6 +66,7 @@ export function GeographyFields({
   countryLabel?: string;
   cityLabel?: string;
   showCity?: boolean;
+  searchableCountry?: boolean;
 }) {
   const locale=useDashboardMessages();
   const displayNames=useMemo(()=>new Intl.DisplayNames([locale],{type:'region'}),[locale]);
@@ -131,7 +134,7 @@ export function GeographyFields({
         <span>{dashboardText(countryLabel)}{required ? " *" : ""}</span>
         <input type="hidden" name={countryName} value={country} />
         {countryCodeName && <input type="hidden" name={countryCodeName} value={selectedCountry?.shortName || ""} />}
-        <select
+        {searchableCountry?<CountryPicker value={countrySelectValue} label={dashboardText(countryLabel)} className={className} change={chooseCountry} options={countryOptions.map(item=>({code:item.shortName,name:displayNames.of(item.shortName)||item.name}))}/>:<select
           required={required}
           aria-label={dashboardText(countryLabel)}
           className={className}
@@ -145,7 +148,7 @@ export function GeographyFields({
               {item.emoji} {displayNames.of(item.shortName)||item.name}
             </option>
           ))}
-        </select>
+        </select>}
       </label>
       {showCity && <label className={fieldClassName}>
         <span>{dashboardText(cityLabel)}{cityRequired ? " *" : ""}</span>

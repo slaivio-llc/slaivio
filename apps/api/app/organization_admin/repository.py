@@ -317,12 +317,37 @@ def save_integration(org_id,actor,data):
         _audit(c,org_id,actor,'INTEGRATION_SAVED','integration',row['id'],new={"provider":row['provider'],"status":row['status']});return dict(row)
 def save_numbering(org_id,actor,document_type,prefix_format,version,counter_scope='GLOBAL',reset_period='NEVER'):
     with engine.begin() as c:
+        if version==0:
+            row=c.execute(text('''insert into document_numbering_settings(org_id,document_type,prefix_format,counter_scope,reset_period)
+                values(:o,:t,:f,:scope,:reset) on conflict(org_id,document_type) do nothing returning *'''),
+                {'o':org_id,'t':document_type,'f':prefix_format,'scope':counter_scope,'reset':reset_period}).mappings().first()
+            if row:_audit(c,org_id,actor,'NUMBERING_CREATED','document_numbering',row['id'],new=dict(row))
+            return dict(row) if row else None
         row=c.execute(text("update document_numbering_settings set prefix_format=:f,counter_scope=:scope,reset_period=:reset,row_version=row_version+1,updated_at=now() where org_id=:o and document_type=:t and row_version=:v returning *"),{"o":org_id,"t":document_type,"f":prefix_format,"v":version,"scope":counter_scope,"reset":reset_period}).mappings().first()
         if row:_audit(c,org_id,actor,'NUMBERING_UPDATED','document_numbering',row['id'],new=dict(row))
         return dict(row) if row else None
 def request_data_operation(org_id,actor,request_type,scope):
     with engine.begin() as c:
         row=c.execute(text("insert into organization_data_requests(org_id,request_type,scope,requested_by) values(:o,:t,cast(:s as jsonb),:a) returning *"),{"o":org_id,"t":request_type,"s":json.dumps(scope),"a":actor}).mappings().one();_audit(c,org_id,actor,'DATA_REQUESTED','data_request',row['id'],new=dict(row));return dict(row)
+
+def request_own_account_deletion(org_id,user_id):
+    with engine.begin() as c:
+        c.execute(text("select pg_advisory_xact_lock(hashtextextended('account-deletion:'||:actor,0))"),{'actor':user_id})
+        # A request never deletes data. Sole ownership requires explicit review
+        # before any transfer or closure; no client-supplied target user.
+        sole_owner=c.execute(text('''select exists(select 1 from organization_memberships own
+            where own.clerk_user_id=:actor and own.role_code='OWNER' and own.status='ACTIVE'
+            and not exists(select 1 from organization_memberships other
+                where other.org_id=own.org_id and other.role_code='OWNER' and other.status='ACTIVE'
+                and other.clerk_user_id<>:actor))'''),{'actor':user_id}).scalar_one()
+        existing=c.execute(text("select * from organization_data_requests where requested_by=:actor and request_type='DELETE_ACCOUNT' and status in('PENDING','PROCESSING') order by created_at desc limit 1"),{'actor':user_id}).mappings().first()
+        if existing:return dict(existing)
+        row=c.execute(text("insert into organization_data_requests(org_id,requested_by,request_type,scope) values(:org,:actor,'DELETE_ACCOUNT',cast(:scope as jsonb)) returning *"),{'org':org_id,'actor':user_id,'scope':json.dumps({'user_id':user_id,'manual_review_required':True,'ownership_review_required':bool(sole_owner)})}).mappings().one()
+        c.execute(text('''insert into support_tickets(org_id,subject,description,category,priority,requester_id)
+            values(:org,'Suppression de compte Slaivio',:description,'ACCOUNT','NORMAL',:actor)'''),
+            {'org':org_id,'actor':user_id,'description':f"Demande de suppression du compte personnel. Référence : {row['id']}. Vérifier l’identité, les accès et la propriété des agences avant toute action. Aucun compte ni donnée d’agence n’a été supprimé."})
+        _audit(c,org_id,user_id,'ACCOUNT_DELETION_REQUESTED','data_request',row['id'],new={'status':'PENDING'})
+        return dict(row)
 def create_api_key(org_id,actor,name,scopes,expires_at=None):
     raw='slv_live_'+secrets.token_urlsafe(32);prefix=raw[:16];digest=hashlib.sha256(raw.encode()).hexdigest()
     with engine.begin() as c:

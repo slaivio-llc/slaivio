@@ -103,7 +103,7 @@ class LocationStatusUpdate(BaseModel):
 class IntegrationSave(BaseModel):provider:str=Field(pattern=r'^(WHATSAPP|GMAIL)$');account_label:str=Field(min_length=2,max_length=120);status:str=Field(pattern=r'^(DISCONNECTED|CONNECTING|CONNECTED|ERROR)$');granted_permissions:list[str]=[];configuration:dict[str,Any]={}
 class NumberingSave(BaseModel):
     prefix_format:str=Field(min_length=3,max_length=100)
-    expected_version:int=Field(ge=1)
+    expected_version:int=Field(ge=0)
     counter_scope:Literal['GLOBAL','OFFICE']='GLOBAL'
     reset_period:Literal['NEVER','YEAR','MONTH']='NEVER'
 
@@ -119,6 +119,8 @@ class NumberingSave(BaseModel):
         if any(ord(character)<32 for character in value):raise ValueError('identifier_contains_control_character')
         return value
 class DataRequest(BaseModel):request_type:str=Field(pattern=r'^(EXPORT|ARCHIVE_WORKSPACE|DELETE_WORKSPACE|DELETE_ORGANIZATION)$');scope:dict[str,Any]={};confirmation:str|None=None
+class OwnAccountDeletion(BaseModel):
+    confirmation:Literal['SUPPRIMER']
 class ApiKeyCreate(BaseModel):name:str=Field(min_length=2,max_length=80);scopes:list[str]=Field(min_length=1,max_length=30);expires_at:str|None=None
 class PilotWhatsappNumber(BaseModel):number_id:str=Field(min_length=1,max_length=80)
 class PilotWhatsappPreferences(BaseModel):
@@ -301,6 +303,10 @@ def patch_location_status(item_id:str,body:LocationStatusUpdate,tenant=Depends(g
 def post_integration(body:IntegrationSave,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):return {'status':'ok','integration':repo.save_integration(tenant['org_id'],actor(manager),body.model_dump())}
 @router.patch('/numbering/{document_type}',dependencies=[Depends(require_permission('documents.settings'))])
 def patch_numbering(document_type:str,body:NumberingSave,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+    if document_type.upper() not in {'PACKAGE','CLIENT','DOSSIER','SHIPMENT','INVOICE','RECEIPT','QUOTE','CREDIT_NOTE','MANIFEST','PAYMENT'}:
+        raise HTTPException(422,'invalid_numbering_type')
+    if document_type.upper()!='PACKAGE' and (body.counter_scope=='OFFICE' or '{OFFICE}' in body.prefix_format):
+        raise HTTPException(422,'reference_office_scope_not_supported')
     if body.counter_scope=='OFFICE' and '{OFFICE}' not in body.prefix_format:
         raise HTTPException(422,'reference_office_token_required')
     if body.reset_period!='NEVER' and not any(token in body.prefix_format for token in ('{YYYY}','{YEAR}')):
@@ -317,6 +323,10 @@ def post_data_request(body:DataRequest,tenant=Depends(get_current_tenant),manage
         expected=org.get('organization_name') or org.get('name')
         if not expected or body.confirmation!=expected:raise HTTPException(422,'organization_name_confirmation_required')
     return {'status':'ok','request':repo.request_data_operation(tenant['org_id'],actor(manager),body.request_type,body.scope)}
+
+@router.post('/account-deletion-request')
+def request_account_deletion(body:OwnAccountDeletion,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):
+    return {'status':'ok','request':repo.request_own_account_deletion(tenant['org_id'],actor(manager))}
 @router.post('/api-keys',dependencies=[Depends(require_permission('developers.manage'))])
 def post_api_key(body:ApiKeyCreate,tenant=Depends(get_current_tenant),manager=Depends(get_current_manager)):return {'status':'ok','api_key':repo.create_api_key(tenant['org_id'],actor(manager),body.name,body.scopes,body.expires_at)}
 @router.delete('/api-keys/{item_id}',dependencies=[Depends(require_permission('developers.manage'))])

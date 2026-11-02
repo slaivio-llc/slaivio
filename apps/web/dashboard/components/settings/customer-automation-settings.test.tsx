@@ -31,6 +31,15 @@ it('loads actual settings and does not send a customer message just by opening t
  expect(api.post).not.toHaveBeenCalled();expect(api.put).not.toHaveBeenCalled();
 });
 
+it('folds advanced timing and storage settings in the compact settings view',async()=>{
+ render(<CustomerAutomationSettings compact data={data} run={run}/>);
+ await screen.findByText('Aucun colis en attente de réception.');
+ expect(screen.getByLabelText('Tarif journalier')).not.toBeVisible();
+ fireEvent.click(screen.getByText('Frais de garde'));
+ expect(screen.getByLabelText('Tarif journalier')).toBeVisible();
+ expect(api.post).not.toHaveBeenCalled();
+});
+
 it('saves timing and editable messages with the organization row version',async()=>{
  render(<CustomerAutomationSettings data={data} run={run}/>);
  const text=await screen.findByLabelText('Message : Attente d’un colis');

@@ -1,5 +1,6 @@
 import time
 import base64
+import pytest
 
 from app.api import whatsapp_qr
 from app.core.config import settings
@@ -7,6 +8,55 @@ from app.services.whatsapp_qr_gateway_client import sign_gateway_request, verify
 from app.services import whatsapp_qr_gateway_client
 from app.services.qr_linked_device_whatsapp_provider import QRLinkedDeviceWhatsAppProvider
 from fastapi import HTTPException
+
+
+@pytest.mark.parametrize("gateway_status", [502, 503])
+def test_disconnect_reports_remote_failure_but_revokes_local_access(monkeypatch, gateway_status):
+    revoked = []
+    monkeypatch.setattr(whatsapp_qr, "get_connection", lambda *args, **kwargs: {"id": "connection-id", "status": "CONNECTED"})
+    monkeypatch.setattr(whatsapp_qr, "revoke_connection", lambda *args: revoked.append(args) or {"status": "REVOKED"})
+    def fail(*args):
+        raise whatsapp_qr.QRGatewayError("pilot_whatsapp_qr_gateway_start_failed", gateway_status)
+    monkeypatch.setattr(whatsapp_qr, "qr_gateway_request", fail)
+    with pytest.raises(HTTPException) as error:
+        whatsapp_qr.disconnect_qr_connection("connection-id", tenant={"org_id": "org-id"}, manager={"user_id": "user-id"})
+    assert error.value.status_code == gateway_status
+    assert error.value.detail == "pilot_whatsapp_qr_gateway_start_failed"
+    assert revoked == [("org-id", "connection-id", "user-id")]
+
+
+def test_disconnect_can_retry_remote_logout_after_local_revocation(monkeypatch):
+    calls = []
+    connection = {"id": "connection-id", "status": "REVOKED"}
+    def get_owned_connection(org_id, connection_id, *, include_revoked=False):
+        assert (org_id, connection_id, include_revoked) == ("org-id", "connection-id", True)
+        return connection
+    monkeypatch.setattr(whatsapp_qr, "get_connection", get_owned_connection)
+    monkeypatch.setattr(whatsapp_qr, "qr_gateway_request", lambda *args: calls.append(args) or {"status": "LOGGED_OUT"})
+    def must_not_revoke(*args):
+        raise AssertionError("Already revoked; do not repeat the database update")
+    monkeypatch.setattr(whatsapp_qr, "revoke_connection", must_not_revoke)
+    result = whatsapp_qr.disconnect_qr_connection("connection-id", tenant={"org_id": "org-id"}, manager={"user_id": "user-id"})
+    assert result == {"status": "ok", "connection": connection}
+    assert calls == [("POST", "/connections/connection-id/logout", {"org_id": "org-id"})]
+
+
+def test_disconnect_does_not_contact_gateway_for_another_tenants_connection(monkeypatch):
+    monkeypatch.setattr(whatsapp_qr, "get_connection", lambda *args, **kwargs: None)
+    def must_not_call(*args):
+        raise AssertionError("No gateway call without an owned connection")
+    monkeypatch.setattr(whatsapp_qr, "qr_gateway_request", must_not_call)
+    with pytest.raises(HTTPException) as error:
+        whatsapp_qr.disconnect_qr_connection("connection-id", tenant={"org_id": "org-id"}, manager={"user_id": "user-id"})
+    assert error.value.status_code == 404
+
+
+def test_missing_gateway_configuration_uses_the_handled_error_type(monkeypatch):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_url", "")
+    with pytest.raises(whatsapp_qr.QRGatewayError) as error:
+        whatsapp_qr_gateway_client.qr_gateway_request("POST", "/connections/test/logout", {})
+    assert error.value.status_code == 503
+    assert error.value.code == "pilot_whatsapp_qr_gateway_unavailable"
 
 
 def test_qr_gateway_signature_rejects_tampering(monkeypatch):

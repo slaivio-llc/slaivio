@@ -95,13 +95,20 @@ def qr_connection_status(tenant=Depends(get_current_tenant)):
 
 @router.post("/organization/admin/pilot/whatsapp-qr/{connection_id}/disconnect", dependencies=[Depends(require_permission("pilot.whatsapp_qr.disconnect"))])
 def disconnect_qr_connection(connection_id: str, tenant=Depends(get_current_tenant), manager=Depends(get_current_manager)):
-    connection = get_connection(tenant["org_id"], connection_id)
+    connection = get_connection(tenant["org_id"], connection_id, include_revoked=True)
     if not connection:
         raise HTTPException(404, "pilot_whatsapp_qr_connection_not_found")
     try:
         qr_gateway_request("POST", f"/connections/{connection_id}/logout", {"org_id": tenant["org_id"]})
+    except QRGatewayError as exc:
+        # Local access is still revoked below, but do not claim that WhatsApp
+        # confirmed logout when the remote gateway failed.
+        raise HTTPException(exc.status_code, exc.code) from exc
     finally:
-        revoked = revoke_connection(tenant["org_id"], connection_id, _actor(manager))
+        # Allow a retry of remote logout after local revocation succeeded.
+        revoked = connection if connection["status"] == "REVOKED" else revoke_connection(
+            tenant["org_id"], connection_id, _actor(manager)
+        )
     return {"status": "ok", "connection": revoked}
 
 

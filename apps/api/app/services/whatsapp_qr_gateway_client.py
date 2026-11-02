@@ -23,7 +23,7 @@ def _configuration() -> tuple[str, str]:
     url = (settings.whatsapp_qr_gateway_url or "").rstrip("/")
     secret = settings.whatsapp_qr_gateway_shared_secret or ""
     if not url or len(secret) < 32:
-        raise ValueError("pilot_whatsapp_qr_gateway_unavailable")
+        raise QRGatewayError("pilot_whatsapp_qr_gateway_unavailable")
     return url, secret
 
 
@@ -66,6 +66,11 @@ def qr_gateway_request(method: str, path: str, payload: dict | None = None) -> d
     except requests.RequestException as exc:
         raise QRGatewayError("pilot_whatsapp_qr_gateway_unreachable") from exc
     if not response.ok:
+        # Log transport diagnostics only, never signatures, payloads or the
+        # upstream response body (which may contain session credentials).
+        action = path.rsplit("/", 1)[-1]
+        logger.warning("QR gateway request failed method=%s action=%s status=%s",
+                       method.upper(), action, response.status_code)
         if response.status_code == 401:
             code = "pilot_whatsapp_qr_gateway_auth_failed"
         elif response.status_code >= 500:

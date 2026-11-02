@@ -9,7 +9,7 @@ from app.db.database import engine
 from app.core.config import settings
 
 
-def get_connection(org_id: str, connection_id: str | None = None) -> dict | None:
+def get_connection(org_id: str, connection_id: str | None = None, *, include_revoked: bool = False) -> dict | None:
     with engine.connect() as conn:
         row = conn.execute(text("""
           select id::text,org_id,whatsapp_number_id::text,status,linked_jid,
@@ -19,9 +19,9 @@ def get_connection(org_id: str, connection_id: str | None = None) -> dict | None
           from whatsapp_qr_connections
           where org_id=:org_id
             and (:connection_id is null or id=cast(:connection_id as uuid))
-            and status<>'REVOKED'
+            and (:include_revoked or status<>'REVOKED')
           order by updated_at desc limit 1
-        """), {"org_id": org_id, "connection_id": connection_id}).mappings().first()
+        """), {"org_id": org_id, "connection_id": connection_id, "include_revoked": include_revoked}).mappings().first()
     return dict(row) if row else None
 
 

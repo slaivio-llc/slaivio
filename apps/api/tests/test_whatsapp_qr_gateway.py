@@ -8,6 +8,55 @@ from app.services.whatsapp_qr_gateway_client import sign_gateway_request, verify
 from app.services import whatsapp_qr_gateway_client
 from app.services.qr_linked_device_whatsapp_provider import QRLinkedDeviceWhatsAppProvider
 from fastapi import HTTPException
+from starlette.requests import Request
+
+
+def test_callback_health_requires_the_shared_signature(monkeypatch):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_shared_secret", "s" * 32)
+    path = "/internal/whatsapp-qr/health"
+    with pytest.raises(HTTPException) as error:
+        whatsapp_qr.qr_callback_health(Request({"type": "http", "method": "GET", "path": path, "headers": []}))
+    assert error.value.status_code == 401
+    timestamp = str(int(time.time()))
+    signature = sign_gateway_request("GET", path, b"", timestamp, "s" * 32)
+    request = Request({"type": "http", "method": "GET", "path": path, "headers": [
+        (b"x-slaivio-timestamp", timestamp.encode()), (b"x-slaivio-signature", signature.encode())]})
+    assert whatsapp_qr.qr_callback_health(request) == {"service": "slaivio-whatsapp-qr-api", "status": "ok"}
+
+
+def test_upstream_502_diagnostic_does_not_expose_body_or_secret(monkeypatch, caplog):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_url", "https://gateway.example.test")
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_shared_secret", "PRIVATE" * 8)
+    monkeypatch.setattr(whatsapp_qr_gateway_client.requests, "request", lambda *args, **kwargs: type("Response", (), {
+        "ok": False, "status_code": 502, "headers": {}, "text": "PRIVATE SESSION BODY"})())
+    with pytest.raises(whatsapp_qr.QRGatewayError):
+        whatsapp_qr_gateway_client.qr_gateway_request("GET", "/connections/test")
+    assert "host=gateway.example.test gateway_identified=False" in caplog.text
+    assert "PRIVATE" not in caplog.text
+
+
+def test_remote_logout_error_is_normalized_only_for_identified_gateway(monkeypatch):
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_url", "https://gateway.example.test")
+    monkeypatch.setattr(settings, "whatsapp_qr_gateway_shared_secret", "s" * 32)
+    monkeypatch.setattr(whatsapp_qr_gateway_client.requests, "request", lambda *args, **kwargs: type("Response", (), {
+        "ok": False, "status_code": 503, "headers": {"X-Slaivio-QR-Gateway": "1"},
+        "json": lambda self: {"error": "whatsapp_qr_remote_logout_unconfirmed"}})())
+    with pytest.raises(whatsapp_qr.QRGatewayError) as error:
+        whatsapp_qr_gateway_client.qr_gateway_request("POST", "/connections/test/logout", {})
+    assert error.value.code == "pilot_whatsapp_qr_remote_logout_unconfirmed"
+
+
+def test_round_trip_command_reads_only_health_and_diagnostics(monkeypatch, capsys):
+    from app.services import whatsapp_qr_diagnostics
+    calls = []
+    def request(method, path):
+        calls.append((method, path))
+        return {"status": "ok"} if path == "/health" else {
+            "service": "slaivio-whatsapp-qr-gateway", "callback": {"reachable": True, "status": 200}, "SECRET": "PRIVATE"}
+    monkeypatch.setattr(whatsapp_qr_diagnostics, "qr_gateway_request", request)
+    assert whatsapp_qr_diagnostics.main() == 0
+    assert calls == [("GET", "/health"), ("GET", "/diagnostics")]
+    assert "PRIVATE" not in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("gateway_status", [502, 503])
@@ -37,7 +86,7 @@ def test_disconnect_can_retry_remote_logout_after_local_revocation(monkeypatch):
         raise AssertionError("Already revoked; do not repeat the database update")
     monkeypatch.setattr(whatsapp_qr, "revoke_connection", must_not_revoke)
     result = whatsapp_qr.disconnect_qr_connection("connection-id", tenant={"org_id": "org-id"}, manager={"user_id": "user-id"})
-    assert result == {"status": "ok", "connection": connection}
+    assert result == {"status": "ok", "connection": connection, "remote_logout_confirmed": False}
     assert calls == [("POST", "/connections/connection-id/logout", {"org_id": "org-id"})]
 
 

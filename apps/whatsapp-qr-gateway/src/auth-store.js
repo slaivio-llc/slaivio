@@ -1,6 +1,7 @@
 import { BufferJSON, initAuthCreds, proto } from "@whiskeysockets/baileys";
 import { pool } from "./db.js";
 import { decryptPayload, encryptPayload } from "./crypto.js";
+import { createAuthWriteGate } from "./auth-write-gate.js";
 
 const serialize = value => Buffer.from(JSON.stringify(value, BufferJSON.replacer));
 const deserialize = value => JSON.parse(value.toString("utf8"), BufferJSON.reviver);
@@ -31,6 +32,7 @@ async function write(connectionId, keyType, keyId, value) {
 }
 
 export async function createPostgresAuthState(connectionId) {
+  const gate = createAuthWriteGate();
   let creds = await read(connectionId, "creds", "default");
   if (!creds) {
     creds = initAuthCreds();
@@ -52,13 +54,13 @@ export async function createPostgresAuthState(connectionId) {
         set: async data => {
           const writes = [];
           for (const [type, entries] of Object.entries(data)) {
-            for (const [id, value] of Object.entries(entries || {})) writes.push(write(connectionId, type, id, value));
+            for (const [id, value] of Object.entries(entries || {})) writes.push(gate.run(() => write(connectionId, type, id, value)));
           }
           await Promise.all(writes);
         },
       },
     },
-    saveCreds: () => write(connectionId, "creds", "default", creds),
-    clear: () => pool.query(`delete from whatsapp_qr_auth_state where connection_id=$1`, [connectionId]),
+    saveCreds: () => gate.run(() => write(connectionId, "creds", "default", creds)),
+    clear: () => gate.close(() => pool.query(`delete from whatsapp_qr_auth_state where connection_id=$1`, [connectionId])),
   };
 }

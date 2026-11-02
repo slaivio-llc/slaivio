@@ -99,7 +99,7 @@ def disconnect_qr_connection(connection_id: str, tenant=Depends(get_current_tena
     if not connection:
         raise HTTPException(404, "pilot_whatsapp_qr_connection_not_found")
     try:
-        qr_gateway_request("POST", f"/connections/{connection_id}/logout", {"org_id": tenant["org_id"]})
+        gateway = qr_gateway_request("POST", f"/connections/{connection_id}/logout", {"org_id": tenant["org_id"]})
     except QRGatewayError as exc:
         # Local access is still revoked below, but do not claim that WhatsApp
         # confirmed logout when the remote gateway failed.
@@ -109,7 +109,16 @@ def disconnect_qr_connection(connection_id: str, tenant=Depends(get_current_tena
         revoked = connection if connection["status"] == "REVOKED" else revoke_connection(
             tenant["org_id"], connection_id, _actor(manager)
         )
-    return {"status": "ok", "connection": revoked}
+    return {"status": "ok", "connection": revoked, "remote_logout_confirmed": gateway.get("remote_logout_confirmed", False)}
+
+
+@router.get("/internal/whatsapp-qr/health")
+def qr_callback_health(request: Request):
+    if not verify_gateway_signature("GET", request.url.path, b"",
+                                    request.headers.get("X-Slaivio-Timestamp"),
+                                    request.headers.get("X-Slaivio-Signature")):
+        raise HTTPException(401, "invalid_qr_gateway_signature")
+    return {"service": "slaivio-whatsapp-qr-api", "status": "ok"}
 
 
 @router.post("/internal/whatsapp-qr/events")

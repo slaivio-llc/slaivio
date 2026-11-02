@@ -9,9 +9,13 @@ import { createPostgresAuthState } from "./auth-store.js";
 import { emitCallback } from "./callback.js";
 import { pool } from "./db.js";
 import { phoneFromJid, resolveOutboundJid, resolveSenderIdentity } from "./message-identity.js";
+import { inboundDiagnostic } from "./gateway-diagnostics.js";
+import { logoutWithCleanup } from "./logout-cleanup.js";
 
 const sessions = new Map();
-const logger = pino({ level: process.env.LOG_LEVEL || "info", redact: ["qr", "message", "payload"] });
+const logger = pino({ level: process.env.LOG_LEVEL || "info", redact: {
+  paths: ["qr", "message", "payload", "key", "node", "histNotification", "trace", "err.data", "error.data"], remove: true,
+} });
 const MAX_INBOUND_MEDIA_BYTES = 12 * 1024 * 1024;
 
 const eventKey = (connectionId, type, suffix = crypto.randomUUID()) => `qr:${connectionId}:${type}:${suffix}`;
@@ -84,6 +88,7 @@ async function persistIdentity(session, lid, phoneJid) {
 async function notify(session, eventType, payload = {}, suffix) {
   await emitCallback({ org_id: session.orgId, connection_id: session.id, event_type: eventType,
     event_key: eventKey(session.id, eventType, suffix), payload });
+  if (eventType === "MESSAGE_RECEIVED") inboundDiagnostic(logger, session.id, "delivered", "api_accepted");
 }
 
 async function safeNotify(session, eventType, payload = {}, suffix) {
@@ -124,6 +129,7 @@ function scheduleReconnect(session) {
 
 export async function startSession(id, orgId) {
   const current = sessions.get(id);
+  if (current?.intentionalLogout) return publicState(current);
   if (current?.starting || ["CONNECTED", "QR_READY", "CONNECTING"].includes(current?.status)) return publicState(current);
   const session = current || { id, orgId, status: "CONNECTING", qrDataUrl: null, qrExpiresAt: null,
     socket: null, reconnectAttempts: 0, reconnectTimer: null, connectionWatchdog: null, intentionalLogout: false,
@@ -156,7 +162,14 @@ export async function startSession(id, orgId) {
     logger.warn({ connectionId: id }, "connection_timeout");
     socket.end(new Error("connection_timeout"));
   }, 45_000);
-  socket.ev.on("creds.update", auth.saveCreds);
+  socket.ev.on("creds.update", () => {
+    void auth.saveCreds().catch(() => {
+      logger.error({ connectionId: id, reason: "credentials_persistence_failed" }, "qr_auth_write_failed");
+      // Reconnect from persisted state, without an unhandled rejection killing
+      // the entire gateway and every agency connected to it.
+      try { socket.end(new Error("credentials_persistence_failed")); } catch { /* Already closed. */ }
+    });
+  });
   const rememberContact = contact => {
     const lid = jidNormalizedUser(String(contact?.lid || (String(contact?.id || "").endsWith("@lid") ? contact.id : "")));
     const jid = jidNormalizedUser(String(contact?.jid || (String(contact?.id || "").endsWith("@s.whatsapp.net") ? contact.id : "")));
@@ -205,11 +218,18 @@ export async function startSession(id, orgId) {
     } catch (error) { logger.error({ error: error.message, connectionId: id }, "connection_update_failed"); }
   });
   socket.ev.on("messages.upsert", async ({ messages, type }) => {
-    if (type !== "notify") return;
+    if (session.intentionalLogout) return;
+    inboundDiagnostic(logger, id, "received", type === "notify" ? "live_batch" : "non_live_batch", messages.length);
+    if (type !== "notify") {
+      inboundDiagnostic(logger, id, "ignored", "non_live_batch", messages.length);
+      return;
+    }
     for (const item of messages) {
       try {
         const remoteJid = item.key.remoteJid || "";
-        if (!item.message || item.key.fromMe || isJidStatusBroadcast(remoteJid) || isJidNewsletter(remoteJid)) continue;
+        const ignored = !item.message ? "empty_message" : item.key.fromMe ? "outgoing_message" :
+          isJidStatusBroadcast(remoteJid) ? "status_broadcast" : isJidNewsletter(remoteJid) ? "newsletter" : null;
+        if (ignored) { inboundDiagnostic(logger, id, "ignored", ignored); continue; }
         const preferences = await pool.query(
           `select coalesce(number.auto_mark_read,false) auto_mark_read,
                   coalesce(number.group_replies_enabled,false) group_replies_enabled
@@ -224,7 +244,7 @@ export async function startSession(id, orgId) {
             `select 1 from dossiers where org_id=$1 and whatsapp_group_jid=$2 and archived_at is null limit 1`,
             [session.orgId, item.key.remoteJid],
           );
-          if (!managedGroup.rowCount) continue;
+          if (!managedGroup.rowCount) { inboundDiagnostic(logger, id, "ignored", "unmanaged_group"); continue; }
         }
         let identity = resolveSenderIdentity(item.key, isGroup, session.lidPhoneMap);
         if (!isGroup && identity.senderJid?.endsWith("@lid") && identity.phone) {
@@ -255,7 +275,7 @@ export async function startSession(id, orgId) {
             logger.warn({ error: error.message, connectionId: id, messageId: item.key.id }, "inbound_media_download_failed");
           }
         }
-        if (preference.auto_mark_read) await socket.readMessages([item.key]);
+        inboundDiagnostic(logger, id, "forwarding", "api_callback");
         await notify(session, "MESSAGE_RECEIVED", { provider_message_id: item.key.id, from_phone: identity.phone,
           sender_jid: identity.senderJid,
           to_phone: phoneFromJid(socket.user?.id), text_body: text, message_type: messageType,
@@ -267,7 +287,15 @@ export async function startSession(id, orgId) {
           media_mime_type: media?.mimeType || null,
           media_file_name: media?.fileName || null,
           received_at: new Date(Number(item.messageTimestamp || Date.now() / 1000) * 1000).toISOString() }, item.key.id);
-      } catch (error) { logger.error({ error: error.message, connectionId: id }, "message_callback_failed"); }
+        if (preference.auto_mark_read) {
+          // Read receipts must never delay or prevent inbox delivery.
+          void socket.readMessages([item.key]).catch(() => inboundDiagnostic(logger, id, "warning", "mark_read_failed"));
+        }
+      } catch (error) {
+        logger.error({ connectionId: id, stage: "failed",
+          reason: error.stage === "api_callback" ? "api_callback_failed" : "message_processing_failed",
+          httpStatus: Number.isInteger(error.statusCode) ? error.statusCode : undefined }, "message_callback_failed");
+      }
     }
   });
   session.starting = false;
@@ -322,8 +350,9 @@ export async function addGroupParticipants(id, groupJid, participants) {
 export async function logoutSession(id) {
   const session = sessions.get(id);
   if (session) { session.intentionalLogout = true; clearReconnect(session); clearConnectionWatchdog(session); }
-  if (session?.socket) await session.socket.logout();
-  if (session?.auth) await session.auth.clear();
-  sessions.delete(id);
-  return { status: "LOGGED_OUT" };
+  return logoutWithCleanup(session, {
+    clearAuth: () => session?.auth ? session.auth.clear() : pool.query(
+      "delete from whatsapp_qr_auth_state where connection_id=$1", [id]),
+    removeSession: () => sessions.delete(id),
+  });
 }

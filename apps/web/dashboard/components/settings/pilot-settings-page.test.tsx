@@ -27,7 +27,7 @@ vi.mock("@/components/ui/geography-fields", () => ({
 
 vi.mock("@/services/organization-admin", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/services/organization-admin")>();
-  return { ...actual, getPilotSettings: vi.fn() };
+  return { ...actual, getPilotSettings: vi.fn(), getPilotWhatsappQRStatus: vi.fn(), disconnectPilotWhatsappQR: vi.fn() };
 });
 
 vi.mock("@/services/knowledge", async (importOriginal) => {
@@ -101,6 +101,7 @@ const settings: adminService.PilotSettingsData = {
 beforeEach(() => {
   replace.mockReset();
   requestedSection = null;
+  vi.mocked(adminService.getPilotWhatsappQRStatus).mockResolvedValue(null);
   vi.mocked(adminService.getPilotSettings).mockResolvedValue(settings);
   vi.mocked(knowledgeService.listPilotKnowledge).mockResolvedValue({
     total: 1,
@@ -132,6 +133,18 @@ beforeEach(() => {
 });
 
 describe("PilotSettingsPage navigation", () => {
+  it('keeps a failed WhatsApp disconnection visible and allows retrying it',async()=>{
+    const user=userEvent.setup();
+    requestedSection='channels';
+    vi.mocked(adminService.getPilotWhatsappQRStatus).mockResolvedValue({connection_id:'connection-1',status:'CONNECTED'});
+    vi.mocked(adminService.disconnectPilotWhatsappQR).mockRejectedValueOnce({response:{data:{detail:'pilot_whatsapp_qr_remote_logout_unconfirmed'}}});
+    render(<PilotSettingsPage scope="communication"/>);
+    await user.click(await screen.findByRole('button',{name:'Gérer WhatsApp'}));
+    await user.click(screen.getByRole('button',{name:'Supprimer le compte'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('WhatsApp n’a pas confirmé la déconnexion');
+    expect(adminService.disconnectPilotWhatsappQR).toHaveBeenCalledWith('connection-1');
+    expect(screen.getByRole('button',{name:'Supprimer le compte'})).toBeEnabled();
+  });
   it("keeps every settings section visible and switches sections without a filter menu", async () => {
     const user = userEvent.setup();
     render(<PilotSettingsPage />);

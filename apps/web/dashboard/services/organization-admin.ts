@@ -53,6 +53,7 @@ export async function activatePilotWazzap(payload:{phone_number:string;verified_
 export type PilotQRConnection={connection_id?:string;id?:string;status:"CREATED"|"QR_READY"|"CONNECTING"|"CONNECTED"|"DISCONNECTED"|"LOGGED_OUT"|"FAILED"|"REVOKED";qr_data_url?:string|null;qr_expires_at?:string|null;display_phone_number?:string|null;verified_name?:string|null;last_error?:string|null;gateway_reachable?:boolean};
 export function pilotWhatsappQrErrorMessage(error:unknown){
  const detail=(error as {response?:{data?:{detail?:unknown}}})?.response?.data?.detail;
+ if(detail==="pilot_whatsapp_qr_remote_logout_unconfirmed")return "Les accès Slaivio sont révoqués, mais WhatsApp n’a pas confirmé la déconnexion. Ouvrez WhatsApp → Appareils connectés pour déconnecter cet appareil.";
  if(detail==="pilot_whatsapp_qr_gateway_unavailable")return "La configuration du gateway QR est absente dans le service API. Vérifiez WHATSAPP_QR_GATEWAY_URL et WHATSAPP_QR_GATEWAY_SHARED_SECRET sur Railway.";
  if(detail==="pilot_whatsapp_qr_gateway_unreachable")return "Le gateway QR ne répond pas. Vérifiez qu’il est déployé et que son URL Railway est correcte.";
  if(detail==="pilot_whatsapp_qr_gateway_auth_failed")return "L’API et le gateway QR n’ont pas le même secret partagé. Vérifiez WHATSAPP_QR_GATEWAY_SHARED_SECRET sur les deux services.";

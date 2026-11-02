@@ -1,4 +1,6 @@
 {
+  "Les accès Slaivio sont révoqués. Vérifiez aussi la déconnexion dans WhatsApp → Appareils connectés.": "Slaivio access has been revoked. Also check the disconnection in WhatsApp → Linked devices.",
+  "Les accès Slaivio sont révoqués, mais WhatsApp n’a pas confirmé la déconnexion. Ouvrez WhatsApp → Appareils connectés pour déconnecter cet appareil.": "Slaivio access has been revoked, but WhatsApp has not confirmed the disconnection. Open WhatsApp → Linked devices to disconnect this device.",
   "Langue et devise": "Language and currency",
   "Langue et devise enregistrées.": "Language and currency saved.",
   "Personnalisez les références des colis, clients, expéditions et dossiers.": "Customise parcel, customer, shipment and case references.",

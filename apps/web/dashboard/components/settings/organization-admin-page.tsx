@@ -1322,7 +1322,7 @@ function Workspaces({
             placeholder={dashboardText("Workspace RDC")}
           />
           <input required name="code" className={input} placeholder={dashboardText("RDC")} />
-          <FormGeographyFields countryValueMode="isoCode" showCity={false} className={input} fieldClassName="grid gap-1 text-[12px] text-[#555d68]" countryLabel="Pays du workspace" />
+          <FormGeographyFields searchableCountry countryValueMode="isoCode" showCity={false} className={input} fieldClassName="grid gap-1 text-[12px] text-[#555d68]" countryLabel="Pays du workspace" />
           <select name="currency" className={input} defaultValue="USD"><option>{dashboardText("USD")}</option><option>{dashboardText("EUR")}</option><option>{dashboardText("CDF")}</option><option>{dashboardText("GBP")}</option><option>{dashboardText("CNY")}</option><option>{dashboardText("AED")}</option><option>{dashboardText("XAF")}</option><option>{dashboardText("GHS")}</option><option>{dashboardText("KES")}</option></select>
           <select name="timezone" className={input} defaultValue="UTC"><option value="Africa/Kinshasa">{dashboardText("Kinshasa")}</option><option value="Africa/Douala">{dashboardText("Douala")}</option><option value="Africa/Abidjan">{dashboardText("Abidjan")}</option><option value="Europe/Brussels">{dashboardText("Bruxelles")}</option><option value="Europe/Paris">{dashboardText("Paris")}</option><option value="Asia/Shanghai">{dashboardText("Shanghai")}</option><option value="Asia/Dubai">{dashboardText("Dubaï")}</option><option value="UTC">{dashboardText("Temps universel (UTC)")}</option></select>
           <select name="language" className={input}>
@@ -1437,7 +1437,7 @@ function Locations({
               <label className="grid gap-2 text-[13px] font-semibold text-[#414950] sm:col-span-2">
                 {dashboardText("Nom du bureau *")}<input required minLength={2} maxLength={120} name="name" autoFocus className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} placeholder={dashboardText("Ex. Bureau de Bobo-Dioulasso")} />
               </label>
-              <FormGeographyFields required className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]" />
+              <FormGeographyFields searchableCountry required className={`${input} h-11 rounded-lg px-3.5 text-[14px]`} fieldClassName="grid gap-2 text-[13px] font-semibold text-[#414950]" />
             </div>
           </section>
           <section className="rounded-2xl border border-[#e4e9e8] bg-white p-5 shadow-[0_2px_10px_rgba(20,35,32,.03)] sm:p-6">

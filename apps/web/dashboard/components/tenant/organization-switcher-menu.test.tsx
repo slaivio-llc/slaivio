@@ -71,6 +71,12 @@ describe("Sélecteur d’espace", () => {
     expect(dialog).toHaveClass("items-center", "justify-center");
     expect(dialog.querySelector("[data-ui='operation-drawer']")).toHaveClass("max-w-4xl");
     expect(screen.getByRole("radio", { name: /Bureau Accueil, dépôt ou retrait/ })).toBeChecked();
+    expect(screen.getByRole('button',{name:'Pays'})).toBeVisible();
+    expect(screen.getByRole('button',{name:'Indicatif du pays'})).toBeVisible();
+    const nameField=screen.getByPlaceholderText('Ex. Bureau de Kinshasa');
+    expect(nameField.closest('label')).toHaveClass('content-start');
+    expect(nameField.closest('label')?.parentElement).toHaveClass('items-start');
+    expect(screen.getByRole('button',{name:'Indicatif du pays'}).closest('label')?.children).toHaveLength(2);
     fireEvent.click(screen.getByRole("radio", { name: /Entrepôt Stockage et opérations physiques/ }));
     expect(screen.getByRole("button", { name: "Créer l’entrepôt" })).toBeInTheDocument();
   });

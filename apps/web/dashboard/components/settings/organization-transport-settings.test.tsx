@@ -29,12 +29,14 @@ vi.mock("@/components/ui/geography-fields", () => ({
     cityName,
     countryLabel,
     cityLabel,
+    searchableCountry,
   }: {
     countryName: string;
     cityName: string;
     countryLabel: string;
     cityLabel: string;
-  }) => <div>
+    searchableCountry?: boolean;
+  }) => <div data-searchable-country={String(searchableCountry)}>
     <label>{countryLabel}<input name={countryName} /></label>
     <label>{cityLabel}<input name={cityName} /></label>
   </div>,
@@ -111,6 +113,8 @@ describe("agency transport settings", () => {
     await screen.findByRole("heading", { name: "Guangzhou → Kinshasa" });
     fireEvent.click(screen.getByRole("button", { name: "Ajouter une route" }));
 
+    expect(screen.getByLabelText("Pays de départ *").closest('[data-searchable-country]')).toHaveAttribute('data-searchable-country','true');
+    expect(screen.getByLabelText("Pays de destination *").closest('[data-searchable-country]')).toHaveAttribute('data-searchable-country','true');
     fireEvent.change(screen.getByLabelText("Pays de départ *"), { target: { value: "Chine" } });
     fireEvent.change(screen.getByLabelText("Ville de départ *"), { target: { value: "Guangzhou" } });
     fireEvent.change(screen.getByLabelText("Pays de destination *"), { target: { value: "RDC" } });

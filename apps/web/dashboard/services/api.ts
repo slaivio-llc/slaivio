@@ -15,6 +15,8 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  network_office_code_already_exists:"Ce code est déjà utilisé par un bureau ou un entrepôt de votre réseau. Choisissez un autre code.",
+  network_office_code_unavailable:"Ce code ne peut pas être utilisé pour le moment. Choisissez un autre code ou contactez le support SLAIVIO.",
   platform_self_permissions_protected:"Vos propres accès sont protégés. Demandez à un autre administrateur autorisé.",
   platform_last_admin_protected:"Le dernier accès administrateur ne peut pas être retiré.",
   platform_permissions_were_modified:"Ces accès ont été modifiés. Rechargez la fiche avant de réessayer.",
@@ -56,15 +58,16 @@ const apiDetailMessages: Record<string, string> = {
   mfa_setup_required:"Activez la double authentification de votre compte, puis reconnectez-vous avant de l’imposer à l’agence.",
   organization_mfa_required:"Votre agence exige une connexion avec double authentification.",
   knowledge_antivirus_unavailable: "Le service de sécurité des fichiers est temporairement indisponible. Réessayez dans quelques instants.",
-  knowledge_antivirus_not_configured: "L’analyse de sécurité des fichiers n’est pas encore configurée sur cet environnement.",
+  knowledge_antivirus_not_configured: "La vérification des fichiers est indisponible pour le moment. Contactez le support SLAIVIO.",
   knowledge_antivirus_invalid_response: "Le service de sécurité n’a pas pu confirmer le résultat de l’analyse.",
-  knowledge_ocr_not_configured: "La lecture des images et PDF n’est pas encore configurée sur cet environnement.",
+  knowledge_ocr_not_configured: "Ce document ne peut pas être lu automatiquement pour le moment. Essayez une version texte ou contactez le support SLAIVIO.",
   knowledge_file_malware_detected: "Ce fichier a été bloqué par l’analyse de sécurité.",
   invalid_knowledge_file: "Le fichier est vide, trop volumineux ou dans un format non accepté.",
 };
 
 function agencyErrorMessage(raw:string):string {
   if(apiDetailMessages[raw])return apiDetailMessages[raw];
+  if(/\b(Traceback|sqlalchemy|psycopg2?|IntegrityError|UniqueViolation|SQL|PostgreSQL|constraint|SELECT\s+.*\s+FROM|WHATSAPP_QR_[A-Z_]+|CLERK_SECRET[A-Z_]*|Clerk|backend|gateway|Railway|JSON|stack\s*trace|ECONNREFUSED|ETIMEDOUT)\b/i.test(raw))return "L’action n’a pas pu être effectuée. Réessayez ou contactez le support SLAIVIO si le problème persiste.";
   if(/^[A-Za-z][A-Za-z0-9_.:-]*_[A-Za-z0-9_.:-]+$/.test(raw)||/\b[A-Z]+(?:_[A-Z0-9]+)+\b/.test(raw))return "L’action n’a pas pu être effectuée. Réessayez ou contactez le support SLAIVIO si le problème persiste.";
   if(/^(Input should|Field required|String should|Value error|Invalid |Not found|Internal server)/i.test(raw))return "Vérifiez les informations saisies, puis réessayez. Si le problème persiste, contactez le support SLAIVIO.";
   return raw;
@@ -77,6 +80,7 @@ export function apiErrorDetail(error: unknown): string {
   const raw = Array.isArray(detail)
     ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")
     : typeof detail === "string" ? detail : "";
+  if((error.response?.status||0)>=500&&!apiDetailMessages[raw])return "L’action n’a pas pu être effectuée pour le moment. Réessayez ou contactez le support SLAIVIO.";
   return agencyErrorMessage(raw);
 }
 
@@ -246,21 +250,21 @@ api.interceptors.response.use(
           ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")
           : typeof detail === "string" ? detail : "";
         const quotaMessage=detail?.code==='plan_limit_reached'&&typeof detail.message==='string'?detail.message:'';
-        const detailMessage = quotaMessage||agencyErrorMessage(raw);
+        const detailMessage = quotaMessage||((error.response?.status||0)>=500&&!apiDetailMessages[raw]?"":agencyErrorMessage(raw));
         const conflictMessage = raw === "workflow_execution_in_progress"
           ? "La création est déjà en cours. Patientez quelques instants avant de réessayer."
           : raw === "workflow_already_decided"
             ? "Cette action a déjà été traitée. Rechargez la page pour voir son état actuel."
-            : `Cette opération entre en conflit avec l’état actuel.${detailMessage ? ` ${detailMessage}` : ""}`;
+            : detailMessage || "Cette action ne peut pas être effectuée pour le moment. Actualisez la page, puis réessayez.";
         const message = invitationErrorMessages[raw]||quotaMessage||(!error.response
-          ? "Le serveur est injoignable. Vérifiez le déploiement du backend."
+          ? "Impossible de joindre Slaivio pour le moment. Vérifiez votre connexion, puis réessayez."
           : error.response.status === 403
             ? "Vous n’avez pas la permission d’effectuer cette action."
             : error.response.status === 409
               ? conflictMessage
               : error.response.status === 422
-                ? `Certaines données sont invalides ou incompatibles.${detailMessage ? ` ${detailMessage}` : ""}`
-                : detailMessage || `L’opération a échoué (erreur ${error.response.status}).`);
+                ? detailMessage || "Vérifiez les informations saisies, puis réessayez."
+                : detailMessage || "L’action n’a pas pu être effectuée pour le moment. Réessayez ou contactez le support SLAIVIO.");
         const title=requestUrl==='/organization/invitations'||requestUrl==='/organization/network/invitations'?'Invitation non envoyée':undefined;
         window.dispatchEvent(new CustomEvent(API_MUTATION_FAILED_EVENT, { detail: { message, title, status: error.response?.status } }));
       }

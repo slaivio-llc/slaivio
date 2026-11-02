@@ -135,11 +135,23 @@ def setup(org_id: str, actor_id: str, network_name: str, country_code: str, coun
     return context(org_id, actor_id)
 
 
+def _assert_office_code_available(conn, group_id: str, code: str) -> None:
+    # Codes are shared by offices and warehouses of this network. Never expose
+    # or block on a different customer's office codes.
+    duplicate = conn.execute(text("""
+        select 1 from organizations where group_id=cast(:group_id as uuid)
+          and upper(organization_code)=:code limit 1
+    """), {"group_id": group_id, "code": code}).first()
+    if duplicate:
+        raise HTTPException(409, "network_office_code_already_exists")
+
+
 def create_office(org_id: str, actor: dict, payload: dict) -> dict:
     workspace_kind = payload.get("workspace_kind", "OFFICE")
     if workspace_kind not in {"OFFICE", "WAREHOUSE"}:
         raise HTTPException(422, "invalid_workspace_kind")
     actor_id = str(actor.get("user_id") or actor.get("id") or "")
+    office_code = payload["office_code"].upper()
     with engine.begin() as conn:
         conn.execute(text("select id from organizations where id=:org_id for update"), {"org_id": org_id})
         current = _current_network(conn, org_id)
@@ -169,6 +181,8 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
         if not access or access["network_role"] not in {"OWNER", "DIRECTOR"}:
             raise HTTPException(403, "network_office_creation_denied")
 
+        _assert_office_code_available(conn, current["group_id"], office_code)
+
         conn.execute(text('select billing_assert_capacity(:org,:resource,1)'),
             {'org':org_id,'resource':'max_warehouses' if workspace_kind=='WAREHOUSE' else 'max_offices'})
 
@@ -178,6 +192,11 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
         raise HTTPException(500, "office_provisioning_failed")
     office_id = str(office["id"])
     with engine.begin() as conn:
+        conn.execute(text("select pg_advisory_xact_lock(hashtextextended(:scope,0))"),
+                     {"scope": f"network-office-codes:{current['group_id']}"})
+        # Provisioning uses its own transactions; recheck under a network lock
+        # to serialize final assignment by concurrent office creations.
+        _assert_office_code_available(conn, current["group_id"], office_code)
         country = conn.execute(text("""
             insert into organization_countries(group_id,country_code,country_name,default_currency_code,default_timezone)
             values(cast(:group_id as uuid),upper(:country_code),:country,upper(:currency),:timezone)
@@ -191,7 +210,7 @@ def create_office(org_id: str, actor: dict, payload: dict) -> dict:
               organization_code=:code,country=:country,city=:city,address=:address,phone=:phone,email=:email,updated_at=now()
             where id=:office_id
         """), {"group_id": current["group_id"], "country_id": country["id"], "parent": org_id,
-                 "code": payload["office_code"].upper(), "country": payload["country"], "city": payload["city"],
+                 "code": office_code, "country": payload["country"], "city": payload["city"],
                  "address": payload.get("address"), "phone": payload.get("phone"), "email": payload.get("email"),
                  "office_id": office_id, "workspace_kind": workspace_kind})
         conn.execute(text("""

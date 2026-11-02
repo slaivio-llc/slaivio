@@ -197,6 +197,7 @@ def parcel_operational_knowledge(org_id: str) -> list[dict]:
                 f"Pays: {item.get('country')}" if item.get('country') else None,
                 f"Contact: {item.get('contact')}" if item.get('contact') else None,
                 f"Autres contacts: {item.get('additional_contacts')}" if item.get('additional_contacts') else None,
+                f"Horaires: {json.dumps(item['opening_hours'], ensure_ascii=False, default=str)}" if item.get('opening_hours') else None,
                 f"Services: {', '.join(item.get('services') or [])}" if item.get('services') else None,
             ]))
             sources.append({"id": f"location:{item['id']}", "title": item["name"], "content": content,
@@ -204,35 +205,62 @@ def parcel_operational_knowledge(org_id: str) -> list[dict]:
                             "source_kind": "OPERATIONAL"})
         services = conn.execute(text("""
           select service.id::text,service.service_name,service.shipping_mode,
-                 service.service_type,service.eta_min_days,service.eta_max_days,
-                 service.currency_code,route.route_name,route.origin_country,
+                 service.service_type,service.public_description,
+                 coalesce(public_offering.eta_min_days,service.eta_min_days,route.eta_min_days) eta_min_days,
+                 coalesce(public_offering.eta_max_days,service.eta_max_days,route.eta_max_days) eta_max_days,
+                 service.currency_code,route.id::text route_id,route.route_name,route.origin_country,
                  route.origin_city,route.destination_country,route.destination_city,
                  rate.goods_label,rate.goods_category,rate.billing_unit,
                  rate.amount_minor,rate.currency_code rate_currency,rate.express,
                  greatest(service.updated_at,rate.updated_at) updated_at
           from shipping_services service
-          join shipping_routes route on route.id=service.route_id and route.org_id=service.org_id
-          left join service_goods_rates rate on rate.shipping_service_id=service.id
+          join shipping_routes route on route.org_id=service.org_id and (
+            route.id=service.route_id or exists (
+              select 1 from service_route_offerings offering
+              where offering.org_id=service.org_id and offering.service_id=service.id
+                and offering.route_id=route.id and offering.availability in ('AVAILABLE','LIMITED')
+                and offering.public_visible
+                and offering.effective_from<=now()
+                and (offering.effective_until is null or offering.effective_until>now())
+            )
+          )
+          left join lateral (
+            select offering.eta_min_days,offering.eta_max_days from service_route_offerings offering
+            where offering.org_id=service.org_id and offering.service_id=service.id and offering.route_id=route.id
+              and offering.public_visible and offering.availability in ('AVAILABLE','LIMITED')
+              and offering.effective_from<=now() and (offering.effective_until is null or offering.effective_until>now())
+            order by offering.updated_at desc limit 1
+          ) public_offering on true
+          left join service_goods_rates rate on rate.shipping_service_id=service.id and route.id=service.route_id
             and rate.org_id=service.org_id and rate.active and rate.effective_from<=now()
             and (rate.effective_until is null or rate.effective_until>now())
-          where service.org_id=:org_id and service.active and route.archived_at is null
+          where service.org_id=:org_id and service.active and service.public_visible
+            and service.status in ('ACTIVE','LIMITED') and service.archived_at is null
+            and service.availability in ('AVAILABLE','LIMITED','QUOTE_ONLY')
+            and route.archived_at is null
             and route.active and coalesce(route.public_visible,true)
           order by route.route_name,service.priority,rate.goods_label
           limit 200
         """), {"org_id": org_id}).mappings().all()
-        grouped: dict[str, dict] = {}
+        grouped: dict[tuple, dict] = {}
         for item in services:
-            source = grouped.setdefault(item["id"], {
-                "id": f"service:{item['id']}", "title": item["service_name"], "lines": [],
+            source = grouped.setdefault((item["id"], item["route_id"]), {
+                "id": f"service:{item['id']}:{item['route_id']}", "title": f"{item['service_name']} · {item['route_name']}", "lines": [],
                 "updated_at": item.get("updated_at"), "rank": 1.0, "source_kind": "OPERATIONAL",
             })
             if not source["lines"]:
                 origin = ", ".join(filter(None, [item.get("origin_city"), item.get("origin_country")]))
                 destination = ", ".join(filter(None, [item.get("destination_city"), item.get("destination_country")]))
+                minimum, maximum = item.get('eta_min_days'), item.get('eta_max_days')
+                delay = (f"{minimum} à {maximum} jours" if minimum is not None and maximum is not None else
+                         f"à partir de {minimum} jours" if minimum is not None else
+                         f"jusqu’à {maximum} jours" if maximum is not None else "à confirmer auprès de l’agence")
                 source["lines"].append(
                     f"Service: {item['service_name']}; route: {origin} vers {destination}; "
-                    f"voie: {item['shipping_mode']}; délai annoncé: {item['eta_min_days']} à {item['eta_max_days']} jours."
+                    f"voie: {item['shipping_mode']}; délai annoncé: {delay}."
                 )
+                if item.get('public_description'):
+                    source["lines"].append(f"Informations clients: {item['public_description']}")
             if item.get("goods_label"):
                 amount = float(item["amount_minor"] or 0) / 100
                 source["lines"].append(
@@ -243,6 +271,69 @@ def parcel_operational_knowledge(org_id: str) -> list[dict]:
             content = "\n".join(source.pop("lines"))
             source.update(content=content, matched_content=content)
             sources.append(source)
+
+        # Only explicitly public, effective, general base prices. Conditional,
+        # negotiated and client-specific rules still require an actual quote.
+        public_prices = conn.execute(text("""
+          select grid.id::text,service.service_name,route.route_name,
+                 rule.amount::text amount,coalesce(rule.calculation_method,grid.calculation_method) method,
+                 grid.currency_code,rule.conditions,grid.minimum_billable_amount,grid.updated_at
+          from pricing_grids grid
+          join shipping_services service on service.id=grid.shipping_service_id and service.org_id=grid.org_id
+          join shipping_routes route on route.id=grid.route_id and route.org_id=grid.org_id
+          join pricing_grid_rules rule on rule.grid_id=grid.id and rule.org_id=grid.org_id
+          where grid.org_id=:org_id and grid.status='ACTIVE' and grid.visibility='PUBLIC'
+            and grid.archived_at is null and grid.effective_from<=now()
+            and (grid.effective_until is null or grid.effective_until>now())
+            and (not grid.requires_approval or grid.approved_at is not null)
+            and service.public_visible and service.active and service.archived_at is null
+            and service.status in ('ACTIVE','LIMITED') and service.availability in ('AVAILABLE','LIMITED') and not service.quote_only
+            and route.active and route.archived_at is null and coalesce(route.public_visible,true)
+            and rule.active and rule.action_type='SET_PRICE' and rule.amount is not null
+            and (select count(*) from pricing_grid_rules candidate
+                 where candidate.org_id=grid.org_id and candidate.grid_id=grid.id
+                   and candidate.active and candidate.action_type='SET_PRICE')=1
+            and rule.effective_from<=now() and (rule.effective_until is null or rule.effective_until>now())
+            and rule.client_id is null and rule.client_segment is null and rule.category_id is null
+            and rule.office_id is null and rule.warehouse_id is null
+            and (rule.conditions - array['category_code','package_type'])='{}'::jsonb
+            and rule.min_weight_kg is null and rule.max_weight_kg is null
+            and rule.min_cbm is null and rule.max_cbm is null and rule.min_value is null and rule.max_value is null
+            and rule.min_units is null and rule.max_units is null
+            and grid.minimum_weight_kg is null and grid.minimum_cbm is null
+            and grid.maximum_weight_kg is null and grid.maximum_cbm is null and grid.maximum_declared_value is null
+            and coalesce(rule.calculation_method,grid.calculation_method) in ('PER_KG','PER_CBM','PER_PACKAGE','PER_UNIT','FIXED')
+          order by grid.updated_at desc limit 40
+        """), {"org_id": org_id}).mappings().all()
+        units = {'PER_KG': 'par kilogramme facturable', 'PER_CBM': 'par mètre cube',
+                 'PER_PACKAGE': 'par colis', 'PER_UNIT': 'par unité', 'FIXED': 'montant de base fixe'}
+        for item in public_prices:
+            conditions = item.get('conditions') or {}
+            # Only the published category/packaging conditions are rendered;
+            # unknown formats are not usable as a customer-facing price.
+            categories = {'ORDINARY_GOODS':'marchandise ordinaire','TEXTILES':'vêtements et textiles',
+                          'SENSITIVE_GOODS':'marchandise sensible','DANGEROUS_GOODS':'marchandise dangereuse',
+                          'FRAGILE':'fragile','ELECTRONICS':'électronique','BATTERY':'batterie','LIQUID':'liquide',
+                          'FOOD':'alimentaire','PHARMACEUTICAL':'pharmaceutique','HIGH_VALUE':'haute valeur'}
+            packaging = {'carton':'carton','sac':'sac','caisse':'caisse','palette':'palette',
+                         'document':'document','lot':'lot','other':'autre conditionnement'}
+            if not isinstance(conditions, dict):
+                continue
+            category, package = conditions.get('category_code'), conditions.get('package_type')
+            if (category is not None and (not isinstance(category, str) or category not in categories)) or (package is not None and (not isinstance(package, str) or package not in packaging)):
+                continue
+            content = (f"Tarif de base public: {item['service_name']}; route: {item['route_name']}; "
+                       f"{item['amount']} {item['currency_code']} {units[item['method']]}. "
+                       "Ce prix de base n’est pas un devis total. Les frais, taxes et conditions applicables doivent être confirmés par l’agence.")
+            if conditions.get('category_code'):
+                content += f" Applicable uniquement à la catégorie: {categories[conditions['category_code']]}."
+            if conditions.get('package_type'):
+                content += f" Applicable uniquement au conditionnement: {packaging[conditions['package_type']]}."
+            if item.get('minimum_billable_amount') is not None:
+                content += f" Minimum de facturation: {item['minimum_billable_amount']} {item['currency_code']}."
+            sources.append({'id': f"public-price:{item['id']}", 'title': f"Tarif public · {item['service_name']}",
+                            'content': content, 'matched_content': content, 'updated_at': item.get('updated_at'),
+                            'rank': 1.0, 'source_kind': 'OPERATIONAL'})
 
         departures = conn.execute(text("""
           select departure.id::text,departure.departure_code,departure.scheduled_at,

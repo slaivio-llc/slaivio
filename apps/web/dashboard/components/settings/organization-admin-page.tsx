@@ -186,13 +186,13 @@ export function OrganizationAdminPage() {
         brand_image_content_invalid:"Ce fichier n’est pas une image valide. Choisissez une autre image.",
         brand_image_too_large:"L’image doit peser entre 1 octet et 5 Mo.",
         brand_image_dimensions_invalid:"L’image ne doit pas dépasser 4 096 × 4 096 pixels.",
-        brand_image_storage_unavailable:"Le téléversement est indisponible. Vérifiez la configuration du stockage et réessayez.",
+        brand_image_storage_unavailable:"Le logo n’a pas pu être enregistré. Réessayez ou contactez le support SLAIVIO.",
       };
       setError(messages[String(detail)] || (
         detail === "organization_requires_an_active_owner"
           ? "Une organisation doit toujours conserver au moins un propriétaire actif."
           : detail === "clerk_organizations_not_enabled"
-            ? "Impossible d’envoyer l’invitation : activez Organizations dans le Clerk Dashboard de l’instance utilisée par l’API, puis réessayez."
+            ? "L’invitation ne peut pas être envoyée pour le moment. Contactez le support SLAIVIO."
             : detail === "invitation_provider_unavailable"
               ? "Le service d’invitation est temporairement injoignable. Réessayez plus tard."
           : "L’enregistrement a échoué. Vérifiez les champs et vos droits d’accès."

@@ -3,6 +3,7 @@ from app.organizations.services.staff_roles import StaffRole
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import get_current_manager
 from app.core.permissions import require_permission
@@ -68,7 +69,17 @@ def setup_network(body: NetworkSetup, tenant=Depends(get_current_tenant), manage
 
 @router.post("/offices", dependencies=[Depends(require_permission("network.offices.manage"))])
 def create_office(body: OfficeCreate, tenant=Depends(get_current_tenant), manager=Depends(get_current_manager)):
-    return {"status": "ok", **repo.create_office(tenant["org_id"], manager, body.model_dump())}
+    try:
+        return {"status": "ok", **repo.create_office(tenant["org_id"], manager, body.model_dump())}
+    except IntegrityError as exc:
+        constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+        if constraint == "uniq_organizations_network_code":
+            raise HTTPException(409, "network_office_code_already_exists") from exc
+        if constraint == "uniq_organizations_code":
+            # Compatibility until the operator applies migration 166. Do not
+            # claim that a different tenant's code belongs to this agency.
+            raise HTTPException(409, "network_office_code_unavailable") from exc
+        raise
 
 
 @router.post("/members/grant", dependencies=[Depends(require_permission("network.members.manage"))])

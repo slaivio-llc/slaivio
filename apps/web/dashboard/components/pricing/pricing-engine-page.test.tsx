@@ -67,8 +67,24 @@ describe("PricingEnginePage tariff creation", () => {
     expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({
       name: "Tarif cargo", route_id: "route-1", shipping_service_id: "service-1",
       calculation_method: "PER_KG", initial_price: 8.5, initial_category_code: "FRAGILE",
-      initial_package_type: "carton", currency_code: "USD", requires_approval: true,
+      initial_package_type: "carton", currency_code: "USD", requires_approval: true, visibility: "INTERNAL",
     }));
+  });
+
+  it('keeps public tariff visibility an explicit agency choice',async()=>{
+    render(<PricingEnginePage/>);
+    fireEvent.click(await screen.findByRole('button',{name:/Nouveau tarif/}));
+    await waitFor(()=>expect(screen.getByLabelText('Devise')).toHaveValue('USD'));
+    const visible=screen.getByRole('checkbox',{name:/Autoriser l’assistant/});
+    expect(visible).not.toBeChecked();
+    fireEvent.click(visible);
+    fireEvent.change(screen.getByLabelText(/Nom du tarif/),{target:{value:'Tarif public'}});
+    fireEvent.change(screen.getByLabelText(/^Service/),{target:{value:'service-1'}});
+    fireEvent.change(screen.getByLabelText(/^Route/),{target:{value:'route-1'}});
+    fireEvent.change(screen.getByLabelText(/Prix par kilogramme/),{target:{value:'8.50'}});
+    fireEvent.click(screen.getByRole('button',{name:/Vérifier le tarif/}));
+    fireEvent.click(screen.getByRole('button',{name:/Enregistrer le tarif/}));
+    await waitFor(()=>expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({visibility:'PUBLIC',requires_approval:true})));
   });
 
   it("places the management tariff action in the page header and opens its form", async () => {

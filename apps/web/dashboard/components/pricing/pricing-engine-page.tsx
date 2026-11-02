@@ -427,7 +427,7 @@ function CreateGrid({
     name: string; route: string; service: string; packageType: string; classification: string;
     unit: "PER_KG" | "PER_CBM" | "PER_PACKAGE" | "PER_UNIT"; currency: string;
     priceMode: "single" | "tiered"; price: string; minimumAmount: string; effectiveFrom: string;
-    effectiveUntil: string; note: string; approval: boolean;
+    effectiveUntil: string; note: string; approval: boolean; publicForClients: boolean;
   };
   const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const [step, setStep] = useState<1 | 2>(1);
@@ -478,6 +478,7 @@ function CreateGrid({
       price: String(form.get("price") || ""), minimumAmount: String(form.get("minimum_amount") || ""),
       effectiveFrom, effectiveUntil,
       note: String(form.get("note") || "").trim(), approval: form.get("approval") === "on",
+      publicForClients: form.get("public_for_clients") === "on",
     });
     setStep(2);
   }
@@ -504,6 +505,7 @@ function CreateGrid({
         effective_from: new Date(`${draft.effectiveFrom}T00:00:00`).toISOString(),
         effective_until: draft.effectiveUntil ? new Date(`${draft.effectiveUntil}T23:59:59`).toISOString() : null,
         requires_approval: draft.approval,
+        visibility: draft.publicForClients ? "PUBLIC" : "INTERNAL",
       });
       await done(created.id);
     } catch {
@@ -558,12 +560,14 @@ function CreateGrid({
           <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-[13px]">{dashboardText("Début *")}<input required name="effective_from" type="date" defaultValue={today} className={input} /></label><label className="grid gap-1.5 text-[13px]">{dashboardText("Fin (facultatif)")}<input name="effective_until" type="date" min={today} className={input} /></label></div>
           <label className="grid gap-1.5 text-[13px]">{dashboardText("Note interne")}<textarea name="note" rows={2} maxLength={1000} className={`${input} h-auto py-2`} placeholder={dashboardText("Conditions ou références internes…")} /></label>
           <label className="flex items-start gap-2 text-[13px]"><input name="approval" type="checkbox" defaultChecked className="mt-0.5" /><span>{dashboardText("Activer après validation")}<small className="block text-xs text-slate-500">{dashboardText("Le tarif restera en brouillon jusqu’à son approbation et sa publication.")}</small></span></label>
+          <label className="flex items-start gap-2 text-[13px]"><input name="public_for_clients" type="checkbox" className="mt-0.5"/><span>{dashboardText("Autoriser l’assistant à communiquer ce tarif aux clients")}<small className="block text-xs text-slate-500">{dashboardText("Après publication, le prix de base pourra être communiqué. Le montant final et les conditions particulières restent à confirmer.")}</small></span></label>
         </section>
         {error && <p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
         <div className="flex justify-end border-t border-slate-200 pt-4"><button disabled={!currencyReady} className={primary}>{dashboardText("Vérifier le tarif ")}<ChevronRight size={14} /></button></div>
       </form> : <div className="grid gap-5">
         <section className="grid gap-3"><h3 className="text-sm font-semibold">{dashboardText("Récapitulatif du tarif")}</h3>{[
           [dashboardText("Tarif"), draft?.name], [dashboardText("Service"), serviceName], [dashboardText("Route"), routeName],
+          [dashboardText("Visibilité client"), draft?.publicForClients ? dashboardText("Visible") : dashboardText("Interne uniquement")],
           [dashboardText("Conditionnement"), dashboardText(packageTypeLabels[draft?.packageType || ""])], [dashboardText("Marchandise"), goodsClassificationLabels[draft?.classification || ""]],
           [dashboardText("Unité"), unitLabel], [dashboardText("Mode de prix"), draft?.priceMode === "tiered" ? dashboardText("{0} palier(s)", tiers.length) : `${draft?.price} ${draft?.currency}`],
           [dashboardText("Montant minimum"), draft?.minimumAmount ? `${draft.minimumAmount} ${draft.currency}` : dashboardText("Aucun")],

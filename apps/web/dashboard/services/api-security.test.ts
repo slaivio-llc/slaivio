@@ -1,8 +1,17 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { api, API_BASE_URL, setAccessTokenProvider } from './api';
+import { api, API_BASE_URL, setAccessTokenProvider, apiErrorDetail } from './api';
 import type { InternalAxiosRequestConfig } from 'axios';
 
 afterEach(()=>setAccessTokenProvider(null));
+
+it('explains a duplicate office code without exposing database or other agency details',()=>{
+  const message=apiErrorDetail({isAxiosError:true,response:{data:{detail:'network_office_code_already_exists'}}});
+  expect(message).toBe('Ce code est déjà utilisé par un bureau ou un entrepôt de votre réseau. Choisissez un autre code.');
+  expect(message).not.toMatch(/organizations|constraint|SQL|network_office/);
+  const legacy=apiErrorDetail({isAxiosError:true,response:{data:{detail:'network_office_code_unavailable'}}});
+  expect(legacy).toContain('Choisissez un autre code');
+  expect(legacy).not.toContain('votre réseau');
+});
 
 it.each(['https://untrusted.example/attachment','//untrusted.example/attachment'])('does not send session credentials outside the API: %s',async url=>{
   const token=vi.fn().mockResolvedValue('private-session');

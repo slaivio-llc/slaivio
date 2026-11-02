@@ -6,8 +6,9 @@ vi.mock('@/services/api',()=>({api:{post:vi.fn()}}));
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(api.post).mockResolvedValue({data:{status:'ok'}});});
 
 it('requires confirmation and submits a request, never immediate account deletion',async()=>{
- render(<AccountDeletionSettings/>);
- fireEvent.click(screen.getByText('Supprimer mon compte Slaivio'));
+ const {container}=render(<AccountDeletionSettings/>);
+ expect(container.querySelector('details')).toBeNull();
+ expect(screen.getByLabelText('Tapez SUPPRIMER pour confirmer')).toBeVisible();
  const button=screen.getByRole('button',{name:'Demander la suppression de mon compte'});
  expect(button).toBeDisabled();
  fireEvent.change(screen.getByLabelText('Tapez SUPPRIMER pour confirmer'),{target:{value:'SUPPRIMER'}});

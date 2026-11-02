@@ -17,7 +17,14 @@ ajoute l’allocateur de références d’expédition et le type de demande de s
 - Livraison & conditions clients : livraison, retrait et crédit client.
 - Références : formats des colis, clients, expéditions et dossiers ; création d’un compteur absent.
 - Notifications : confirmations séparées des relances, délais et frais de garde.
-- Abonnement : même conteneur que les autres sections, chargement sans shimmer.
+- Abonnement : préchargé dans le même conteneur que les autres sections, sans
+  écran de chargement propre à l’onglet. Les packs s’ouvrent uniquement dans la
+  fenêtre « Gérer mon offre » (ou « Augmenter ma capacité »), jamais dans la page.
+
+Le profil et les onglets fusionnés présentent chacun un seul bouton Enregistrer.
+Les réglages réception/horaires et livraison/conditions sont regroupés dans une
+seule requête versionnée par onglet. Le profil enregistre ses coordonnées et ses
+préférences via leurs deux API existantes ; ce n’est pas une transaction commune.
 
 Les anciens liens `hours`, `clients`, `general` et `preferences` ouvrent les
 sections regroupées. Les champs légaux et le slogan sont retirés du formulaire,
@@ -29,7 +36,8 @@ validation avant chargement. Il ne s’agit pas d’un moteur douanier par pays.
 
 ## Suppression du compte
 
-La section Sécurité permet une **demande**, confirmée par `SUPPRIMER`, pour
+Le formulaire est directement visible dans Sécurité, sans dépliant. Il permet
+une **demande**, confirmée par `SUPPRIMER`, pour
 l’utilisateur connecté uniquement. Elle ne supprime pas immédiatement le compte
 Clerk, ses appartenances ou les données de l’agence.
 

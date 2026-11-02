@@ -14,9 +14,27 @@ const overview:billing.BillingOverview={
   subscription:{plan_code:'STARTER',plan_name:'Starter',status:'TRIAL',monthly_price_minor:11900,currency_code:'USD',trial_ends_at:new Date(Date.now()+30*86400000).toISOString(),ends_at:null},invoices:[],usage:{clients:2,members:1},
 };
 
+it('keeps packs off the subscription page and opens a keyboard-accessible offer dialog only on request',async()=>{
+  render(<SubscriptionSettings organization={{}}/>);
+  expect(screen.queryByText('Chargement de l’abonnement…')).not.toBeInTheDocument();
+  const manage=await screen.findByRole('button',{name:'Gérer mon offre'});
+  expect(screen.queryByRole('article')).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  manage.focus();fireEvent.click(manage);
+  const dialog=screen.getByRole('dialog',{name:'Une offre adaptée à votre agence'});
+  expect(dialog).toHaveFocus();
+  expect(screen.getByRole('article',{name:'Offre Pro'})).toBeVisible();
+  expect(document.body.style.overflow).toBe('hidden');
+  fireEvent.keyDown(dialog,{key:'Escape'});
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(manage).toHaveFocus();
+  expect(document.body.style.overflow).toBe('');
+});
+
 it('shows server-enforced capacities, an 80 percent warning and a transition without inventing unlimited access',async()=>{
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,capacity:{limits:{max_monthly_packages:500,max_users:3},usage:{max_monthly_packages:400,max_users:3},transition_active:true,enforce_from:'2026-11-26T00:00:00Z',period_ends_at:'2026-11-01T00:00:00Z',timezone:'Africa/Kinshasa'}});
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   expect(await screen.findByRole('progressbar',{name:'Colis créés par mois'})).toHaveAttribute('value','400');
   expect(screen.getByText(/au moins 80 %/)).toBeVisible();
   expect(screen.getByText(/Limite atteinte/)).toBeVisible();
@@ -37,6 +55,7 @@ beforeEach(()=>{
 
 it('does not repeat the header trial reminder in subscription settings or charge automatically',async()=>{
   render(<SubscriptionSettings organization={{organization_name:'Cargo',email:'owner@example.com'}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   expect(await screen.findByRole('heading',{name:'Une offre adaptée à votre agence'})).toBeVisible();
   expect(screen.queryByRole('heading',{name:'Essai gratuit de 30 jours'})).not.toBeInTheDocument();
   expect(billing.createSubscriptionCheckout).not.toHaveBeenCalled();
@@ -44,6 +63,7 @@ it('does not repeat the header trial reminder in subscription settings or charge
 
 it('creates a hosted checkout without sending an amount or a success status from the browser',async()=>{
   render(<SubscriptionSettings organization={{organization_name:'Cargo',email:'owner@example.com'}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   fireEvent.click(await screen.findByRole('button',{name:'Choisir Starter'}));
   expect(screen.queryByRole('textbox',{name:/email/i})).not.toBeInTheDocument();
   expect(screen.queryByRole('textbox',{name:'Nom du payeur'})).not.toBeInTheDocument();
@@ -57,11 +77,12 @@ it('creates a hosted checkout without sending an amount or a success status from
 it('shows real account details, history and a working offer toggle without fake saved payment methods',async()=>{
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,payer:{name:'Awa Sossou',email:'awa@example.com'},invoices:[{id:'invoice',invoice_number:'SLA-2026-1',status:'PAID',total_minor:11900,currency_code:'USD',created_at:'2026-10-25T10:00:00Z'}]});
   render(<SubscriptionSettings organization={{email:'wrong-agency@example.com'}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   expect(await screen.findByText('awa@example.com')).toBeVisible();
   expect(screen.queryByText('wrong-agency@example.com')).not.toBeInTheDocument();
   expect(screen.getByText('SLA-2026-1')).toBeVisible();
   expect(screen.getByText('Payée')).toBeVisible();
-  fireEvent.click(screen.getByRole('button',{name:'Masquer les offres'}));
+  fireEvent.click(screen.getByRole('button',{name:'Fermer'}));
   expect(screen.queryByRole('article',{name:'Offre Starter'})).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button',{name:'Gérer mon offre'}));
   expect(screen.getByRole('article',{name:'Offre Starter'})).toBeVisible();
@@ -71,6 +92,7 @@ it('shows real account details, history and a working offer toggle without fake 
 it('does not display an active paid subscription just because the browser returned from checkout',async()=>{
   navigation.params=new URLSearchParams('checkout=checkout');
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   expect(await screen.findByText('Le paiement est en attente de confirmation.')).toBeVisible();
   expect(billing.verifySubscriptionCheckout).toHaveBeenCalledWith('checkout');
   expect(screen.queryByText('Paiement confirmé. Votre abonnement est actif.')).not.toBeInTheDocument();
@@ -79,6 +101,7 @@ it('does not display an active paid subscription just because the browser return
 it('keeps offer selection available but disables payment when the provider is not configured',async()=>{
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,checkout_available:false});
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   fireEvent.click(await screen.findByRole('button',{name:'Choisir Starter'}));
   expect(screen.getByRole('button',{name:/Payer .* avec SasPay/})).toBeDisabled();
   expect(screen.getByText(/Le paiement SasPay est en cours d’activation/)).toBeVisible();
@@ -86,6 +109,7 @@ it('keeps offer selection available but disables payment when the provider is no
 
 it('presents all three priced offer cards with no plan dropdown',async()=>{
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   expect(await screen.findByRole('article',{name:'Offre Starter'})).toHaveTextContent('119');
   expect(screen.getByRole('article',{name:'Offre Pro'})).toHaveTextContent('299');
   expect(screen.getByRole('article',{name:'Offre Business'})).toHaveTextContent('799');
@@ -98,6 +122,7 @@ it('explains team seats and shows real benefits returned by the catalogue',async
     {code:'PRO',name:'Pro',monthly_price_minor:29900,currency_code:'USD',limits:{max_users:10},positioning:'Suivre vos clients au-delà des confirmations.',value_highlights:['Relancer les colis attendus et les départs bloqués selon vos réglages'],included_features:['Relances clients programmées']},
   ]);
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   const card=await screen.findByRole('article',{name:'Offre Pro'});
   expect(card).toHaveTextContent('Ce que cela change au quotidien');
   expect(card).toHaveTextContent('départs bloqués');
@@ -108,6 +133,7 @@ it('explains team seats and shows real benefits returned by the catalogue',async
 
 it('chooses Pro from its card and charges only the server-side plan code',async()=>{
   render(<SubscriptionSettings organization={{organization_name:'Cargo',email:'owner@example.com'}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   fireEvent.click(await screen.findByRole('button',{name:'Choisir Pro'}));
   expect(screen.getByRole('button',{name:'Offre sélectionnée'})).toHaveAttribute('aria-pressed','true');
   fireEvent.submit(screen.getByRole('form',{name:'Finaliser l’abonnement'}));
@@ -117,12 +143,14 @@ it('chooses Pro from its card and charges only the server-side plan code',async(
 it('recovers a pending payment from the server even if the browser storage was cleared',async()=>{
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,pending_checkout:{id:'server-checkout',plan_code:'STARTER',status:'PENDING'}});
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   await waitFor(()=>expect(billing.verifySubscriptionCheckout).toHaveBeenCalledWith('server-checkout'));
 });
 
 it('allows switching plans and shows only current catalogue prices despite a legacy pending checkout',async()=>{
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,pending_checkout:{id:'old-checkout',plan_code:'STARTER',status:'PENDING',amount_minor:4900,currency_code:'USD'}});
   render(<SubscriptionSettings organization={{organization_name:'Cargo',email:'owner@example.com'}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   await waitFor(()=>expect(billing.verifySubscriptionCheckout).toHaveBeenCalledWith('old-checkout'));
   await waitFor(()=>expect(screen.getByRole('button',{name:'Choisir Pro'})).toBeEnabled());
   fireEvent.click(screen.getByRole('button',{name:'Choisir Pro'}));
@@ -134,6 +162,7 @@ it('allows switching plans and shows only current catalogue prices despite a leg
 it('uses equal grey card borders and only server-supplied features',async()=>{
   vi.mocked(billing.getSubscriptionPlans).mockResolvedValue([{code:'PRO',name:'Pro',monthly_price_minor:29900,currency_code:'USD',max_users:999,included_features:['Gestion des colis et des expéditions']}]);
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   const card=await screen.findByRole('article',{name:'Offre Pro'});
   expect(card).toHaveClass('border-[#e0e4e7]','hover:border-[#18794e]');
   expect(card).toHaveTextContent('Gestion des colis et des expéditions');
@@ -144,6 +173,7 @@ it('cancels an old pending checkout with the server before clearing it locally',
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,pending_checkout:{id:'old-checkout',plan_code:'STARTER',status:'PENDING',amount_minor:4900,currency_code:'USD'}});
   vi.mocked(billing.cancelSubscriptionCheckout).mockResolvedValue({id:'old-checkout',status:'CANCELLED'});
   render(<SubscriptionSettings organization={{}}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Gérer mon offre'}));
   await waitFor(()=>expect(billing.verifySubscriptionCheckout).toHaveBeenCalled());
   await waitFor(()=>expect(screen.getByRole('button',{name:'Annuler l’ancien paiement'})).toBeEnabled());
   vi.mocked(billing.getSubscriptionBilling).mockResolvedValue(overview);

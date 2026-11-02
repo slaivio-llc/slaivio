@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OrganizationAdminPage } from "./organization-admin-page";
-import { getAdmin, inviteMember, updateMember, updateOrganization, uploadAgencyBrandImage, saveNumbering, type AdminData } from "@/services/organization-admin";
+import { getAdmin, inviteMember, updateMember, updateOrganization, uploadAgencyBrandImage, saveNumbering, updateSettings, type AdminData } from "@/services/organization-admin";
 
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: navigation.replace }), useSearchParams: () => navigation.params }));
@@ -31,6 +31,27 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it.each(['packages','delivery'])('saves all fields of the merged %s tab in one versioned request',async(section)=>{
+    navigation.params=new URLSearchParams(`section=${section}`);
+    const {container}=render(<OrganizationAdminPage/>);
+    const save=await screen.findByRole('button',{name:'Enregistrer'});
+    expect(screen.getAllByRole('button',{name:'Enregistrer'})).toHaveLength(1);
+    expect(container.querySelector('form form')).toBeNull();
+    if(section==='packages'){
+      fireEvent.change(screen.getByLabelText('Horaires de l’agence'),{target:{value:'09:00 – 18:00'}});
+      fireEvent.click(screen.getByLabelText('Autoriser les photos du colis'));
+    }else{
+      fireEvent.click(screen.getByLabelText('Autoriser le crédit client'));
+      fireEvent.change(screen.getByLabelText('Délai indicatif de retrait (jours)'),{target:{value:'21'}});
+    }
+    fireEvent.click(save);
+    await waitFor(()=>expect(updateSettings).toHaveBeenCalledTimes(1));
+    const payload=vi.mocked(updateSettings).mock.calls[0][0];
+    expect(payload.expected_version).toBe(2);
+    if(section==='packages'){
+      expect(payload).toMatchObject({timezone:'Africa/Kinshasa',settings:{agency_hours:{text:'09:00 – 18:00'},parcel_receipt_rules:{allow_photos:false,category_required:true}}});
+    }else expect(payload).toMatchObject({settings:{shipment_delivery_rules:{pickup_delay_days:21,delivery_proof:true},client_conditions:{allow_customer_credit:true}}});
+  });
   it('keeps subscription in the same settings container and groups notifications on demand',async()=>{
     const {container}=render(<OrganizationAdminPage/>);
     await screen.findByRole('heading',{name:'Paramètres de l’agence'});
@@ -58,6 +79,8 @@ describe("agency settings navigation and uploads", () => {
     expect(menu.queryByRole('button',{name:'Clients & conditions'})).not.toBeInTheDocument();
     expect(screen.getByLabelText('Langue par défaut')).toBeVisible();
     expect(screen.getByLabelText('Devise de référence')).toBeVisible();
+    expect(screen.getAllByRole('button',{name:'Enregistrer'})).toHaveLength(1);
+    expect(container.querySelector('form form')).toBeNull();
     for(const name of ['Identifiant fiscal','Numéro d’enregistrement','Slogan','Raison sociale'])expect(screen.queryByLabelText(name)).not.toBeInTheDocument();
     fireEvent.submit(screen.getByLabelText('Nom commercial *').closest('form')!);
     await waitFor(()=>expect(updateOrganization).toHaveBeenCalled());

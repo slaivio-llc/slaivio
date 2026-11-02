@@ -2,7 +2,8 @@
 import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/components/i18n/dashboard-messages';
 
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Check, CreditCard, ShieldCheck } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
@@ -27,7 +28,7 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
   const [checking,setChecking]=useState(false);
   const [pending,setPending]=useState('');
   const [selectedPlan,setSelectedPlan]=useState('');
-  const [showOffers,setShowOffers]=useState<boolean|null>(null);
+  const [showOffers,setShowOffers]=useState(false);
   const load=useCallback(async()=>{
     const [data,catalog]=await Promise.all([getSubscriptionBilling(),getSubscriptionPlans()]);
     setBilling(data);setPlans(catalog);
@@ -89,10 +90,10 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
     finally{setBusy(false);}
   }
 
-  if(!billing)return error?<ErrorState title={dashboardText("Abonnement indisponible")} description={dashboardText(error)} retry={()=>{setError('');void load().catch(()=>setError('Impossible de charger votre abonnement.'));}}/>:<p role="status" className="py-6 text-[13px] text-[#697178]">{dashboardText("Chargement de l’abonnement…")}</p>;
+  if(!billing)return error?<ErrorState title={dashboardText("Abonnement indisponible")} description={dashboardText(error)} retry={()=>{setError('');void load().catch(()=>setError('Impossible de charger votre abonnement.'));}}/>:null;
   const subscription=billing.subscription;
   const trial=subscription?.status==='TRIAL';
-  const offersVisible=showOffers??trial;
+  const offersVisible=showOffers;
   const selected=plans.find(plan=>plan.code===selectedPlan);
   const paymentPrice=selected?money(selected.monthly_price_minor,selected.currency_code):'';
   const currentName=subscription?.plan_code==='ENTERPRISE'?'Business':subscription?.plan_name||'Starter';
@@ -101,18 +102,19 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
     {notice&&<p role="status" className="rounded-lg bg-[#f4f6f5] p-3 text-[14px] text-[#30363a]">{dashboardText(notice)}</p>}
     {checking&&<p role="status" className="text-[13px] text-[#697178]">{dashboardText("Vérification de l’ancien paiement… Vous pouvez déjà comparer les offres.")}</p>}
     {pending&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e0e4e7] p-4 text-[13px]"><p className="max-w-xl leading-6 text-[#697178]">{dashboardText("Un ancien paiement est en attente. Vous pouvez l’annuler ou choisir une offre : avant tout nouveau paiement, la session précédente sera vérifiée et annulée si elle n’est pas déjà payée ou en cours de traitement.")}</p><OperationButton disabled={busy} onClick={()=>void cancel()}>{dashboardText("Annuler l’ancien paiement")}</OperationButton></div>}
-    <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#e4e7e9] p-4" aria-label={dashboardText("Abonnement actuel")}><div><h3 className="text-[15px] font-semibold">{currentName}{trial?dashboardText(" · En essai"):''}</h3><p className="mt-1 text-[13px] text-[#697178]">{trial?dashboardText("Choisissez votre offre quand vous êtes prêt."):dashboardText("Accès jusqu’au {0} · Renouvellement manuel", date(subscription?.ends_at))}</p></div><button type="button" onClick={()=>setShowOffers(!offersVisible)} aria-expanded={offersVisible} className="rounded-full bg-[#f3f4f3] px-4 py-2 text-[13px] font-medium hover:bg-[#e9edeb]">{offersVisible?dashboardText("Masquer les offres"):dashboardText("Gérer mon offre")}</button></section>
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#e4e7e9] p-4" aria-label={dashboardText("Abonnement actuel")}><div><h3 className="text-[15px] font-semibold">{currentName}{trial?dashboardText(" · En essai"):''}</h3><p className="mt-1 text-[13px] text-[#697178]">{trial?dashboardText("Choisissez votre offre quand vous êtes prêt."):dashboardText("Accès jusqu’au {0} · Renouvellement manuel", date(subscription?.ends_at))}</p></div><button type="button" onClick={()=>setShowOffers(true)} aria-haspopup="dialog" aria-expanded={offersVisible} className="rounded-full bg-[#f3f4f3] px-4 py-2 text-[13px] font-medium hover:bg-[#e9edeb]">{dashboardText("Gérer mon offre")}</button></section>
     {billing.capacity&&<section aria-label={dashboardText("Capacité de votre offre")}><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-[14px] font-medium">{dashboardText("Capacité de votre offre")}</h3><button type="button" onClick={()=>setShowOffers(true)} className="rounded-full bg-[#f3f4f3] px-4 py-2 text-[13px] font-medium">{dashboardText("Augmenter ma capacité")}</button></div><div className="grid gap-5 rounded-xl border border-[#e4e7e9] p-4 sm:grid-cols-2">{Object.entries(capacityLabels).map(([key,label])=>{const limit=billing.capacity!.limits[key];if(!limit)return null;const used=billing.capacity!.usage[key]||0;const warning=used>=limit*.8;return <div key={key}><div className="flex justify-between gap-3 text-[12px]"><span>{dashboardText(label)}</span><span className={warning?'font-medium text-amber-800':'text-[#697178]'}>{used.toLocaleString(dashboardFormatLocale())} / {limit.toLocaleString(dashboardFormatLocale())}</span></div><progress aria-label={dashboardText(label)} max={limit} value={Math.min(used,limit)} className="mt-2 h-1.5 w-full accent-[#18794e]"/>{warning&&<p className="mt-1 text-[12px] text-amber-800">{used>=limit?dashboardText("Limite atteinte. Les éléments existants restent accessibles."):dashboardText("Vous avez utilisé au moins 80 % de cette capacité.")}</p>}</div>;})}</div><p className="mt-3 text-[12px] leading-5 text-[#697178]">{dashboardText("Colis : renouvellement le ")}{date(billing.capacity.period_ends_at)} ({billing.capacity.timezone}{dashboardText("). Supprimer un colis ne restitue pas de capacité. Les plafonds sont partagés entre tous les bureaux et entrepôts de l’agence.")}</p>{billing.capacity.transition_active&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-[13px] text-amber-900">{dashboardText("Période de transition jusqu’au ")}{date(billing.capacity.enforce_from)} {dashboardText(" : ces nouveaux plafonds ne bloquent pas encore votre agence. Vos données sont conservées.")}</p>}</section>}
     <section aria-labelledby="subscription-history-title">
       <h3 id="subscription-history-title" className="mb-3 text-[14px] font-medium">{dashboardText("Historique de facturation")}</h3>
       {!billing.invoices.length?<p className="rounded-xl border border-[#e4e7e9] p-4 text-[13px] text-[#697178]">{dashboardText("Aucune facture pour le moment. L’essai gratuit ne nécessite pas de paiement.")}</p>:<ul className="divide-y divide-[#e7eaec] overflow-hidden rounded-xl border border-[#e4e7e9]">{billing.invoices.map(invoice=><li key={invoice.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-[13px]"><div><p>{invoice.invoice_number}</p>{invoice.created_at&&<p className="mt-1 text-[12px] text-[#697178]">{date(invoice.created_at)}</p>}</div><span className="ml-auto rounded bg-[#f3f4f3] px-2 py-1 text-[12px]">{dashboardText(({PAID:"Payée",OPEN:'À régler',VOID:"Annulée"} as Record<string,string>)[invoice.status])||dashboardText("En cours")}</span><strong className="min-w-20 text-right font-medium">{money(invoice.total_minor,invoice.currency_code)}</strong></li>)}</ul>}
     </section>
     <section aria-labelledby="billing-account-title"><h3 id="billing-account-title" className="mb-3 text-[14px] font-medium">{dashboardText("Compte de facturation")}</h3><div className="rounded-xl border border-[#e4e7e9] p-4 text-[13px]">{billing.payer?<><p className="font-medium">{billing.payer.name!==billing.payer.email?billing.payer.name:dashboardText("Compte Slaivio")}</p><p className="mt-1 text-[#697178]">{billing.payer.email}</p></>:<p className="text-[#697178]">{dashboardText("L’adresse e-mail de votre compte Slaivio sera utilisée au moment du paiement.")}</p>}<p className="mt-3 text-[12px] leading-5 text-[#697178]">{dashboardText("Paiement sécurisé par SasPay. Aucun moyen de paiement n’est enregistré dans Slaivio et aucun prélèvement automatique n’est effectué.")}</p></div></section>
-    {offersVisible&&<section aria-labelledby="subscription-offers-title">
+    {offersVisible&&<OfferDialog onClose={()=>setShowOffers(false)}>
+      {error&&<p role="alert" className="mb-4 text-sm text-red-700">{dashboardText(error)}</p>}
       <div className="mb-5"><h3 id="subscription-offers-title" className="text-[18px] font-semibold tracking-tight">{dashboardText("Une offre adaptée à votre agence")}</h3><p className="mt-2 text-[13px] leading-6 text-[#697178]">{dashboardText("Tarifs mensuels par agence de colis et de fret. Les montants et fonctionnalités proviennent du catalogue Slaivio.")}</p></div>
       {!billing.checkout_available&&<p className="mb-5 rounded-xl border border-[#e4e7e9] p-4 text-[14px] text-[#697178]">{dashboardText("Le paiement SasPay est en cours d’activation. Votre essai gratuit reste disponible. Contactez le support SLAIVIO pour toute question.")}</p>}
       <PermissionGuard permission="organization.manage" fallback={<p className="text-[13px] text-[#697178]">{dashboardText("Demandez au responsable de votre agence de gérer l’abonnement.")}</p>}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {[...plans].sort((a,b)=>a.monthly_price_minor-b.monthly_price_minor).map(plan=>{
             const pro=plan.code==='PRO';
             const name=plan.code==='ENTERPRISE'?'Business':plan.name;
@@ -144,7 +146,31 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
         </form>}
         {pending&&<OperationButton className="mt-3" disabled={busy} onClick={()=>void verify()}>{dashboardText("Vérifier mon paiement")}</OperationButton>}
       </PermissionGuard>
-    </section>}
+    </OfferDialog>}
     <section aria-label={dashboardText("Utilisation de l’agence")} className="border-t border-[#e4e7e9] pt-6"><h3 className="mb-4 text-[14px] font-medium">{dashboardText("Utilisation de l’agence")}</h3><div className="grid grid-cols-2 gap-4 sm:grid-cols-4">{Object.entries(billing.usage).map(([key,value])=><div key={key}><p className="text-[12px] text-[#697178]">{dashboardText(({clients:"Clients",packages:"Colis",members:'Membres',offices:"Bureaux"} as Record<string,string>)[key])||dashboardText("Activité")}</p><p className="mt-1 text-[20px] font-semibold">{dashboardText(value)}</p></div>)}</div></section>
   </div>;
+}
+
+function OfferDialog({children,onClose}:{children:ReactNode;onClose:()=>void}){
+  const panel=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const previous=document.activeElement as HTMLElement|null;
+    const overflow=document.body.style.overflow;
+    document.body.style.overflow='hidden';panel.current?.focus();
+    return()=>{document.body.style.overflow=overflow;previous?.focus();};
+  },[]);
+  return createPortal(<div className="fixed inset-0 z-[100] grid place-items-center bg-[#17212b]/45 p-3 sm:p-6" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
+    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby="subscription-offers-title" tabIndex={-1} className="max-h-[90dvh] w-full max-w-[1120px] overflow-y-auto rounded-xl bg-white p-5 outline-none sm:p-8" onKeyDown={event=>{
+      if(event.key==='Escape'){event.stopPropagation();onClose();}
+      if(event.key!=='Tab')return;
+      const controls=Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled)')||[]);
+      const first=controls[0],last=controls[controls.length-1];
+      if(!first){event.preventDefault();return;}
+      if(event.shiftKey&&(document.activeElement===first||document.activeElement===panel.current)){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===panel.current)){event.preventDefault();first.focus();}
+    }}>
+      <div className="mb-3 flex justify-end"><button type="button" onClick={onClose} className="rounded-md px-3 py-2 text-sm text-[#697178] hover:bg-[#f3f4f3]">{dashboardText("Fermer")}</button></div>
+      {children}
+    </div>
+  </div>,document.body);
 }

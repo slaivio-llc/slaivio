@@ -237,7 +237,7 @@ export function OrganizationAdminPage() {
               </div>
             )}
             {tab === "general" && <Preferences data={data} run={run} />}{" "}
-            {tab === "agency" && <div className="grid gap-8"><Organization data={data} run={run} /><Preferences data={data} run={run} /></div>}{" "}
+            {tab === "agency" && <Organization data={data} run={run} />}{" "}
             {tab === "workspaces" && <Workspaces data={data} run={run} />}{" "}
             {tab === "locations" && <Locations data={data} run={run} />}{" "}
             {tab === "services" && <OrganizationTransportSettings section="services"/>}{" "}
@@ -246,12 +246,11 @@ export function OrganizationAdminPage() {
             {tab === "roles" && <Roles data={data} run={run} />}{" "}
             {tab === "notifications" && <CustomerMilestoneNotifications data={data} run={run} />}{" "}
             {tab === "documents" && <DocumentsSettings data={data} run={run} />}{" "}
-            {tab === "subscription" && <SubscriptionSettings organization={data.organization} />}
+            <div hidden={tab !== "subscription"}><SubscriptionSettings organization={data.organization} /></div>
             {tab === "security" && <><Security data={data} run={run} /><AccountDeletionSettings/></>}{" "}
             {tab === "data" && <DataSettings data={data} run={run} />}{" "}
             <PublicTrackingSettings data={data} run={run} active={tab === "tracking"} />
-            {tab==='packages'&&<div className="grid gap-8"><AgencyHoursSettings data={data} run={run} active/><ParcelReceiptRulesSettings data={data} run={run} active/></div>}
-            {tab==='delivery'&&<div className="grid gap-8"><ShipmentDeliverySettings data={data} run={run} active/><ClientConditionsSettings data={data} run={run} active/></div>}
+            {(tab==='packages'||tab==='delivery')&&<MergedOperationalSettings key={tab} section={tab} data={data} run={run}/>}
             <PackageNumberingSettings data={data} run={run} active={tab === "numbering"} />
             <GoodsRestrictionsSettings data={data} run={run} active={tab === "goods"} />
             {tab === 'goods' && <details className="mt-6"><summary className="cursor-pointer py-3 text-[14px] font-medium">{dashboardText("Produits soumis à restriction")}</summary><p className="mb-3 text-xs leading-5 text-[#697178]">{dashboardText("Par exemple : interdire un produit ou demander une validation avant chargement. Ajoutez uniquement les restrictions réellement appliquées par votre agence.")}</p><GoodsRuleSettings/></details>}
@@ -437,19 +436,45 @@ function PublicTrackingSettings({
   </section>;
 }
 
-function VisibilityToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+function VisibilityToggle({ label, checked, onChange, name }: { label: string; checked: boolean; onChange: (value: boolean) => void; name?:string }) {
   useDashboardMessages();
-  return <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]">{dashboardText(label)}<input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>;
+  return <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]">{dashboardText(label)}<input name={name} type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>;
+}
+
+function MergedOperationalSettings({section,data,run}:{section:'packages'|'delivery';data:AdminData;run:(action:()=>Promise<unknown>,message:string)=>void}){
+  function submit(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    const form=new FormData(event.currentTarget);
+    const stored=(data.settings?.settings||{}) as Record<string,unknown>;
+    const settings=section==='packages'?{
+      agency_hours:{text:String(form.get('agency_hours')||'').trim()},
+      parcel_receipt_rules:{...(stored.parcel_receipt_rules as object||{}),...Object.fromEntries(['category_required','packaging_required','allow_unmeasured','allow_photos','auto_rate_lookup'].map(key=>[key,form.has(key)]))},
+    }:{
+      shipment_delivery_rules:{...(stored.shipment_delivery_rules as object||{}),delivery_proof:form.has('delivery_proof'),arrival_notice:form.has('arrival_notice'),pickup_delay_days:Number(form.get('pickup_delay_days'))},
+      client_conditions:{...(stored.client_conditions as object||{}),allow_customer_credit:form.has('allow_customer_credit')},
+    };
+    run(()=>updateSettings({expected_version:Number(data.settings?.row_version||1),...(section==='packages'?{timezone:String(form.get('agency_timezone'))}:{}),settings}),"Paramètres de l’agence enregistrés.");
+  }
+  return <PermissionGuard permission="settings.write" fallback={<ReadOnly/>}><form onSubmit={submit} className="grid gap-8">
+    {section==='packages'?<><AgencyHoursSettings data={data} run={run} active embedded/><ParcelReceiptRulesSettings data={data} run={run} active embedded/></>:<><ShipmentDeliverySettings data={data} run={run} active embedded/><ClientConditionsSettings data={data} run={run} active embedded/></>}
+    <div className="flex justify-end"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
+  </form></PermissionGuard>;
+}
+
+function SettingsForm({embedded,onSubmit,className,children}:{embedded:boolean;onSubmit:(event:FormEvent<HTMLFormElement>)=>void;className:string;children:React.ReactNode}){
+  return embedded?<div className={className}>{children}</div>:<form onSubmit={onSubmit} className={className}>{children}</form>;
 }
 
 function AgencyHoursSettings({
   data,
   run,
   active,
+  embedded=false,
 }: {
   data: AdminData;
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
+  embedded?: boolean;
 }) {
   useDashboardMessages();
   const settings = data.settings?.settings && typeof data.settings.settings === "object" && !Array.isArray(data.settings.settings)
@@ -461,6 +486,7 @@ function AgencyHoursSettings({
   const [hours, setHours] = useState(String(storedHours.text || "Lundi – samedi, 08h00 – 17h00"));
   const [timezone, setTimezone] = useState(String(data.settings?.timezone || "Africa/Kinshasa"));
   if (!active) return null;
+  const Form=SettingsForm;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -477,12 +503,12 @@ function AgencyHoursSettings({
 
   return <section className="grid gap-5">
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
-      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+      <Form embedded={embedded} onSubmit={submit} className="grid max-w-[640px] gap-5">
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Horaires de l’agence")}<textarea name="agency_hours" rows={3} maxLength={300} required value={hours} onChange={event => setHours(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Fuseau horaire")}<select name="agency_timezone" value={timezone} onChange={event => setTimezone(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]">{[["Africa/Kinshasa", dashboardText("Kinshasa")], ["Africa/Lubumbashi", dashboardText("Lubumbashi")], ["Africa/Douala", dashboardText("Douala")], ["Africa/Abidjan", dashboardText("Abidjan")], ["Africa/Lagos", dashboardText("Lagos")], ["Europe/Brussels", dashboardText("Bruxelles")], ["Europe/Paris", dashboardText("Paris")], ["Asia/Shanghai", dashboardText("Shanghai")], ["Asia/Dubai", dashboardText("Dubaï")], ["UTC", dashboardText("Temps universel (UTC)")]].map(([value, label]) => <option key={value} value={value}>{dashboardText(label)}</option>)}</select></label>
         <p className="pb-4 text-[12px] leading-5 text-[#697178]">{dashboardText("Ces horaires sont affichés sur votre page publique lorsque les coordonnées du support sont visibles. Chaque bureau conserve ses propres horaires.")}</p>
-        <div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
-      </form>
+        {!embedded&&<div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>}
+      </Form>
     </PermissionGuard>
   </section>;
 }
@@ -491,10 +517,12 @@ function ParcelReceiptRulesSettings({
   data,
   run,
   active,
+  embedded=false,
 }: {
   data: AdminData;
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
+  embedded?: boolean;
 }) {
   useDashboardMessages();
   const rawSettings = data.settings?.settings;
@@ -510,6 +538,7 @@ function ParcelReceiptRulesSettings({
   const [allowPhotos, setAllowPhotos] = useState(storedRules.allow_photos !== false);
   const [autoRateLookup, setAutoRateLookup] = useState(storedRules.auto_rate_lookup !== false);
   if (!active) return null;
+  const Form=SettingsForm;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -529,17 +558,17 @@ function ParcelReceiptRulesSettings({
 
   return <section className="grid gap-5">
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
-      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+      <Form embedded={embedded} onSubmit={submit} className="grid max-w-[640px] gap-5">
         <section className="grid gap-3 pb-5">
           <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Règles d’enregistrement")}</h3>
-          <VisibilityToggle label={dashboardText("Catégorie de marchandise obligatoire")} checked={categoryRequired} onChange={setCategoryRequired}/>
-          <VisibilityToggle label={dashboardText("Type de conditionnement obligatoire")} checked={packagingRequired} onChange={setPackagingRequired}/>
-          <VisibilityToggle label={dashboardText("Autoriser la réception sans mesure")} checked={allowUnmeasured} onChange={setAllowUnmeasured}/>
-          <VisibilityToggle label={dashboardText("Autoriser les photos du colis")} checked={allowPhotos} onChange={setAllowPhotos}/>
-          <VisibilityToggle label={dashboardText("Recherche automatique du tarif")} checked={autoRateLookup} onChange={setAutoRateLookup}/>
+          <VisibilityToggle name="category_required" label={dashboardText("Catégorie de marchandise obligatoire")} checked={categoryRequired} onChange={setCategoryRequired}/>
+          <VisibilityToggle name="packaging_required" label={dashboardText("Type de conditionnement obligatoire")} checked={packagingRequired} onChange={setPackagingRequired}/>
+          <VisibilityToggle name="allow_unmeasured" label={dashboardText("Autoriser la réception sans mesure")} checked={allowUnmeasured} onChange={setAllowUnmeasured}/>
+          <VisibilityToggle name="allow_photos" label={dashboardText("Autoriser les photos du colis")} checked={allowPhotos} onChange={setAllowPhotos}/>
+          <VisibilityToggle name="auto_rate_lookup" label={dashboardText("Recherche automatique du tarif")} checked={autoRateLookup} onChange={setAutoRateLookup}/>
         </section>
-        <div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
-      </form>
+        {!embedded&&<div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>}
+      </Form>
     </PermissionGuard>
   </section>;
 }
@@ -548,10 +577,12 @@ function ShipmentDeliverySettings({
   data,
   run,
   active,
+  embedded=false,
 }: {
   data: AdminData;
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
+  embedded?: boolean;
 }) {
   useDashboardMessages();
   const rawSettings = data.settings?.settings;
@@ -565,6 +596,7 @@ function ShipmentDeliverySettings({
   const [arrivalNotice, setArrivalNotice] = useState(storedRules.arrival_notice !== false);
   const [pickupDays, setPickupDays] = useState(String(storedRules.pickup_delay_days ?? 14));
   if (!active) return null;
+  const Form=SettingsForm;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -582,15 +614,18 @@ function ShipmentDeliverySettings({
 
   return <section className="grid gap-5">
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
-      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
+      <Form embedded={embedded} onSubmit={submit} className="grid max-w-[640px] gap-5">
+        {deliveryProof&&<input type="hidden" name="delivery_proof" value="yes"/>}
+        {arrivalNotice&&<input type="hidden" name="arrival_notice" value="yes"/>}
+        <input type="hidden" name="pickup_delay_days" value={pickupDays}/>
         <div className="grid gap-3 pb-5">
           <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]"><span><span className="block font-medium">{dashboardText("Preuve de livraison")}</span><span className="mt-1 block text-[12px] text-[#697178]">{dashboardText("Conserver une confirmation lors de la remise.")}</span></span><input aria-label={dashboardText("Preuve de livraison")} type="checkbox" checked={deliveryProof} onChange={event => setDeliveryProof(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>
           <label className="flex items-center justify-between gap-4 text-[13px] text-[#30363a]"><span><span className="block font-medium">{dashboardText("Avis d’arrivée")}</span><span className="mt-1 block text-[12px] text-[#697178]">{dashboardText("Déclencher après confirmation réelle de l’arrivée.")}</span></span><input aria-label={dashboardText("Avis d’arrivée")} type="checkbox" checked={arrivalNotice} onChange={event => setArrivalNotice(event.target.checked)} className="h-5 w-5 accent-[#137c56]" /></label>
           <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Délai indicatif de retrait (jours)")}<input type="number" min={0} max={365} step={1} required value={pickupDays} onChange={event => setPickupDays(event.target.value)} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
           <p className="text-[12px] leading-5 text-[#697178]">{dashboardText("Les calendriers de départ, routes et expéditions se gèrent dans les modules opérationnels.")}</p>
         </div>
-        <div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
-      </form>
+        {!embedded&&<div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>}
+      </Form>
     </PermissionGuard>
   </section>;
 }
@@ -669,10 +704,12 @@ function ClientConditionsSettings({
   data,
   run,
   active,
+  embedded=false,
 }: {
   data: AdminData;
   run: (action: () => Promise<unknown>, message: string) => void;
   active: boolean;
+  embedded?: boolean;
 }) {
   useDashboardMessages();
   const rawSettings = data.settings?.settings;
@@ -684,6 +721,7 @@ function ClientConditionsSettings({
     : {};
   const [allowCredit, setAllowCredit] = useState(storedConditions.allow_customer_credit === true);
   if (!active) return null;
+  const Form=SettingsForm;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -697,11 +735,11 @@ function ClientConditionsSettings({
 
   return <section className="grid gap-5">
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
-      <form onSubmit={submit} className="grid max-w-[640px] gap-5">
-        <VisibilityToggle label={dashboardText("Autoriser le crédit client")} checked={allowCredit} onChange={setAllowCredit}/>
+      <Form embedded={embedded} onSubmit={submit} className="grid max-w-[640px] gap-5">
+        <VisibilityToggle name="allow_customer_credit" label={dashboardText("Autoriser le crédit client")} checked={allowCredit} onChange={setAllowCredit}/>
         <p className="-mt-3 text-[12px] leading-5 text-[#697178]">{dashboardText("Uniquement pour les clients explicitement approuvés.")}</p>
-        <div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
-      </form>
+        {!embedded&&<div className="flex justify-end pt-4"><button className={primary}>{dashboardText("Enregistrer")}</button></div>}
+      </Form>
     </PermissionGuard>
   </section>;
 }
@@ -722,7 +760,7 @@ function Organization({
     run(
       async () => {
         const logoUrl = logoFile ? await uploadAgencyBrandImage(logoFile) : undefined;
-        return updateOrganization({
+        await updateOrganization({
           expected_version: o.row_version,
           organization_name: val(f, "name"),
           brand_description: val(f, "description"),
@@ -734,6 +772,10 @@ function Organization({
           website: val(f, "website"),
           ...(logoUrl ? { logo_url: logoUrl } : {}),
         });
+        if(f.has("language")){
+          await updateSettings({expected_version:Number(data.settings?.row_version||1),language_code:val(f,"language"),currency_code:val(f,"currency")});
+          setDashboardLocale(f.get("language")==="en"?"en":"fr");
+        }
       },
       "Profil de l’agence mis à jour.",
     );
@@ -751,7 +793,8 @@ function Organization({
           <FormGeographyFields searchableCountry key={`organization-geo-${String(o.row_version)}`} initialCountry={String(o.country || "")} initialCity={String(o.city || "")} className="h-8 w-full rounded-full border border-[#d8dddf] bg-white px-3 text-[11px] text-[#25292e]" fieldClassName="grid gap-1 text-[10px] text-[#697178]" countryLabel="Pays" cityLabel="Ville"/>
           <label className="grid gap-1 text-[10px] text-[#697178]">{dashboardText("Adresse du siège")}<textarea name="address" rows={2} className="w-full rounded-[6px] border border-[#d8dddf] px-3 py-2 text-[11px] text-[#25292e] outline-none focus:border-[#16855f]" defaultValue={String(o.address || "")} placeholder={dashboardText("Adresse complète")}/></label>
           <p className="text-[10px] leading-4 text-[#697178]">{dashboardText("Les informations publiques sont sélectionnées dans les paramètres de la page publique de suivi. Les données légales peuvent rester privées.")}</p>
-          <div className="flex items-center justify-between pt-3"><span className="text-[9px] text-[#8a9297]">{dashboardText("Profil de l’agence")}</span><button className={primary}>{dashboardText("Enregistrer")}</button></div>
+          <Preferences data={data} run={run} embedded/>
+          <div className="flex justify-end pt-3"><button className={primary}>{dashboardText("Enregistrer")}</button></div>
         </form>
       </PermissionGuard>
     </section>
@@ -1150,12 +1193,15 @@ function Roles({
 function Preferences({
   data,
   run,
+  embedded=false,
 }: {
   data: AdminData;
   run: (a: () => Promise<unknown>, m: string) => void;
+  embedded?:boolean;
 }) {
   useDashboardMessages();
   const settings = data.settings || { row_version: 1 };
+  const Form=SettingsForm;
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -1173,15 +1219,15 @@ function Preferences({
   }
   return (
     <PermissionGuard permission="settings.write" fallback={<ReadOnly />}>
-      <form onSubmit={submit} className="grid max-w-[640px] gap-4">
+      <Form embedded={embedded} onSubmit={submit} className="grid max-w-[640px] gap-4">
         <h3 className="text-[15px] font-semibold text-[#25292e]">{dashboardText("Langue et devise")}</h3>
         <SettingSelect label={dashboardText("Langue par défaut")} name="language" value={String(settings.language_code || "fr")} options={[["fr", "Français"], ["en", "English"]]} />
         <SettingSelect label={dashboardText("Devise de référence")} name="currency" value={agencyCurrency(settings.currency_code)} options={agencyCurrencyOptions(settings.currency_code).map(currency => [currency, currency])} />
-        <div className="flex items-center justify-between pt-4">
+        {!embedded&&<div className="flex items-center justify-between pt-4">
           <span className="text-[11px] text-[#858d93]">{dashboardText("Paramètres de l’agence")}</span>
           <button className={primary}>{dashboardText("Enregistrer")}</button>
-        </div>
-      </form>
+        </div>}
+      </Form>
     </PermissionGuard>
   );
 }

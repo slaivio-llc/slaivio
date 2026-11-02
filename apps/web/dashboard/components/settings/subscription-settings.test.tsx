@@ -117,7 +117,7 @@ it('presents all three priced offer cards with no plan dropdown',async()=>{
   expect(screen.queryByRole('form',{name:'Finaliser l’abonnement'})).not.toBeInTheDocument();
 });
 
-it('explains team seats and shows real benefits returned by the catalogue',async()=>{
+it('keeps real catalogue benefits and capacities without the removed explanatory paragraphs',async()=>{
   vi.mocked(billing.getSubscriptionPlans).mockResolvedValue([
     {code:'PRO',name:'Pro',monthly_price_minor:29900,currency_code:'USD',limits:{max_users:10},positioning:'Suivre vos clients au-delà des confirmations.',value_highlights:['Relancer les colis attendus et les départs bloqués selon vos réglages'],included_features:['Relances clients programmées']},
   ]);
@@ -127,8 +127,15 @@ it('explains team seats and shows real benefits returned by the catalogue',async
   expect(card).toHaveTextContent('Ce que cela change au quotidien');
   expect(card).toHaveTextContent('départs bloqués');
   expect(card).toHaveTextContent('Membres de votre équipe');
-  expect(screen.getByText(/Ce n’est pas un client de votre agence/)).toBeVisible();
-  expect(screen.getByText(/il n’ajoute pas de fonctions exclusives/)).toBeVisible();
+  expect(screen.queryByText(/Un membre est une personne/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/il n’ajoute pas de fonctions exclusives/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Les envois automatiques nécessitent/)).not.toBeInTheDocument();
+  const dialog=screen.getByRole('dialog');
+  expect(dialog).toHaveClass('flex-col','overflow-hidden');
+  expect(dialog.querySelector('header')).toHaveClass('shrink-0');
+  expect(card.parentElement).toHaveClass('md:grid-cols-3');
+  fireEvent.click(screen.getByRole('button',{name:'Choisir Pro'}));
+  expect(card).toHaveAttribute('data-selected','true');
 });
 
 it('chooses Pro from its card and charges only the server-side plan code',async()=>{

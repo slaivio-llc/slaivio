@@ -5,7 +5,7 @@ import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/compon
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, Check, CreditCard, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, CreditCard, ShieldCheck, X } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { ErrorState } from "@/components/ui/page-state";
@@ -111,7 +111,6 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
     <section aria-labelledby="billing-account-title"><h3 id="billing-account-title" className="mb-3 text-[14px] font-medium">{dashboardText("Compte de facturation")}</h3><div className="rounded-xl border border-[#e4e7e9] p-4 text-[13px]">{billing.payer?<><p className="font-medium">{billing.payer.name!==billing.payer.email?billing.payer.name:dashboardText("Compte Slaivio")}</p><p className="mt-1 text-[#697178]">{billing.payer.email}</p></>:<p className="text-[#697178]">{dashboardText("L’adresse e-mail de votre compte Slaivio sera utilisée au moment du paiement.")}</p>}<p className="mt-3 text-[12px] leading-5 text-[#697178]">{dashboardText("Paiement sécurisé par SasPay. Aucun moyen de paiement n’est enregistré dans Slaivio et aucun prélèvement automatique n’est effectué.")}</p></div></section>
     {offersVisible&&<OfferDialog onClose={()=>setShowOffers(false)}>
       {error&&<p role="alert" className="mb-4 text-sm text-red-700">{dashboardText(error)}</p>}
-      <div className="mb-5"><h3 id="subscription-offers-title" className="text-[18px] font-semibold tracking-tight">{dashboardText("Une offre adaptée à votre agence")}</h3><p className="mt-2 text-[13px] leading-6 text-[#697178]">{dashboardText("Tarifs mensuels par agence de colis et de fret. Les montants et fonctionnalités proviennent du catalogue Slaivio.")}</p></div>
       {!billing.checkout_available&&<p className="mb-5 rounded-xl border border-[#e4e7e9] p-4 text-[14px] text-[#697178]">{dashboardText("Le paiement SasPay est en cours d’activation. Votre essai gratuit reste disponible. Contactez le support SLAIVIO pour toute question.")}</p>}
       <PermissionGuard permission="organization.manage" fallback={<p className="text-[13px] text-[#697178]">{dashboardText("Demandez au responsable de votre agence de gérer l’abonnement.")}</p>}>
         <div className="grid gap-4 md:grid-cols-3">
@@ -122,9 +121,9 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
             const current=subscription?.plan_code===plan.code;
             const description=plan.positioning||(plan.code==='STARTER'?'Organiser son agence':pro?'Automatiser sa croissance':'Piloter son réseau');
             const features=plan.included_features||[];
-            return <article key={plan.code} aria-label={dashboardText("Offre {0}", name)} className="relative flex flex-col rounded-2xl border border-[#e0e4e7] bg-white p-5 transition-colors hover:border-[#18794e] hover:bg-[#f7fbf9]">
+            return <article key={plan.code} aria-label={dashboardText("Offre {0}", name)} data-selected={chosen} className="relative flex min-w-0 flex-col rounded-xl border border-[#e0e4e7] bg-white p-5 transition-colors hover:border-[#18794e] data-[selected=true]:border-[#18794e] data-[selected=true]:bg-[#f7fbf9] data-[selected=true]:ring-1 data-[selected=true]:ring-[#18794e] sm:p-6">
               <div className="mb-4 flex min-h-6 items-center justify-between gap-2"><h4 className="text-[19px] font-semibold">{name}</h4>{current?<span className="rounded-md bg-[#edf0f2] px-2 py-1 text-[11px] font-medium">{trial?dashboardText("En essai"):dashboardText("Offre actuelle")}</span>:plan.recommended?<span className="rounded-md bg-[#252b30] px-2 py-1 text-[11px] font-medium text-white">{dashboardText("Recommandé")}</span>:null}</div>
-              <p className="min-h-12 text-[13px] leading-6 text-[#697178]">{dashboardText(description)}</p>
+              <p className="text-[13px] leading-6 text-[#697178] md:min-h-[72px]">{dashboardText(description)}</p>
               <div className="mb-1 mt-6"><strong className="text-[32px] font-semibold tracking-tight">{money(plan.monthly_price_minor,plan.currency_code)}</strong><span className="ml-1 text-[13px] text-[#737b83]">{dashboardText("/ mois")}</span></div><p className="mb-6 text-[12px] text-[#737b83]">{dashboardText("Par agence · ")}{plan.currency_code}</p>
               <button type="button" aria-pressed={chosen} disabled={busy} onClick={()=>setSelectedPlan(plan.code)} className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#d6dce0] text-[14px] font-medium transition-colors hover:border-[#18794e] hover:bg-[#18794e] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18794e] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 ${chosen?'bg-[#eff8f3] text-[#18794e]':'bg-white text-[#30363a]'}`}>{chosen?<><Check size={16}/>{dashboardText("Offre sélectionnée")}</>:<>{current&&!trial?dashboardText("Renouveler"):dashboardText("Choisir {0}", name)}<ArrowRight size={15}/></>}</button>
               {!!plan.value_highlights?.length&&<div className="mt-6 rounded-xl bg-[#f5f8f5] p-4"><p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#346447]">{dashboardText("Ce que cela change au quotidien")}</p><ul className="grid gap-3 text-[13px] leading-6 text-[#435448]">{plan.value_highlights.map(value=><li key={value} className="flex items-start gap-2"><Check size={15} aria-hidden="true" className="mt-1 shrink-0 text-[#18794e]"/><span>{dashboardText(value)}</span></li>)}</ul></div>}
@@ -133,8 +132,6 @@ export function SubscriptionSettings({organization}:{organization:Record<string,
             </article>;
           })}
         </div>
-        <p className="mt-5 text-[12px] leading-6 text-[#697178]">{dashboardText("Un membre est une personne de votre équipe qui accède à Slaivio : responsable, réception, entrepôt ou caisse, selon les permissions attribuées. Ce n’est pas un client de votre agence. Les invitations en attente réservent aussi une place. Les capacités sont partagées par toute l’agence. Business reprend les fonctions de Pro avec des plafonds supérieurs ; il n’ajoute pas de fonctions exclusives.")}</p>
-        <p className="mt-2 text-[12px] leading-6 text-[#697178]">{dashboardText("Les envois automatiques nécessitent un canal WhatsApp connecté, des réglages adaptés et le respect des consentements et règles du canal.")}</p>
         {selected&&<form onSubmit={event=>void checkout(event)} className="mt-6 grid gap-6 rounded-2xl border border-[#e0e4e7] p-5 sm:p-6" aria-label={dashboardText("Finaliser l’abonnement")}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8ebed] pb-5"><div><h3 className="text-[17px] font-semibold">{dashboardText("Finaliser votre abonnement")}</h3><p className="mt-1 text-[13px] text-[#697178]">{selected.code==='ENTERPRISE'?dashboardText("Business"):selected.name} {dashboardText(" · 1 mois d’accès")}</p></div><strong className="text-[24px] font-semibold">{paymentPrice}</strong></div>
           <fieldset disabled={busy||!billing.checkout_available} className="grid gap-4 disabled:opacity-60">
@@ -160,7 +157,7 @@ function OfferDialog({children,onClose}:{children:ReactNode;onClose:()=>void}){
     return()=>{document.body.style.overflow=overflow;previous?.focus();};
   },[]);
   return createPortal(<div className="fixed inset-0 z-[100] grid place-items-center bg-[#17212b]/45 p-3 sm:p-6" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
-    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby="subscription-offers-title" tabIndex={-1} className="max-h-[90dvh] w-full max-w-[1120px] overflow-y-auto rounded-xl bg-white p-5 outline-none sm:p-8" onKeyDown={event=>{
+    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby="subscription-offers-title" tabIndex={-1} className="flex max-h-[90dvh] w-full max-w-[1120px] flex-col overflow-hidden rounded-xl border border-[#e0e4e7] bg-white shadow-xl outline-none" onKeyDown={event=>{
       if(event.key==='Escape'){event.stopPropagation();onClose();}
       if(event.key!=='Tab')return;
       const controls=Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled)')||[]);
@@ -169,8 +166,11 @@ function OfferDialog({children,onClose}:{children:ReactNode;onClose:()=>void}){
       if(event.shiftKey&&(document.activeElement===first||document.activeElement===panel.current)){event.preventDefault();last.focus();}
       else if(!event.shiftKey&&(document.activeElement===last||document.activeElement===panel.current)){event.preventDefault();first.focus();}
     }}>
-      <div className="mb-3 flex justify-end"><button type="button" onClick={onClose} className="rounded-md px-3 py-2 text-sm text-[#697178] hover:bg-[#f3f4f3]">{dashboardText("Fermer")}</button></div>
-      {children}
+      <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#e8ebed] px-5 py-5 sm:px-7">
+        <div><h3 id="subscription-offers-title" className="text-[20px] font-semibold tracking-tight text-[#25292e]">{dashboardText("Une offre adaptée à votre agence")}</h3><p className="mt-1 text-[13px] text-[#697178]">{dashboardText("Tarifs mensuels par agence de colis et de fret.")}</p></div>
+        <button type="button" onClick={onClose} aria-label={dashboardText("Fermer")} className="grid size-9 shrink-0 place-items-center rounded-md text-[#697178] hover:bg-[#f3f4f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#18794e]"><X size={18} aria-hidden="true"/></button>
+      </header>
+      <div className="min-h-0 overflow-y-auto overscroll-contain bg-[#fafbfa] p-5 sm:p-7">{children}</div>
     </div>
   </div>,document.body);
 }

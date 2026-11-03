@@ -7,6 +7,7 @@ import { ChevronRight, Search, UserRound } from "lucide-react";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { TableSkeleton } from "@/components/ui/page-state";
 import { api } from "@/services/api";
+import {CustomerIntakeRequests} from '@/components/settings/customer-intake-settings';
 
 type Entry = {
   id: string;
@@ -85,6 +86,7 @@ export function CargoDirectory({ open, revision, create = () => undefined }: {
         </div>
         <OperationButton type="button" variant="primary" onClick={create}><span className="text-lg leading-none">+</span>{dashboardText("Nouveau client")}</OperationButton>
       </header>
+      <CustomerIntakeRequests/>
 
       <div className={`grid grid-cols-1 gap-3 py-4 sm:grid-cols-2 ${summary?.finance_visible ? "lg:grid-cols-3" : ""}`}>
         <Metric label={dashboardText("Total clients")} value={summary?.total} />

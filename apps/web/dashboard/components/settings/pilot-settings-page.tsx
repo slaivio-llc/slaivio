@@ -1,6 +1,7 @@
 "use client";
 import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
 import {INVITATION_ROLE_OPTIONS} from '@/config/invitation-roles';
+import {CustomerIntakeSettings} from './customer-intake-settings';
 
 import { agencyRoleLabel, agencyStatusLabel } from "@/services/agency-labels";
 import { invitationErrorMessages } from "@/services/invitation-errors";
@@ -423,6 +424,7 @@ function AISettings({data,run}:{data:PilotSettingsData;run:(action:()=>Promise<u
             </label>
           </PermissionGuard>
         </SettingsCard>}
+        {data.organization.organization_type === 'PARCEL_FREIGHT'&&<PermissionGuard permission="inbox.ai.manage"><CustomerIntakeSettings/></PermissionGuard>}
         <SettingsCard title={dashboardText("Instructions et style")} description={dashboardText("Les connaissances ne doivent pas être recopiées ici : SLAIVIO injecte automatiquement les informations publiées et communicables.")}>
           <div className="grid gap-5">
             <div className="flex justify-end"><OperationButton onClick={useRecommendedPrompts}><Sparkles size={14}/>{dashboardText("Utiliser le modèle recommandé")}</OperationButton></div>

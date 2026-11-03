@@ -44,7 +44,7 @@ describe("public landing isolation", () => {
     expect(screen.getByText('Espace retrouvé')).toBeVisible();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
-  it.each(["/", "/fr", "/en", "/landing", "/fr/pricing"])("renders %s without authentication or private providers", pathname => {
+  it.each(["/", "/fr", "/en", "/landing", "/fr/pricing", "/prepare-shipment"])("renders %s without authentication or private providers", pathname => {
     state.pathname = pathname;
     render(<AppProviders><h1>Accueil public</h1></AppProviders>);
     expect(screen.getByText("Accueil public")).toBeInTheDocument();

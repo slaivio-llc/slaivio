@@ -87,6 +87,7 @@ from app.api.tracking import router as tracking_router
 from app.api.warehouses import router as warehouses_router
 from app.api.pickups import router as pickups_router
 from app.api.customer_automation import router as customer_automation_router
+from app.api.customer_intake import router as customer_intake_router
 from app.api.finance import router as finance_router, webhook_router as finance_webhook_router
 from app.api.routes_services import router as routes_services_router
 from app.api.departures import router as departures_router
@@ -225,6 +226,7 @@ app.include_router(references_router)
 app.include_router(warehouses_router)
 app.include_router(pickups_router)
 app.include_router(customer_automation_router)
+app.include_router(customer_intake_router)
 app.include_router(platform_quarantine_router)
 
 

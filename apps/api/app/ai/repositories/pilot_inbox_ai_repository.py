@@ -1,4 +1,5 @@
 import json
+import re
 from uuid import UUID
 
 from sqlalchemy import text
@@ -17,7 +18,7 @@ def get_pilot_ai_settings(org_id: str) -> dict:
                  auto_reply_min_confidence, pilot_response_mode,system_prompt,
                  user_prompt_template,communication_style,prompt_row_version,
                  pilot_require_published_knowledge,pilot_handoff_to_human,
-                 pilot_use_organization_name,auto_create_qualified_whatsapp_clients, settings.updated_at,
+                 pilot_use_organization_name,auto_create_qualified_whatsapp_clients,customer_intake_enabled, settings.updated_at,
                  organization.name organization_name
           from ai_settings settings
           join organizations organization on organization.id=settings.org_id
@@ -176,6 +177,14 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
               from finance_documents
               where org_id=:org_id and client_id=:client_id
             """), {"org_id": org_id, "client_id": context["client_id"]}).mappings().one())
+        # Capability URLs remain in the private message history, but the AI
+        # provider does not need their bearer secret to understand the exchange.
+        secret_link = re.compile(r'https?://[^\s<>]+/prepare-shipment#[A-Za-z0-9_-]{43}')
+        if context.get('source_message'):
+            context['source_message'] = secret_link.sub('[lien privé de préparation d’envoi]', context['source_message'])
+        for message in context.get('recent_messages') or []:
+            if message.get('text_body'):
+                message['text_body'] = secret_link.sub('[lien privé de préparation d’envoi]', message['text_body'])
         return context
 
 

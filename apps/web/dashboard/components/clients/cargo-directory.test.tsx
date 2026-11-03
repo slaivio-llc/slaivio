@@ -4,6 +4,7 @@ import { CargoDirectory } from './cargo-directory';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('@/services/api', () => ({ api: { get: (...args: unknown[]) => mocks.get(...args) } }));
+vi.mock('@/components/settings/customer-intake-settings',()=>({CustomerIntakeRequests:()=>null}));
 beforeEach(() => { mocks.get.mockReset(); });
 afterEach(cleanup);
 

@@ -31,6 +31,14 @@ function isPublicI18nRoute(pathname: string) {
 
 export default function middleware(request: NextRequest, event: Parameters<typeof clerkProtection>[1]) {
   const { pathname } = request.nextUrl;
+  if(pathname==='/prepare-shipment'){
+    const response=NextResponse.next();
+    response.headers.set('Cache-Control','private, no-store');
+    response.headers.set('Referrer-Policy','no-referrer');
+    response.headers.set('X-Robots-Tag','noindex, nofollow');
+    response.headers.set('Content-Security-Policy',"frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    return response;
+  }
   // Older invitations pointed at /app. Complete their authentication before
   // rendering agency providers; never log or persist the invitation ticket.
   if(pathname==='/app'&&(request.nextUrl.searchParams.has('__clerk_ticket')||request.nextUrl.searchParams.has('__clerk_status'))){

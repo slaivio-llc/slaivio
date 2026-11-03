@@ -181,5 +181,5 @@ def test_new_campaign_selects_existing_clients_directly():
     assert "a.org_id=b.org_id and a.id=b.audience_id" in repo
     assert "Tous les clients éligibles" in ui
     assert "selectedClientIds.length" in ui
-    assert 'aria-label="Rechercher un client destinataire"' in ui
-    assert "Sélectionner les {clientOptions.length} clients affichés" in ui
+    assert 'aria-label={dashboardText("Rechercher un client destinataire")}' in ui
+    assert '{dashboardText("Sélectionner les ")}{clientOptions.length} {dashboardText(" clients affichés")}' in ui

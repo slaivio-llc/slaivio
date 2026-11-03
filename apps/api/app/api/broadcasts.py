@@ -10,6 +10,7 @@ class Campaign(BaseModel):
  workspace_id:str|None=None;title:str=Field(min_length=2,max_length=180);message:str=Field(min_length=2,max_length=5000);campaign_type:str='INFORMATIONAL';objective:str='INFORM';channels:list[str]=['WHATSAPP'];audience_id:str|None=None;selected_client_ids:list[str]=Field(default_factory=list,max_length=500);template_id:str|None=None;language_versions:dict[str,Any]={};media:list[Any]=[];variable_defaults:dict[str,Any]={};scheduled_at:str|None=None;timezone_mode:str='WORKSPACE'
 class Audience(BaseModel):workspace_id:str|None=None;name:str;audience_type:str='DYNAMIC';filter_config:dict[str,Any]={}
 class Mutation(BaseModel):action:str=Field(pattern='^(APPROVE|START|PAUSE|RESUME|CANCEL|ARCHIVE)$');expected_version:int=Field(ge=1)
+class Launch(BaseModel):expected_version:int=Field(ge=1)
 class Template(BaseModel):workspace_id:str|None=None;name:str;channel:str='WHATSAPP';category:str='UTILITY';language:str='fr';subject:str|None=None;preheader:str|None=None;body:str;variables:list[str]=[];media_config:dict[str,Any]={};buttons:list[Any]=[];provider_template_name:str|None=None;provider_status:str='DRAFT'
 class Consent(BaseModel):client_id:str|None=None;contact:str;channel:str='WHATSAPP';consent_status:str;source:str='MANUAL';evidence:dict[str,Any]={}
 class TestSend(BaseModel):channel:str='WHATSAPP';recipient:str
@@ -50,6 +51,12 @@ def test(campaign_id:str,body:TestSend,tenant=Depends(get_current_tenant)):
  return {'status':'ok','test':x}
 @router.get('/{campaign_id}/export',dependencies=[Depends(require_permission('broadcasts.export'))])
 def export(campaign_id:str,tenant=Depends(get_current_tenant)):return {'status':'ok','items':repo.export_recipients(tenant['org_id'],campaign_id)}
+@router.post('/{campaign_id}/launch',dependencies=[Depends(require_permission('broadcasts.send')),Depends(require_permission('broadcasts.approve'))])
+def launch(campaign_id:str,body:Launch,tenant=Depends(get_current_tenant)):
+ x=repo.action(tenant['org_id'],campaign_id,actor(tenant),'LAUNCH',body.expected_version)
+ if isinstance(x,str):raise HTTPException(409,'campaign_precheck_failed' if x=='precheck_failed' else x)
+ if not x:raise HTTPException(409,'campaign_was_modified')
+ return {'status':'ok','campaign':x}
 @router.patch('/{campaign_id}',dependencies=[Depends(require_permission('broadcasts.send'))])
 def mutate(campaign_id:str,body:Mutation,tenant=Depends(get_current_tenant)):
  x=repo.action(tenant['org_id'],campaign_id,actor(tenant),body.action,body.expected_version)

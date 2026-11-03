@@ -15,6 +15,13 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  approval_or_schedule:"Cette annonce n’est pas prête ou sa date d’envoi n’est pas encore arrivée.",
+  audience_empty:"Aucun destinataire ne peut recevoir cette annonce. Vérifiez les clients sélectionnés et leurs coordonnées.",
+  campaign_not_launchable:"Cette annonce a déjà été confirmée ou n’est plus disponible pour un nouvel envoi. Actualisez sa fiche.",
+  campaign_was_modified:"Cette annonce a été modifiée. Vérifiez sa fiche actualisée avant de confirmer.",
+  campaign_precheck_failed:"Certains messages contiennent encore des informations à compléter. Vérifiez les destinataires et le texte avant de confirmer.",
+  template_not_approved:"Le modèle WhatsApp de cette annonce n’est pas encore autorisé. Choisissez un modèle approuvé avant l’envoi.",
+  channel_not_available:"Ce canal d’envoi n’est pas disponible. Choisissez WhatsApp pour cette annonce.",
   media_not_understood:"L’assistant n’a pas pu lire ce fichier. Répondez au client ou demandez-lui un texte ou un fichier plus clair.",
   network_office_code_already_exists:"Ce code est déjà utilisé par un bureau ou un entrepôt de votre réseau. Choisissez un autre code.",
   network_office_code_unavailable:"Ce code ne peut pas être utilisé pour le moment. Choisissez un autre code ou contactez le support SLAIVIO.",

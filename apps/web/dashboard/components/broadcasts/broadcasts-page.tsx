@@ -10,14 +10,13 @@ import { OperationActionMenu, OperationButton, OperationField, OperationFilterPo
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { listClients, type ClientRecord } from "@/services/clients";
 import { OfficeContextSelector } from "@/components/tenant/office-context-selector";
+import { AnnouncementDelivery } from './announcement-delivery';
 import {
-  campaignAction,
   campaignResources,
   createCampaign,
   getCampaign,
   listCampaigns,
   saveAudience,
-  snapshotCampaign,
   type Campaign,
 } from "@/services/broadcasts";
 const btn =
@@ -39,7 +38,7 @@ const campaignStatusLabels: Record<string, string> = {
   DRAFT: "Brouillon",
   PENDING_APPROVAL: "À approuver",
   SCHEDULED: "Programmée",
-  QUEUED: "En file",
+  QUEUED: "En attente d’envoi",
   SENDING: "En cours",
   PAUSED: "En pause",
   COMPLETED: "Terminée",
@@ -92,18 +91,6 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
   }, [embedded, onHeaderAction]);
   async function open(x: Campaign) {
     setSelected((await getCampaign(x.id)).campaign);
-  }
-  async function act(a: string) {
-    if (!selected) return;
-    try {
-      await campaignAction(selected.id, a, selected.row_version);
-      setSelected(null);
-      load();
-    } catch {
-      setError(
-        "Pré-check refusé, droits insuffisants ou campagne déjà modifiée.",
-      );
-    }
   }
   const cards = [
     ["Actives", stats.active],
@@ -204,29 +191,10 @@ export function BroadcastsPage({ embedded = false, onHeaderAction }: { embedded?
           description={`${selected.reference} · ${dashboardText(campaignStatusLabels[selected.status]) || selected.status}`}
           close={() => setSelected(null)}
         >
-          <div className="rounded-md bg-white p-4 whitespace-pre-wrap">
-            {selected.message}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              className={btn}
-              onClick={async () => {
-                await snapshotCampaign(selected.id);
-                setSelected((await getCampaign(selected.id)).campaign);
-              }}
-            >
-              {dashboardText("Calculer & figer audience")}</button>
-            <button className={btn} onClick={() => act("APPROVE")}>
-              {dashboardText("Approuver")}</button>
-            <button className={primary} onClick={() => act("START")}>
-              {dashboardText("Lancer")}</button>
-            <button className={btn} onClick={() => act("PAUSE")}>
-              {dashboardText("Pause")}</button>
-            <button className={btn} onClick={() => act("RESUME")}>
-              {dashboardText("Reprendre")}</button>
-            <button className={btn} onClick={() => act("CANCEL")}>
-              {dashboardText("Annuler")}</button>
-          </div>
+          <AnnouncementDelivery key={selected.id} campaign={selected} changed={value => {
+            setSelected(current => current?.id === value.id ? value : current);
+            void load();
+          }} />
         </OperationDrawer>
       )}
       {modal === "campaign" && (

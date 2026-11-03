@@ -50,12 +50,12 @@ def test_campaign_engine_contract():
 
 
 def test_broadcast_frontend_exists():
-    ui = read("apps/web/dashboard/components/broadcasts/broadcasts-page.tsx")
+    ui = read("apps/web/dashboard/components/broadcasts/broadcasts-page.tsx") + read("apps/web/dashboard/components/broadcasts/announcement-delivery.tsx")
     for label in (
         "Nouvelle campagne",
         "Créer un groupe de destinataires",
-        "Calculer & figer audience",
-        "Approuver",
+        "Préparer l’envoi",
+        "Confirmer l’envoi",
         "Taux lecture",
     ):
         assert label in ui

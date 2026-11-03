@@ -45,7 +45,12 @@ def detail(o,b):
  with engine.connect() as c:
   x=c.execute(text('select * from broadcasts where org_id=:o and id=:b'),{'o':o,'b':b}).mappings().first()
   if not x:return None
-  out=dict(x);out['recipients']=rows(c.execute(text('select * from broadcast_recipients where org_id=:o and broadcast_id=:b order by created_at limit 500'),{'o':o,'b':b}));out['events']=rows(c.execute(text('select * from broadcast_events where org_id=:o and broadcast_id=:b order by created_at desc'),{'o':o,'b':b}));return out
+  out=dict(x);out['recipients']=rows(c.execute(text('select * from broadcast_recipients where org_id=:o and broadcast_id=:b order by created_at limit 500'),{'o':o,'b':b}));out['events']=rows(c.execute(text('select * from broadcast_events where org_id=:o and broadcast_id=:b order by created_at desc'),{'o':o,'b':b}))
+  out['recipient_summary']=dict(c.execute(text("""select count(*)::int total,
+    count(*) filter(where exclusion_reason is null)::int eligible,
+    count(*) filter(where exclusion_reason is not null)::int excluded
+    from broadcast_recipients where org_id=:o and broadcast_id=:b"""),{'o':o,'b':b}).mappings().one())
+  return out
 def save_audience(o,a,d):
  with engine.begin() as c:return dict(c.execute(text("insert into broadcast_audiences(org_id,workspace_id,name,audience_type,filter_config,created_by) values(:o,cast(:workspace_id as uuid),:name,:audience_type,cast(:filters as jsonb),:a) on conflict(org_id,name) do update set filter_config=excluded.filter_config,updated_at=now() returning *"),{'o':o,'a':a,'filters':json.dumps(d.get('filter_config') or {}),**d}).mappings().one())
 def resources(o):
@@ -54,6 +59,8 @@ def snapshot(o,b,a):
  with engine.begin() as c:
   campaign=c.execute(text('select b.*,a.filter_config from broadcasts b left join broadcast_audiences a on a.org_id=b.org_id and a.id=b.audience_id where b.org_id=:o and b.id=:b for update of b'),{'o':o,'b':b}).mappings().first()
   if not campaign:return None
+  if campaign['status'] not in('DRAFT','PENDING_APPROVAL','SCHEDULED') or campaign.get('approved_at'):
+   raise HTTPException(409,'campaign_not_launchable')
   filters=campaign.get('filter_config') or {};where=['c.org_id=:o','c.deleted_at is null'];p={'o':o};group_filters=[]
   for key,col in [('country','c.country'),('language','c.preferred_language'),('status','c.lifecycle_status')]:
    if filters.get(key):group_filters.append(f'lower({col})=lower(:{key})');p[key]=filters[key]
@@ -76,25 +83,28 @@ def snapshot(o,b,a):
     elif campaign['broadcast_type']=='COMMERCIAL' and not c.execute(text("select 1 from broadcast_consents where org_id=:o and contact=:contact and channel=:channel and consent_status='OPTED_IN'"),{'o':o,'contact':contact,'channel':channel}).first():reason='MARKETING_CONSENT_REQUIRED'
     idem=f'{b}:{channel}:{contact or client["id"]}';msg=render(campaign['message'],client,campaign.get('variable_defaults') or {})
     c.execute(text("insert into broadcast_recipients(org_id,broadcast_id,client_id,recipient_phone,recipient_email,channel,language,rendered_message,status,exclusion_reason,idempotency_key) values(:o,:b,:client,:phone,:email,:channel,:lang,:message,:status,:reason,:idem) on conflict(org_id,idempotency_key) do nothing"),{'o':o,'b':b,'client':client['id'],'phone':client.get('phone'),'email':client.get('email'),'channel':channel,'lang':client.get('preferred_language') or 'fr','message':msg,'status':'EXCLUDED' if reason else 'SNAPSHOT','reason':reason,'idem':idem});excluded+=bool(reason);created+=not bool(reason)
+  c.execute(text('update broadcasts set row_version=row_version+1,updated_at=now() where org_id=:o and id=:b'),{'o':o,'b':b})
   event(c,o,b,'AUDIENCE_SNAPSHOT',a,{'eligible':created,'excluded':excluded});return {'eligible':created,'excluded':excluded,'total':created+excluded}
 def render(msg,client,defaults):
  vals={'client_name':client.get('name') or defaults.get('client_name','Client'),'first_name':(client.get('name') or defaults.get('first_name','Client')).split()[0],**defaults}
  return re.sub(r'{{\s*([a-zA-Z0-9_]+)\s*}}',lambda m:str(vals.get(m.group(1),'')),msg)
 def action(o,b,a,act,version):
- states={'APPROVE':'SCHEDULED','START':'QUEUED','PAUSE':'PAUSED','RESUME':'QUEUED','CANCEL':'CANCELLED','ARCHIVE':'ARCHIVED'};target=states[act]
+ states={'APPROVE':'SCHEDULED','LAUNCH':'QUEUED','START':'QUEUED','PAUSE':'PAUSED','RESUME':'QUEUED','CANCEL':'CANCELLED','ARCHIVE':'ARCHIVED'};target=states[act]
  with engine.begin() as c:
-  if act in('START','RESUME'):
-   campaign=c.execute(text('select b.*,t.provider_status from broadcasts b left join broadcast_templates t on t.id=b.template_id where b.org_id=:o and b.id=:b'),{'o':o,'b':b}).mappings().first()
+  if act in('START','RESUME','LAUNCH'):
+   campaign=c.execute(text('select b.*,t.provider_status from broadcasts b left join broadcast_templates t on t.org_id=b.org_id and t.id=b.template_id where b.org_id=:o and b.id=:b for update of b'),{'o':o,'b':b}).mappings().first()
    if not campaign:return 'approval_or_schedule'
    if any(channel!='WHATSAPP' for channel in (campaign.get('channels') or [])):return 'channel_not_available'
-  if act=='START':
+  if act in('START','LAUNCH'):
+   if act=='LAUNCH' and (campaign['status'] not in('DRAFT','PENDING_APPROVAL','SCHEDULED') or campaign.get('approved_at')):return 'campaign_not_launchable'
    bad=c.execute(text("select count(*) from broadcast_recipients where broadcast_id=:b and exclusion_reason is null and (rendered_message is null or rendered_message like '%{{%')"),{'b':b}).scalar_one()
-   if not campaign or campaign['approved_at'] is None or (campaign['scheduled_at'] and campaign['scheduled_at']>__import__('datetime').datetime.now(__import__('datetime').timezone.utc)):return 'approval_or_schedule'
+   if act=='START' and (campaign['approved_at'] is None or (campaign['scheduled_at'] and campaign['scheduled_at']>datetime.now(timezone.utc))):return 'approval_or_schedule'
+   if act=='LAUNCH' and campaign['scheduled_at'] and campaign['scheduled_at']>datetime.now(timezone.utc):target='SCHEDULED'
    if 'WHATSAPP' in (campaign['channels'] or []) and campaign.get('template_id') and campaign.get('provider_status')!='APPROVED':return 'template_not_approved'
    if not c.execute(text('select 1 from broadcast_recipients where broadcast_id=:b and exclusion_reason is null'),{'b':b}).first():return 'audience_empty'
    if bad:return 'precheck_failed'
-  row=c.execute(text("update broadcasts set status=:s,approved_by=case when :act='APPROVE' then :a else approved_by end,approved_at=case when :act='APPROVE' then now() else approved_at end,paused_at=case when :act='PAUSE' then now() else paused_at end,archived_at=case when :act='ARCHIVE' then now() else archived_at end,row_version=row_version+1,updated_at=now() where org_id=:o and id=:b and row_version=:v returning *"),{'s':target,'act':act,'a':a,'o':o,'b':b,'v':version}).mappings().first()
-  if row and act in('START','RESUME'):c.execute(text("update broadcast_recipients set status='QUEUED',queued_at=now() where broadcast_id=:b and status='SNAPSHOT' and exclusion_reason is null"),{'b':b})
+  row=c.execute(text("update broadcasts set status=:s,approved_by=case when :act in('APPROVE','LAUNCH') then :a else approved_by end,approved_at=case when :act in('APPROVE','LAUNCH') then now() else approved_at end,paused_at=case when :act='PAUSE' then now() else paused_at end,archived_at=case when :act='ARCHIVE' then now() else archived_at end,row_version=row_version+1,updated_at=now() where org_id=:o and id=:b and row_version=:v returning *"),{'s':target,'act':act,'a':a,'o':o,'b':b,'v':version}).mappings().first()
+  if row and target=='QUEUED':c.execute(text("update broadcast_recipients set status='QUEUED',queued_at=now() where org_id=:o and broadcast_id=:b and status='SNAPSHOT' and exclusion_reason is null"),{'o':o,'b':b})
   if row:event(c,o,b,act,a);return dict(row)
 def process_queue(limit=200):
  from app.db.notification_repository import create_notification_outbox

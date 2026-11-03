@@ -19,6 +19,8 @@ import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationContent, OperationMetrics, OperationSearch, OperationTable, OperationToolbar } from "@/components/ui/operation-primitives";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
 import { getAdmin } from "@/services/organization-admin";
+import {isPlanLimitError,apiErrorDetail} from '@/services/api';
+import {PlanLimitNotice} from '@/components/ui/plan-limit-notice';
 import {
   createWarehouse,
   exportWarehouseInventory,
@@ -140,6 +142,7 @@ function CreateWarehouseDrawer({ open, close, done }: { open: boolean; close: ()
   useDashboardMessages();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [planLimit,setPlanLimit]=useState(false);
   const [locations, setLocations] = useState<Array<Record<string, unknown>>>([]);
   const [locationId, setLocationId] = useState("");
   useEffect(() => {
@@ -155,6 +158,7 @@ function CreateWarehouseDrawer({ open, close, done }: { open: boolean; close: ()
     event.preventDefault();
     setBusy(true);
     setError("");
+    setPlanLimit(false);
     const form = new FormData(event.currentTarget);
     try {
       await createWarehouse({
@@ -169,7 +173,8 @@ function CreateWarehouseDrawer({ open, close, done }: { open: boolean; close: ()
       });
       done();
     } catch (caught) {
-      setError(errorMessage(caught));
+      setPlanLimit(isPlanLimitError(caught));
+      setError(apiErrorDetail(caught)||errorMessage(caught));
     } finally {
       setBusy(false);
     }
@@ -200,7 +205,7 @@ function CreateWarehouseDrawer({ open, close, done }: { open: boolean; close: ()
           </div>}
         </div> : <div className="rounded-[7px] bg-amber-50 p-4 text-[13px] text-amber-900">{dashboardText("Configurez d’abord un bureau ou établissement avec son pays, sa ville et son adresse. ")}<Link className="font-semibold underline" href="/app/settings?section=locations">{dashboardText("Configurer les établissements")}</Link></div>}
       </FormSection>
-      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{dashboardText(error)}</p>}
+      {error && (planLimit?<PlanLimitNotice message={error}/>:<p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{dashboardText(error)}</p>)}
       <div className="flex justify-end gap-2 border-t border-[#e8ebee] pt-4"><OperationButton type="button" onClick={close}>{dashboardText("Annuler")}</OperationButton><OperationButton type="submit" variant="primary" disabled={busy || !selectedLocation}>{busy ? dashboardText("Création…") : dashboardText("Créer l’entrepôt")}</OperationButton></div>
     </form>
   </OperationDrawer>;
@@ -218,5 +223,5 @@ function formatNumber(value: number) {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Une erreur est survenue.";
+  return apiErrorDetail(error)||"L’action n’a pas pu être effectuée. Réessayez ou contactez le support Slaivio si le problème persiste.";
 }

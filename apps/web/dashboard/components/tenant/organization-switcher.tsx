@@ -9,7 +9,8 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { FormGeographyFields, PhoneField } from "@/components/ui/geography-fields";
 import { OperationButton } from "@/components/ui/operation-controls";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
-import { apiErrorDetail } from "@/services/api";
+import { apiErrorDetail,isPlanLimitError } from "@/services/api";
+import {PlanLimitNotice} from '@/components/ui/plan-limit-notice';
 import { createNetworkOffice } from "@/services/organization-network";
 import { createTenant, getTenantContext, switchTenant } from "@/services/tenant";
 
@@ -34,6 +35,7 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   const [tenants,setTenants]=useState<Tenant[]>([]);const [activeTenant,setActiveTenant]=useState<Tenant|null>(null);
   const [loading,setLoading]=useState(true);const [switching,setSwitching]=useState(false);const [open,setOpen]=useState(false);const [createOpen,setCreateOpen]=useState(false);
   const [organizationName,setOrganizationName]=useState("");const [creating,setCreating]=useState(false);const [error,setError]=useState("");const [workspaceKind,setWorkspaceKind]=useState<"OFFICE"|"WAREHOUSE">("OFFICE");
+  const [planLimit,setPlanLimit]=useState(false);
   const parcelFreight=["PARCEL_FREIGHT","CARGO"].includes(activeTenant?.organization_type||"");const networkConfigured=parcelFreight&&Boolean(activeTenant?.group_id);
   const canCreateOffice=parcelFreight&&available&&permissions.includes("network.offices.manage");
   const networkTenants=activeTenant?.group_id?tenants.filter(tenant=>tenant.group_id===activeTenant.group_id):[];
@@ -51,7 +53,7 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
   function matching(tenant:Tenant){return `${tenant.organization_name||""} ${tenant.city||""} ${tenant.country||""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());}
 
   async function handleSwitch(tenant:Tenant){if(switching)return;if(tenant.org_id===activeTenant?.org_id){setOpen(false);return;}setSwitching(true);setError("");try{await switchTenant(tenant.org_id);window.sessionStorage.removeItem("slaivio:dashboard-home");window.sessionStorage.removeItem("slaivio:office-context");window.location.reload();}catch{setError("Changement impossible");setSwitching(false);}}
-  async function handleCreate(event:React.FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);setCreating(true);setError("");try{if(parcelFreight){const value=(key:string)=>String(form.get(key)||"").trim();await createNetworkOffice({workspace_kind:value("workspace_kind") as "OFFICE"|"WAREHOUSE",organization_name:value("organization_name"),office_code:value("office_code"),country:value("country"),country_code:value("country_code"),city:value("city"),currency_code:value("currency_code")||"USD",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",address:[value("address_line_1"),value("address_line_2")].filter(Boolean).join("\n")||null,phone:value("phone")||null,email:value("email")||null});setCreateOpen(false);await load();}else{const name=organizationName.trim();if(name.length<2){setError("Saisissez un nom d’organisation.");return;}await createTenant(name);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.assign("/onboarding");}}catch(cause){setError(apiErrorDetail(cause)||(parcelFreight?`La création du ${workspaceKind==="WAREHOUSE"?"entrepôt":"bureau"} a échoué.`:"La création de l’organisation a échoué."));}finally{setCreating(false);}}
+  async function handleCreate(event:React.FormEvent<HTMLFormElement>){event.preventDefault();const form=new FormData(event.currentTarget);setCreating(true);setError("");setPlanLimit(false);try{if(parcelFreight){const value=(key:string)=>String(form.get(key)||"").trim();await createNetworkOffice({workspace_kind:value("workspace_kind") as "OFFICE"|"WAREHOUSE",organization_name:value("organization_name"),office_code:value("office_code"),country:value("country"),country_code:value("country_code"),city:value("city"),currency_code:value("currency_code")||"USD",timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",address:[value("address_line_1"),value("address_line_2")].filter(Boolean).join("\n")||null,phone:value("phone")||null,email:value("email")||null});setCreateOpen(false);await load();}else{const name=organizationName.trim();if(name.length<2){setError("Saisissez un nom d’organisation.");return;}await createTenant(name);window.sessionStorage.removeItem("slaivio:dashboard-home");window.location.assign("/onboarding");}}catch(cause){setPlanLimit(isPlanLimitError(cause));setError(apiErrorDetail(cause)||(parcelFreight?`La création du ${workspaceKind==="WAREHOUSE"?"entrepôt":"bureau"} a échoué.`:"La création de l’organisation a échoué."));}finally{setCreating(false);}}
   function tenantRow(tenant:Tenant,office=false){
     const Icon=tenant.workspace_kind==="WAREHOUSE"?Warehouse:Building2;
     const label=office?(tenant.city||tenant.organization_name||"Bureau"):["PARCEL_FREIGHT","CARGO"].includes(tenant.organization_type||"")?workspaceLabel(tenant):formatOrganizationDisplayName(tenant.organization_name);
@@ -91,7 +93,7 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
         <div className="mt-1 border-t border-slate-100 pt-1"><button type="button" className={operationMenuItemClass} onClick={()=>{setOpen(false);setError("");setCreateOpen(true);}}><Plus size={15}/>{dashboardText("Créer une organisation")}</button></div>
       </>}
     </div>}
-    {error&&<p className="mt-1 px-1 text-[11px] text-red-600">{dashboardText(error)}</p>}
+    {error&&!planLimit&&<p className="mt-1 px-1 text-[11px] text-red-600">{dashboardText(error)}</p>}
     <OperationDrawer
       open={createOpen}
       close={()=>{if(!creating)setCreateOpen(false);}}
@@ -149,7 +151,7 @@ export function OrganizationSwitcher({collapsed=false,menuPlacement="up",header=
             </div>
           </section>
         </>:<label htmlFor="organization-name" className="grid min-w-0 content-start gap-2 text-[13px] font-semibold text-[#414950]">{dashboardText("Nom de l’organisation")}<input id="organization-name" value={organizationName} onChange={event=>setOrganizationName(event.target.value)} maxLength={120} autoFocus placeholder={dashboardText("Ex. Slaivio France")} className={inputClass}/></label>}
-        {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{dashboardText(error)}</p>}
+        {error&&(planLimit?<PlanLimitNotice message={error}/>:<p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">{dashboardText(error)}</p>)}
       </form>
     </OperationDrawer>
   </div>;

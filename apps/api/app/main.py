@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Response
+from sqlalchemy.exc import DBAPIError
 from app.api.webhook import router as webhook_router
 from app.api.notifications import router as notifications_router
 from app.api.dossiers import router as dossiers_router
@@ -117,6 +118,9 @@ app.add_exception_handler(
     Exception,
     global_exception_handler,
 )
+# Expected database business refusals must be handled inside ExceptionMiddleware,
+# not the outer server-error handler which re-raises after sending its response.
+app.add_exception_handler(DBAPIError, global_exception_handler)
 
 
 @app.middleware("http")

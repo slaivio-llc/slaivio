@@ -22,8 +22,17 @@ def limit_error(exc):
         resource = data['resource']
         if resource not in LABELS:
             return None
+        limit = int(data['limit'])
+        if resource in {'max_offices', 'max_warehouses'}:
+            singular, plural = ('bureau', 'bureaux') if resource == 'max_offices' else ('entrepôt', 'entrepôts')
+            label = singular if limit == 1 else plural
+            message = (f"Votre offre inclut jusqu’à {limit} {label}. Cette capacité est déjà utilisée. "
+                       f"Pour ajouter un {singular}, consultez les offres disponibles. "
+                       f"Vos {plural} existants restent accessibles.")
+        else:
+            message = f"Votre offre a atteint la limite de {limit} {LABELS[resource]}. Passez à une offre supérieure pour en ajouter. Les éléments existants restent accessibles."
         return {'code': 'plan_limit_reached', 'resource': resource, 'limit': int(data['limit']),
-                'message': f"Votre offre a atteint la limite de {int(data['limit'])} {LABELS[resource]}. Passez à une offre supérieure pour en ajouter. Les éléments existants restent accessibles."}
+                'message': message}
     except (ValueError, TypeError, KeyError):
         return None
 

@@ -9,6 +9,55 @@ from app.billing.services import capacity
 from app.organizations.services import invitation_service
 
 
+@pytest.mark.parametrize('resource,label', [('max_offices','1 bureau'),('max_warehouses','1 entrepôt')])
+def test_office_and_warehouse_limits_are_expected_business_responses(resource, label):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sqlalchemy.exc import DBAPIError, InternalError
+    from app.core.exceptions import global_exception_handler
+    from pathlib import Path
+    import json
+
+    class Refusal(Exception):
+        diag = SimpleNamespace(message_primary='slaivio_plan_limit_reached',
+                               message_detail=json.dumps({'resource':resource,'limit':1,'current':1}))
+    app = FastAPI()
+    app.add_exception_handler(Exception, global_exception_handler)
+    app.add_exception_handler(DBAPIError, global_exception_handler)
+    @app.post('/create')
+    def create():
+        raise InternalError('private SQL statement', {}, Refusal())
+    # Default raise_server_exceptions=True proves the quota is not re-raised
+    # by the outer server-error middleware after the response has been sent.
+    response = TestClient(app).post('/create')
+    assert response.status_code == 409
+    detail = response.json()['detail']
+    assert detail['code'] == 'plan_limit_reached'
+    assert label in detail['message']
+    assert 'existants restent accessibles' in detail['message']
+    assert 'SQL' not in response.text and 'slaivio_plan_limit_reached' not in response.text
+    main = (Path(__file__).parents[1]/'app/main.py').read_text(encoding='utf-8')
+    assert 'app.add_exception_handler(DBAPIError, global_exception_handler)' in main
+
+
+def test_other_database_failures_still_return_safe_500(monkeypatch):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sqlalchemy.exc import DBAPIError, InternalError
+    from app.core import exceptions
+    logged = Mock()
+    monkeypatch.setattr(exceptions.logger, 'exception', logged)
+    app = FastAPI()
+    app.add_exception_handler(DBAPIError, exceptions.global_exception_handler)
+    @app.post('/create')
+    def create():
+        raise InternalError('secret SQL', {}, Exception('database offline'))
+    response = TestClient(app).post('/create')
+    assert response.status_code == 500
+    assert response.json() == {'status':'error','message':'internal_server_error'}
+    logged.assert_called_once()
+
+
 def test_only_known_quota_details_are_exposed():
     error=SimpleNamespace(orig=SimpleNamespace(diag=SimpleNamespace(message_primary='slaivio_plan_limit_reached',message_detail='{"resource":"max_users","limit":3}')))
     detail=capacity.limit_error(error)

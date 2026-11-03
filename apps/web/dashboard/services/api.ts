@@ -92,6 +92,10 @@ export function apiErrorDetail(error: unknown): string {
   return agencyErrorMessage(raw);
 }
 
+export function isPlanLimitError(error:unknown):boolean {
+  return axios.isAxiosError(error)&&error.response?.data?.detail?.code==='plan_limit_reached';
+}
+
 function normalizeApiBaseUrl(value?: string) {
   if (!value) return undefined;
   const trimmed = value.trim();
@@ -252,7 +256,8 @@ api.interceptors.response.use(
       // Onboarding forms render an error beside the field group. A second
       // global toast would duplicate it and obscure the mobile submit button.
       const hasLocalOnboardingFeedback = requestUrl.startsWith("/api/onboarding/");
-      if (!["GET", "HEAD", "OPTIONS"].includes(method) && !hasLocalOnboardingFeedback) {
+      const localPlanLimit=isPlanLimitError(error)&&['/organization/network/offices','/warehouses'].includes(requestUrl);
+      if (!["GET", "HEAD", "OPTIONS"].includes(method) && !hasLocalOnboardingFeedback && !localPlanLimit) {
         const detail = error.response?.data?.detail;
         const raw = Array.isArray(detail)
           ? detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(" · ")
@@ -273,8 +278,8 @@ api.interceptors.response.use(
               : error.response.status === 422
                 ? detailMessage || "Vérifiez les informations saisies, puis réessayez."
                 : detailMessage || "L’action n’a pas pu être effectuée pour le moment. Réessayez ou contactez le support SLAIVIO.");
-        const title=requestUrl==='/organization/invitations'||requestUrl==='/organization/network/invitations'?'Invitation non envoyée':undefined;
-        window.dispatchEvent(new CustomEvent(API_MUTATION_FAILED_EVENT, { detail: { message, title, status: error.response?.status } }));
+        const title=quotaMessage?'Capacité de votre offre':requestUrl==='/organization/invitations'||requestUrl==='/organization/network/invitations'?'Invitation non envoyée':undefined;
+        window.dispatchEvent(new CustomEvent(API_MUTATION_FAILED_EVENT, { detail: { message, title, tone:quotaMessage?'info':'error', status: error.response?.status } }));
       }
     }
     return Promise.reject(error);

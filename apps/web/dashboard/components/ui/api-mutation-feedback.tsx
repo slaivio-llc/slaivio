@@ -2,7 +2,7 @@
 import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-messages';
 
 
-import { AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { API_MUTATION_FAILED_EVENT, API_MUTATION_SUCCEEDED_EVENT } from "@/services/api";
@@ -11,15 +11,15 @@ export function ApiMutationFeedback() {
   useDashboardMessages();
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("");
-  const [tone, setTone] = useState<"success"|"error">("error");
+  const [tone, setTone] = useState<"success"|"error"|"info">("error");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function failed(event: Event) {
-      const detail = (event as CustomEvent<{ message?: string; title?: string }>).detail;
+      const detail = (event as CustomEvent<{ message?: string; title?: string; tone?: string }>).detail;
       const next = detail?.message;
       if (!next) return;
-      setTone("error");
+      setTone(detail?.tone==='info'?'info':'error');
       setTitle(detail?.title||'');
       setMessage(next);
       if (timer.current) clearTimeout(timer.current);
@@ -45,9 +45,9 @@ export function ApiMutationFeedback() {
 
   if (!message) return null;
   return (
-    <div role="status" className={`fixed bottom-5 right-5 z-[100] flex max-w-[430px] items-start gap-3 rounded-lg border bg-white p-4 text-[13px] shadow-xl ${tone==="success"?"border-emerald-200 text-emerald-800":"border-red-200 text-red-800"}`}>
-      {tone==="success"?<CheckCircle2 className="mt-0.5 shrink-0" size={18}/>:<AlertTriangle className="mt-0.5 shrink-0" size={18} />}
-      <div><b className={`block ${tone==="success"?"text-emerald-900":"text-red-900"}`}>{title?dashboardText(title):tone==="success"?dashboardText("Terminé"):dashboardText("Échec de l’action")}</b><p className="mt-1 leading-5">{dashboardText(message)}</p></div>
+    <div role="status" className={`fixed bottom-5 right-5 z-[100] flex max-w-[430px] items-start gap-3 rounded-lg border bg-white p-4 text-[13px] shadow-xl ${tone==="success"?"border-emerald-200 text-emerald-800":tone==='info'?'border-slate-200 text-slate-700':"border-red-200 text-red-800"}`}>
+      {tone==="success"?<CheckCircle2 className="mt-0.5 shrink-0" size={18}/>:tone==='info'?<Info className="mt-0.5 shrink-0" size={18}/>:<AlertTriangle className="mt-0.5 shrink-0" size={18} />}
+      <div><b className={`block ${tone==="success"?"text-emerald-900":tone==='info'?'text-slate-900':"text-red-900"}`}>{title?dashboardText(title):tone==="success"?dashboardText("Terminé"):tone==='info'?dashboardText('Capacité de votre offre'):dashboardText("Échec de l’action")}</b><p className="mt-1 leading-5">{dashboardText(message)}</p></div>
       <button onClick={() => setMessage("")} aria-label={dashboardText("Fermer")} className="ml-auto"><X size={16} /></button>
     </div>
   );

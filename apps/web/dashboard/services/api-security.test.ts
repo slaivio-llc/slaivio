@@ -1,8 +1,27 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { api, API_BASE_URL, setAccessTokenProvider, apiErrorDetail } from './api';
+import { api, API_BASE_URL, setAccessTokenProvider, apiErrorDetail, API_MUTATION_FAILED_EVENT,isPlanLimitError } from './api';
+import {AxiosError} from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
 afterEach(()=>setAccessTokenProvider(null));
+
+it.each(['/organization/network/offices','/warehouses'])('leaves quota guidance inside the creation form without a duplicate failure toast: %s',async url=>{
+ const listener=vi.fn();window.addEventListener(API_MUTATION_FAILED_EVENT,listener);
+ const message='Votre offre inclut jusqu’à 1 entrepôt. Cette capacité est déjà utilisée.';
+ const adapter=async(config:InternalAxiosRequestConfig)=>{throw new AxiosError('Request failed with status code 409','ERR_BAD_REQUEST',config,undefined,{status:409,statusText:'Conflict',headers:{},config,data:{detail:{code:'plan_limit_reached',resource:'max_warehouses',message}}});};
+ try{await api.post(url,{}, {adapter});expect.fail('must retain the quota refusal');}catch(error){
+  expect(isPlanLimitError(error)).toBe(true);expect(apiErrorDetail(error)).toBe(message);
+  expect(listener).not.toHaveBeenCalled();
+ }finally{window.removeEventListener(API_MUTATION_FAILED_EVENT,listener);}
+});
+
+it('presents other quota refusals as information, not an application failure',async()=>{
+ const listener=vi.fn();window.addEventListener(API_MUTATION_FAILED_EVENT,listener);
+ const adapter=async(config:InternalAxiosRequestConfig)=>{throw new AxiosError('409','ERR_BAD_REQUEST',config,undefined,{status:409,statusText:'Conflict',headers:{},config,data:{detail:{code:'plan_limit_reached',message:'Capacité atteinte.'}}});};
+ try{await expect(api.post('/clients',{}, {adapter})).rejects.toThrow();
+  expect(listener.mock.calls[0][0].detail).toMatchObject({tone:'info',title:'Capacité de votre offre',message:'Capacité atteinte.'});
+ }finally{window.removeEventListener(API_MUTATION_FAILED_EVENT,listener);}
+});
 
 it('explains a duplicate office code without exposing database or other agency details',()=>{
   const message=apiErrorDetail({isAxiosError:true,response:{data:{detail:'network_office_code_already_exists'}}});

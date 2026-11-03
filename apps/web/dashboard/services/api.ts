@@ -15,6 +15,7 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  media_not_understood:"L’assistant n’a pas pu lire ce fichier. Répondez au client ou demandez-lui un texte ou un fichier plus clair.",
   network_office_code_already_exists:"Ce code est déjà utilisé par un bureau ou un entrepôt de votre réseau. Choisissez un autre code.",
   network_office_code_unavailable:"Ce code ne peut pas être utilisé pour le moment. Choisissez un autre code ou contactez le support SLAIVIO.",
   platform_self_permissions_protected:"Vos propres accès sont protégés. Demandez à un autre administrateur autorisé.",

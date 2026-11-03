@@ -50,6 +50,8 @@ class Settings(BaseSettings):
 
     mistral_api_key: str | None = None
     voice_transcription_provider: str = "mistral"
+    inbox_audio_model: str = "voxtral-mini-latest"
+    inbox_vision_model: str = "mistral-small-latest"
 
     manager_api_key: str = "change-me-dev-key"
 

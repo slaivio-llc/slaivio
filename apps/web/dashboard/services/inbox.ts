@@ -81,6 +81,9 @@ export type InboxMessage = {
   is_group?: boolean;
   media_url?: string | null;
   media_mime_type?: string | null;
+  media_analysis_status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | null;
+  media_analysis_text?: string | null;
+  media_analysis_error?: string | null;
   media_file_name?: string | null;
   media_size_bytes?: number | null;
 };
@@ -93,6 +96,11 @@ export type InboxClient = {
   email?: string | null;
   customer_type?: string | null;
 };
+
+export function mergeExistingInboxMessages(previous: InboxMessage[], incoming: InboxMessage[]): InboxMessage[] {
+  const updates = new Map(incoming.map(message => [message.id, message]));
+  return previous.map(message => updates.get(message.id) || message);
+}
 
 export type InboxDossier = {
   id: string;

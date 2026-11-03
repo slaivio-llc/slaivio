@@ -699,7 +699,8 @@ def create_message(
                     media_object_path,
                     media_mime_type,
                     media_file_name,
-                    media_size_bytes
+                    media_size_bytes,
+                    media_analysis_status
                 )
                 values (
                     :org_id,
@@ -727,7 +728,10 @@ def create_message(
                     :media_object_path,
                     :media_mime_type,
                     :media_file_name,
-                    :media_size_bytes
+                    :media_size_bytes,
+                    case when :provider='QR_LINKED_DEVICE' and :direction='inbound'
+                      and not coalesce(:is_group,false) and :message_type in('audio','ptt','image')
+                      then 'PENDING' end
                 )
                 on conflict (dedupe_key) do nothing
                 returning *

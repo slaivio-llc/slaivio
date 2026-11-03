@@ -58,3 +58,23 @@ def create_document_download_url(object_path: str, expires_in: int = 300, bucket
     if not signed:
         raise RuntimeError("document_storage_sign_failed")
     return signed if signed.startswith("http") else f"{base_url}/storage/v1{signed}"
+
+
+def read_private_whatsapp_media(org_id: str, object_path: str, max_bytes: int) -> bytes:
+    # No caller-controlled host, redirects or cross-tenant object paths.
+    if not object_path.startswith(f"whatsapp/{org_id}/") or any(
+        part in {".", "..", ""} for part in object_path.split("/")
+    ) or "\\" in object_path:
+        raise ValueError("invalid_media_path")
+    base_url, key, bucket = _configuration()
+    with httpx.stream("GET", f"{base_url}/storage/v1/object/{quote(bucket)}/{quote(object_path, safe='/')}",
+                      headers={"Authorization": f"Bearer {key}", "apikey": key},
+                      timeout=30, follow_redirects=False) as response:
+        if response.status_code != 200:
+            raise RuntimeError("document_storage_download_failed")
+        content = bytearray()
+        for chunk in response.iter_bytes(65536):
+            content.extend(chunk)
+            if len(content) > max_bytes:
+                raise ValueError("too_large")
+    return bytes(content)

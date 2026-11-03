@@ -239,7 +239,8 @@ def conversation_detail(org_id: str, phone: str, before=None, message_limit: int
             select id, direction, text_body, message_type, send_status, error_message,
                    provider_message_id, created_at, received_at, from_phone sender_phone,
                    sender_name, sender_jid, conversation_jid, is_group,
-                   media_object_path, media_mime_type, media_file_name, media_size_bytes
+                   media_object_path, media_mime_type, media_file_name, media_size_bytes,
+                   media_analysis_status,media_analysis_text,media_analysis_error
             from messages
             where org_id = :org_id
               and coalesce(nullif(conversation_jid, ''), case when direction='outbound' then to_phone else from_phone end) = :phone

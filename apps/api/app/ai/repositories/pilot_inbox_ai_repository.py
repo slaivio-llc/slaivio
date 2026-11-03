@@ -69,6 +69,13 @@ def update_pilot_ai_settings(org_id: str, mode: str, actor_id: str) -> dict:
         return dict(row)
 
 
+def latest_inbound_message_id(org_id: str, client_phone: str) -> str | None:
+    with engine.connect() as conn:
+        return conn.execute(text("""select id::text from messages
+          where org_id=:org_id and from_phone=:phone and direction='inbound'
+          order by created_at desc limit 1"""), {"org_id": org_id, "phone": client_phone}).scalar()
+
+
 def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
     with engine.connect() as conn:
         row = conn.execute(text("""
@@ -80,6 +87,9 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
                  organization.name organization_name,
                  message.id source_message_id,
                  message.text_body source_message,
+                 message.message_type source_message_type,
+                 message.media_analysis_status source_media_analysis_status,
+                 message.provider source_provider,
                  message.sender_jid source_sender_jid,
                  message.created_at source_message_at
           from conversation_assignments assignment
@@ -89,7 +99,12 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
           left join dossiers dossier
             on dossier.org_id=assignment.org_id and dossier.id=assignment.dossier_id
           left join lateral (
-            select candidate.id, candidate.text_body, candidate.sender_jid, candidate.created_at
+            select candidate.id,
+              concat_ws(E'\n',nullif(candidate.text_body,''),
+                case when candidate.media_analysis_status='COMPLETED'
+                then '[Contenu fourni par le client, extrait automatiquement du média ; à confirmer] ' || candidate.media_analysis_text end) text_body,
+              candidate.sender_jid,candidate.created_at,candidate.message_type,
+              candidate.media_analysis_status,candidate.provider
             from messages candidate
             where candidate.org_id=assignment.org_id
               and candidate.from_phone=assignment.client_phone
@@ -104,9 +119,12 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
         context = dict(row)
         context["client_finance_access"] = False
         context["recent_messages"] = [dict(item) for item in conn.execute(text("""
-          select direction, text_body, created_at
+          select direction, text_body, created_at, message_type
           from (
-            select direction, text_body, created_at
+            select direction,
+              concat_ws(E'\n',nullif(text_body,''),case when media_analysis_status='COMPLETED'
+                then '[Média du client, extraction automatique] ' || media_analysis_text end) text_body,
+              created_at,message_type
             from messages
             where org_id=:org_id and (from_phone=:phone or to_phone=:phone)
             order by created_at desc limit 12

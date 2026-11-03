@@ -5,7 +5,7 @@ import json
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.webhook import process_normalized_whatsapp_message
@@ -20,6 +20,7 @@ from app.db.whatsapp_qr_repository import (
 )
 from app.models.message import NormalizedMessage
 from app.services.pilot_inbound_ai_dispatch import run_pilot_inbox_ai
+from app.services.inbox_media_jobs import process_media
 from app.services.dossier_document_storage import upload_private_document
 from app.services.whatsapp_qr_gateway_client import QRGatewayError, qr_gateway_request, verify_gateway_signature
 
@@ -122,7 +123,7 @@ def qr_callback_health(request: Request):
 
 
 @router.post("/internal/whatsapp-qr/events")
-async def receive_qr_gateway_event(request: Request):
+async def receive_qr_gateway_event(request: Request, background_tasks: BackgroundTasks):
     raw = await request.body()
     timestamp = request.headers.get("X-Slaivio-Timestamp")
     signature = request.headers.get("X-Slaivio-Signature")
@@ -203,7 +204,10 @@ async def receive_qr_gateway_event(request: Request):
                 # Group discussions can involve several people and must remain
                 # under human control until group-aware AI policies exist.
                 if not normalized.is_group:
-                    await run_pilot_inbox_ai(org_id, normalized.from_phone, normalized.text_body or "", "SUPPORT", f"whatsapp:{normalized.dedupe_key}")
+                    if normalized.message_type in {"audio", "ptt", "image"}:
+                        background_tasks.add_task(process_media, org_id, result["message_id"])
+                    else:
+                        await run_pilot_inbox_ai(org_id, normalized.from_phone, normalized.text_body or "", "SUPPORT", f"whatsapp:{normalized.dedupe_key}")
         finish_event(org_id, event_key, "PROCESSED")
         return {"status": "processed"}
     except Exception as exc:

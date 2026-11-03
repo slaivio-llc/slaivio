@@ -176,7 +176,7 @@ def create_draft(phone: str, body: GenerateDraftRequest, tenant=Depends(get_curr
     except Exception as exc:
         raise HTTPException(503, "ai_provider_unavailable") from exc
     if result.get("status") == "skipped":
-        code = 409 if result.get("reason") == "ai_paused" else 404
+        code = 409 if result.get("reason") in {"ai_paused", "media_not_understood"} else 404
         raise HTTPException(code, result.get("reason"))
     return result
 

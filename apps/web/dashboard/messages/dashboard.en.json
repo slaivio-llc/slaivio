@@ -5176,5 +5176,11 @@
   "Envoi des relances": "Follow-up delivery",
   "{0} relance(s) ont échoué durant les 30 derniers jours. Vérifiez-les avant le lancement.": "{0} follow-ups failed in the past 30 days. Check them before launch.",
   "Aucun échec récent de relance n’a été détecté.": "No recent follow-up failures detected.",
-  "Voir les relances": "View follow-ups"
+  "Voir les relances": "View follow-ups",
+  "Lecture de l’image": "Image interpretation",
+  "Transcription du vocal": "Voice message transcript",
+  "Lecture automatique : vérifiez les informations importantes.": "Automatic interpretation: check important details.",
+  "L’assistant est en pause. Ce message reste à traiter par votre équipe.": "The assistant is paused. Your team still needs to handle this message.",
+  "L’assistant n’a pas pu lire ce fichier. Répondez au client ou demandez-lui un texte ou un fichier plus clair.": "The assistant could not read this file. Reply to the customer or ask for a text message or a clearer file.",
+  "En attente d’analyse par l’assistant.": "Waiting for the assistant to analyse this message."
 }

@@ -11,12 +11,12 @@ import { pool } from "./db.js";
 import { phoneFromJid, resolveOutboundJid, resolveSenderIdentity } from "./message-identity.js";
 import { inboundDiagnostic } from "./gateway-diagnostics.js";
 import { logoutWithCleanup } from "./logout-cleanup.js";
+import { readBoundedMedia } from "./inbound-media.js";
 
 const sessions = new Map();
 const logger = pino({ level: process.env.LOG_LEVEL || "info", redact: {
   paths: ["qr", "message", "payload", "key", "node", "histNotification", "trace", "err.data", "error.data"], remove: true,
 } });
-const MAX_INBOUND_MEDIA_BYTES = 12 * 1024 * 1024;
 
 const eventKey = (connectionId, type, suffix = crypto.randomUUID()) => `qr:${connectionId}:${type}:${suffix}`;
 const messageContent = message => extractMessageContent(message) || message || {};
@@ -268,9 +268,9 @@ export async function startSession(id, orgId) {
         let mediaBase64 = null;
         if (media) {
           try {
-            const buffer = await downloadMediaMessage(item, "buffer", {}, { logger, reuploadRequest: socket.updateMediaMessage });
-            if (buffer.length <= MAX_INBOUND_MEDIA_BYTES) mediaBase64 = buffer.toString("base64");
-            else logger.warn({ connectionId: id, messageId: item.key.id, size: buffer.length }, "inbound_media_too_large");
+            const stream = await downloadMediaMessage(item, "stream", {}, { logger, reuploadRequest: socket.updateMediaMessage });
+            const buffer = await readBoundedMedia(stream);
+            mediaBase64 = buffer.toString("base64");
           } catch (error) {
             logger.warn({ error: error.message, connectionId: id, messageId: item.key.id }, "inbound_media_download_failed");
           }

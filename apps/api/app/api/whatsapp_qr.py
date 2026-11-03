@@ -31,6 +31,8 @@ _MAX_INBOUND_MEDIA_BYTES = 12 * 1024 * 1024
 _MEDIA_EXTENSIONS = {
     "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
     "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+    "audio/wav": "wav", "audio/x-wav": "wav", "audio/webm": "webm",
+    "audio/flac": "flac", "audio/aac": "aac",
     "video/mp4": "mp4", "application/pdf": "pdf",
 }
 

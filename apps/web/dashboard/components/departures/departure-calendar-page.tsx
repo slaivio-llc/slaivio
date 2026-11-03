@@ -51,7 +51,7 @@ export function DepartureCalendarPage({ embedded = false, planRequest = 0 }: { e
       </>}
       {truncated&&<p className="mt-3 text-xs text-amber-700">{dashboardText("L’affichage est limité aux 500 premières expéditions de cette période.")}</p>}
     </div>
-    {planning&&<ShipmentCreation close={()=>setPlanning(false)} created={item=>{setPlanning(false);setCreated(item);void load();}}/>}
+    {planning&&<ShipmentCreation mode="plan" close={()=>setPlanning(false)} created={item=>{setPlanning(false);setCreated(item);void load();}}/>}
     {selectedShipment&&<FreightShipmentDetail shipmentId={selectedShipment} onClose={()=>setSelectedShipment(null)}/>}
   </div>;
 }

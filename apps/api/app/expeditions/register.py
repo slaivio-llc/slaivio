@@ -136,7 +136,7 @@ def create(org_id, actor_id, route_id, planned_departure_at, request_key, shippi
                   and o.effective_from<=now() and (o.effective_until is null or o.effective_until>now())
                   and o.availability in ('AVAILABLE','LIMITED','QUOTE_ONLY')
                   and s.active and s.status in ('ACTIVE','LIMITED') and s.archived_at is null"""),
-                {'org_id': org_id, 'route_id': route_id, 'service_id': shipping_service_id}).first()
+                {'org_id': org_id, 'route_id': route_id, 'service_id': shipping_service_id}).mappings().first()
             if not service:
                 raise HTTPException(409, 'shipment_service_unavailable_for_route')
         transport_mode = service['shipping_mode'] if service else route['transport_mode']

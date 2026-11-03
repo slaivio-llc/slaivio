@@ -27,9 +27,11 @@ def setup_create(monkeypatch, *, service=True):
                 "destination_country": "CD", "destination_city": "Kinshasa", "transport_mode": "AIR",
             }
         elif "select s.service_name,s.shipping_mode" in sql:
-            result.first.return_value = (
-                {"service_name": "Aérien", "shipping_mode": "AIR"} if service else None
-            )
+            # Use a real SQLAlchemy Result: unlike a dict-shaped mock, Row
+            # rejects string indexing unless mappings() was requested.
+            from sqlalchemy import create_engine, text
+            with create_engine('sqlite://').connect() as db:
+                return db.execute(text("select 'Aérien' service_name,'AIR' shipping_mode" + ('' if service else ' where 0=1'))).freeze()()
         return result
 
     conn.execute.side_effect = execute

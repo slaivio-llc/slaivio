@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { api } from "@/services/api";
-import { FreightShipmentRegister } from "./freight-register";
+import { FreightShipmentRegister,ShipmentCreation } from "./freight-register";
 
 vi.mock("@/services/api",()=>({api:{get:vi.fn(),post:vi.fn()}}));
 vi.mock("@/services/tenant",()=>({getTenantContext:()=>Promise.resolve({active_tenant:{organization_type:"PARCEL_FREIGHT"}})}));
@@ -48,18 +48,56 @@ describe("Registre Expéditions fret",()=>{
     vi.mocked(api.post).mockResolvedValue({data:{id:"new",reference:"EXP-NEW"}});
     render(<FreightShipmentRegister/>);await openCreation();
     expect(screen.queryByLabelText("Transporteur")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button",{name:"Planifier le départ"}));
-    await waitFor(()=>expect(api.post).toHaveBeenCalledWith("/shipments/register",expect.objectContaining({route_id:"route",shipping_service_id:"service-air",notes:null,request_key:expect.any(String),planned_departure_at:expect.any(String)})));
+    expect(screen.getByRole('dialog',{name:'Nouvelle expédition'})).toBeVisible();
+    expect(screen.queryByRole('heading',{name:'Planifier un départ'})).not.toBeInTheDocument();
+    const date=screen.getByLabelText('Date prévue du départ (facultative)');
+    expect(date).not.toBeRequired();
+    fireEvent.click(screen.getByRole("button",{name:"Créer l’expédition"}));
+    await waitFor(()=>expect(api.post).toHaveBeenCalledWith("/shipments/register",expect.objectContaining({route_id:"route",shipping_service_id:"service-air",notes:null,request_key:expect.any(String),planned_departure_at:null})));
     expect(await screen.findByText("EXP-NEW créée.")).toBeInTheDocument();
   });
   it("réessaie la même demande après perte de réponse et conserve les champs",async()=>{
     vi.mocked(api.post).mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce({data:{id:"new",reference:"EXP-NEW"}});
     render(<FreightShipmentRegister/>);await openCreation();
-    fireEvent.click(screen.getByRole("button",{name:"Planifier le départ"}));
+    fireEvent.click(screen.getByRole("button",{name:"Créer l’expédition"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("Confirmation non reçue");
     expect(screen.getByLabelText(/^Origine/)).toBeDisabled();
     fireEvent.click(screen.getByRole("button",{name:"Réessayer la confirmation"}));
     await waitFor(()=>expect(api.post).toHaveBeenCalledTimes(2));
     expect(vi.mocked(api.post).mock.calls[0][1]).toEqual(vi.mocked(api.post).mock.calls[1][1]);
+  });
+  it('keeps calendar planning explicit and requires its departure date',async()=>{
+    render(<ShipmentCreation mode="plan" close={vi.fn()} created={vi.fn()}/>);
+    expect(screen.getByRole('dialog',{name:'Planifier un départ'})).toBeVisible();
+    expect(await screen.findByLabelText(/^Date prévue du départ/)).toBeRequired();
+    expect(screen.getByRole('button',{name:'Planifier le départ'})).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/^Origine/),{target:{value:JSON.stringify(['CN','Guangzhou'])}});
+    fireEvent.change(screen.getByLabelText(/^Destination/),{target:{value:'route'}});
+    fireEvent.click(screen.getByLabelText('Aérien'));
+    vi.mocked(api.post).mockResolvedValueOnce({data:{id:'planned',reference:'EXP-PLANNED'}});
+    fireEvent.click(screen.getByRole('button',{name:'Planifier le départ'}));
+    await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/shipments/register',expect.objectContaining({planned_departure_at:expect.any(String)})));
+  });
+  it('clears a stale service selection when the origin changes',async()=>{
+    render(<FreightShipmentRegister/>);await openCreation();
+    fireEvent.change(screen.getByLabelText(/^Origine/),{target:{value:''}});
+    expect(screen.getByRole('button',{name:'Créer l’expédition'})).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/^Origine/),{target:{value:JSON.stringify(['CN','Guangzhou'])}});
+    fireEvent.change(screen.getByLabelText(/^Destination/),{target:{value:'route'}});
+    expect(screen.getByLabelText('Aérien')).not.toBeChecked();
+    expect(screen.getByRole('button',{name:'Créer l’expédition'})).toBeDisabled();
+  });
+  it('allows a corrected request after a definitive conflict without reusing its creation key',async()=>{
+    vi.mocked(api.post).mockRejectedValueOnce({isAxiosError:true,response:{status:409}}).mockResolvedValueOnce({data:{id:'new',reference:'EXP-NEW'}});
+    render(<FreightShipmentRegister/>);await openCreation();
+    fireEvent.click(screen.getByRole('button',{name:'Créer l’expédition'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Corrigez votre sélection');
+    expect(screen.getByLabelText(/^Origine/)).not.toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Note interne (facultative)'),{target:{value:'Correction'}});
+    fireEvent.click(screen.getByRole('button',{name:'Créer l’expédition'}));
+    await waitFor(()=>expect(api.post).toHaveBeenCalledTimes(2));
+    const first=vi.mocked(api.post).mock.calls[0][1] as {request_key:string};
+    const second=vi.mocked(api.post).mock.calls[1][1] as {request_key:string};
+    expect(first.request_key).not.toBe(second.request_key);
   });
 });

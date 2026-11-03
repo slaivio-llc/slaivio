@@ -30,6 +30,9 @@ def get_limit_entitlement(
     if not entitlement or entitlement["entitlement_type"] != "LIMIT":
         return 0
 
+    if entitlement.get('unlimited') is True:
+        return None
+
     return int(entitlement["limit_value"] or 0)
 
 
@@ -62,7 +65,7 @@ def assert_under_limit(
         entitlement_key=entitlement_key,
     )
 
-    if current_value >= limit:
+    if limit is not None and current_value >= limit:
         raise HTTPException(
             status_code=403,
             detail={

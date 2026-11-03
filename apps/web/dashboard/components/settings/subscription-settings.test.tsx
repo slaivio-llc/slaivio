@@ -14,6 +14,17 @@ const overview:billing.BillingOverview={
   subscription:{plan_code:'STARTER',plan_name:'Starter',status:'TRIAL',monthly_price_minor:11900,currency_code:'USD',trial_ends_at:new Date(Date.now()+30*86400000).toISOString(),ends_at:null},invoices:[],usage:{clients:2,members:1},
 };
 
+it('shows no ceilings or warnings during an active unlimited trial while retaining real usage',async()=>{
+ vi.mocked(billing.getSubscriptionBilling).mockResolvedValue({...overview,capacity:{trial_active:true,trial_ends_at:overview.subscription!.trial_ends_at,limits:{max_monthly_packages:null,max_users:null,max_offices:null,max_warehouses:null,max_whatsapp_numbers:null},usage:{max_monthly_packages:20000,max_users:80,max_offices:20,max_warehouses:30,max_whatsapp_numbers:40},transition_active:false,enforce_from:null,period_ends_at:'2026-12-01T00:00:00Z',timezone:'UTC'}});
+ render(<SubscriptionSettings organization={{}}/>);
+ expect(await screen.findByText(/Sans limite pendant l’essai gratuit/)).toBeVisible();
+ expect(screen.getAllByText(/\/ Sans limite/)).toHaveLength(5);
+ expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+ expect(screen.queryByText(/Limite atteinte/)).not.toBeInTheDocument();
+ expect(screen.queryByText(/au moins 80 %/)).not.toBeInTheDocument();
+ expect(billing.createSubscriptionCheckout).not.toHaveBeenCalled();
+});
+
 it('keeps packs off the subscription page and opens a keyboard-accessible offer dialog only on request',async()=>{
   render(<SubscriptionSettings organization={{}}/>);
   expect(screen.queryByText('Chargement de l’abonnement…')).not.toBeInTheDocument();

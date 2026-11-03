@@ -3,6 +3,17 @@ from sqlalchemy import text
 from app.db.database import engine
 
 
+def is_trial_active(org_id: str) -> bool:
+    with engine.connect() as conn:
+        return conn.execute(text('select billing_trial_active(:org_id)'), {'org_id': org_id}).scalar() is True
+
+
+def _trial_limit(entitlement: dict, trial: bool) -> dict:
+    if trial and entitlement.get('entitlement_type') == 'LIMIT':
+        return {**entitlement, 'limit_value': None, 'unlimited': True}
+    return entitlement
+
+
 def get_plan_entitlements(
     plan_code: str,
 ):
@@ -53,10 +64,11 @@ def get_org_entitlements(
     org_id: str,
 ):
     plan_code = get_org_plan_code(org_id)
+    is_trial = is_trial_active(org_id)
 
     return {
         "plan_code": plan_code,
-        "entitlements": get_plan_entitlements(plan_code),
+        "entitlements": [_trial_limit(item, is_trial) for item in get_plan_entitlements(plan_code)],
     }
 
 
@@ -65,6 +77,7 @@ def get_entitlement(
     entitlement_key: str,
 ):
     plan_code = get_org_plan_code(org_id)
+    is_trial = is_trial_active(org_id)
 
     with engine.connect() as conn:
         row = conn.execute(
@@ -81,5 +94,5 @@ def get_entitlement(
             },
         ).fetchone()
 
-        return dict(row._mapping) if row else None
+        return _trial_limit(dict(row._mapping), is_trial) if row else None
 

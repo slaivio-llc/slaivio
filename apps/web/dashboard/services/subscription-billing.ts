@@ -4,7 +4,7 @@ export type SubscriptionPlan = { code:string;name:string;monthly_price_minor:num
 export type BillingOverview = {
   billing_account_id:string;trial_days:number;access_active:boolean;checkout_available:boolean;
   payer?:{email:string;name:string}|null;
-  capacity?:{limits:Record<string,number>;usage:Record<string,number>;transition_active:boolean;enforce_from:string|null;period_ends_at:string;timezone:string};
+  capacity?:{limits:Record<string,number|null>;plan_limits?:Record<string,number>;trial_active?:boolean;trial_ends_at?:string|null;usage:Record<string,number>;transition_active:boolean;enforce_from:string|null;period_ends_at:string;timezone:string};
   subscription:{plan_code:string;plan_name:string;status:string;monthly_price_minor:number;currency_code:string;trial_ends_at:string|null;ends_at:string|null}|null;
   invoices:Array<{id:string;invoice_number:string;status:string;total_minor:number;currency_code:string;created_at?:string}>;
   usage:Record<string,number>;

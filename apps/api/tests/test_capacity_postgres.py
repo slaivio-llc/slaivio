@@ -15,7 +15,7 @@ DDL = '''
 create table organizations(id text primary key,parent_org_id text,agency_type text default 'OFFICE',status text default 'ACTIVE');
 create table pricing_plans(id uuid primary key default gen_random_uuid(),code text unique,max_users int,max_whatsapp_numbers int);
 create table plan_entitlements(plan_code text,entitlement_key text,entitlement_type text,boolean_value boolean,limit_value int,unique(plan_code,entitlement_key));
-create table agency_subscriptions(org_id text primary key,pricing_plan_id uuid);
+create table agency_subscriptions(org_id text primary key,pricing_plan_id uuid,status text default 'ACTIVE',starts_at timestamptz default now(),trial_ends_at timestamptz);
 create table organization_settings(org_id text primary key,timezone text);
 create table cargo_packages(id uuid primary key default gen_random_uuid(),org_id text,created_at timestamptz default now(),status text default 'CREATED');
 create table organization_memberships(id uuid primary key default gen_random_uuid(),org_id text,clerk_user_id text,member_email text,status text default 'ACTIVE');
@@ -27,7 +27,7 @@ create table warehouses(id uuid primary key default gen_random_uuid(),org_id tex
 create table notification_outbox(id uuid primary key default gen_random_uuid(),org_id text,notification_type text);
 insert into organizations(id) values('agency');
 insert into pricing_plans(code) values('STARTER'),('PRO'),('ENTERPRISE');
-insert into agency_subscriptions select 'agency',id from pricing_plans where code='STARTER';
+insert into agency_subscriptions(org_id,pricing_plan_id) select 'agency',id from pricing_plans where code='STARTER';
 insert into organization_settings values('agency','Africa/Kinshasa');
 '''
 
@@ -39,6 +39,8 @@ def database():
     schema='slaivio_capacity_test_'+uuid4().hex
     migration=(Path(__file__).resolve().parents[3]/'infra/sql/158_subscription_capacity_limits.sql').read_text(encoding='utf-8')
     script=migration.replace('begin;','').replace('commit;','')
+    trial_migration=(Path(__file__).resolve().parents[3]/'infra/sql/170_unlimited_free_trial.sql').read_text(encoding='utf-8')
+    script+='\n'+trial_migration.replace('begin;','').replace('commit;','')
     with engine.connect() as c:
         c.exec_driver_sql(f'create schema {schema}')
         c.exec_driver_sql(f'set search_path to {schema},public')
@@ -68,6 +70,37 @@ def rejected(c,sql):
         with c.begin_nested():
             c.exec_driver_sql(sql)
     assert 'slaivio_plan_limit_reached' in str(error.value)
+
+
+def test_active_trial_has_no_ceilings_across_all_resources_and_child_offices(database):
+    c=database
+    enforce(c)
+    c.exec_driver_sql("update agency_subscriptions set status='TRIAL',trial_ends_at=now()+interval '1 day'")
+    c.exec_driver_sql("insert into organizations(id,parent_org_id) values('trial-child','agency')")
+    data=capacity(c)
+    assert data['trial_active'] is True
+    assert all(value is None for value in data['limits'].values())
+    assert data['plan_limits']['max_offices']==1
+    for key in ('max_monthly_packages','max_users','max_offices','max_warehouses','max_whatsapp_numbers'):
+        c.execute(text("select billing_assert_capacity('trial-child',:key,1000000)"),{'key':key})
+    assert c.exec_driver_sql("select billing_advanced_automation('trial-child')").scalar_one() is True
+    c.exec_driver_sql("insert into cargo_packages(org_id) select 'agency' from generate_series(1,501)")
+    assert capacity(c)['usage']['max_monthly_packages']==501
+    c.exec_driver_sql("update agency_subscriptions set trial_ends_at=now()-interval '1 second'")
+    assert capacity(c)['trial_active'] is False
+    assert capacity(c)['limits']['max_monthly_packages']==500
+    assert c.exec_driver_sql("select billing_advanced_automation('trial-child')").scalar_one() is False
+    rejected(c,"insert into cargo_packages(org_id) values('agency')")
+    assert c.exec_driver_sql('select count(*) from cargo_packages').scalar_one()==501
+
+
+@pytest.mark.parametrize('status,future_start',[('ACTIVE',False),('CANCELLED',False),('TRIAL',True)])
+def test_non_trial_or_future_trials_do_not_skip_paid_limits(database,status,future_start):
+    c=database
+    enforce(c)
+    c.execute(text("update agency_subscriptions set status=:status,trial_ends_at=now()+interval '30 days',starts_at=case when :future then now()+interval '1 day' else now() end"),{'status':status,'future':future_start})
+    assert capacity(c)['trial_active'] is False
+    rejected(c,"select billing_assert_capacity('agency','max_offices',1)")
 
 
 def test_approved_limits_and_existing_agency_transition(database):

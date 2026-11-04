@@ -10,12 +10,14 @@ const pricingService = vi.hoisted(() => ({
   pricingAnalytics: vi.fn(), pricingCatalog: vi.fn(), pricingDashboard: vi.fn(),
   savePricingSettings: vi.fn(), simulatePrice: vi.fn(), transitionGrid: vi.fn(),
 }));
+const access=vi.hoisted(()=>({permissions:['pricing.create','pricing.approve']}));
+vi.mock('@/components/permissions/permission-provider',()=>({usePermissions:()=>access}));
 
 vi.mock("@/services/pricing-engine", () => pricingService);
 vi.mock('@/services/organization-admin',()=>({getOperationalSettings:vi.fn()}));
 vi.mock("@/components/permissions/permission-guard", () => ({ PermissionGuard: ({ children }: { children: ReactNode }) => children }));
 vi.mock("@/components/ui/operation-page-header", () => ({ OperationPageHeader: ({ actions }: { actions: ReactNode }) => <header>{actions}</header> }));
-vi.mock("@/components/ui/operation-drawer", () => ({ OperationDrawer: ({ children, open }: { children: ReactNode; open: boolean }) => open ? <div>{children}</div> : null }));
+vi.mock("@/components/ui/operation-drawer", () => ({ OperationDrawer: ({ children, open,footer }: { children: ReactNode; open: boolean;footer?:ReactNode }) => open ? <div>{children}{footer}</div> : null }));
 vi.mock("@/components/ui/operation-primitives", () => ({
   OperationMetrics: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   OperationMetricGrid: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -35,6 +37,7 @@ vi.mock("@/components/ui/page-state", () => ({
 
 describe("PricingEnginePage tariff creation", () => {
   beforeEach(() => {
+    access.permissions=['pricing.create','pricing.approve'];
     vi.clearAllMocks();
     vi.mocked(getOperationalSettings).mockResolvedValue({currency_code:'USD',timezone:'UTC',language_code:'fr',settings:{}});
     pricingService.pricingDashboard.mockResolvedValue({ stats: {}, settings: {}, alerts: [], grids: [] });
@@ -51,7 +54,7 @@ describe("PricingEnginePage tariff creation", () => {
     });
   });
 
-  it("reviews and saves a unit tariff as a draft", async () => {
+  it("creates and activates a unit tariff in one request without a separate approval call", async () => {
     render(<PricingEnginePage />);
     fireEvent.click(await screen.findByRole("button", { name: /Nouveau tarif/ }));
     await waitFor(()=>expect(screen.getByLabelText('Devise')).toHaveValue('USD'));
@@ -61,14 +64,35 @@ describe("PricingEnginePage tariff creation", () => {
     fireEvent.change(screen.getByLabelText(/Prix par kilogramme/), { target: { value: "8.50" } });
     fireEvent.change(screen.getByLabelText(/Cat.gorie de marchandise/), { target: { value: "FRAGILE" } });
     fireEvent.click(screen.getByRole("button", { name: /V.rifier le tarif/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Enregistrer le tarif/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Créer et activer le tarif/ }));
 
     await waitFor(() => expect(pricingService.createGrid).toHaveBeenCalledOnce());
     expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({
       name: "Tarif cargo", route_id: "route-1", shipping_service_id: "service-1",
       calculation_method: "PER_KG", initial_price: 8.5, initial_category_code: "FRAGILE",
-      initial_package_type: "carton", currency_code: "USD", requires_approval: true, visibility: "INTERNAL",
+      initial_package_type: "carton", currency_code: "USD", requires_approval: true, visibility: "INTERNAL",publish_on_create:true,
     }));
+    expect(pricingService.approveGrid).not.toHaveBeenCalled();
+    await screen.findByRole('button',{name:'Publier le tarif'});
+    expect(screen.queryByRole('button',{name:'Valider'})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Publier le tarif'}));
+    await waitFor(()=>expect(pricingService.transitionGrid).toHaveBeenCalledWith('grid-1','ACTIVE','Publication tarifaire'));
+    expect(pricingService.approveGrid).not.toHaveBeenCalled();
+  });
+
+  it.each(['voluntary','restricted'])('keeps a draft when %s without trying to bypass permissions',async(mode)=>{
+    if(mode==='restricted')access.permissions=['pricing.create'];
+    render(<PricingEnginePage/>);
+    fireEvent.click(await screen.findByRole('button',{name:/Nouveau tarif/}));
+    await waitFor(()=>expect(screen.getByLabelText('Devise')).toHaveValue('USD'));
+    fireEvent.change(screen.getByLabelText(/Nom du tarif/),{target:{value:'Tarif brouillon'}});
+    fireEvent.change(screen.getByLabelText(/^Service/),{target:{value:'service-1'}});
+    fireEvent.change(screen.getByLabelText(/^Route/),{target:{value:'route-1'}});
+    fireEvent.change(screen.getByLabelText(/Prix par kilogramme/),{target:{value:'8.50'}});
+    if(mode==='voluntary')fireEvent.click(screen.getByRole('checkbox',{name:/Conserver en brouillon/}));
+    fireEvent.click(screen.getByRole('button',{name:/Vérifier le tarif/}));
+    fireEvent.click(screen.getByRole('button',{name:'Enregistrer le brouillon'}));
+    await waitFor(()=>expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({publish_on_create:false,requires_approval:true})));
   });
 
   it('keeps public tariff visibility an explicit agency choice',async()=>{
@@ -83,7 +107,7 @@ describe("PricingEnginePage tariff creation", () => {
     fireEvent.change(screen.getByLabelText(/^Route/),{target:{value:'route-1'}});
     fireEvent.change(screen.getByLabelText(/Prix par kilogramme/),{target:{value:'8.50'}});
     fireEvent.click(screen.getByRole('button',{name:/Vérifier le tarif/}));
-    fireEvent.click(screen.getByRole('button',{name:/Enregistrer le tarif/}));
+    fireEvent.click(screen.getByRole('button',{name:/Créer et activer le tarif/}));
     await waitFor(()=>expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({visibility:'PUBLIC',requires_approval:true})));
   });
 
@@ -115,7 +139,7 @@ describe("PricingEnginePage tariff creation", () => {
     fireEvent.change(screen.getByLabelText(/^Route/),{target:{value:'route-1'}});
     fireEvent.change(screen.getByLabelText(/Prix par kilogramme/),{target:{value:'12.50'}});
     fireEvent.click(screen.getByRole('button',{name:/Vérifier le tarif/}));
-    fireEvent.click(screen.getByRole('button',{name:/Enregistrer le tarif/}));
+    fireEvent.click(screen.getByRole('button',{name:/Créer et activer le tarif/}));
     await waitFor(()=>expect(pricingService.createGrid).toHaveBeenCalledWith(expect.objectContaining({currency_code:code,initial_price:12.5})));
   });
 

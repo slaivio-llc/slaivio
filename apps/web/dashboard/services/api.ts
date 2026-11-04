@@ -15,6 +15,12 @@ export const API_MUTATION_FAILED_EVENT = "slaivio:api-mutation-failed";
 export const API_MUTATION_SUCCEEDED_EVENT = "slaivio:api-mutation-succeeded";
 
 const apiDetailMessages: Record<string, string> = {
+  pricing_approval_required:"Un responsable autorisé doit publier ce tarif avant son utilisation.",
+  pricing_grid_has_no_price_rules:"Ajoutez un prix ou des paliers de prix avant de publier ce tarif.",
+  pricing_version_overlap:"Un autre tarif publié couvre déjà cette période pour ce service et cette route. Vérifiez les dates d’application.",
+  invalid_pricing_transition:"Ce tarif a changé d’état. Actualisez sa fiche avant de réessayer.",
+  pricing_grid_not_editable:"Ce tarif est déjà publié. Utilisez Modifier pour préparer une nouvelle version.",
+  route_service_mismatch:"Le service sélectionné n’est pas disponible sur cette route. Choisissez une association active.",
   approval_or_schedule:"Cette annonce n’est pas prête ou sa date d’envoi n’est pas encore arrivée.",
   audience_empty:"Aucun destinataire ne peut recevoir cette annonce. Vérifiez les clients sélectionnés et leurs coordonnées.",
   campaign_not_launchable:"Cette annonce a déjà été confirmée ou n’est plus disponible pour un nouvel envoi. Actualisez sa fiche.",

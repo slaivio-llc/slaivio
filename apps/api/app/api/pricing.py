@@ -22,6 +22,7 @@ def _actor(t): return str(t.get("user_id") or "system")
 def _name(t): return str(t.get("actor_name") or "Membre de l'agence")
 
 class GridCreate(BaseModel):
+    publish_on_create:bool=False
     grid_code:str=Field(min_length=3,max_length=60); name:str=Field(min_length=3,max_length=160); description:str|None=None; workspace_id:str|None=None; route_id:str; shipping_service_id:str
     currency_code:str=Field(default="USD",min_length=3,max_length=3); calculation_method:Literal["PER_KG","PER_CBM","PER_PACKAGE","PER_UNIT","PERCENT_VALUE","FIXED","TIERED","CUSTOM"]="PER_KG"; visibility:Literal["PUBLIC","INTERNAL","CONTRACTUAL"]="INTERNAL"; effective_from:datetime=Field(default_factory=lambda:datetime.now(timezone.utc)); effective_until:datetime|None=None
     volumetric_divisor:float=Field(default=6000,gt=0); chargeable_weight_rule:Literal["ACTUAL","VOLUMETRIC","MAX"]="MAX"; rounding_increment:float=Field(default=.1,gt=0); minimum_weight_kg:float|None=Field(default=None,ge=0); minimum_cbm:float|None=Field(default=None,ge=0); minimum_billable_amount:float|None=Field(default=None,ge=0); maximum_weight_kg:float|None=Field(default=None,gt=0); maximum_cbm:float|None=Field(default=None,gt=0); maximum_declared_value:float|None=Field(default=None,gt=0); weight_volume_switch_kg_per_cbm:float|None=Field(default=None,gt=0); tax_inclusive:bool=False; tax_rate:float=Field(default=0,ge=0,le=100); requires_approval:bool=True
@@ -67,7 +68,11 @@ def pricing_catalog(tenant=Depends(get_current_tenant),_=Depends(require_permiss
 @router.post("/pricing/categories")
 def pricing_category_create(body:Category,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.update"))): return center.create_category(tenant["org_id"],body.model_dump(),_actor(tenant),_name(tenant))
 @router.post("/pricing/grids")
-def pricing_grid_create(body:GridCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.create"))): return center.create_grid(tenant["org_id"],_actor(tenant),_name(tenant),body.model_dump())
+def pricing_grid_create(body:GridCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.create"))):
+    if body.publish_on_create:
+        from app.permissions.services.permission_service import assert_permission
+        assert_permission(user_id=tenant['user_id'],org_id=tenant['org_id'],permission_code='pricing.approve')
+    return center.create_grid(tenant["org_id"],_actor(tenant),_name(tenant),body.model_dump())
 @router.get("/pricing/grids/{grid_id}")
 def pricing_grid_detail(grid_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("pricing.read"))): return center.detail(tenant["org_id"],grid_id)
 @router.post("/pricing/grids/{grid_id}/versions")

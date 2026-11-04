@@ -16,6 +16,8 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import { PermissionGuard } from "@/components/permissions/permission-guard";
+import {usePermissions} from '@/components/permissions/permission-provider';
+import {apiErrorDetail} from '@/services/api';
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
@@ -26,7 +28,6 @@ import {
   addGridFee,
   addGridRule,
   addGridTier,
-  approveGrid,
   createGridVersion,
   createGrid,
   createPricingCategory,
@@ -427,9 +428,11 @@ function CreateGrid({
     name: string; route: string; service: string; packageType: string; classification: string;
     unit: "PER_KG" | "PER_CBM" | "PER_PACKAGE" | "PER_UNIT"; currency: string;
     priceMode: "single" | "tiered"; price: string; minimumAmount: string; effectiveFrom: string;
-    effectiveUntil: string; note: string; approval: boolean; publicForClients: boolean;
+    effectiveUntil: string; note: string; saveAsDraft: boolean; publicForClients: boolean;
   };
   const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const {permissions}=usePermissions();
+  const canPublish=permissions.includes('pricing.approve');
   const [step, setStep] = useState<1 | 2>(1);
   const [route, setRoute] = useState(initialRouteId || "");
   const [service, setService] = useState(initialServiceId || "");
@@ -477,7 +480,7 @@ function CreateGrid({
       unit, currency, priceMode,
       price: String(form.get("price") || ""), minimumAmount: String(form.get("minimum_amount") || ""),
       effectiveFrom, effectiveUntil,
-      note: String(form.get("note") || "").trim(), approval: form.get("approval") === "on",
+      note: String(form.get("note") || "").trim(), saveAsDraft: form.get("save_as_draft") === "on",
       publicForClients: form.get("public_for_clients") === "on",
     });
     setStep(2);
@@ -504,12 +507,13 @@ function CreateGrid({
         minimum_billable_amount: draft.minimumAmount ? Number(draft.minimumAmount) : null,
         effective_from: new Date(`${draft.effectiveFrom}T00:00:00`).toISOString(),
         effective_until: draft.effectiveUntil ? new Date(`${draft.effectiveUntil}T23:59:59`).toISOString() : null,
-        requires_approval: draft.approval,
+        requires_approval: true,
+        publish_on_create:canPublish&&!draft.saveAsDraft,
         visibility: draft.publicForClients ? "PUBLIC" : "INTERNAL",
       });
       await done(created.id);
-    } catch {
-      setError("Le tarif n’a pas pu être enregistré. Vérifiez les champs et réessayez.");
+    } catch (cause) {
+      setError(apiErrorDetail(cause)||"Le tarif n’a pas pu être enregistré. Vérifiez les champs et réessayez.");
     } finally {
       setSaving(false);
     }
@@ -559,7 +563,7 @@ function CreateGrid({
           <h3 className="text-sm font-semibold">{dashboardText("Validité et statut")}</h3>
           <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1.5 text-[13px]">{dashboardText("Début *")}<input required name="effective_from" type="date" defaultValue={today} className={input} /></label><label className="grid gap-1.5 text-[13px]">{dashboardText("Fin (facultatif)")}<input name="effective_until" type="date" min={today} className={input} /></label></div>
           <label className="grid gap-1.5 text-[13px]">{dashboardText("Note interne")}<textarea name="note" rows={2} maxLength={1000} className={`${input} h-auto py-2`} placeholder={dashboardText("Conditions ou références internes…")} /></label>
-          <label className="flex items-start gap-2 text-[13px]"><input name="approval" type="checkbox" defaultChecked className="mt-0.5" /><span>{dashboardText("Activer après validation")}<small className="block text-xs text-slate-500">{dashboardText("Le tarif restera en brouillon jusqu’à son approbation et sa publication.")}</small></span></label>
+          {canPublish?<label className="flex items-start gap-2 text-[13px]"><input name="save_as_draft" type="checkbox" className="mt-0.5" /><span>{dashboardText("Conserver en brouillon")}<small className="block text-xs text-slate-500">{dashboardText("À cocher uniquement si vous souhaitez terminer ce tarif plus tard.")}</small></span></label>:<p className="text-xs text-slate-500">{dashboardText("Votre tarif sera enregistré en brouillon. Un responsable autorisé pourra ensuite le publier.")}</p>}
           <label className="flex items-start gap-2 text-[13px]"><input name="public_for_clients" type="checkbox" className="mt-0.5"/><span>{dashboardText("Autoriser l’assistant à communiquer ce tarif aux clients")}<small className="block text-xs text-slate-500">{dashboardText("Après publication, le prix de base pourra être communiqué. Le montant final et les conditions particulières restent à confirmer.")}</small></span></label>
         </section>
         {error && <p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
@@ -573,9 +577,9 @@ function CreateGrid({
           [dashboardText("Montant minimum"), draft?.minimumAmount ? `${draft.minimumAmount} ${draft.currency}` : dashboardText("Aucun")],
           [dashboardText("Validité"), `${draft?.effectiveFrom}${draft?.effectiveUntil ? ` — ${draft.effectiveUntil}` : dashboardText(" — sans date de fin")}`],
         ].map(([label, value]) => <div key={label} className="flex justify-between gap-3 border-b border-slate-100 py-2 text-[13px]"><span className="text-slate-500">{dashboardText(label)}</span><span className="text-right font-medium">{value || "—"}</span></div>)}</section>
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{dashboardText("Le tarif sera créé en brouillon. Il ne pourra servir aux calculs qu’après validation et publication.")}</p>
         {error && <p role="alert" className="text-sm text-red-700">{dashboardText(error)}</p>}
-        <div className="flex justify-between border-t border-slate-200 pt-4"><button type="button" className={btn} onClick={() => setStep(1)}>{dashboardText("Retour")}</button><button type="button" disabled={saving} className={primary} onClick={createTariff}>{saving ? dashboardText("Enregistrement…") : dashboardText("Enregistrer le tarif")}</button></div>
+        <p className="text-xs text-slate-500">{dashboardText(canPublish&&!draft?.saveAsDraft?"Le tarif sera activé en respectant sa date d’application. Aucune validation supplémentaire n’est nécessaire.":"Ce tarif restera en brouillon et ne sera pas utilisé pour calculer les prix.")}</p>
+        <div className="flex justify-between border-t border-slate-200 pt-4"><button type="button" className={btn} onClick={() => setStep(1)}>{dashboardText("Retour")}</button><button type="button" disabled={saving} className={primary} onClick={createTariff}>{saving ? dashboardText("Enregistrement…") : dashboardText(canPublish&&!draft?.saveAsDraft?"Créer et activer le tarif":"Enregistrer le brouillon")}</button></div>
       </div>}
     </div>
   );
@@ -598,6 +602,7 @@ function GridDrawer({
   const [versionDate,setVersionDate]=useState(new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16));
   const [versionSaving,setVersionSaving]=useState(false);
   const [actionError,setActionError]=useState("");
+  const [publishing,setPublishing]=useState(false);
   async function prepareVersion(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
     setVersionSaving(true);setActionError("");
@@ -610,7 +615,7 @@ function GridDrawer({
   const method = String(g.base_price_method || baseRule?.calculation_method || g.calculation_method);
   const unit = method === "PER_CBM" ? "CBM" : method === "PER_PACKAGE" ? "colis" : method === "PER_UNIT" ? "unité" : method === "FIXED" ? "forfait" : "kg";
   const baseAmount = g.base_price ?? baseRule?.amount;
-  const statusLabel = g.status === "ACTIVE" ? "Actif" : g.status === "DRAFT" ? "Brouillon" : g.status === "INACTIVE" ? "Inactif" : g.status;
+  const statusLabel = g.status === "ACTIVE" ? "Actif" : g.status === "DRAFT" ? "Brouillon" : g.status === "INACTIVE" ? "Inactif" : businessLabel(g.status,'État à vérifier');
   const validFrom = g.effective_from ? new Date(g.effective_from).toLocaleDateString(dashboardFormatLocale()) : "—";
   const validUntil = g.effective_until ? new Date(g.effective_until).toLocaleDateString(dashboardFormatLocale()) : "Sans date de fin";
   const dateValue = (value: unknown) => value ? new Date(String(value)).toLocaleString(dashboardFormatLocale(), { dateStyle: "medium", timeStyle: "short" }) : "Date non renseignée";
@@ -635,8 +640,8 @@ function GridDrawer({
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <span className="text-[10px] text-[#697178]">{dashboardText("Tarif ")}{g.grid_code}</span>
           <div className="flex flex-wrap justify-end gap-2">
-            {g.status === "DRAFT" && <PermissionGuard permission="pricing.approve"><button className={btn} onClick={async () => { try { setActionError(""); await approveGrid(g.id, "Tarif vérifié"); await changed(); } catch { setActionError("La validation du tarif a échoué."); } }}>{dashboardText("Valider")}</button><button className={primary} onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "ACTIVE", "Publication tarifaire"); await changed(); } catch { setActionError("La publication du tarif a échoué."); } }}>{dashboardText("Publier")}</button></PermissionGuard>}
-            {g.status === "ACTIVE" && <PermissionGuard permission="pricing.update"><button className="h-8 rounded-full border border-[#f0cccc] px-3 text-[11px] text-red-600 hover:bg-red-50" onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "INACTIVE", "Désactivation depuis la fiche tarif"); await changed(); } catch { setActionError("Le tarif n’a pas pu être désactivé."); } }}>{dashboardText("Désactiver le tarif")}</button></PermissionGuard>}
+            {g.status === "DRAFT" && <PermissionGuard permission="pricing.approve"><button disabled={publishing} className={primary} onClick={async () => { if(publishing)return;setPublishing(true);try { setActionError(""); await transitionGrid(g.id, "ACTIVE", "Publication tarifaire"); await changed(); } catch (cause) { setActionError(apiErrorDetail(cause)||"La publication du tarif a échoué."); } finally{setPublishing(false);} }}>{dashboardText(publishing?"Publication…":"Publier le tarif")}</button></PermissionGuard>}
+            {g.status === "ACTIVE" && <PermissionGuard permission="pricing.approve"><button className="h-8 rounded-full border border-[#f0cccc] px-3 text-[11px] text-red-600 hover:bg-red-50" onClick={async () => { try { setActionError(""); await transitionGrid(g.id, "SUSPENDED", "Désactivation depuis la fiche tarif"); await changed(); } catch (cause) { setActionError(apiErrorDetail(cause)||"Le tarif n’a pas pu être désactivé."); } }}>{dashboardText("Désactiver le tarif")}</button></PermissionGuard>}
           </div>
           {actionError && <p role="alert" className="basis-full text-right text-xs text-red-700">{actionError}</p>}
         </div>
@@ -666,7 +671,7 @@ function GridDrawer({
           {g.status === "DRAFT" && <AddFee grid={g.id} changed={changed}/>}
         </section>}
         {tab === "history" && <section className="grid gap-0">{detail.audit.slice(0, 20).map((event, index) => <div key={String(event.id || index)} className="flex gap-3 border-b border-[#edf0ee] py-3"><HistoryIcon size={13} className="mt-0.5 shrink-0 text-[#697178]"/><div><p className="text-[11px] font-medium text-[#25292e]">{businessHistoryTitle(event.event_type)}</p><p className="mt-1 text-[10px] text-[#697178]">{dateValue(event.created_at)} · {String(event.actor_name || dashboardText("Membre de l’agence"))}</p>{event.reason != null && <p className="mt-1 text-[10px] text-[#697178]">{String(event.reason)}</p>}</div></div>)}{!detail.audit.length && <p className="py-6 text-center text-[11px] text-[#697178]">{dashboardText("Aucun événement enregistré.")}</p>}</section>}
-        {g.status === "DRAFT" && <p className="border-t border-[#edf0ee] pt-3 text-[10px] leading-4 text-[#697178]">{dashboardText("Ce brouillon doit être validé puis publié avant de pouvoir être proposé aux clients.")}</p>}
+        {g.status === "DRAFT" && <p className="border-t border-[#edf0ee] pt-3 text-[10px] leading-4 text-[#697178]">{dashboardText("Ce tarif est conservé en brouillon. Un responsable autorisé peut le publier en une seule action lorsqu’il est prêt.")}</p>}
       </main>
     </OperationDrawer>
   );

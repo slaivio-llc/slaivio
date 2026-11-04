@@ -1,11 +1,13 @@
 import json
+import pytest
 from unittest.mock import MagicMock
 
 from app.api.pricing import GridCreate
 from app.pricing_engine import repository
 
 
-def test_grid_creation_can_atomically_create_a_base_price_rule(monkeypatch):
+@pytest.mark.parametrize('publish_on_create',[False,True])
+def test_grid_creation_can_atomically_create_a_base_price_rule(monkeypatch,publish_on_create):
     connection = MagicMock()
     engine = MagicMock()
     engine.begin.return_value.__enter__.return_value = connection
@@ -20,6 +22,8 @@ def test_grid_creation_can_atomically_create_a_base_price_rule(monkeypatch):
     audit = MagicMock()
     monkeypatch.setattr(repository, "engine", engine)
     monkeypatch.setattr(repository, "_audit", audit)
+    transition=MagicMock(return_value={'id':'grid-id','status':'ACTIVE'})
+    monkeypatch.setattr(repository,'transition',transition)
 
     payload = GridCreate(
         grid_code="AIR-01",
@@ -30,6 +34,7 @@ def test_grid_creation_can_atomically_create_a_base_price_rule(monkeypatch):
         initial_price=8.5,
         initial_category_code="FRAGILE",
         initial_package_type="carton",
+        publish_on_create=publish_on_create,
     ).model_dump()
     created = repository.create_grid("org-id", "actor-id", "Agent", payload)
 
@@ -47,3 +52,8 @@ def test_grid_creation_can_atomically_create_a_base_price_rule(monkeypatch):
         "GRID_CREATED",
         "RULE_CREATED",
     ]
+    if publish_on_create:
+        transition.assert_called_once_with('org-id','grid-id','ACTIVE','actor-id','Agent','Création et publication du tarif',connection=connection)
+        assert created['status']=='ACTIVE'
+    else:transition.assert_not_called()
+    assert engine.begin.call_count==1

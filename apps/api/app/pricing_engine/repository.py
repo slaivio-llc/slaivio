@@ -26,6 +26,7 @@ def dashboard(o):
   return {"stats":stats,"settings":settings,"alerts":alerts,"grids":grids}
 
 def create_grid(o,a,n,p):
+ publish_on_create=p.pop('publish_on_create',False)
  initial_price=p.pop('initial_price',None)
  initial_tiers=p.pop('initial_tiers',[])
  initial_category_code=p.pop('initial_category_code',None)
@@ -70,6 +71,8 @@ def create_grid(o,a,n,p):
       {"o":o,"g":row['id'],"rule":rule['id'],"basis":tier['basis'],"min":minimum,"max":maximum,
        "price":tier['unit_price'],"priority":tier.get('priority',100),"method":tier['calculation_method']}).mappings().one())
     _audit(c,o,str(row['id']),'TIER_CREATED',a,n,new=created_tier)
+  if publish_on_create:
+   return transition(o,str(row['id']),'ACTIVE',a,n,'Création et publication du tarif',connection=c)
   return row
 
 def create_category(o,p,a,n):
@@ -139,16 +142,19 @@ def add_child(o,g,kind,p,a,n):
   else: raise HTTPException(422,"invalid_pricing_child")
   row=dict(c.execute(text(sql),{"o":o,"g":g,"a":a,**p}).mappings().one()); c.execute(text("update pricing_grids set row_version=row_version+1,updated_by=:a,updated_at=now() where id=:g and org_id=:o"),{"a":a,"g":g,"o":o}); _audit(c,o,g,kind.upper()+'_CREATED',a,n,new=row); return row
 
-def transition(o,g,status,a,n,reason=None):
+def transition(o,g,status,a,n,reason=None,connection=None):
  allowed={'DRAFT':{'SCHEDULED','ACTIVE','ARCHIVED'},'SCHEDULED':{'ACTIVE','SUSPENDED','ARCHIVED'},'ACTIVE':{'SUSPENDED','EXPIRED','ARCHIVED'},'SUSPENDED':{'ACTIVE','ARCHIVED'},'EXPIRED':{'ARCHIVED'},'ARCHIVED':set()}
- with engine.begin() as c:
+ with (nullcontext(connection) if connection is not None else engine.begin()) as c:
   old=c.execute(text("select * from pricing_grids where org_id=:o and id=cast(:g as uuid) for update"),{"o":o,"g":g}).mappings().first()
   if not old: raise HTTPException(404,"pricing_grid_not_found")
+  if status==old['status'] and status in('ACTIVE','SCHEDULED'):return dict(old)
   if status not in allowed.get(old['status'],set()): raise HTTPException(409,"invalid_pricing_transition")
-  if status=='ACTIVE' and old['requires_approval'] and not old['approved_at']: raise HTTPException(409,"pricing_approval_required")
   if status in ('ACTIVE','SCHEDULED'):
-   if status=='SCHEDULED' and not old['approved_at']: raise HTTPException(409,"pricing_approval_required")
    if not _grid_has_price(c,o,g,old['calculation_method']): raise HTTPException(409,"pricing_grid_has_no_price_rules")
+   # This mutation requires pricing.approve at the API boundary. Approval and
+   # publication share the transaction, including rollback on price conflicts.
+   if not old['approved_at']:
+    approve(o,g,a,n,'Validation lors de la publication',connection=c)
   if status=='ACTIVE':
    future=c.execute(text("""select 1 from pricing_grids where org_id=:o and id<>cast(:g as uuid)
     and route_id=:route and shipping_service_id=:service and status='ACTIVE'
@@ -165,13 +171,13 @@ def transition(o,g,status,a,n,reason=None):
 def _grid_has_price(c,o,g,method):
  rules=c.execute(text("""select 1 from pricing_grid_rules where org_id=:o and grid_id=cast(:g as uuid)
   and active and action_type='SET_PRICE' limit 1"""),{"o":o,"g":g}).first()
- if rules: return True
+ if rules and method!='TIERED': return True
  if method=='TIERED':
   return bool(c.execute(text("select 1 from pricing_tiers where org_id=:o and grid_id=cast(:g as uuid) limit 1"),{"o":o,"g":g}).first())
  return False
 
-def approve(o,g,a,n,note=None):
- with engine.begin() as c:
+def approve(o,g,a,n,note=None,connection=None):
+ with (nullcontext(connection) if connection is not None else engine.begin()) as c:
   row=c.execute(text("update pricing_grids set approved_by=:a,approved_at=now(),updated_by=:a,updated_at=now(),row_version=row_version+1 where org_id=:o and id=cast(:g as uuid) and status in('DRAFT','SCHEDULED','SUSPENDED') returning *"),{"a":a,"o":o,"g":g}).mappings().first()
   if not row: raise HTTPException(409,"grid_not_approvable")
   c.execute(text("insert into pricing_approvals(org_id,grid_id,status,reason,requested_by,decided_by,decision_note,decided_at) values(:o,:g,'APPROVED','Direct approval',:a,:a,:note,now())"),{"o":o,"g":g,"a":a,"note":note});_audit(c,o,g,'GRID_APPROVED',a,n,new=dict(row),reason=note);return dict(row)

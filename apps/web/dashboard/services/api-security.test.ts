@@ -5,6 +5,16 @@ import type { InternalAxiosRequestConfig } from 'axios';
 
 afterEach(()=>setAccessTokenProvider(null));
 
+it.each([
+ ['pricing_grid_has_no_price_rules','Ajoutez un prix'],
+ ['pricing_version_overlap','Vérifiez les dates'],
+ ['invalid_pricing_transition','Actualisez sa fiche'],
+])('explains pricing refusal %s in agency language',(code,expected)=>{
+ const message=apiErrorDetail({isAxiosError:true,response:{status:409,data:{detail:code}}});
+ expect(message).toContain(expected);
+ expect(message).not.toContain(code);
+});
+
 it.each(['/organization/network/offices','/warehouses'])('leaves quota guidance inside the creation form without a duplicate failure toast: %s',async url=>{
  const listener=vi.fn();window.addEventListener(API_MUTATION_FAILED_EVENT,listener);
  const message='Votre offre inclut jusqu’à 1 entrepôt. Cette capacité est déjà utilisée.';

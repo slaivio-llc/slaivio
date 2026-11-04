@@ -82,6 +82,17 @@ beforeEach(() => {
 });
 
 describe("agency transport settings", () => {
+  it.each(['management','services','routes'] as const)('uses matching compact square cards in %s',async(section)=>{
+    const {container}=render(<OrganizationTransportSettings section={section}/>);
+    await waitFor(()=>expect(container.querySelectorAll('[data-transport-card]')).toHaveLength(section==='management'?2:1));
+    const cards=container.querySelectorAll('[data-transport-card]');
+    expect(cards).toHaveLength(section==='management'?2:1);
+    for(const card of cards){
+      expect(card).toHaveClass('aspect-square','w-[180px]','max-w-full','shrink-0');
+      expect(card.parentElement).toHaveClass('flex','flex-wrap');
+    }
+    if(section==='management')expect(cards[0].className).toBe(cards[1].className);
+  });
   it('uses network operational points for the responsible office and route endpoints',async()=>{
     vi.mocked(serviceCatalog).mockResolvedValue({routes:[],categories:[],
       responsible_offices:[{location_id:'network-branch',org_id:'branch',name:'Bureau Lubumbashi',city:'Lubumbashi',country:'RDC'}],

@@ -33,6 +33,8 @@ import {
 } from "@/services/service-catalog";
 
 type CatalogData = { routes: Route[]; services: Service[] };
+const compactCardClass="flex aspect-square w-[180px] max-w-full shrink-0 flex-col justify-between gap-2 rounded-lg border border-[#dfe3e4] bg-white p-3 text-left transition-colors hover:border-[#b8d7c7] hover:bg-[#fafbfb]";
+const cardFocusClass="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]";
 type SettingSection = "services" | "routes" | "management";
 type ServiceDraft = {
   service_name: string;
@@ -438,10 +440,10 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
         {headerActionsTarget === undefined ? <div className="flex flex-wrap justify-end gap-2">{managementActions}</div> : headerActionsTarget && createPortal(managementActions, headerActionsTarget)}
         <section className="grid gap-2">
           <h3 className="text-[12px] font-semibold text-[#25292e]">{dashboardText("Services")}</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {data.services.map(service => <button key={service.id} type="button" onClick={() => void openService(service)} className="grid min-h-[84px] gap-2 border border-[#dfe3e4] p-3 text-left hover:bg-[#fafbfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
+          <div className="flex flex-wrap gap-3">
+            {data.services.map(service => <button key={service.id} data-transport-card="service" type="button" onClick={() => void openService(service)} className={`${compactCardClass} ${cardFocusClass}`}>
               <span className="flex items-start justify-between gap-2"><Truck size={15} className="mt-0.5 text-[#697178]"/><StatusPill label={statusLabel(service.status, service.active)} active={service.active !== false && ["ACTIVE", "LIMITED"].includes(service.status)}/></span>
-              <span className="text-[12px] font-medium text-[#25292e]">{service.service_name}</span>
+              <span className="line-clamp-2 break-words text-[13px] font-medium leading-5 text-[#25292e]" title={service.service_name}>{service.service_name}</span>
               <span className="text-[10px] text-[#697178]">{dashboardText("Délai indicatif : ")}{service.eta_min_days == null && service.eta_max_days == null ? dashboardText("À définir") : dashboardText("{0}–{1} jours", service.eta_min_days ?? "…", service.eta_max_days ?? "…")}</span>
             </button>)}
             {!data.services.length && <EmptyState title={dashboardText("Aucun service configuré")} detail="Ajoutez une prestation proposée par l’agence."/>}
@@ -449,10 +451,11 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
         </section>
         <section className="grid gap-2">
           <h3 className="text-[12px] font-semibold text-[#25292e]">{dashboardText("Routes")}</h3>
-          <div className="grid gap-2">
-            {data.routes.map(route => <button key={route.id} type="button" onClick={() => void openRoute(route)} className="flex min-h-[52px] items-center justify-between gap-3 border border-[#dfe3e4] px-3 py-2.5 text-left hover:bg-[#fafbfb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
-              <span className="flex min-w-0 items-center gap-3"><RouteIcon size={14} className="shrink-0 text-[#697178]"/><span className="min-w-0"><span className="block truncate text-[12px] font-medium text-[#25292e]">{route.route_name}</span><span className="mt-1 block truncate text-[10px] text-[#697178]">{route.service_names?.[0] || route.transport_mode}</span></span></span>
-              <span className="flex shrink-0 items-center gap-2"><StatusPill label={statusLabel(route.status, route.active)} active={route.active !== false && ["ACTIVE", "LIMITED"].includes(route.status)}/><ArrowRight size={13} className="text-[#697178]"/></span>
+          <div className="flex flex-wrap gap-3">
+            {data.routes.map(route => <button key={route.id} data-transport-card="route" type="button" onClick={() => void openRoute(route)} className={`${compactCardClass} ${cardFocusClass}`}>
+              <span className="flex items-start justify-between gap-2"><RouteIcon size={15} className="mt-0.5 shrink-0 text-[#697178]"/><StatusPill label={statusLabel(route.status, route.active)} active={route.active !== false && ["ACTIVE", "LIMITED"].includes(route.status)}/></span>
+              <span className="line-clamp-2 break-words text-[13px] font-medium leading-5 text-[#25292e]" title={route.route_name}>{route.route_name}</span>
+              <span className="flex w-full items-end justify-between gap-2"><span className="line-clamp-2 min-w-0 text-[10px] leading-4 text-[#697178]">{route.service_names?.[0] || modeLabel(route.transport_mode)}</span><ArrowRight size={13} className="shrink-0 text-[#697178]"/></span>
             </button>)}
             {!data.routes.length && <EmptyState title={dashboardText("Aucune route configurée")} detail="Ajoutez une liaison commerciale pour proposer vos services."/>}
           </div>
@@ -480,42 +483,32 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
             </OperationButton>
           </PermissionGuard>
         </div>
-        <div className="grid gap-3 p-4 sm:p-5">
+        <div className="flex flex-wrap gap-3 p-4 sm:p-5">
           {isServices
             ? data.services.map(service => (
-              <article key={service.id} className="flex flex-col gap-3 rounded-xl border border-[#e8eeea] p-3 transition hover:border-[#c8ddd1] sm:flex-row sm:items-center">
-                <button type="button" onClick={() => void openService(service)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f1f6f3] text-[#416b56]"><Truck size={18} /></div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="font-semibold text-[#26332d]">{service.service_name}</h4>
-                    <StatusPill label={statusLabel(service.status, service.active)} active={service.active !== false && ["ACTIVE", "LIMITED"].includes(service.status)} />
-                  </div>
-                  <p className="mt-1 text-[12px] text-[#748078]">{modeLabel(service.shipping_mode)} · {service.route_count || 0} {dashboardText(" route")}{service.route_count === 1 ? "" : dashboardText("s")} {dashboardText(" associée")}{service.route_count === 1 ? "" : dashboardText("s")}</p>
-                </div><ArrowRight size={16} className="mr-1 shrink-0 text-[#89948d]" /></button>
+              <article key={service.id} data-transport-card="service" className={compactCardClass}>
+                <button type="button" onClick={() => void openService(service)} className={`flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-2 rounded text-left ${cardFocusClass}`}>
+                <span className="flex w-full items-start justify-between gap-2"><Truck size={16} className="mt-0.5 shrink-0 text-[#416b56]"/><StatusPill label={statusLabel(service.status, service.active)} active={service.active !== false && ["ACTIVE", "LIMITED"].includes(service.status)} /></span>
+                <h4 className="line-clamp-2 break-words text-[13px] font-medium leading-5 text-[#26332d]" title={service.service_name}>{service.service_name}</h4>
+                <p className="line-clamp-2 text-[10px] leading-4 text-[#748078]">{modeLabel(service.shipping_mode)} · {service.route_count || 0} {dashboardText(" route")}{service.route_count === 1 ? "" : dashboardText("s")} {dashboardText(" associée")}{service.route_count === 1 ? "" : dashboardText("s")}</p>
+                </button>
                 <PermissionGuard permission="services.suspend">
-                  <button type="button" onClick={() => void toggleService(service)} className="h-9 shrink-0 rounded-lg border border-[#dbe3de] px-3 text-[12px] font-semibold text-[#48574e] hover:bg-[#f5f8f6]">
+                  <button type="button" onClick={() => void toggleService(service)} className="h-7 shrink-0 rounded-md border border-[#dbe3de] px-2 text-[11px] font-medium text-[#48574e] hover:bg-[#f5f8f6]">
                     {service.active === false || ["INACTIVE", "SUSPENDED"].includes(service.status) ? dashboardText("Réactiver") : dashboardText("Désactiver")}
                   </button>
                 </PermissionGuard>
               </article>
             ))
             : data.routes.map(route => (
-              <article key={route.id} className="flex flex-col gap-3 rounded-xl border border-[#e8eeea] p-3 transition hover:border-[#c8ddd1] sm:flex-row sm:items-center">
-                <button type="button" onClick={() => void openRoute(route)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#16855f]">
-                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#f1f6f3] text-[#416b56]"><MapPin size={18} /></div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="font-semibold text-[#26332d]">{route.route_name}</h4>
-                    <StatusPill label={statusLabel(route.status, route.active)} active={route.active !== false && ["ACTIVE", "LIMITED"].includes(route.status)} />
-                  </div>
-                  <p className="mt-1 flex flex-wrap items-center gap-1 text-[12px] text-[#748078]">
-                    <span>{route.origin_city}, {route.origin_country}</span><ArrowRight size={12} /><span>{route.destination_city}, {route.destination_country}</span>
-                  </p>
-                  <p className="mt-1 text-[12px] text-[#748078]">{route.service_names?.length ? route.service_names.join(" · ") : dashboardText("Aucun service associé")}</p>
-                </div><ArrowRight size={16} className="mr-1 shrink-0 text-[#89948d]" /></button>
+              <article key={route.id} data-transport-card="route" className={compactCardClass}>
+                <button type="button" onClick={() => void openRoute(route)} className={`flex min-h-0 min-w-0 flex-1 flex-col justify-between gap-2 rounded text-left ${cardFocusClass}`}>
+                <span className="flex w-full items-start justify-between gap-2"><MapPin size={16} className="mt-0.5 shrink-0 text-[#416b56]"/><StatusPill label={statusLabel(route.status, route.active)} active={route.active !== false && ["ACTIVE", "LIMITED"].includes(route.status)} /></span>
+                <h4 className="line-clamp-2 break-words text-[13px] font-medium leading-5 text-[#26332d]" title={route.route_name}>{route.route_name}</h4>
+                <p className="line-clamp-1 max-w-full text-[10px] leading-4 text-[#748078]" title={`${route.origin_city}, ${route.origin_country} → ${route.destination_city}, ${route.destination_country}`}>{route.origin_city} → {route.destination_city}</p>
+                <p className="line-clamp-1 max-w-full text-[10px] leading-4 text-[#748078]">{route.service_names?.length ? route.service_names.join(" · ") : dashboardText("Aucun service associé")}</p>
+                </button>
                 <PermissionGuard permission="routes.suspend">
-                  <button type="button" onClick={() => void toggleRoute(route)} className="h-9 shrink-0 rounded-lg border border-[#dbe3de] px-3 text-[12px] font-semibold text-[#48574e] hover:bg-[#f5f8f6]">
+                  <button type="button" onClick={() => void toggleRoute(route)} className="h-7 shrink-0 rounded-md border border-[#dbe3de] px-2 text-[11px] font-medium text-[#48574e] hover:bg-[#f5f8f6]">
                     {route.active === false || ["INACTIVE", "SUSPENDED", "ARCHIVED"].includes(route.status) ? dashboardText("Réactiver") : dashboardText("Désactiver")}
                   </button>
                 </PermissionGuard>

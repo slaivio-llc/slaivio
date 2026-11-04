@@ -82,6 +82,21 @@ beforeEach(() => {
 });
 
 describe("agency transport settings", () => {
+  it('uses network operational points for the responsible office and route endpoints',async()=>{
+    vi.mocked(serviceCatalog).mockResolvedValue({routes:[],categories:[],
+      responsible_offices:[{location_id:'network-branch',org_id:'branch',name:'Bureau Lubumbashi',city:'Lubumbashi',country:'RDC'}],
+      offices:[{id:'office-branch',org_id:'branch',name:'Bureau Lubumbashi',city:'Lubumbashi',country:'RDC'}],
+      warehouses:[{id:'warehouse-china',org_id:'depot',name:'Dépôt Chine',city:'Guangzhou',country:'CN'}]});
+    const view=render(<OrganizationTransportSettings section="services"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Ajouter un service'}));
+    const office=await screen.findByRole('combobox',{name:'Bureau responsable'});
+    expect(within(office).getByRole('option',{name:'Bureau Lubumbashi · Lubumbashi'})).toHaveValue('network-branch');
+    view.unmount();
+    render(<OrganizationTransportSettings section="routes"/>);
+    fireEvent.click(await screen.findByRole('button',{name:'Ajouter une route'}));
+    expect(within(await screen.findByRole('combobox',{name:'Entrepôt de départ'})).getByRole('option',{name:'Dépôt Chine · Guangzhou'})).toHaveValue('warehouse-china');
+    expect(within(screen.getByRole('combobox',{name:/^Bureau de destination/})).getByRole('option',{name:'Bureau Lubumbashi · Lubumbashi'})).toHaveValue('office-branch');
+  });
   it("places management creation actions in the page header without a duplicate title", async () => {
     const header = document.createElement("header");
     document.body.appendChild(header);

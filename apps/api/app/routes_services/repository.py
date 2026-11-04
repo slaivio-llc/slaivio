@@ -67,10 +67,12 @@ def network_offices(o):
    where source.id=:o order by organization_name,location.name"""),{"o":o}))
 def create_route(o,a,n,p):
  with engine.begin() as c:
+  from app.organization_network.operational_points import require_point
+  require_point(c,o,a,'warehouses',p.get('origin_warehouse_id'))
+  office=require_point(c,o,a,'offices',p.get('destination_office_id'))
+  if office:p={**p,'destination_org_id':office['org_id']}
   destination_org_id=p.get('destination_org_id') or o
   if p.get('destination_org_id') and not _network_organization(c,o,destination_org_id):raise HTTPException(422,'destination_office_outside_organization_network')
-  if p.get('origin_warehouse_id') and not c.execute(text("select 1 from warehouses where org_id=:o and id=cast(:id as uuid) and active"),{'o':o,'id':p['origin_warehouse_id']}).first():raise HTTPException(422,'origin_warehouse_not_found')
-  if p.get('destination_office_id') and not c.execute(text("select 1 from agency_offices where org_id=:o and id=cast(:id as uuid) and is_active"),{'o':destination_org_id,'id':p['destination_office_id']}).first():raise HTTPException(422,'destination_office_not_found')
   location_owners={'origin_location_id':(o,'origin_country','origin_city'),'destination_location_id':(destination_org_id,'destination_country','destination_city')}
   for key,(owner,country_key,city_key) in location_owners.items():
    if p.get(key):
@@ -224,6 +226,14 @@ def update_route(o,r,a,n,p):
  with engine.begin() as c:
   old=_route(c,o,r,True)
   if old['row_version']!=version:raise HTTPException(409,'route_version_conflict')
+  from app.organization_network.operational_points import require_point
+  if 'origin_warehouse_id' in changes:require_point(c,o,a,'warehouses',changes['origin_warehouse_id'])
+  if 'destination_office_id' in changes:
+   office=require_point(c,o,a,'offices',changes['destination_office_id'])
+   if office:
+    changes['destination_org_id']=office['org_id']
+    if office['org_id']!=(old.get('destination_org_id') or o) and 'destination_location_id' not in changes:
+     changes['destination_location_id']=None
   destination_org_id=changes.get('destination_org_id',old.get('destination_org_id') or o)
   if not _network_organization(c,o,destination_org_id):raise HTTPException(422,'destination_office_outside_organization_network')
   origin_location_id=changes.get('origin_location_id',old.get('origin_location_id'))

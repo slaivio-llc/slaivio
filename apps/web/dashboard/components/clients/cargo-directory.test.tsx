@@ -35,7 +35,7 @@ it('shows parcel count, masked identity and balance, then opens the selected cli
   const open = vi.fn();
   render(<CargoDirectory revision={0} open={open} />);
   fireEvent.click(await screen.findByRole('button', { name: /Jean/ }));
-  expect(open).toHaveBeenCalledWith('a');
+  expect(open).toHaveBeenCalledWith('a','Jean');
   expect(screen.getByText('7 colis')).toBeInTheDocument();
   expect(screen.getByText('25 USD')).toBeInTheDocument();
   expect(screen.getByText(/RDC/)).toBeInTheDocument();

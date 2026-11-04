@@ -23,7 +23,7 @@ def index(q:str|None=None,status:str|None=None,category:str|None=None,mode:str|N
 @router.get("/stats")
 def stats(tenant=Depends(get_current_tenant),_=Depends(require_permission('services.read'))):return repo.stats(tenant['org_id'])
 @router.get("/catalog")
-def catalog(tenant=Depends(get_current_tenant),_=Depends(require_permission('services.read'))):return repo.catalog(tenant['org_id'])
+def catalog(tenant=Depends(get_current_tenant),_=Depends(require_permission('services.read'))):return repo.catalog(tenant['org_id'],tenant['user_id'])
 @router.post("")
 def create(body:ServiceCreate,tenant=Depends(get_current_tenant),_=Depends(require_permission('services.create'))):return repo.create(tenant['org_id'],actor(tenant),name(tenant),body.model_dump())
 @router.post("/recommend")

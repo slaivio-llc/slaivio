@@ -64,5 +64,5 @@ def test_new_service_name_is_free_and_transport_is_an_explicit_choice():
     assert "status,availability" in repository
     assert 'name="service_name"' in ui
     assert 'name="shipping_mode"' in ui
-    assert '<option value="AIR">Transport aérien</option>' in ui
-    assert '<option value="SEA">Transport maritime</option>' in ui
+    assert '<option value="AIR">{dashboardText("Transport aérien")}</option>' in ui
+    assert '<option value="SEA">{dashboardText("Transport maritime")}</option>' in ui

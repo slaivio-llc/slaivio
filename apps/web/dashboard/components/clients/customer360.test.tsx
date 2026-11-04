@@ -15,6 +15,11 @@ it('hides protected sections and does not show fictional zero metrics', async()=
   mocks.get.mockResolvedValue({data:{items:[],total:0}});
   mount();
   expect(await screen.findByText('+33612345678')).toBeInTheDocument();
+  const dialog=screen.getByRole('dialog',{name:'Jean'});
+  expect(dialog.parentElement).toBe(document.body);
+  expect(dialog.querySelector('[data-ui="operation-drawer"]')).toHaveAttribute('data-variant','detail');
+  expect(screen.queryByRole('button',{name:'Retour aux clients'})).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Fermer'})).toBeInTheDocument();
   expect(screen.queryByRole('button',{name:'Paiements'})).not.toBeInTheDocument();
   expect(screen.queryByRole('button',{name:'Conversations'})).not.toBeInTheDocument();
   expect(screen.queryByText('Dossiers')).not.toBeInTheDocument();

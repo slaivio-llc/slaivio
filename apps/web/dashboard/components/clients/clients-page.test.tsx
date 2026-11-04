@@ -118,6 +118,19 @@ beforeEach(() => {
 });
 
 describe("ClientsPage production interactions", () => {
+  it('opens the customer window immediately and never reopens it after closing during loading',async()=>{
+    vi.mocked(tenantService.getTenantContext).mockResolvedValue({active_tenant:{organization_type:'PARCEL_FREIGHT'},tenants:[]});
+    vi.mocked(api.get).mockImplementation((url)=>Promise.resolve({data:String(url).startsWith('/clients/directory')?{items:[client],total:1,page:1,total_pages:1,summary:{total:1,active:1,due:0,finance_visible:false,packages_visible:false}}:{items:[],total:0}}));
+    let resolve!:(value:clientService.ClientRecord)=>void;
+    vi.mocked(clientService.getClient).mockReturnValueOnce(new Promise(done=>{resolve=done;}));
+    render(<ClientsPage/>);
+    fireEvent.click(await screen.findByText('Agence Test Client'));
+    expect(await screen.findByRole('dialog',{name:'Agence Test Client'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'Fermer'}));
+    resolve(client);
+    await waitFor(()=>expect(clientService.getClient).toHaveBeenCalled());
+    expect(screen.queryByRole('dialog',{name:'Agence Test Client'})).not.toBeInTheDocument();
+  });
   it('reuses the creation key after a network failure without losing the form', async () => {
     vi.mocked(tenantService.getTenantContext).mockResolvedValue({
       active_tenant: {organization_type: 'PARCEL_FREIGHT'}, tenants: [],

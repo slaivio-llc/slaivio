@@ -1429,11 +1429,13 @@ nav[aria-label="Paramètres de communication"] > button[aria-current="page"] {
 /* Detail sheets follow Finance's payment record: a stable 650 px desktop
    rail, compact content gutters, and a full-width surface on small screens. */
 [data-ui="operation-drawer"][data-variant="detail"][data-placement="center"] {
+  height: min(760px, calc(100dvh - 24px));
   width: min(650px, calc(100vw - 24px)) !important;
   max-width: 650px !important;
 }
 
 [data-ui="operation-drawer"][data-variant="auto"][data-placement="center"]:not(:has(.operation-form-surface form)) {
+  height: min(760px, calc(100dvh - 24px));
   width: min(650px, calc(100vw - 24px)) !important;
   max-width: 650px !important;
 }

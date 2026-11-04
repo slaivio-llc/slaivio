@@ -39,7 +39,7 @@ function maskPhone(phone: string | null) {
 }
 
 export function CargoDirectory({ open, revision, create = () => undefined }: {
-  open: (id: string) => void;
+  open: (id: string, name: string) => void;
   revision: number;
   create?: () => void;
 }) {
@@ -109,7 +109,7 @@ export function CargoDirectory({ open, revision, create = () => undefined }: {
         : !result?.items.length ? <div className="px-6 py-16 text-center"><p className="text-sm font-medium text-slate-800">{query || view !== "all" ? dashboardText("Aucun client correspondant") : dashboardText("Aucun client pour le moment")}</p><p className="mt-1 text-sm text-slate-500">{query || view !== "all" ? dashboardText("Modifiez votre recherche ou votre filtre.") : dashboardText("Utilisez Nouveau client pour enregistrer votre premier client.")}</p></div>
         : <ul className="mt-1 divide-y divide-slate-100 border-t border-slate-100">
           {result.items.map(client => <li key={client.id}>
-            <button type="button" onClick={() => open(client.id)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-4 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 sm:grid-cols-[minmax(0,1fr)_auto_auto_16px]">
+            <button type="button" onClick={() => open(client.id,client.display_name)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-4 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600 sm:grid-cols-[minmax(0,1fr)_auto_auto_16px]">
               <span className="flex min-w-0 items-center gap-3"><UserRound size={16} aria-hidden="true" className="shrink-0 text-slate-500" /><span className="min-w-0"><strong className="block truncate text-sm font-medium text-slate-900">{client.display_name || dashboardText("Sans nom")}</strong><span className="block truncate text-xs text-slate-500">{maskPhone(client.phone)}{client.country ? ` · ${client.country}` : ""}</span></span></span>
               <span className="text-right text-sm text-slate-700">{client.package_count ?? "—"} {dashboardText(" colis")}</span>
               <span className="text-right text-sm">{client.balance_currency_count && client.balance_currency_count > 1 ? <span className="text-slate-500">{dashboardText("Multi-devises")}</span> : client.balance_due ? <span className="text-red-600">{formatMoney(client.balance_due, client.balance_currency || "")}</span> : summary?.finance_visible ? <span className="text-emerald-600">{dashboardText("À jour")}</span> : null}</span>

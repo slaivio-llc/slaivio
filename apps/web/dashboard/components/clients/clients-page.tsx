@@ -198,6 +198,8 @@ export function ClientsPage() {
   const [sort, setSort] = useState("created_desc");
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const clientDetailRequest=useRef(0);
+  const [openingClient,setOpeningClient]=useState<{id:string;name:string}|null>(null);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [duplicatesLoading, setDuplicatesLoading] = useState(false);
@@ -369,6 +371,7 @@ export function ClientsPage() {
   }
 
   async function selectClient(client: ClientRecord) {
+    const request=++clientDetailRequest.current;
     setSelected(client);
     setActiveTab("summary");
     setDetailLoading(true);
@@ -377,19 +380,33 @@ export function ClientsPage() {
     setDuplicates([]);
     try {
       if (parcelFreight) {
-        setSelected(await getClient(client.id));
+        const record=await getClient(client.id);
+        if(clientDetailRequest.current===request)setSelected(record);
         return;
       }
       const [detail, detectedDuplicates] = await Promise.all([
         getClient(client.id),
         findClientDuplicates({ client_id: client.id }),
       ]);
+      if(clientDetailRequest.current!==request)return;
       setSelected(detail);
       setDuplicates(detectedDuplicates);
     } catch {
-      setSelected(client);
+      if(clientDetailRequest.current===request)setSelected(client);
     } finally {
-      setDetailLoading(false);
+      if(clientDetailRequest.current===request)setDetailLoading(false);
+    }
+  }
+
+  async function openCargoClient(id:string,name:string){
+    const request=++clientDetailRequest.current;
+    setSelected(null);setOpeningClient({id,name});setError('');
+    try{
+      const client=await getClient(id);
+      if(clientDetailRequest.current!==request)return;
+      setSelected(client);setOpeningClient(null);setActiveTab('summary');
+    }catch{
+      if(clientDetailRequest.current===request){setOpeningClient(null);setError('Impossible d’ouvrir ce client. Réessayez dans quelques instants.');}
     }
   }
 
@@ -602,7 +619,7 @@ export function ClientsPage() {
         />}
 
         {profileReady && parcelFreight && error && <p role="alert" className="mx-auto max-w-[1200px] px-8 text-sm text-red-700">{dashboardText(error)}</p>}
-{!profileReady ? <div className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8">{error ? <p role="alert">{dashboardText(error)}</p> : <TableSkeleton rows={6} columns={3} label={dashboardText("Chargement des clients")}/>}</div> : parcelFreight ? <CargoDirectory revision={directoryRevision} create={openCreate} open={async id=>{try{await selectClient(await getClient(id));}catch{setError('Impossible d’ouvrir ce client.');}}}/> : <><OperationMetrics>
+{!profileReady ? <div className="mx-auto w-full max-w-[1200px] px-6 pb-8 sm:px-8">{error ? <p role="alert">{dashboardText(error)}</p> : <TableSkeleton rows={6} columns={3} label={dashboardText("Chargement des clients")}/>}</div> : parcelFreight ? <CargoDirectory revision={directoryRevision} create={openCreate} open={openCargoClient}/> : <><OperationMetrics>
           <OperationMetricGrid className="lg:grid-cols-5">
             {statCards.map((card) => (
               <button
@@ -737,8 +754,9 @@ export function ClientsPage() {
         </>}
       </div>
 
+      {openingClient&&parcelFreight&&<OperationDrawer open variant="detail" title={openingClient.name||dashboardText('Fiche client')} close={()=>{clientDetailRequest.current++;setOpeningClient(null);closeResourceLink();}}><p role="status" className="p-5 text-sm text-slate-500">{dashboardText('Chargement de la fiche…')}</p></OperationDrawer>}
       {selected && parcelFreight && <Customer360 key={selected.id} client={selected}
-        close={()=>{setSelected(null);closeResourceLink();}} edit={()=>openEdit(selected)}
+        close={()=>{clientDetailRequest.current++;setSelected(null);closeResourceLink();}} edit={()=>openEdit(selected)}
         archive={archiveSelectedClient} busy={clientAction!==null}/>}
       {selected && !parcelFreight && (
         <ClientDetails
@@ -755,7 +773,7 @@ export function ClientsPage() {
           duplicatesLoading={duplicatesLoading}
           mergingDuplicateId={mergingDuplicateId}
           onMergeDuplicate={mergeDuplicate}
-          onClose={() => { setSelected(null); closeResourceLink(); }}
+          onClose={() => { clientDetailRequest.current++;setSelected(null); closeResourceLink(); }}
           onEdit={() => openEdit(selected)}
           archived={Boolean(currentView.archived)}
           onArchive={archiveSelectedClient}

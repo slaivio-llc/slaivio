@@ -122,6 +122,7 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
   const [routeSearch, setRouteSearch] = useState("");
   const [routeDetailPage, setRouteDetailPage] = useState(0);
   const routeDetailRequest = useRef(0);
+  const responsibleOffices=serviceCatalogData?.responsible_offices || officeContext?.offices || [];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -136,7 +137,7 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
   }, []);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { getOfficeContext().then(setOfficeContext).catch(() => setOfficeContext(null)); }, []);
+  useEffect(() => { getOfficeContext().then(setOfficeContext).catch(() => setOfficeContext(null)); getServiceCatalog().then(setServiceCatalogData).catch(()=>setServiceCatalogData(null)); }, []);
 
   async function saveService(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -190,7 +191,7 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
         service_type: "TRANSPORT",
         eta_min_days: draft.eta_min_days,
         eta_max_days: draft.eta_max_days,
-        owner_name: officeContext?.offices.find((office) => office.location_id === draft.office_id)?.name || null,
+        owner_name: responsibleOffices.find((office) => office.location_id === draft.office_id)?.name || null,
         public_visible: draft.public_visible,
         public_description: draft.public_visible ? draft.customer_instructions || null : null,
         status,
@@ -376,7 +377,7 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
         shipping_mode: String(form.get("shipping_mode") || detail.shipping_mode),
         eta_min_days: min ? Number(min) : null,
         eta_max_days: max ? Number(max) : null,
-        owner_name: officeContext?.offices.find(o => o.location_id === String(form.get("office_id")))?.name || null,
+        owner_name: responsibleOffices.find(o => o.location_id === String(form.get("office_id")))?.name || null,
         public_visible: form.get("public_visible") === "on",
         public_description: String(form.get("customer_instructions") || "").trim() || null,
         metadata: { ...metadata, billing_unit: String(form.get("billing_unit") || "KG"), responsible_office_id: String(form.get("office_id") || "") || null, restrictions: String(form.get("restrictions") || "").trim() || null, customer_instructions: String(form.get("customer_instructions") || "").trim() || null },
@@ -571,13 +572,13 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
             <label className={label}>{dashboardText("Description")}<textarea className={`${field} h-auto min-h-[76px] py-2.5`} name="description" defaultValue={detail.description || ""}/></label>
             <div className="grid grid-cols-2 gap-3"><label className={label}>{dashboardText("Délai minimum (jours)")}<input className={field} type="number" min="0" name="eta_min_days" defaultValue={detail.eta_min_days ?? ""}/></label><label className={label}>{dashboardText("Délai maximum (jours)")}<input className={field} type="number" min="0" name="eta_max_days" defaultValue={detail.eta_max_days ?? ""}/></label></div>
             <label className={label}>{dashboardText("Unité de facturation")}<select className={field} name="billing_unit" defaultValue={detail.metadata?.billing_unit || "KG"}><option value="KG">{dashboardText("Kilogramme (kg)")}</option><option value="CBM">{dashboardText("Volume (m³)")}</option><option value="PACKAGE">{dashboardText("Colis")}</option><option value="FLAT">{dashboardText("Forfait")}</option></select></label>
-            <label className={label}>{dashboardText("Bureau responsable")}<select className={field} name="office_id" defaultValue={detail.metadata?.responsible_office_id || ""}><option value="">{dashboardText("Tous les bureaux autorisés")}</option>{(officeContext?.offices || []).map(o => <option key={o.location_id} value={o.location_id}>{o.city || o.name}</option>)}</select></label>
+            <label className={label}>{dashboardText("Bureau responsable")}<select className={field} name="office_id" defaultValue={detail.metadata?.responsible_office_id || ""}><option value="">{dashboardText("Tous les bureaux autorisés")}</option>{responsibleOffices.map(o => <option key={o.location_id} value={o.location_id}>{o.name}{o.city?` · ${o.city}`:""}</option>)}</select></label>
             <label className={label}>{dashboardText("Restrictions")}<textarea className={`${field} h-auto min-h-[70px] py-2.5`} name="restrictions" defaultValue={detail.metadata?.restrictions || ""}/></label>
             <label className={label}>{dashboardText("Instructions pour les clients")}<textarea className={`${field} h-auto min-h-[70px] py-2.5`} name="customer_instructions" defaultValue={detail.metadata?.customer_instructions || ""}/></label>
             <ToggleRow name="public_visible" title={dashboardText("Informations visibles et vérifiées pour les clients")} detail="Seules les informations publiées peuvent être utilisées dans les réponses automatiques." defaultChecked={detail.public_visible}/>
             <div className="flex justify-end gap-2"><OperationButton type="submit" form="edit-service" variant="primary" disabled={detailSaving}>{detailSaving ? dashboardText("Enregistrement…") : dashboardText("Enregistrer les modifications")}</OperationButton></div>
           </form> : <>
-            {detailTab === "details" && <ServiceDetailPanel detail={detail} officeName={officeContext?.offices.find(o => o.location_id === detail.metadata?.responsible_office_id)?.city || officeContext?.offices.find(o => o.location_id === detail.metadata?.responsible_office_id)?.name || detail.owner_name || "—"} />}
+            {detailTab === "details" && <ServiceDetailPanel detail={detail} officeName={responsibleOffices.find(o => o.location_id === detail.metadata?.responsible_office_id)?.name || detail.owner_name || "—"} />}
             {detailTab === "routes" && <div className="grid gap-3">
               <div className="flex items-center justify-between gap-2"><h3 className="text-[14px] font-semibold">{dashboardText("Routes associées")}</h3><PermissionGuard permission="services.routes"><div className="flex gap-2"><select className={`${field} h-9 min-w-0 max-w-[230px]`} aria-label={dashboardText("Choisir une route à associer")} value={routeToAdd} onChange={e => setRouteToAdd(e.target.value)}><option value="">{dashboardText("Ajouter une route…")}</option>{data.routes.filter(r => !detail.routes?.some(x => x.route_id === r.id || x.id === r.id)).map(r => <option key={r.id} value={r.id}>{r.route_name}</option>)}</select><OperationButton disabled={!routeToAdd || detailSaving} onClick={() => void attachRoute()}><Plus size={14}/>{dashboardText("Ajouter")}</OperationButton></div></PermissionGuard></div>
               <div className="relative"><Search size={15} className="absolute left-3 top-3 text-[#8b9690]"/><input className={`${field} h-10 rounded-full pl-9`} placeholder={dashboardText("Rechercher une route…")} value={routeQuery} onChange={e => {setRouteQuery(e.target.value);setRoutePage(0);}}/></div>
@@ -660,7 +661,7 @@ export function OrganizationTransportSettings({ section, headerActionsTarget }: 
               onSubmit={saveService}
               step={createStep}
               draft={serviceDraft}
-              offices={officeContext?.offices || []}
+              offices={responsibleOffices}
               selectedOfficeId={officeContext?.selected_office_id || ""}
               actionError={actionError}
             />
@@ -828,7 +829,7 @@ function ServiceCreationForm({
         <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">{dashboardText("Unité de facturation habituelle")}<select className={field} name="billing_unit" defaultValue={draft?.billing_unit || "KG"}><option value="KG">{dashboardText("Kilogramme (kg)")}</option><option value="CBM">{dashboardText("Volume (m³)")}</option><option value="PACKAGE">{dashboardText("Colis")}</option><option value="FLAT">{dashboardText("Forfait")}</option></select>
         </label>
         <p className="-mt-2 text-[11px] text-[#78828a]">{dashboardText("Les montants et paliers seront configurés dans Gestion → Tarification.")}</p>
-        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">{dashboardText("Bureau responsable")}<select className={field} name="office_id" defaultValue={draft?.office_id || selectedOfficeId}><option value="">{dashboardText("Tous les bureaux autorisés")}</option>{offices.map((office) => <option key={office.location_id} value={office.location_id}>{office.city || office.name}</option>)}</select>
+        <label className="grid gap-1.5 text-[12px] font-medium text-[#414950]">{dashboardText("Bureau responsable")}<select className={field} name="office_id" defaultValue={draft?.office_id || selectedOfficeId}><option value="">{dashboardText("Tous les bureaux autorisés")}</option>{offices.map((office) => <option key={office.location_id} value={office.location_id}>{office.name}{office.city?` · ${office.city}`:""}</option>)}</select>
         </label>
       </section>
 

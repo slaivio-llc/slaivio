@@ -8,6 +8,10 @@ it('translates operational codes instead of displaying English technical identif
   expect(businessLabel('new_backend_state','État à vérifier')).toBe('État à vérifier');
 });
 it('makes legacy history titles readable without modifying agency explanations',()=>{
+  expect(businessHistoryTitle('GRID_ACTIVE')).toBe('Tarif publié');
+  expect(businessHistoryTitle('GRID_APPROVED')).toBe('Tarif vérifié');
+  expect(businessHistoryTitle('GRID_CREATED')).toBe('Tarif créé');
+  expect(businessHistoryTitle('RULE_CREATED')).toBe('Règle de calcul ajoutée');
   expect(businessHistoryTitle('Statut : READY_FOR_PICKUP')).toBe('Statut : Prêt au retrait');
   expect(businessHistoryTitle('client.updated')).toBe('Fiche client modifiée');
   expect(businessHistoryTitle('INTERNAL_UNKNOWN_ACTION')).toBe('Mise à jour enregistrée');

@@ -122,6 +122,15 @@ export function businessLabel(value: unknown, fallback = "Non renseigné") {
 }
 
 const eventLabels: Record<string,string> = {
+  GRID_CREATED:'Tarif créé',GRID_UPDATED:'Tarif modifié',GRID_APPROVED:'Tarif vérifié',
+  GRID_ACTIVE:'Tarif publié',GRID_INACTIVE:'Tarif désactivé',GRID_ARCHIVED:'Tarif archivé',
+  GRID_SUSPENDED:'Tarif suspendu',GRID_DRAFT:'Tarif remis en brouillon',
+  GRID_EXPIRED:'Tarif arrivé à expiration',GRID_SCHEDULED:'Publication du tarif programmée',
+  GRID_PENDING_APPROVAL:'Tarif soumis à vérification',
+  GRID_VERSION_CREATED:'Nouvelle version du tarif créée',GRID_DUPLICATED:'Tarif dupliqué',
+  RULE_CREATED:'Règle de calcul ajoutée',RULE_UPDATED:'Règle de calcul modifiée',RULE_DELETED:'Règle de calcul supprimée',
+  TIER_CREATED:'Palier de prix ajouté',TIER_UPDATED:'Palier de prix modifié',TIER_DELETED:'Palier de prix supprimé',
+  FEE_CREATED:'Frais ajoutés',FEE_UPDATED:'Frais modifiés',FEE_DELETED:'Frais supprimés',
   'CLIENT.CREATED':'Client créé', 'CLIENT.UPDATED':'Fiche client modifiée',
   'CLIENT.ARCHIVED':'Client archivé', 'CLIENT.RESTORED':'Client restauré',
   'CLIENT.MERGED':'Doublon fusionné', 'CLIENT.MERGED_INTO':'Client fusionné',

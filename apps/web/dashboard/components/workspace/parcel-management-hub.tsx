@@ -9,6 +9,7 @@ import { OperationTab } from "@/components/ui/operation-controls";
 import { OperationPageHeader } from "@/components/ui/operation-page-header";
 import { ErrorState, LoadingState } from "@/components/ui/page-state";
 import { getAdmin, type AdminData } from "@/services/organization-admin";
+import {getNetworkLocations,type NetworkLocation} from '@/services/organization-network';
 import { OrganizationTransportSettings } from "@/components/settings/organization-transport-settings";
 import { PricingManagementSection } from "@/components/pricing/pricing-engine-page";
 
@@ -18,6 +19,7 @@ const tabs: Array<[Section, string]> = [["organization", "Organisation"], ["serv
 export function ParcelManagementHub() {
   useDashboardMessages();
   const [data, setData] = useState<AdminData | null>(null);
+  const [networkLocations,setNetworkLocations]=useState<NetworkLocation[]>([]);
   const [headerActionsTarget, setHeaderActionsTarget] = useState<HTMLDivElement | null>(null);
   const [section, setSection] = useState<Section>("organization");
   const [loading, setLoading] = useState(true);
@@ -25,12 +27,13 @@ export function ParcelManagementHub() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      setData(await getAdmin());
+      const [admin,locations]=await Promise.all([getAdmin(),getNetworkLocations()]);
+      setData(admin);setNetworkLocations(locations);
     } catch { setError("Les informations de gestion de l’agence sont indisponibles."); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
-  const locations = data?.locations || [];
+  const locations = networkLocations;
   const offices = locations.filter((item) => item.location_type === "OFFICE");
   const warehouses = locations.filter((item) => item.location_type === "WAREHOUSE");
   const activeMembers = data?.members.filter((member) => member.status === "ACTIVE") || [];
@@ -48,7 +51,7 @@ export function ParcelManagementHub() {
         <div className="min-w-0 space-y-4 pt-0">
           {section === "organization" && <><Heading title={dashboardText("Organisation")} subtitle={dashboardText("Gérez vos implantations et vos entrepôts.")} />
             <div className="grid gap-2 sm:grid-cols-3"><Metric label={dashboardText("Bureaux")} value={offices.length}/><Metric label={dashboardText("Entrepôts")} value={warehouses.length}/><Metric label={dashboardText("Membres")} value={activeMembers.length}/></div>
-            <LocationGroup title={dashboardText("Bureaux")}>{offices.map((item) => <LocationRow key={String(item.id)} name={String(item.name || item.city || "Bureau")} detail={[item.city, item.address].filter(Boolean).join(" · ")} icon="office" badge={activeMembers.filter((member) => member.office_access_scope === "ALL_OFFICES" || member.office_ids.includes(String(item.id))).length + " membres"}/>)}</LocationGroup>
+            <LocationGroup title={dashboardText("Bureaux")}>{offices.map((item) => <LocationRow key={String(item.id)} name={String(item.name || item.city || "Bureau")} detail={[item.city, item.address].filter(Boolean).join(" · ")} icon="office" badge={item.org_id===data.organization.id?activeMembers.filter((member) => member.office_access_scope === "ALL_OFFICES" || member.office_ids.includes(String(item.id))).length + " membres":undefined}/>)}</LocationGroup>
             {!offices.length && <Empty label={dashboardText("Aucun bureau n’est configuré.")}/>}
             <LocationGroup title={dashboardText("Entrepôts")}>{warehouses.map((item) => <LocationRow key={String(item.id)} name={String(item.name || "Entrepôt")} detail={[item.city, item.country].filter(Boolean).join(" · ")} icon="warehouse"/>)}</LocationGroup>
             {!warehouses.length && <Empty label={dashboardText("Aucun entrepôt n’est configuré.")}/>}</>}

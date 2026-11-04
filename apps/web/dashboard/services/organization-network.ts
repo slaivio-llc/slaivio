@@ -40,6 +40,11 @@ export async function getOrganizationNetwork() {
   return (await api.get<OrganizationNetwork>("/organization/network")).data;
 }
 
+export type NetworkLocation={id:string;org_id:string;name:string;location_type:string;status:string;city?:string;country?:string;address?:string};
+export async function getNetworkLocations(){
+  return(await api.get<{locations:NetworkLocation[]}>('/organization/network/locations')).data.locations;
+}
+
 export async function setupOrganizationNetwork(body: {
   network_name: string; country_code: string; country_name: string;
   currency_code: string; timezone: string;

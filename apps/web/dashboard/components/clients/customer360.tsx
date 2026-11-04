@@ -4,12 +4,11 @@ import {dashboardText,useDashboardMessages,dashboardFormatLocale} from '@/compon
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
 import { api } from "@/services/api";
 import type { ClientRecord } from "@/services/clients";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { OperationActionMenu } from "@/components/ui/operation-controls";
-import { OperationDrawerTabs } from "@/components/ui/operation-drawer";
+import { OperationDrawer,OperationDrawerTabs } from "@/components/ui/operation-drawer";
 import { CompanyContacts } from "./company-contacts";
 import { businessLabel, businessHistoryTitle } from "@/components/ui/business-labels";
 
@@ -54,22 +53,16 @@ export function Customer360({ client, close, edit, archive, busy }: { client: Cl
   const name = client.display_name || client.name || client.company_name || "Client";
   const currency = client.preferred_currency || "USD";
 
-  return <div data-client-detail className="mx-auto w-full max-w-[1200px] px-6 py-6 sm:px-8">
-    <style>{`body:has([data-client-detail]) [aria-label="Répertoire clients"]{display:none}`}</style>
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-7">
-        <div className="flex min-w-0 items-start gap-3">
-          <button type="button" onClick={close} aria-label={dashboardText("Retour aux clients")} className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"><ArrowLeft size={15}/></button>
-          <div className="min-w-0"><p className="text-[11px] text-slate-500">{dashboardText("Clients / Fiche client")}</p><h1 className="mt-1 truncate text-lg font-semibold text-slate-900">{name}</h1><p className="mt-0.5 text-xs text-slate-500">{client.client_reference || dashboardText("Client")} · {client.customer_type === "business" ? dashboardText("Entreprise") : dashboardText("Particulier")}</p></div>
-        </div>
-        <div className="flex items-center gap-2">
+  return <OperationDrawer open close={close} title={name} variant="detail"
+      description={`${client.client_reference || dashboardText("Client")} · ${client.customer_type === "business" ? dashboardText("Entreprise") : dashboardText("Particulier")}`}
+      headerActions={<div className="flex items-center gap-2">
           {activeSection === "packages" && <Link href="/app/packages" className="inline-flex h-9 items-center rounded-md border border-slate-200 px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50">{dashboardText("+ Nouveau colis")}</Link>}
           {permissions.includes("clients.update") && <button type="button" onClick={edit} className="inline-flex h-9 items-center rounded-md border border-slate-200 px-3 text-[13px] font-medium text-slate-700 hover:bg-slate-50">{dashboardText("Modifier")}</button>}
           {permissions.includes("clients.archive") && <OperationActionMenu label={dashboardText("Plus d’actions")}><button type="button" onClick={archive} disabled={busy}>{dashboardText("Archiver le client")}</button></OperationActionMenu>}
-        </div>
-      </header>
+        </div>}
+      tabs={tabs.length>0?<OperationDrawerTabs items={tabs.map(tab=>({...tab}))} value={activeSection} onChange={value=>{setSection(value as Section);setPage(1);}}/>:undefined}>
 
-      <div className="grid gap-4 p-5 sm:p-7">
+      <div data-client-detail className="grid gap-4">
         <section className="rounded-lg border border-slate-200 p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-800">{dashboardText("Informations du client")}</h2>
           <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
@@ -87,12 +80,10 @@ export function Customer360({ client, close, edit, archive, busy }: { client: Cl
           {permissions.includes("finance.read") && <Metric label={dashboardText("Solde dû")} value={formatMoney(client.current_balance, currency)} danger={client.current_balance > 0}/>}
         </div>
 
-        {tabs.length > 0 && <nav aria-label={dashboardText("Sections de la fiche client")} className="flex items-center gap-1 overflow-x-auto"><OperationDrawerTabs items={tabs.map(tab => ({ ...tab }))} value={activeSection} onChange={value => { setSection(value as Section); setPage(1); }}/></nav>}
         {activeSection === "packages" && <h2 className="text-sm font-semibold text-slate-800">{dashboardText("Colis du client")}</h2>}
         {loading ? <p role="status" className="p-5 text-sm text-slate-500">{dashboardText("Chargement de la fiche…")}</p> : error ? <div role="alert" className="p-5 text-sm"><p>{dashboardText("Impossible de charger cette section. Vos droits ont peut-être changé.")}</p><button type="button" className="mt-3 underline" onClick={() => setRetry(value => value + 1)}>{dashboardText("Réessayer")}</button></div> : <SectionContent section={activeSection} result={result} total={total} page={page} pages={pages} setPage={setPage}/>}
       </div>
-    </section>
-  </div>;
+  </OperationDrawer>;
 }
 
 function SectionContent({ section, result, total, page, pages, setPage }: { section: Section; result: Result | null; total: number; page: number; pages: number; setPage: (page: number) => void }) {

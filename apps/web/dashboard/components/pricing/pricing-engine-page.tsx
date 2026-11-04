@@ -21,7 +21,7 @@ import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { OperationMetrics, OperationSearch, OperationToolbar } from "@/components/ui/operation-primitives";
 import { OperationButton, OperationField, OperationFilterPopover, OperationMetric, OperationMetricGrid } from "@/components/ui/operation-controls";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/page-state";
-import { businessLabel } from "@/components/ui/business-labels";
+import { businessLabel,businessHistoryTitle } from "@/components/ui/business-labels";
 import {
   addGridFee,
   addGridRule,
@@ -665,7 +665,7 @@ function GridDrawer({
           {detail.fees.length > 0 && <div className="border-t border-[#edf0ee] pt-3"><p className="font-medium text-[#697178]">{dashboardText("Frais supplémentaires")}</p>{detail.fees.map((fee, index) => <p key={String(fee.id || index)} className="mt-1">{String(fee.name || dashboardText("Frais"))} · {String(fee.amount ?? "—")} {g.currency_code}</p>)}</div>}
           {g.status === "DRAFT" && <AddFee grid={g.id} changed={changed}/>}
         </section>}
-        {tab === "history" && <section className="grid gap-0">{detail.audit.slice(0, 20).map((event, index) => <div key={String(event.id || index)} className="flex gap-3 border-b border-[#edf0ee] py-3"><HistoryIcon size={13} className="mt-0.5 shrink-0 text-[#697178]"/><div><p className="text-[11px] font-medium text-[#25292e]">{String(event.event_type || dashboardText("Modification")).replaceAll("_", " ").toLowerCase().replace(/^./, letter => letter.toUpperCase())}</p><p className="mt-1 text-[10px] text-[#697178]">{dateValue(event.created_at)} · {String(event.actor_name || dashboardText("Membre de l’agence"))}</p>{event.reason != null && <p className="mt-1 text-[10px] text-[#697178]">{String(event.reason)}</p>}</div></div>)}{!detail.audit.length && <p className="py-6 text-center text-[11px] text-[#697178]">{dashboardText("Aucun événement enregistré.")}</p>}</section>}
+        {tab === "history" && <section className="grid gap-0">{detail.audit.slice(0, 20).map((event, index) => <div key={String(event.id || index)} className="flex gap-3 border-b border-[#edf0ee] py-3"><HistoryIcon size={13} className="mt-0.5 shrink-0 text-[#697178]"/><div><p className="text-[11px] font-medium text-[#25292e]">{businessHistoryTitle(event.event_type)}</p><p className="mt-1 text-[10px] text-[#697178]">{dateValue(event.created_at)} · {String(event.actor_name || dashboardText("Membre de l’agence"))}</p>{event.reason != null && <p className="mt-1 text-[10px] text-[#697178]">{String(event.reason)}</p>}</div></div>)}{!detail.audit.length && <p className="py-6 text-center text-[11px] text-[#697178]">{dashboardText("Aucun événement enregistré.")}</p>}</section>}
         {g.status === "DRAFT" && <p className="border-t border-[#edf0ee] pt-3 text-[10px] leading-4 text-[#697178]">{dashboardText("Ce brouillon doit être validé puis publié avant de pouvoir être proposé aux clients.")}</p>}
       </main>
     </OperationDrawer>

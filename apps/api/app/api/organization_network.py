@@ -67,6 +67,14 @@ def setup_network(body: NetworkSetup, tenant=Depends(get_current_tenant), manage
     return {"status": "ok", **repo.setup(tenant["org_id"], actor_id(manager), **body.model_dump())}
 
 
+@router.get('/locations', dependencies=[Depends(require_permission('network.read'))])
+def network_locations(tenant=Depends(get_current_tenant)):
+    from app.organization_network.operational_points import points
+    from app.db.database import engine
+    with engine.connect() as conn:
+        return points(conn,tenant['org_id'],tenant['user_id'])
+
+
 @router.post("/offices", dependencies=[Depends(require_permission("network.offices.manage"))])
 def create_office(body: OfficeCreate, tenant=Depends(get_current_tenant), manager=Depends(get_current_manager)):
     try:

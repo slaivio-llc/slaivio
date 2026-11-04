@@ -5,6 +5,16 @@ import { OperationDrawer, OperationDrawerAction, OperationDrawerTabs } from "./o
 import { businessLabel } from "./business-labels";
 
 describe("OperationDrawer", () => {
+  it('keeps the same detail panel while its content loads without scale animation',()=>{
+    const close=vi.fn();
+    const view=render(<OperationDrawer open variant="detail" title="Fiche" close={close}><p role="status">Chargement…</p></OperationDrawer>);
+    const panel=screen.getByRole('dialog').querySelector('[data-ui="operation-drawer"]');
+    expect(panel).toHaveAttribute('data-variant','detail');
+    expect(panel?.className).not.toContain('scale-');
+    view.rerender(<OperationDrawer open variant="detail" title="Fiche" close={close} tabs={<button>Détails</button>}><p>Informations chargées</p></OperationDrawer>);
+    expect(screen.getByRole('dialog').querySelector('[data-ui="operation-drawer"]')).toBe(panel);
+    expect(panel).toHaveAttribute('data-variant','detail');
+  });
   it("supports a right-side panel and keeps keyboard focus inside it", () => {
     const close = vi.fn();
     render(<OperationDrawer open title="Réception" close={close} placement="right"><button type="button">Enregistrer</button></OperationDrawer>);

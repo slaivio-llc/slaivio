@@ -264,7 +264,7 @@ function Detail({ detail, close, reload }: { detail: TicketDetail; close: () => 
 function Panel({ close, children, title = "Support Slaivio", description = "Article, ticket et historique de la demande." }: { close: () => void; children: React.ReactNode; title?: string; description?: string }) {
   useDashboardMessages();
   return (
-    <OperationDrawer open close={close} title={title} description={description} width="max-w-2xl">
+    <OperationDrawer open variant="detail" close={close} title={title} description={description} width="max-w-2xl">
       {children}
     </OperationDrawer>
   );

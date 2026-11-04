@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor,within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { api } from "@/services/api";
@@ -16,9 +16,41 @@ describe("Commandes du mouvement fret",()=>{
     chooseAction("Confirmer le départ");
     expect(api.post).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toHaveTextContent("2 colis");
+    const dialog=screen.getByRole('dialog',{name:'Confirmer le départ'});
+    expect(dialog).toHaveClass('justify-center');
+    const panel=dialog.querySelector('[data-ui="operation-drawer"]');
+    expect(panel).toHaveAttribute('data-placement','center');
+    expect(panel).toHaveAttribute('data-variant','form');
+    expect(panel).toHaveClass('max-w-[440px]');
+    expect(dialog.querySelector('footer')).toHaveClass('!justify-center');
+    expect(dialog).toHaveTextContent('le manifeste sera verrouillé');
     fireEvent.click(screen.getByRole("button",{name:"Confirmer"}));
     await waitFor(()=>expect(saved).toHaveBeenCalledOnce());
     expect(api.post).toHaveBeenCalledWith("/shipments/workspace/one/milestone",{expected_version:3,action:"depart"});
+  });
+  it('permet d’annuler la confirmation sans déclencher le départ',()=>{
+    render(<FreightWorkflow item={item} saved={vi.fn()}/>);
+    chooseAction('Confirmer le départ');
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Annuler'}));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+  it('garde aussi la confirmation d’arrivée compacte et empêche un double envoi',async()=>{
+    let finish!:(value:unknown)=>void;
+    vi.mocked(api.post).mockReturnValue(new Promise(resolve=>{finish=resolve;}));
+    render(<FreightWorkflow item={{...item,stage:'departed'}} saved={vi.fn()}/>);
+    chooseAction('Confirmer l’arrivée');
+    const dialog=screen.getByRole('dialog',{name:'Confirmer l’arrivée'});
+    expect(dialog.querySelector('[data-ui="operation-drawer"]')).toHaveAttribute('data-placement','center');
+    expect(dialog).toHaveTextContent('sans confirmer leur livraison');
+    fireEvent.click(within(dialog).getByRole('button',{name:'Confirmer'}));
+    expect(within(dialog).getByRole('button',{name:'Confirmation…'})).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button',{name:'Confirmation…'}));
+    fireEvent.keyDown(window,{key:'Escape'});
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledTimes(1);
+    finish({data:{changed:true}});
+    await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
   it("conserve le refus financier sans annoncer un départ",async()=>{
     const saved=vi.fn();vi.mocked(api.post).mockRejectedValue({isAxiosError:true,response:{data:{detail:{code:"payment_clearance_required"}}}});

@@ -119,7 +119,17 @@ function Milestone({item,action,close,saved}:{item:Shipment;action:"depart"|"arr
   useDashboardMessages();
   const [saving,setSaving]=useState(false);const [error,setError]=useState("");const pending=useRef(false);
   async function submit(){if(pending.current)return;pending.current=true;setSaving(true);setError("");try{await api.post(`/shipments/workspace/${item.id}/milestone`,{expected_version:item.version,action});saved();}catch(cause){setError(failure(cause));}finally{pending.current=false;setSaving(false);}}
-  return <OperationDrawer open title={action==="depart"?dashboardText("Confirmer le départ réel"):dashboardText("Confirmer l’arrivée réelle")} placement="right" width="max-w-xl" close={()=>{if(!pending.current)close();}}><p className="mb-4 text-sm">{item.reference} · {item.packages_count} {dashboardText(" colis")}</p><p className="mb-6 text-sm text-slate-600">{action==="depart"?dashboardText("Confirmez uniquement lorsque le chargement est réellement parti. Le manifeste sera figé et les colis passeront à l’état Expédié. Les contrôles de paiement configurés seront vérifiés."):dashboardText("Confirmez uniquement après réception du mouvement à destination. Les colis passeront à l’état Arrivé, pas Livré.")} {dashboardText(" Les notifications clients seront mises en file selon les réglages de l’agence.")}</p>{error&&<p role="alert" className="mb-5 text-sm text-red-700">{dashboardText(error)}</p>}<div className="flex justify-end gap-2"><OperationButton disabled={saving} onClick={close}>{dashboardText("Annuler")}</OperationButton><OperationButton disabled={saving} variant="primary" onClick={submit}>{saving?dashboardText("Confirmation…"):dashboardText("Confirmer")}</OperationButton></div></OperationDrawer>;
+  return <OperationDrawer open variant="form" placement="center" width="max-w-[440px]"
+    title={action==="depart"?dashboardText("Confirmer le départ"):dashboardText("Confirmer l’arrivée")}
+    description={`${item.reference} · ${dashboardText("{0} colis",item.packages_count)}`}
+    headerLeading={<span className="grid h-10 w-10 place-items-center rounded-full bg-[#eaf8f1] text-[#087a46]">{action==='depart'?<Plane size={19} aria-hidden="true"/>:<PlaneLanding size={19} aria-hidden="true"/>}</span>}
+    close={()=>{if(!pending.current)close();}}
+    bodyClassName="!px-6 !pb-5 !pt-0"
+    footerClassName="!justify-center !border-0 !bg-white !pt-0"
+    footer={<div className="flex w-full flex-col items-center gap-2"><OperationButton className="min-w-40" disabled={saving} variant="primary" onClick={submit}>{saving?dashboardText("Confirmation…"):dashboardText("Confirmer")}</OperationButton><button type="button" disabled={saving} onClick={close} className="px-4 py-1 text-[12px] font-medium text-[#66717b] hover:text-[#252b31] disabled:opacity-50">{dashboardText("Annuler")}</button></div>}>
+    <p className="text-center text-[13px] leading-6 text-[#66717b]">{action==="depart"?dashboardText("Le chargement est-il parti ? Les colis seront marqués « Expédiés » et le manifeste sera verrouillé."):dashboardText("Les colis sont-ils arrivés à destination ? Ils seront marqués « Arrivés », sans confirmer leur livraison.")}</p>
+    {error&&<p role="alert" className="mt-4 rounded-lg bg-[#fff4f2] px-3 py-2.5 text-[13px] leading-5 text-[#9b3d32]">{dashboardText(error)}</p>}
+  </OperationDrawer>;
 }
 
 export function RemoveFreightParcel({item,parcelId,saved}:{item:Shipment;parcelId:string;saved:()=>void}){

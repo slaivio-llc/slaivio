@@ -23,7 +23,7 @@ export function AppProviders({
   const pathname = usePathname();
   // Marketing pages must never wait for a session or call private APIs.
   // Keep authentication mounted only where it is actually used.
-  if (pathname === "/" || pathname === "/landing" || pathname === '/prepare-shipment' || /^\/(fr|en)(\/|$)/.test(pathname)) {
+  if (pathname === "/" || pathname === "/landing" || pathname === '/prepare-shipment' || pathname === '/track' || pathname.startsWith('/track/') || /^\/(fr|en)(\/|$)/.test(pathname)) {
     return <>{children}</>;
   }
   const authenticationOnly=pathname==='/join'||pathname.startsWith('/sign-in')||pathname.startsWith('/sign-up');

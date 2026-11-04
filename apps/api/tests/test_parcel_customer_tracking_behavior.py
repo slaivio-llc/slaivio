@@ -78,7 +78,10 @@ def test_ambiguous_public_reference_does_not_choose_an_agency(monkeypatch):
     engine = MagicMock()
     engine.connect.return_value.__enter__.return_value = conn
     monkeypatch.setattr(repository, "engine", engine)
-    assert repository.public_package_tracking("LUZA-001") is None
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as error:
+        repository.public_package_tracking("LUZA-001")
+    assert error.value.status_code==409 and error.value.detail=='tracking_agency_required'
 
 
 def test_expedition_uses_configured_route_and_service_in_its_office():

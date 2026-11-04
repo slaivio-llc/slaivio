@@ -128,7 +128,8 @@ export function ParcelPhotos({ item, changed, busyChanged, disabled = false }: {
     if(disabled||pending.current||!item.public_tracking_enabled||!result?.customer_visible_count||!item.reference)return;
     pending.current=true;setBusy(true);busyChanged(true);setError("");setNotice("");
     try{
-      const url=new URL("/track",window.location.origin);url.searchParams.set("reference",item.reference);
+      if(!item.public_tracking_url)throw new Error('Le lien de suivi doit être actualisé. Rechargez la fiche du colis.');
+      const url=new URL(item.public_tracking_url);
       await createPackageNotification(item.id,{
         channel:"whatsapp",notification_type:`PACKAGE_SHARED_PHOTOS:${item.id}:${Date.now()}`,
         message:`Bonjour${item.client_name?` ${item.client_name}`:""}, l’agence a partagé des photos de votre colis ${item.reference}. Consultez-les dans votre suivi : ${url.toString()}`,

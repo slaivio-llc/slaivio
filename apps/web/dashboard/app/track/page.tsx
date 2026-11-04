@@ -1,6 +1,6 @@
 "use client";
 
-import {FormEvent, useEffect, useState} from "react";
+import {FormEvent, useCallback, useEffect, useRef, useState} from "react";
 import {PackageSearch, Search} from "lucide-react";
 import {findPublicPackageTracking,findPublicAgency,type PublicAgencyProfile} from "@/services/tracking";
 
@@ -12,10 +12,21 @@ export default function PublicTrackingSearchPage(){
   const [agency,setAgency]=useState<PublicAgencyProfile|null>(null);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
-  async function lookup(reference:string){if(reference.trim().length<6)return;setLoading(true);setError("");setTracking(null);try{setTracking(await findPublicPackageTracking(reference,new URLSearchParams(window.location.search).get('agency') || undefined));}catch{setError("Aucun colis public ne correspond à ce numéro de suivi. Vérifiez le numéro auprès de l’agence.");}finally{setLoading(false)}}
+  const request=useRef(0);
+  const agencyKey=useRef<string|undefined>(undefined);
+  const explain=useCallback((cause:unknown,profile=false)=>{
+    const status=(cause as {status?:number})?.status;
+    if(status===409)return 'Cette référence est utilisée par plusieurs agences. Ouvrez le lien de suivi communiqué par votre agence pour consulter le bon colis.';
+    if(profile)return status===404?'Cette page de suivi est désactivée ou son lien a changé. Demandez le lien actuel à votre agence.':'La page de votre agence est momentanément inaccessible. Réessayez dans quelques instants.';
+    if(status!==404)return 'Le suivi est momentanément indisponible. Réessayez dans quelques instants.';
+    return 'Aucun colis public ne correspond à ce numéro. Vérifiez la référence et utilisez le lien de suivi de votre agence.';
+  },[]);
+  const lookup=useCallback(async(reference:string)=>{if(reference.trim().length<6)return;const current=++request.current;setLoading(true);setError("");setTracking(null);try{const result=await findPublicPackageTracking(reference,agencyKey.current||new URLSearchParams(window.location.search).get('agency') || undefined);if(request.current===current)setTracking(result);}catch(cause){if(request.current===current)setError(explain(cause));}finally{if(request.current===current)setLoading(false)}},[explain]);
   async function submit(event:FormEvent){event.preventDefault();await lookup(reference);}
-  useEffect(()=>{const initial=new URLSearchParams(window.location.search).get("reference");if(initial){setReference(initial);void lookup(initial);}},[]);
-  useEffect(()=>{let active=true;const slug=new URLSearchParams(window.location.search).get('agency');if(slug)void findPublicAgency(slug).then(profile=>{if(active)setAgency(profile);}).catch(()=>{if(active)setError('Cette page de suivi n’est pas disponible. Contactez votre agence.');});return()=>{active=false;};},[]);
+  useEffect(()=>{let active=true;const pending=request;const params=new URLSearchParams(window.location.search),slug=params.get('agency'),initial=params.get('reference');if(initial)setReference(initial);
+    async function open(){if(slug){setLoading(true);try{const profile=await findPublicAgency(slug);if(!active)return;setAgency(profile);agencyKey.current=profile.agency_key||slug;}catch(cause){if(active){setError(explain(cause,true));setLoading(false);}return;}}if(active){if(initial)await lookup(initial);else setLoading(false);}}
+    void open();return()=>{active=false;pending.current++;};
+  },[lookup,explain]);
   const brand=tracking || agency;
   const agencyName=brand?.agency_name || "Suivi colis";
   const agencyLogo=brand?.agency_logo_url;
@@ -30,7 +41,7 @@ export default function PublicTrackingSearchPage(){
         <p className="mx-auto mt-3 max-w-lg text-[14px] leading-6 text-[#69747d]">{brand?.tracking_page?.welcome_message || "Saisissez le numéro communiqué par votre agence pour consulter l’état et l’historique de votre colis."}</p>
         {brand?.agency_hours && <p className="mt-3 text-sm text-slate-500">Horaires : {brand.agency_hours}</p>}
       </header>
-      <form onSubmit={submit} className="mx-auto mt-8 flex max-w-xl gap-2"><label className="flex h-12 flex-1 items-center rounded-lg border border-[#d8dee2] bg-white px-4 focus-within:border-[#12a865] focus-within:ring-2 focus-within:ring-[#12c76f]/10"><Search size={18} className="text-[#7a858e]"/><input value={reference} onChange={event=>setReference(event.target.value)} className="ml-3 min-w-0 flex-1 bg-transparent text-[14px] outline-none" placeholder="Ex. COL-2026-000123" aria-label="Numéro de suivi"/></label><button disabled={loading||reference.trim().length<6} className="h-12 rounded-lg bg-[#12c76f] px-5 text-[14px] font-semibold text-white disabled:opacity-50">{loading?"Recherche…":"Suivre"}</button></form>
+      <form onSubmit={submit} className="mx-auto mt-8 flex max-w-xl flex-col gap-2 sm:flex-row"><label className="flex h-12 min-w-0 flex-1 items-center rounded-lg border border-[#d8dee2] bg-white px-4 focus-within:border-[#12a865] focus-within:ring-2 focus-within:ring-[#12c76f]/10"><Search size={18} className="text-[#7a858e]"/><input value={reference} onChange={event=>setReference(event.target.value)} className="ml-3 min-w-0 flex-1 bg-transparent text-[14px] outline-none" placeholder="Ex. COL-2026-000123" aria-label="Numéro de suivi" autoComplete="off"/></label><button disabled={loading||reference.trim().length<6} className="h-12 shrink-0 rounded-lg bg-[#12c76f] px-5 text-[14px] font-semibold text-white disabled:opacity-50">{loading?"Recherche…":"Suivre"}</button></form>
       {error&&<p role="alert" className="mx-auto mt-5 max-w-xl rounded-lg bg-[#fff4f2] px-4 py-3 text-[13px] text-[#9b3d32]">{error}</p>}
       {tracking&&<section className="mt-8 overflow-hidden rounded-xl border border-[#dfe4e7] bg-white">
         <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5"><div><p className="text-[12px] text-[#77828b]">Numéro de suivi</p><h2 className="mt-1 text-xl font-semibold">{tracking.tracking_id||tracking.package_reference}</h2><p className="mt-2 text-[13px] text-[#68747d]">{[tracking.origin_city,tracking.origin_country].filter(Boolean).join(", ")||"Origine"} → {[tracking.destination_city,tracking.destination_country].filter(Boolean).join(", ")||"Destination"}</p></div><span className="rounded-full bg-[#eaf8f1] px-3 py-1.5 text-[12px] font-semibold text-[#087a48]">{statusLabels[tracking.status]||tracking.status}</span></div>

@@ -1,4 +1,4 @@
-import {api} from "@/services/api";
+import {api,API_BASE_URL} from "@/services/api";
 import type {ExpeditionDetail} from "@/services/shipments";
 export type TrackingItem={id:string;tracking_id:string;type:"SHIPMENT";title:string|null;status:string;mode:string;risk_level:string;origin_country:string|null;origin_city:string|null;destination_country:string|null;destination_city:string|null;route_label:string|null;origin_warehouse:string|null;destination_warehouse:string|null;last_location:string|null;eta_at:string|null;progress_percent:number|null;is_delayed:boolean;is_overdue?:boolean;delay_hours:number;delay_reason:string|null;owner_name:string|null;container_number:string|null;batch_reference:string|null;packages_count:number;clients_count:number;total_weight_kg:number;total_volume_cbm:number;updated_at:string;last_signal_at:string|null;last_signal_source:string|null;open_alerts:number};
 export type TrackingStats={packages_in_transit:number;active_shipments:number;in_transit_shipments?:number;arrived_shipments?:number;delivered_today:number;delays:number;incidents_open:number;average_transit_hours:number|null};
@@ -34,6 +34,13 @@ export async function archiveTracking(id:string){await api.delete(`/tracking/${i
 export async function notifyTrackingBulk(tracking_ids:string[],payload:{channel:string;audience:string;recipient?:string;message:string}){return (await api.post<{count:number}>("/tracking/notifications/bulk",{tracking_ids,...payload})).data}
 export async function getPublicTracking(token:string){return (await api.get<{tracking:TrackingItem&{events:Array<{event_type:string;title:string;description:string|null;occurred_at:string}>}}>(`/public/tracking/${token}`)).data.tracking}
 export type PublicPackageTracking={weight_kg?:number|string|null;volume_cbm?:number|string|null;agency_name:string|null;agency_logo_url:string|null;agency_support_phone:string|null;tracking_page:{welcome_message:string;show_brand:boolean;show_support:boolean;show_history:boolean};package_reference:string;tracking_id:string|null;status:string;origin_city:string|null;origin_country:string|null;destination_city:string|null;destination_country:string|null;eta_at:string|null;received_at:string|null;dispatched_at:string|null;delivered_at:string|null;last_scan_location:string|null;updated_at:string;customer_photos:Array<{id:string;file_name:string;url:string}>;events:Array<{event_type:string;title:string;description:string|null;new_status:string|null;occurred_at:string}>};
-export type PublicAgencyProfile={agency_name:string|null;agency_logo_url:string|null;agency_support_phone:string|null;agency_hours?:string|null;primary_color?:string|null;secondary_color?:string|null;favicon_url?:string|null;tracking_page:PublicPackageTracking['tracking_page']};
-export async function findPublicAgency(slug:string){return(await api.get<PublicAgencyProfile>(`/public/agencies/${encodeURIComponent(slug)}`)).data}
-export async function findPublicPackageTracking(reference:string,agency?:string){return (await api.get<{tracking:PublicPackageTracking & PublicAgencyProfile & {fees_total?:number;currency?:string}}>(`/public/packages/tracking/${encodeURIComponent(reference.trim())}`,{params:agency?{agency}:undefined})).data.tracking}
+export type PublicAgencyProfile={agency_key?:string;agency_name:string|null;agency_logo_url:string|null;agency_support_phone:string|null;agency_hours?:string|null;primary_color?:string|null;secondary_color?:string|null;favicon_url?:string|null;tracking_page:PublicPackageTracking['tracking_page']};
+export class PublicTrackingError extends Error {constructor(public status:number,public code:string){super(code);}}
+async function publicRead<T>(path:string):Promise<T>{
+ const response=await fetch(`${API_BASE_URL||''}${path}`,{credentials:'omit',cache:'no-store',redirect:'error',signal:AbortSignal.timeout(15000)});
+ const body=await response.json().catch(()=>({}));
+ if(!response.ok)throw new PublicTrackingError(response.status,typeof body.detail==='string'?body.detail:'tracking_unavailable');
+ return body as T;
+}
+export async function findPublicAgency(slug:string){return publicRead<PublicAgencyProfile>(`/public/agencies/${encodeURIComponent(slug.trim())}`);}
+export async function findPublicPackageTracking(reference:string,agency?:string){return(await publicRead<{tracking:PublicPackageTracking & PublicAgencyProfile & {fees_total?:number;currency?:string}}>(`/public/packages/tracking/${encodeURIComponent(reference.trim())}${agency?`?agency=${encodeURIComponent(agency)}`:''}`)).tracking;}

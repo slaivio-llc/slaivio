@@ -14,7 +14,7 @@ def test_assigning_a_package_queues_one_customer_tracking_message():
     assert "_queue_expedition_assignment_notification" in repository
     assert "EXPEDITION_ASSIGNED:" in repository
     assert "Numéro de suivi" in repository
-    assert "public_web_base_url" in repository
+    assert "package_tracking_url" in repository
     assert "not exists (" in repository.lower()
 
 
@@ -30,7 +30,7 @@ def test_departure_milestones_include_the_public_tracking_link():
     repository = DEPARTURES.read_text(encoding="utf-8")
 
     assert "tracking_url" in repository
-    assert "public_web_base_url" in repository
+    assert "package_tracking_url" in repository
     assert "Numéro de suivi" in repository
 
 

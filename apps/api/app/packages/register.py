@@ -31,6 +31,9 @@ SUMMARY = """p.id::text, p.org_id, p.client_id::text,
 
 def present(row, org_id):
     result = dict(row)
+    from app.services.public_tracking_links import package_tracking_url
+    if result.get('reference') and result.get('org_id'):
+        result['public_tracking_url']=package_tracking_url(result['org_id'],result['reference'])
     stage = next((key for key, values in STAGES.items() if result["status"] in values), "other")
     result.update(stage=stage, status_label=LABELS.get(stage, LEGACY_LABELS.get(result["status"], "État à vérifier")),
                   local_client=result["org_id"] == org_id)

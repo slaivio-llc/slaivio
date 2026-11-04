@@ -95,7 +95,7 @@ export function FreightShipmentRegister({embedded=false,createRequest=0}:{embedd
       </div>
       {!embedded&&<PermissionGuard permission="departures.read"><Link href="/app/departures" className="mt-5 inline-block text-xs text-slate-500 underline">{dashboardText("Consulter les anciennes planifications de départ")}</Link></PermissionGuard>}
     </section>
-    {creating&&<ShipmentCreation close={()=>setCreating(false)} created={value=>{setCreated(value);setCreating(false);reset();setRevision(n=>n+1);}}/>}
+    {creating&&<ShipmentCreation mode="create" close={()=>setCreating(false)} created={value=>{setCreated(value);setCreating(false);reset();setRevision(n=>n+1);}}/>}
     {selectedShipment&&<FreightShipmentDetail shipmentId={selectedShipment} onClose={()=>{setSelectedShipment(null);setRevision(value=>value+1);}}/>}
   </div>;
 }

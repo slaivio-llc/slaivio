@@ -96,7 +96,8 @@ def _queue_customer_status_notification(conn, package: dict, status: str, user_i
         return None
     destination = ", ".join(filter(None, [package.get("destination_city"), package.get("destination_country")])) or "sa destination"
     tracking = package.get("tracking_id") or package.get("package_reference") or "votre colis"
-    tracking_url = f"{settings.public_web_base_url.rstrip('/')}/track?reference={quote(str(tracking), safe='')}"
+    from app.services.public_tracking_links import package_tracking_url
+    tracking_url = package_tracking_url(package['org_id'],str(tracking))
     message = (
         f"{customer_context['agency_name']}\n\n"
         f"{template.format(tracking=tracking, destination=destination)}\n\n"
@@ -914,7 +915,8 @@ def public_package_tracking(reference: str, agency_slug: str | None = None) -> d
     if len(normalized) < 6 or len(normalized) > 120:
         return None
     with engine.connect() as conn:
-        matches = conn.execute(text("""
+        from app.services.public_tracking_links import agency_match_sql
+        matches = conn.execute(text(f"""
             select package.id::text, package.org_id, package.package_reference, package.tracking_id, package.status,
                    package.origin_city, package.origin_country, package.weight_kg, package.volume_cbm,
                    package.destination_city, package.destination_country,
@@ -927,18 +929,22 @@ def public_package_tracking(reference: str, agency_slug: str | None = None) -> d
                    organization.primary_color,organization.secondary_color,
                    org_settings.settings->>'brand_favicon_url' favicon_url,
                    org_settings.settings->'agency_hours'->>'text' agency_hours,
-                   coalesce(org_settings.settings->'public_tracking_page', '{}'::jsonb) tracking_page_settings
+                   coalesce(org_settings.settings->'public_tracking_page', '{{}}'::jsonb) tracking_page_settings
             from cargo_packages package
             join organizations organization on organization.id=package.org_id
             left join organization_settings org_settings on org_settings.org_id=organization.id
             where package.deleted_at is null and package.public_tracking_enabled=true
               and organization.status='ACTIVE'
-              and (:slug is null or org_settings.settings->'public_tracking_page'->>'slug'=:slug)
+              and coalesce((org_settings.settings->'public_tracking_page'->>'enabled')::boolean,true)
+              and {agency_match_sql('package.org_id','org_settings.settings')}
               and (upper(package.tracking_id)=upper(:reference) or upper(package.package_reference)=upper(:reference))
             order by package.updated_at desc
             limit 2
         """), {"reference": normalized,"slug":agency_slug}).fetchall()
         # An ambiguous reference must not allow a caller to select another tenant.
+        if len(matches)>1 and not agency_slug:
+            from fastapi import HTTPException
+            raise HTTPException(409,'tracking_agency_required')
         if len(matches) != 1:
             return None
         package = _safe(dict(matches[0]._mapping))
@@ -1757,21 +1763,25 @@ def public_package_tracking_media(reference: str, agency_slug: str | None = None
     if len(normalized) < 6 or len(normalized) > 120:
         return []
     with engine.connect() as conn:
-        rows = conn.execute(text("""select media.id::text,media.object_path,media.file_name
+        from app.services.public_tracking_links import agency_match_sql
+        rows = conn.execute(text(f"""select media.id::text,media.object_path,media.file_name
           from cargo_packages package
+          join organizations organization on organization.id=package.org_id and organization.status='ACTIVE'
           join package_media media on media.package_id=package.id and media.org_id=package.org_id
           left join organization_settings agency on agency.org_id=package.org_id
           where package.deleted_at is null and package.public_tracking_enabled=true
             and coalesce((agency.settings->'public_tracking_page'->>'enabled')::boolean,true)
-            and (:slug is null or agency.settings->'public_tracking_page'->>'slug'=:slug)
+            and {agency_match_sql('package.org_id','agency.settings')}
             and media.customer_visible=true and media.media_type='IMAGE'
             and media.object_path is not null
             and (upper(package.tracking_id)=upper(:reference)
               or upper(package.package_reference)=upper(:reference))
             and 1=(select count(*) from cargo_packages match
+              join organizations matched_org on matched_org.id=match.org_id and matched_org.status='ACTIVE'
               left join organization_settings match_settings on match_settings.org_id=match.org_id
               where match.deleted_at is null and match.public_tracking_enabled=true
-                and (:slug is null or match_settings.settings->'public_tracking_page'->>'slug'=:slug)
+                and coalesce((match_settings.settings->'public_tracking_page'->>'enabled')::boolean,true)
+                and {agency_match_sql('match.org_id','match_settings.settings')}
                 and (upper(match.tracking_id)=upper(:reference)
                   or upper(match.package_reference)=upper(:reference)))
           order by media.created_at desc,media.id desc limit 20"""), {

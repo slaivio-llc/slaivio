@@ -1,4 +1,5 @@
 import json
+import re
 import hashlib
 import secrets
 from contextlib import nullcontext
@@ -8,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from app.db.database import engine
 from app.permissions.services.permission_service import assert_permission
+from app.services.public_tracking_links import public_agency_key
 
 
 def operational_settings(org_id):
@@ -52,6 +54,8 @@ def _audit(conn, org_id, actor, action, entity_type, entity_id, old=None, new=No
 def overview(org_id):
     with engine.connect() as c:
         org=c.execute(text("select * from organizations where id=:o"),{"o":org_id}).mappings().first()
+        if org:
+            org={**org,'public_tracking_key':public_agency_key(org_id)}
         settings=c.execute(text("select * from organization_settings where org_id=:o"),{"o":org_id}).mappings().first()
         members=_rows(c.execute(text("""select m.*,coalesce(r.role_name,m.role_code) role_name
           ,coalesce((select array_agg(grant_row.location_id::text order by location.name)
@@ -98,6 +102,8 @@ def save_settings(org_id,actor,data,version,connection=None):
             return None
         page=(data.get('settings') or {}).get('public_tracking_page')
         if page:
+            if re.fullmatch(r'agency-[a-f0-9]{32}',page['slug']):
+                raise HTTPException(422,'Cet identifiant est réservé au lien permanent. Choisissez un identifiant personnalisé différent.')
             c.execute(text("select pg_advisory_xact_lock(hashtext(:slug))"),{'slug':'tracking-page:'+page['slug']})
             duplicate=c.execute(text("""select 1 from organization_settings
                 where org_id<>:o and settings->'public_tracking_page'->>'slug'=:slug"""),

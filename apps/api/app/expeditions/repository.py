@@ -110,7 +110,8 @@ def _queue_expedition_assignment_notification(
     tracking = package.get("tracking_id") or package.get("package_reference")
     if not tracking:
         return None
-    tracking_url = f"{settings.public_web_base_url.rstrip('/')}/track?reference={quote(str(tracking), safe='')}"
+    from app.services.public_tracking_links import package_tracking_url
+    tracking_url = package_tracking_url(org_id,str(tracking))
     message = (
         f"{client['agency_name']}\n\n"
         f"Votre colis {tracking} a été affecté à l’expédition "

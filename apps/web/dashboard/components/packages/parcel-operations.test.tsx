@@ -68,12 +68,13 @@ describe("Photos privées", () => {
   it("envoie le lien stable du suivi public, jamais une URL temporaire de photo", async () => {
     vi.mocked(api.get).mockResolvedValue({ data: { items: [{ id: "photo", file_name: "carton.png", caption: null, customer_visible: true }], page: 1, total_pages: 1, total: 1, customer_visible_count: 1 } });
     vi.mocked(createPackageNotification).mockResolvedValue({} as Awaited<ReturnType<typeof createPackageNotification>>);
-    render(<ParcelPhotos item={{ ...item, reference: "COL-2026-001", client_name: "Awa", public_tracking_enabled: true }} changed={vi.fn()} busyChanged={vi.fn()}/>);
+    render(<ParcelPhotos item={{ ...item, reference: "COL-2026-001", public_tracking_url:'https://slaivio.com/track?reference=COL-2026-001&agency=agency-test', client_name: "Awa", public_tracking_enabled: true }} changed={vi.fn()} busyChanged={vi.fn()}/>);
     fireEvent.click(await screen.findByRole("button", { name: "Envoyer le lien au client sur WhatsApp" }));
     await waitFor(() => expect(createPackageNotification).toHaveBeenCalledTimes(1));
     const payload = vi.mocked(createPackageNotification).mock.calls[0][1];
     expect(payload.channel).toBe("whatsapp");
     expect(payload.message).toContain("/track?reference=COL-2026-001");
+    expect(payload.message).toContain('agency=agency-test');
     expect(payload.message).not.toContain("storage.example");
   });
   it("signale les échecs partiels sans réenvoyer les photos réussies", async () => {

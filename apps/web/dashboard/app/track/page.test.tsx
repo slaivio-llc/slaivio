@@ -2,13 +2,37 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {cleanup, render, screen} from "@testing-library/react";
 import PublicTrackingSearchPage from "./page";
 
-const {lookup} = vi.hoisted(() => ({lookup: vi.fn()}));
-vi.mock("@/services/tracking", () => ({findPublicPackageTracking: lookup}));
+const {lookup,agencyLookup} = vi.hoisted(() => ({lookup: vi.fn(),agencyLookup:vi.fn()}));
+vi.mock("@/services/tracking", () => ({findPublicPackageTracking: lookup,findPublicAgency:agencyLookup}));
 
 describe("customer package tracking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    lookup.mockReset();agencyLookup.mockReset();
     window.history.replaceState({}, "", "/track?reference=LUZA-001");
+  });
+
+  it('resolves the agency first, then looks up the parcel inside its stable scope',async()=>{
+    window.history.replaceState({},'', '/track?agency=otie-cargo&reference=COL-2026-000001');
+    agencyLookup.mockResolvedValue({agency_key:'agency-permanent',agency_name:'OTIE CARGO',tracking_page:{show_brand:true}});
+    lookup.mockResolvedValue({tracking_id:'COL-2026-000001',status:'RECEIVED',updated_at:null,events:[]});
+    render(<PublicTrackingSearchPage/>);
+    expect(await screen.findByText('COL-2026-000001')).toBeInTheDocument();
+    expect(agencyLookup).toHaveBeenCalledWith('otie-cargo');
+    expect(lookup).toHaveBeenCalledWith('COL-2026-000001','agency-permanent');
+  });
+  it('explains ambiguous agency references rather than claiming the parcel does not exist',async()=>{
+    lookup.mockRejectedValue({status:409,code:'tracking_agency_required'});
+    render(<PublicTrackingSearchPage/>);
+    expect(await screen.findByRole('alert')).toHaveTextContent('plusieurs agences');
+    expect(screen.queryByText(/Aucun colis public/)).not.toBeInTheDocument();
+  });
+  it('does not misreport a server or network failure as a missing parcel',async()=>{
+    lookup.mockRejectedValue(new Error('network failure'));
+    render(<PublicTrackingSearchPage/>);
+    expect(await screen.findByRole('alert')).toHaveTextContent('momentanément indisponible');
+    expect(screen.queryByText(/Aucun colis public/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Suivre'}).closest('form')).toHaveClass('flex-col','sm:flex-row');
   });
   afterEach(cleanup);
 

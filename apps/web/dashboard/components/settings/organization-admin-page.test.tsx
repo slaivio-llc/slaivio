@@ -31,6 +31,17 @@ beforeEach(() => {
 });
 
 describe("agency settings navigation and uploads", () => {
+  it('publishes the permanent agency link without advertising an unsaved custom slug',async()=>{
+    navigation.params=new URLSearchParams('section=tracking');
+    vi.mocked(getAdmin).mockResolvedValue({...fixture,organization:{...fixture.organization,public_tracking_key:'agency-0123456789abcdef0123456789abcdef'}});
+    render(<OrganizationAdminPage/>);
+    const link=await screen.findByRole('link',{name:/\/track\?agency=agency-/});
+    expect(link).toHaveAttribute('href',expect.stringContaining('agency=agency-0123456789abcdef0123456789abcdef'));
+    const slug=screen.getByRole('textbox',{name:/Identifiant public/});
+    fireEvent.change(slug,{target:{value:'nouveau-nom'}});
+    expect(link).toHaveAttribute('href',expect.stringContaining('agency=agency-0123456789abcdef0123456789abcdef'));
+    expect(link.getAttribute('href')).not.toContain('nouveau-nom');
+  });
   it.each(['packages','delivery'])('saves all fields of the merged %s tab in one versioned request',async(section)=>{
     navigation.params=new URLSearchParams(`section=${section}`);
     const {container}=render(<OrganizationAdminPage/>);

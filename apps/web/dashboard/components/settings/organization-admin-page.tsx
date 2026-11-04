@@ -410,7 +410,9 @@ function PublicTrackingSettings({
     }), "Paramètres de tracking public enregistrés.");
   }
 
-  const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/track?agency=${encodeURIComponent(slug)}`;
+  // Only advertise an identifier already resolvable by the API, not the unsaved input.
+  const liveSlug=String(storedPage.slug||data.organization.public_tracking_key||'');
+  const publicUrl = liveSlug?`${typeof window !== "undefined" ? window.location.origin : ""}/track?agency=${encodeURIComponent(liveSlug)}`:'';
   return <section className="grid gap-5">
     <form onSubmit={submit} className="grid max-w-[640px] gap-5">
       <section className="grid gap-3 pb-5">
@@ -420,7 +422,7 @@ function PublicTrackingSettings({
           <input aria-label={dashboardText("Activer le suivi public")} type="checkbox" checked={enabled} onChange={event => setEnabled(event.target.checked)} className="h-5 w-5 accent-[#137c56]" />
         </label>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Identifiant public de l’agence")}<input name="slug" required minLength={3} maxLength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} onChange={event => setSlug(event.target.value.toLowerCase())} className="h-10 w-full rounded-full border border-[#d8dddf] px-3 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
-        <div className="pt-1"><p className="text-[12px] text-[#697178]">{dashboardText("Adresse publique")}</p><a href={publicUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all text-[13px] font-medium text-[#30363a] underline">{publicUrl}</a></div>
+        <div className="pt-1"><p className="text-[12px] text-[#697178]">{dashboardText("Adresse publique")}</p>{publicUrl&&enabled?<a href={publicUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all text-[13px] font-medium text-[#30363a] underline">{publicUrl}</a>:<p className="mt-1 text-xs text-[#697178]">{dashboardText("Enregistrez les paramètres pour activer votre page de suivi.")}</p>}{slug!==liveSlug&&<p className="mt-2 text-xs text-[#697178]">{dashboardText("Enregistrez pour publier le nouvel identifiant. Le lien actuel reste inchangé jusque-là.")}</p>}</div>
         <label className="grid gap-1.5 text-[13px] font-medium text-[#59636e]">{dashboardText("Message d’accueil")}<textarea name="welcome" rows={3} maxLength={300} value={welcome} onChange={event => setWelcome(event.target.value)} className="w-full rounded-lg border border-[#d8dddf] px-3 py-2.5 text-[14px] font-normal text-[#25292e] outline-none focus:border-[#16855f]" /></label>
       </section>
       <section className="grid gap-3 pb-5">

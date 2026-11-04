@@ -1,5 +1,5 @@
 import express from "express";
-import { addGroupParticipants, createGroup, getSession, logoutSession, rehydrateSessions, sendMessage, startSession } from "./session-manager.js";
+import { addGroupParticipants, createGroup, getSession, logoutSession, rehydrateSessions, sendMessage, sendDocument, startSession } from "./session-manager.js";
 import { verifyRequest } from "./signature.js";
 import { pool } from "./db.js";
 import pino from "pino";
@@ -12,7 +12,9 @@ if (!process.env.DATABASE_URL || !process.env.SLAIVIO_API_URL || secret.length <
 const app = express();
 const logger = pino({ level: process.env.LOG_LEVEL || "info" });
 app.use(requestDiagnostics(logger));
-app.use(express.json({ limit: "256kb", verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
+const jsonBody = limit => express.json({ limit, verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } });
+app.use('/connections/:id/documents', jsonBody('7mb'));
+app.use(jsonBody('256kb'));
 app.get("/health", async (_req, res) => {
   try {
     await pool.query("select 1");
@@ -33,6 +35,7 @@ app.get("/diagnostics", async (_req, res) => {
 app.post("/connections/:id/start", async (req, res, next) => { try { res.json(await startSession(req.params.id, req.body.org_id)); } catch (e) { next(e); } });
 app.get("/connections/:id", (req, res) => { const state = getSession(req.params.id); res.status(state ? 200 : 404).json(state || { error: "session_not_loaded" }); });
 app.post("/connections/:id/messages", async (req, res, next) => { try { res.json(await sendMessage(req.params.id, req.body.to, req.body.message)); } catch (e) { next(e); } });
+app.post('/connections/:id/documents', async (req, res, next) => { try { res.json(await sendDocument(req.params.id, req.body)); } catch (e) { next(e); } });
 app.post("/connections/:id/groups", async (req, res, next) => { try { res.json(await createGroup(req.params.id, req.body.subject, req.body.participants)); } catch (e) { next(e); } });
 app.post("/connections/:id/groups/participants", async (req, res, next) => { try { res.json(await addGroupParticipants(req.params.id, req.body.group_jid, req.body.participants)); } catch (e) { next(e); } });
 app.post("/connections/:id/logout", async (req, res, next) => { try { res.json(await logoutSession(req.params.id)); } catch (e) { next(e); } });

@@ -5,6 +5,7 @@ import { useResourceLink } from "@/components/ui/use-resource-link";
 import { businessHistoryTitle } from "@/components/ui/business-labels";
 import { RecordPaymentForm } from "./record-payment-form";
 import { FinanceOfficeAssignment } from "./finance-office-assignment";
+import { InvoiceWhatsApp } from './invoice-whatsapp';
 import {getOfficeContext,type OfficeContext} from '@/services/organization-admin';
 import { FinanceSettingsOverview } from "./finance-settings-overview";
 import { PaymentReverseButton } from "./finance-completion-actions";
@@ -571,6 +572,7 @@ function Detail({
           <button type="button" className={`${button} rounded-full`} onClick={()=>void shareInvoice()}><Share2 size={14}/>{dashboardText("Partager")}</button>
           {["DRAFT","ISSUED"].includes(item.status) && item.amount_paid===0 && <PermissionGuard permission="finance.void"><button type="button" disabled={busy} className={`${button} rounded-full`} onClick={()=>{const reason=window.prompt("Motif obligatoire de l’annulation");if(reason)run(()=>voidFinance(item.id,item.row_version,reason));}}>{dashboardText("Annuler")}</button></PermissionGuard>}
         </div>
+        {item.document_type==='INVOICE' && ['ISSUED','PARTIALLY_PAID','PAID','OVERDUE'].includes(item.status) && <InvoiceWhatsApp key={item.id} documentId={item.id}/>}
         {paymentOpen && <PermissionGuard permission="finance.payments"><RecordPaymentForm document={item} onCancel={()=>setPaymentOpen(false)} onRecorded={async()=>{await reload();setPaymentOpen(false);}}/></PermissionGuard>}
         {activeTab === "details" && <div className="space-y-5">
           <section className="space-y-2"><h3 className="text-[13px] font-semibold">{dashboardText("Informations client")}</h3>{[[dashboardText("Client"),item.client_name],[dashboardText("Téléphone"),item.client_phone || dashboardText("Non renseigné")],[dashboardText("Colis lié"),item.dossier_reference || dashboardText("Aucun colis lié")]].map(([label,value])=><div key={label} className="flex justify-between gap-4 text-[12px]"><span className="text-[#78828a]">{dashboardText(label)}</span><span className="text-right text-[#303941]">{value}</span></div>)}</section>

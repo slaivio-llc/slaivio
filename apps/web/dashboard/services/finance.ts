@@ -44,4 +44,8 @@ export async function convertQuote(id:string,expected_version:number,due_date?:s
 export async function applyCredit(id:string,expected_version:number,invoice_id:string){return (await api.post(`/finance/${id}/apply-credit`,{expected_version,invoice_id})).data}
 export async function reverseFinancePayment(documentId:string,paymentId:string,reason:string){return (await api.post(`/finance/${documentId}/payments/${paymentId}/reverse`,{reason})).data}
 export async function financePrint(id:string){return (await api.get<string>(`/finance/${id}/print`,{responseType:"text"})).data}
+export type InvoiceWhatsAppStatus={automatic:boolean;state:'NOT_SENT'|'QUEUED'|'SENDING'|'SENT'|'FAILED'|'CHECK_REQUIRED';sent_at:string|null};
+export async function invoiceWhatsAppStatus(id:string){return (await api.get<InvoiceWhatsAppStatus>(`/finance/${id}/whatsapp-invoice`)).data}
+export async function sendInvoiceWhatsApp(id:string,request_key:string){return (await api.post<InvoiceWhatsAppStatus>(`/finance/${id}/whatsapp-invoice`,{request_key})).data}
+export async function configureInvoiceWhatsApp(enabled:boolean){return (await api.put('/finance/settings/whatsapp-invoices',{enabled})).data}
 export async function refreshFinanceOverdue(){return (await api.post<{updated:number}>("/finance/overdue/refresh")).data}

@@ -1,7 +1,7 @@
 from datetime import date,datetime,timezone
 from decimal import Decimal
 from uuid import UUID
-from fastapi import APIRouter,Depends,Query,Response,HTTPException,Request
+from fastapi import APIRouter,BackgroundTasks,Depends,Query,Response,HTTPException,Request
 from pydantic import BaseModel,Field,SecretStr,field_validator
 from app.core.permissions import require_permission
 from app.core.tenant_context import get_current_tenant
@@ -49,6 +49,8 @@ class DocumentCreate(BaseModel):
  @classmethod
  def currency_code(cls,v):return v.upper()
 class Version(BaseModel):expected_version:int=Field(ge=1)
+class InvoiceWhatsAppSend(BaseModel):request_key:UUID
+class InvoiceWhatsAppSetting(BaseModel):enabled:bool
 class PackageInvoiceCreate(Version):
  office_id:UUID|None=None
  due_date:date|None=None
@@ -204,7 +206,27 @@ def package_invoice_create(package_id:UUID,body:PackageInvoiceCreate,tenant=Depe
 @router.get("/{document_id}/print")
 def printable(document_id:str,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.read"))):return Response(repo.printable(tenant['org_id'],document_id),media_type="text/html; charset=utf-8")
 @router.post("/{document_id}/issue")
-def issue(document_id:str,body:Version,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.issue"))):return repo.issue(tenant['org_id'],document_id,actor(tenant),name(tenant),body.expected_version)
+def issue(document_id:str,body:Version,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.issue"))):
+ from app.finance.invoice_whatsapp import dispatch_pending
+ result=repo.issue(tenant['org_id'],document_id,actor(tenant),name(tenant),body.expected_version)
+ background_tasks.add_task(dispatch_pending,tenant['org_id'],document_id)
+ return result
+@router.get('/{document_id}/whatsapp-invoice')
+def invoice_whatsapp_status(document_id:UUID,tenant=Depends(get_current_tenant),_=Depends(require_permission('finance.read'))):
+ from app.finance.invoice_whatsapp import status
+ # Also reject foreign document IDs in unrestricted organization context.
+ repo.detail(tenant['org_id'],str(document_id))
+ return status(tenant['org_id'],str(document_id))
+@router.post('/{document_id}/whatsapp-invoice')
+def invoice_whatsapp_send(document_id:UUID,body:InvoiceWhatsAppSend,background_tasks:BackgroundTasks,tenant=Depends(get_current_tenant),_=Depends(require_permission('finance.issue'))):
+ from app.finance.invoice_whatsapp import request_send,dispatch_pending,status
+ request_send(tenant['org_id'],str(document_id),str(body.request_key))
+ background_tasks.add_task(dispatch_pending,tenant['org_id'],str(document_id))
+ return status(tenant['org_id'],str(document_id))
+@router.put('/settings/whatsapp-invoices')
+def invoice_whatsapp_setting(body:InvoiceWhatsAppSetting,tenant=Depends(get_current_tenant),_=Depends(require_permission('finance.settings'))):
+ from app.finance.invoice_whatsapp import configure
+ return configure(tenant['org_id'],body.enabled)
 @router.post("/{document_id}/payments")
 def payment(document_id:str,body:Payment,tenant=Depends(get_current_tenant),_=Depends(require_permission("finance.payments"))):return repo.pay(tenant['org_id'],document_id,actor(tenant),name(tenant),body.model_dump())
 @router.post("/{document_id}/saspay-checkout")

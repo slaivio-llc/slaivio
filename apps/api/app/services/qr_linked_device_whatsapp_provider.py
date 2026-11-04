@@ -1,4 +1,5 @@
 import re
+import base64
 
 from app.services.whatsapp_provider import WhatsAppProvider
 from app.services.whatsapp_qr_gateway_client import qr_gateway_request
@@ -13,7 +14,10 @@ class QRLinkedDeviceWhatsAppProvider(WhatsAppProvider):
         if not number or str(number.get("provider") or "").upper() != "QR_LINKED_DEVICE":
             raise ValueError("No active linked-device WhatsApp number configured")
         metadata = number.get("provider_metadata") or {}
+        if org_id and number.get('org_id') and str(number['org_id']) != str(org_id):
+            raise ValueError('WhatsApp number belongs to another organization')
         self.connection_id = metadata.get("connection_id")
+        self.org_id = org_id
         if not self.connection_id:
             raise ValueError("Linked-device connection id is missing")
 
@@ -36,6 +40,19 @@ class QRLinkedDeviceWhatsAppProvider(WhatsAppProvider):
 
     def send_media_message(self, to: str, message: str, media_url: str) -> dict:
         raise NotImplementedError("Linked-device media sending is not enabled for the Pilot")
+
+    def send_document(self, to: str, message: str, content: bytes, filename: str, dispatch_id: str) -> dict:
+        from app.finance.invoice_whatsapp import phone
+        recipient = phone(to)
+        if not self.org_id or not recipient or not content.startswith(b'%PDF-') or len(content) > 5 * 1024 * 1024:
+            raise ValueError('invalid_private_invoice_document')
+        result = qr_gateway_request('POST', f'/connections/{self.connection_id}/documents', {
+            'org_id': self.org_id, 'dispatch_id': dispatch_id, 'to': recipient,
+            'message': message[:1024], 'filename': filename, 'mime_type': 'application/pdf',
+            'content_base64': base64.b64encode(content).decode('ascii'),
+        })
+        return {**result, 'provider':'qr_linked_device',
+                'status':'accepted' if result.get('success') else 'failed'}
 
     def send_template_message(self, to: str, content_sid: str, content_variables: dict) -> dict:
         rendered = content_variables.get("_rendered_message")

@@ -12,6 +12,7 @@ import { phoneFromJid, resolveOutboundJid, resolveSenderIdentity } from "./messa
 import { inboundDiagnostic } from "./gateway-diagnostics.js";
 import { logoutWithCleanup } from "./logout-cleanup.js";
 import { readBoundedMedia } from "./inbound-media.js";
+import { deliverInvoiceDocument } from "./invoice-document.js";
 
 const sessions = new Map();
 const logger = pino({ level: process.env.LOG_LEVEL || "info", redact: {
@@ -319,6 +320,10 @@ export function publicState(session) {
 }
 
 export function getSession(id) { return publicState(sessions.get(id)); }
+
+export async function sendDocument(id, body) {
+  return deliverInvoiceDocument(sessions.get(id), body, pool);
+}
 
 export async function sendMessage(id, to, message) {
   const session = sessions.get(id);

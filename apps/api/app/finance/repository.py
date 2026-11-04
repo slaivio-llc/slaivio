@@ -127,6 +127,8 @@ def issue(o,d,a,n,version):
   event(c,o,d,'ISSUED',a,n)
   if row['document_type'] == 'INVOICE':
    _snapshot_due_obligations(c,o,d,row,a,n)
+   from app.finance.invoice_whatsapp import queue
+   queue(c,o,row)
   return dict(row)
 def payment_amount(value):
  try:

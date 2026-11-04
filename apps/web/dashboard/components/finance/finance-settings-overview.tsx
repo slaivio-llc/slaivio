@@ -5,6 +5,7 @@ import {dashboardText,useDashboardMessages} from '@/components/i18n/dashboard-me
 import { FormEvent, useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { FinancePaymentConditions } from "./finance-payment-conditions";
+import { InvoiceWhatsAppSettings } from './invoice-whatsapp-settings';
 import { OperationContent } from "@/components/ui/operation-primitives";
 import { OperationDrawer } from "@/components/ui/operation-drawer";
 import { getFinanceSettings, listFinanceDuePolicies, saveFinanceSettings, type FinanceDuePolicy, type FinanceSettings } from "@/services/finance";
@@ -86,5 +87,6 @@ export function FinanceSettingsOverview() {
     <OperationDrawer open={panel === "conditions"} close={() => { setPanel(null); void load(); }} title={dashboardText("Conditions de règlement")} description={dashboardText("Configurez les échéances et les montants exigibles selon les étapes opérationnelles.")} width="max-w-[760px]">
       <FinancePaymentConditions />
     </OperationDrawer>
+    <InvoiceWhatsAppSettings />
   </OperationContent>;
 }

@@ -108,8 +108,22 @@ def send_notification(org_id: str, notification_id: str):
         mark_notification_failed(org_id, notification_id, 'notification_provider_unavailable')
         finish_notification_dispatch(org_id, notification_id, 'REJECTED')
         return {'status': 'failed', 'message': 'notification_provider_unavailable'}
+    document = None
+    if notification_type.startswith('INVOICE_PDF:'):
+        try:
+            from app.finance.invoice_whatsapp import prepare
+            if not callable(getattr(provider, 'send_document', None)):
+                raise ValueError('invoice_document_transport_unavailable')
+            document = prepare(notification)
+        except Exception:
+            mark_notification_failed(org_id, notification_id, 'invoice_pdf_preparation_or_eligibility_failed')
+            finish_notification_dispatch(org_id, notification_id, 'REJECTED')
+            return {'status':'failed','message':'invoice_pdf_not_sent'}
     try:
-        result = provider.send_message(to=recipient, message=message)
+        if document is not None:
+            result = provider.send_document(to=recipient, message=message, **document)
+        else:
+            result = provider.send_message(to=recipient, message=message)
     except Exception:
         # A timeout does not prove that the provider rejected the message.
         finish_notification_dispatch(org_id, notification_id, 'UNKNOWN')

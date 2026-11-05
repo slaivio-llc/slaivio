@@ -80,6 +80,11 @@ def send_notification(org_id: str, notification_id: str):
         preflight = validate_broadcast_notification(org_id, notification_id)
     elif notification_type.startswith('FOLLOWUP:'):
         preflight = validate_followup_notification(org_id, notification_id)
+        if isinstance(preflight, dict):
+            # The prospect profile may have been completed after queueing.
+            # Send only the freshly checked question, never the stale template.
+            message = preflight['message']
+            preflight = preflight.get('allowed') is True
     elif notification_type.startswith('PACKAGE_STATUS:'):
         from app.organization_admin.notification_policy import can_dispatch
         try:

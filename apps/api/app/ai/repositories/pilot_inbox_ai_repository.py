@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import text
 
 from app.db.database import engine
+from app.ai.repositories.customer_profile import known_profile
 
 
 DEFAULT_MODE = "SUGGESTION_ONLY"
@@ -118,6 +119,11 @@ def conversation_ai_context(org_id: str, client_phone: str) -> dict | None:
         if not row:
             return None
         context = dict(row)
+        context['customer_profile'] = known_profile(org_id, client_phone, connection=conn)
+        journey = conn.execute(text('''select full_name,country,city,customer_type,stage
+            from parcel_customer_journeys where org_id=:org and conversation_phone=:phone'''),
+            {'org':org_id,'phone':client_phone}).mappings().first()
+        context['customer_journey'] = dict(journey or {})
         context["client_finance_access"] = False
         context["recent_messages"] = [dict(item) for item in conn.execute(text("""
           select direction, text_body, created_at, message_type

@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.db.database import engine
 from app.clients.repository import create_client
 from app.clients.phone import normalize_contact_phone
+from app.ai.repositories.customer_profile import known_profile, merge_profile
 
 
 PROFILE_FIELDS = ("full_name", "country", "city", "customer_type")
@@ -36,10 +37,12 @@ def get_journey(org_id: str, phone: str) -> dict | None:
 
 def upsert_journey(org_id: str, phone: str, extracted: dict, *, inbound_at: datetime | None = None) -> dict:
     current = get_journey(org_id, phone) or {}
+    known = known_profile(org_id, phone)
     values = {
         field: extracted.get(field) or current.get(field)
         for field in (*PROFILE_FIELDS, "service_interest", "route_interest", "transport_mode")
     }
+    values.update(merge_profile(extracted, current, known))
     stage = str(extracted.get("stage") or current.get("stage") or "DISCOVERY").upper()
     allowed = {"DISCOVERY", "INTERESTED", "QUALIFYING", "QUALIFIED", "CONVERTED", "NOT_INTERESTED", "HUMAN_REVIEW", "CLOSED"}
     if stage not in allowed:
@@ -58,20 +61,21 @@ def upsert_journey(org_id: str, phone: str, extracted: dict, *, inbound_at: date
             (select coalesce(organization_name,name,'Votre agence') from organizations where id=:org_id) agency_name
         """), {"org_id": org_id}).mappings().one()
         delay = settings["incomplete_profile_followup_hours"] if stage == "QUALIFYING" else settings["prospect_followup_delay_hours"]
-        schedule = stage in {"INTERESTED", "QUALIFYING"}
+        schedule = stage == 'INTERESTED' or (stage == 'QUALIFYING' and bool(missing))
         row = conn.execute(text("""
           insert into parcel_customer_journeys(
-            org_id,conversation_phone,stage,full_name,country,city,customer_type,
+            org_id,client_id,conversation_phone,stage,full_name,country,city,customer_type,
             service_interest,route_interest,transport_mode,missing_fields,last_intent,
             qualification_confidence,followup_status,next_followup_at,last_inbound_at,metadata
           ) values(
-            :org_id,:phone,:stage,:full_name,:country,:city,:customer_type,
+            :org_id,cast(:client_id as uuid),:phone,:stage,:full_name,:country,:city,:customer_type,
             :service_interest,:route_interest,:transport_mode,:missing_fields,:last_intent,
             :confidence,case when :schedule then 'SCHEDULED' else 'NONE' end,
             case when :schedule then now()+make_interval(hours=>:delay) end,
             coalesce(:inbound_at,now()),cast(:metadata as jsonb)
           )
           on conflict(org_id,conversation_phone) do update set
+            client_id=coalesce(parcel_customer_journeys.client_id,excluded.client_id),
             stage=case when parcel_customer_journeys.stage='CONVERTED' then 'CONVERTED' else excluded.stage end,
             full_name=coalesce(excluded.full_name,parcel_customer_journeys.full_name),
             country=coalesce(excluded.country,parcel_customer_journeys.country),
@@ -89,6 +93,7 @@ def upsert_journey(org_id: str, phone: str, extracted: dict, *, inbound_at: date
           returning *
         """), {
             "org_id": org_id, "phone": phone, "stage": stage, "missing_fields": missing,
+            "client_id": known.get('client_id') or current.get('client_id'),
             "last_intent": extracted.get("intent"), "confidence": extracted.get("confidence"),
             "schedule": schedule, "delay": int(delay), "inbound_at": inbound_at,
             "metadata": json.dumps(metadata, default=str), **values,

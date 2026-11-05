@@ -264,8 +264,44 @@ def save_rule(org_id,actor,data):
     with engine.begin() as c:
         row=c.execute(text("insert into followup_rules(org_id,workspace_id,name,followup_type,trigger_type,trigger_config,condition_config,sequence_id,priority,responsible_team,created_by) values(:o,cast(:workspace_id as uuid),:name,:followup_type,:trigger_type,cast(:trigger_config as jsonb),cast(:condition_config as jsonb),cast(:sequence_id as uuid),:priority,:responsible_team,:a) on conflict(org_id,name) do update set trigger_type=excluded.trigger_type,trigger_config=excluded.trigger_config,condition_config=excluded.condition_config,sequence_id=excluded.sequence_id,priority=excluded.priority,responsible_team=excluded.responsible_team,row_version=followup_rules.row_version+1,updated_at=now() returning *"),{'o':org_id,'a':actor,'trigger_config':json.dumps(data.get('trigger_config',{})),'condition_config':json.dumps(data.get('condition_config',{})),**data}).mappings().one();_event(c,org_id,None,'RULE_SAVED',actor,{'rule_id':str(row['id'])});return dict(row)
 
+def customer_followup_message(kind, client_name, agency):
+    """Client-facing copy never embeds internal reasons, phone numbers or UUIDs."""
+    texts={
+        'PAYMENT_DUE':'Un règlement reste à effectuer pour votre facture. Si vous avez déjà payé, merci de nous le signaler.',
+        'CLIENT_PAYMENT_DUE':'Un règlement reste à effectuer. Si vous avez déjà payé, merci de nous le signaler.',
+        'PICKUP_READY':'Votre colis est disponible. Souhaitez-vous organiser son retrait ?',
+        'PACKAGE_DROP_REMINDER':'Souhaitez-vous toujours nous confier votre colis ? Nous pouvons vous accompagner pour le dépôt.',
+        'QUOTE_FOLLOWUP':'Avez-vous pu consulter notre devis ? Nous restons disponibles pour vos questions.',
+        'DOCUMENT_MISSING':'Une pièce nécessaire à votre dossier manque encore. Contactez-nous pour préciser laquelle et finaliser votre demande.',
+        'CLIENT_INACTIVE':'Nous restons disponibles pour vos prochains envois. Avez-vous besoin de notre aide ?',
+    }
+    return f"Bonjour {client_name}, {agency}. " + texts.get(kind,'Souhaitez-vous poursuivre votre demande ? Nous restons disponibles pour vous aider.')
+
+
+def _prospect_reminder(conn,item):
+    from app.ai.repositories.customer_profile import known_profile,merge_profile
+    if not item.get('journey_id'):return None
+    journey=conn.execute(text('''select * from parcel_customer_journeys
+        where org_id=:org and id=:journey'''),{'org':item['org_id'],'journey':item['journey_id']}).mappings().first()
+    if not journey or journey['stage'] not in ('INTERESTED','QUALIFYING'):return None
+    if journey.get('last_inbound_at') and item.get('queued_at') and journey['last_inbound_at']>item['queued_at']:return None
+    known=known_profile(item['org_id'],journey['conversation_phone'],connection=conn)
+    values=merge_profile({},journey,known)
+    missing=[field for field in ('full_name','customer_type') if not values.get(field)]
+    if journey['stage']=='QUALIFYING' and not missing:return None
+    if journey['stage']=='QUALIFYING':
+        questions={'full_name':'Quel est votre nom complet pour finaliser votre demande ?',
+                   'customer_type':'Préparez-vous cet envoi comme particulier ou comme entreprise ?'}
+        return 'Bonjour, souhaitez-vous poursuivre votre demande ? ' + questions[missing[0]]
+    return 'Bonjour, souhaitez-vous poursuivre votre projet d’envoi ? Nous restons disponibles pour vous aider.'
+
+
 def _condition_still_true(conn,item):
     kind=(item.get('followup_type') or '').upper();subject=item.get('subject_id')
+    # Silence or lack of agent takeover is an internal queue concern, not a
+    # reason to ask a customer for a reply. Also blocks older queued templates.
+    if kind == 'CONVERSATION_ABANDONED':return False
+    if kind == 'PARCEL_PROSPECT':return _prospect_reminder(conn,item) is not None
     if kind=='CLIENT_PAYMENT_DUE' and subject:
         return bool(conn.execute(text("select 1 from clients where org_id=:o and id=:id and deleted_at is null and payment_amount_due>payment_amount_paid"),{'o':item['org_id'],'id':subject}).first())
     if kind.startswith('PAYMENT') and subject:
@@ -379,11 +415,12 @@ def detect_candidates(org_id):
         candidates+=_rows(c.execute(text("""select f.client_id,f.dossier_id,f.id subject_id,f.document_number subject_reference,'QUOTE_FOLLOWUP' followup_type,'QUOTE' subject_type,'Devis envoyé sans réponse' reason,null amount_context,f.currency,coalesce(cl.display_name,cl.name,'Client') client_name from finance_documents f join clients cl on cl.id=f.client_id and cl.org_id=f.org_id where f.org_id=:o and f.document_type='QUOTE' and f.status='ISSUED' and f.issued_at<now()-interval '48 hours'"""),{'o':org_id}))
         candidates+=_rows(c.execute(text("""select d.client_id,d.id dossier_id,d.id subject_id,d.dossier_reference subject_reference,'DOCUMENT_MISSING' followup_type,'DOSSIER' subject_type,'Document obligatoire manquant' reason,null amount_context,null currency,coalesce(cl.display_name,cl.name,'Client') client_name from dossiers d join clients cl on cl.id=d.client_id and cl.org_id=d.org_id where d.org_id=:o and exists(select 1 from dossier_checklist_items i where i.dossier_id=d.id and i.required and i.status='PENDING')"""),{'o':org_id}))
         candidates+=_rows(c.execute(text("""select c.id client_id,null::uuid dossier_id,c.id subject_id,coalesce(c.phone,c.email) subject_reference,'CLIENT_INACTIVE' followup_type,'CLIENT' subject_type,'Client inactif depuis 45 jours' reason,null amount_context,null currency,coalesce(c.display_name,c.name,'Client') client_name from clients c where c.org_id=:o and c.deleted_at is null and coalesce(c.last_activity_at,c.created_at)<now()-interval '45 days'"""),{'o':org_id}))
-        candidates+=_rows(c.execute(text("""select m.client_id,m.dossier_id,m.id subject_id,m.id::text subject_reference,'CONVERSATION_ABANDONED' followup_type,'CONVERSATION' subject_type,'Conversation WhatsApp sans reprise agent' reason,null amount_context,null currency,coalesce(c.display_name,c.name,'Client') client_name from messages_raw m join clients c on c.id=m.client_id and c.org_id=m.org_id where m.org_id=:o and m.created_at<now()-interval '30 minutes' and not exists(select 1 from messages_raw newer where newer.org_id=m.org_id and newer.client_id=m.client_id and newer.created_at>m.created_at)"""),{'o':org_id}))
+        # Conversations awaiting an agent remain visible in Inbox. Do not turn
+        # the last raw message (which may already have an AI reply) into a send.
         org=c.execute(text('select name from organizations where id=:o'),{'o':org_id}).scalar() or 'Notre agence'
         for x in candidates:
             idem=f"auto:{x['followup_type']}:{x['subject_id']}"
-            message=(f"Bonjour {x['client_name']}, {org} vous contacte concernant {x['reason'].lower()} ({x['subject_reference'] or ''}). Merci de nous répondre directement sur WhatsApp.")
+            message=customer_followup_message(x['followup_type'],x['client_name'],org)
             result=c.execute(text("""insert into followup_tasks(org_id,client_id,dossier_id,followup_type,reference,subject_type,subject_id,subject_reference,reason,channel,message,due_at,priority,amount_context,currency,consent_type,status,idempotency_key)
               values(:o,:client,:dossier,:type,:ref,:subject_type,:subject,:subject_ref,:reason,'WHATSAPP',:message,now(),'NORMAL',:amount,:currency,'OPERATIONAL','DUE',:idem)
               on conflict(org_id,idempotency_key) where idempotency_key is not null
@@ -469,7 +506,7 @@ def process_attempt_queue(limit=100):
 def validate_notification_before_send(org_id,notification_id):
     """Recheck task state, source condition and opt-out immediately before provider dispatch."""
     with engine.begin() as c:
-        attempt=c.execute(text("""select a.*,f.followup_type,f.subject_id,f.dossier_id,f.client_id,
+        attempt=c.execute(text("""select a.*,f.followup_type,f.subject_id,f.dossier_id,f.client_id,f.journey_id,
               f.status task_status,f.archived_at
             from followup_attempts a join followup_tasks f on f.org_id=a.org_id and f.id=a.followup_id
             where a.org_id=:org_id and a.notification_id=cast(:notification_id as uuid)
@@ -478,10 +515,19 @@ def validate_notification_before_send(org_id,notification_id):
         if attempt['status']!='DISPATCHING' or attempt['archived_at'] is not None or attempt['task_status'] not in ('WAITING_RESPONSE','SCHEDULED','DUE'):
             return False
         reason=None
-        if not _condition_still_true(c,attempt):reason='business_condition_resolved_or_not_due'
-        elif attempt.get('client_id') and c.execute(text("select 1 from followup_stop_list where org_id=:org_id and client_id=:client_id and channel=:channel"),
+        refreshed=None
+        if attempt['followup_type']=='PARCEL_PROSPECT':
+            refreshed=_prospect_reminder(c,attempt)
+            if refreshed is None:reason='business_condition_resolved_or_not_due'
+        elif not _condition_still_true(c,attempt):reason='business_condition_resolved_or_not_due'
+        if not reason and attempt.get('client_id') and c.execute(text("select 1 from followup_stop_list where org_id=:org_id and client_id=:client_id and channel=:channel"),
                 {'org_id':org_id,'client_id':attempt['client_id'],'channel':attempt['channel']}).first():reason='recipient_opted_out'
-        if not reason:return True
+        if not reason:
+            if refreshed:
+                c.execute(text("update notification_outbox set message=:message where org_id=:org and id=:id and dispatch_state='CLAIMED'"),
+                          {'org':org_id,'id':notification_id,'message':refreshed})
+                return {'allowed':True,'message':refreshed}
+            return True
         c.execute(text("update followup_attempts set status='CANCELLED',error_code=:reason where org_id=:org_id and id=:id and status='DISPATCHING'"),
             {'org_id':org_id,'id':attempt['id'],'reason':reason})
         if reason=='business_condition_resolved_or_not_due':
